@@ -143,3 +143,23 @@ Chak fwa ou pouse yon chanjman (`git push`), Vercel redeplwaye otomatikman.
 Sistèm nan pa gen login epi kle anon lan louvri tab yo (politik RLS "anon all").
 Sou entènèt piblik, URL Vercel ou a ta dwe rete prive pou ou sèlman. Si w vle,
 m ka ajoute yon paj login senp (Supabase Auth) pou pwoteje l — di m sa.
+
+
+## Enskripsyon kliyan + aktivasyon MCPACK (v6)
+
+Workflow la:
+1. Kliyan an enskri sou **/inscription** (non, siyati, imèl, telefòn, WhatsApp, peyi,
+   1-2 vil, adrès, idantifikasyon, modpas). Kont li rete **En attente d'activation**.
+2. Admin: nan **Clients**, kliyan annatant yo gen bouton **Créer compte MCPACK** —
+   li ouvri yon fenèt ak tout enfòmasyon yo (fasil pou kopye sou MCPACK) + yon chan
+   **Code MC** (ex: MC-2547).
+3. Lè w sove kòd la: kont lan vin **Actif** otomatikman, epi bouton **📲 Voye adrès depo**
+   a parèt — li ouvri WhatsApp ak mesaj adrès depo Miami an (non + kòd MC ranplase otomatikman).
+4. Kliyan an konekte sou **/login** → **/espace-client**: adrès depo li, koli li yo, fakti li yo (PDF).
+
+Adrès depo a nan `lib/depot.ts` — chanje l la si li ta chanje.
+
+### Konfigirasyon Supabase Auth (yon sèl fwa)
+Nan Supabase Dashboard → **Authentication → Sign In / Up → Email**:
+desaktive **"Confirm email"** (sinon kliyan yo ap oblije klike yon lyen imèl anvan yo ka konekte,
+epi imèl sa yo pa toujou rive an Ayiti). Apre sa enskripsyon an mache imedyatman.
