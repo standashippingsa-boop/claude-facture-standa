@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import Shell from "@/components/Shell";
 
 export const metadata: Metadata = {
   title: "STANDA COMMERCIAL — Gestion de colis & facturation",
@@ -11,10 +11,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ht">
       <body>
-        <div className="flex">
-          <Sidebar />
-          <main className="flex-1 min-w-0 p-6">{children}</main>
-        </div>
+        <Shell>{children}</Shell>
       </body>
     </html>
   );

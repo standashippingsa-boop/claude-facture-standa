@@ -12,9 +12,11 @@ export interface Ville {
 
 export type AccountType = "Personnel" | "Business";
 
+export type AccountStatus = "En attente d'activation" | "Actif";
+
 export interface Client {
   id?: string;
-  customer_code: string;
+  customer_code: string;          // Kòd MCPACK (MC-XXXX / 36191) — vid toutotan kont lan poko aktive
   fullname: string;
   whatsapp: string;
   pickup_location: string;
@@ -22,6 +24,17 @@ export interface Client {
   ville_id?: string | null;
   ville?: Ville | null;   // join lekti sèlman
   account_type: AccountType;
+  // ---- Enskripsyon kliyan (v6) ----
+  surname?: string;
+  phone?: string;
+  country?: string;
+  city?: string;
+  city2?: string;
+  address?: string;
+  id_type?: string;       // 'Kat Idantite Nasyonal' | 'Paspò'
+  id_number?: string;
+  account_status?: AccountStatus;
+  auth_user_id?: string | null;
   created_at?: string;
 }
 

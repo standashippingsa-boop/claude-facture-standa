@@ -14,9 +14,10 @@ const asNum = <T extends Record<string, any>>(r: T, keys: string[]): T => {
 const CLIENT_SELECT = "*, ville:villes(id,name,price_personal,price_business,tax_personal,tax_business,fixed_fee,active)";
 
 export async function getClients(): Promise<Client[]> {
-  const { data, error } = await supabase.from("clients").select(CLIENT_SELECT).order("customer_code");
+  const { data, error } = await supabase.from("clients").select(CLIENT_SELECT)
+    .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as Client[];
+  return ((data ?? []) as Client[]).map((c) => ({ ...c, customer_code: c.customer_code ?? "" }));
 }
 export async function getClient(code: string): Promise<Client | null> {
   const { data } = await supabase.from("clients").select(CLIENT_SELECT)
@@ -321,4 +322,46 @@ export async function getImports(): Promise<ImportLog[]> {
   const { data } = await supabase.from("imports").select("*")
     .order("created_at", { ascending: false }).limit(20);
   return data ?? [];
+}
+
+// ================= ENSKRIPSYON KLIYAN (v6) =================
+
+/** Kliyan an fin kreye kont Auth li — nou anrejistre pwofil li (En attente d'activation) */
+export async function registerClientProfile(p: {
+  auth_user_id: string; fullname: string; surname: string; email: string;
+  phone: string; whatsapp: string; country: string; city: string; city2: string;
+  address: string; id_type: string; id_number: string;
+}): Promise<void> {
+  const { error } = await supabase.from("clients").insert({
+    ...p,
+    customer_code: null,
+    pickup_location: "",
+    account_status: "En attente d'activation"
+  });
+  if (error) throw error;
+}
+
+export async function getClientByAuthId(uid: string): Promise<Client | null> {
+  const { data } = await supabase.from("clients").select(CLIENT_SELECT)
+    .eq("auth_user_id", uid).maybeSingle();
+  if (!data) return null;
+  return { ...(data as Client), customer_code: (data as any).customer_code ?? "" };
+}
+
+/** Admin: anrejistre kòd MC a -> kont lan vin Actif otomatikman */
+export async function assignMcCode(clientId: string, code: string): Promise<void> {
+  const { error } = await supabase.from("clients")
+    .update({ customer_code: code.trim(), account_status: "Actif" })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+/** Koli + fakti yon kliyan (pou espas kliyan an) */
+export async function getClientPackagesAndInvoices(code: string) {
+  if (!code) return { pkgs: [], invs: [] };
+  const [p, i] = await Promise.all([
+    supabase.from("packages").select("*").eq("customer_code", code).order("created_at", { ascending: false }),
+    supabase.from("invoices").select("*").eq("customer_code", code).order("created_at", { ascending: false })
+  ]);
+  return { pkgs: (p.data ?? []) as Pkg[], invs: (i.data ?? []) as Invoice[] };
 }

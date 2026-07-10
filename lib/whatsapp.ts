@@ -1,4 +1,5 @@
-import { Invoice } from "./types";
+import { Client, Invoice } from "./types";
+import { buildDepotMessage } from "./depot";
 import { htg, usd } from "./utils";
 
 /** Kite chif sèlman. Si 8 chif -> ajoute 509 (Ayiti). */
@@ -57,4 +58,10 @@ export async function sendInvoicePdfWhatsApp(
 /** Konpatibilite ak ansyen kòd ki rele openWhatsApp(inv, count) */
 export function openWhatsApp(inv: Invoice, _count?: number) {
   openWhatsAppLink(inv);
+}
+
+/** 📲 Voye adrès depo Ozetazini bay kliyan an sou WhatsApp */
+export function openDepotWhatsApp(c: Client) {
+  const phone = normalizePhone(c.whatsapp || c.phone || "");
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(buildDepotMessage(c))}`, "_blank");
 }

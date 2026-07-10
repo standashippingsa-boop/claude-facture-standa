@@ -210,3 +210,23 @@ on conflict (name) do nothing;
 
 -- ===== v5.1 nettoyage =====
 alter table invoice_items drop column if exists package_id;
+
+-- ============================================================
+-- v6 — Enskripsyon kliyan + aktivasyon MCPACK
+-- ============================================================
+alter table clients add column if not exists surname text not null default '';
+alter table clients add column if not exists phone text not null default '';
+alter table clients add column if not exists country text not null default '';
+alter table clients add column if not exists city text not null default '';
+alter table clients add column if not exists city2 text not null default '';
+alter table clients add column if not exists address text not null default '';
+alter table clients add column if not exists id_type text not null default '';      -- 'Kat Idantite Nasyonal' | 'Paspò'
+alter table clients add column if not exists id_number text not null default '';
+alter table clients add column if not exists account_status text not null default 'Actif'; -- 'En attente d''activation' | 'Actif'
+alter table clients add column if not exists auth_user_id uuid unique;
+
+-- Kliyan ki enskri poko gen kòd MCPACK — kòd la vin obligatwa SÈLMAN apre aktivasyon
+alter table clients alter column customer_code drop not null;
+
+-- Ansyen kliyan yo rete Actif
+update clients set account_status = 'Actif' where account_status is null or account_status = '';
