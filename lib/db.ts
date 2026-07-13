@@ -25,11 +25,20 @@ export async function getClient(code: string): Promise<Client | null> {
   return data as Client | null;
 }
 /** Map kòd kliyan -> { vil, tip kont } (pou tarification rapid) */
-export interface ClientTarifInfo { ville: Ville | null; account_type: AccountType; }
+export interface ClientTarifInfo {
+  ville: Ville | null;
+  account_type: AccountType;
+  phone: string;      // telefòn + WhatsApp (pou rechèch avanse)
+  fullname: string;
+}
 export async function getClientTarifMap(): Promise<Map<string, ClientTarifInfo>> {
   const cs = await getClients();
-  return new Map(cs.map((c) => [c.customer_code,
-    { ville: c.ville ?? null, account_type: c.account_type ?? "Personnel" }]));
+  return new Map(cs.map((c) => [c.customer_code, {
+    ville: c.ville ?? null,
+    account_type: c.account_type ?? "Personnel",
+    phone: [c.phone, c.whatsapp].filter(Boolean).join(" "),
+    fullname: [c.fullname, c.surname].filter(Boolean).join(" ")
+  }]));
 }
 export async function upsertClient(c: Client): Promise<void> {
   const row = {
@@ -80,6 +89,14 @@ export async function setPackageStatus(id: string, status: string): Promise<void
   const { error } = await supabase.from("packages").update({ status }).eq("id", id);
   if (error) throw error;
 }
+/** Admin: koli rive depo STANDA — sèl statut ki pa soti nan MCPACK */
+export async function markDisponible(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const { error } = await supabase.from("packages")
+    .update({ status: "Disponible" }).in("id", ids);
+  if (error) throw error;
+}
+
 export async function deletePackage(id: string): Promise<void> {
   const { error } = await supabase.from("packages").delete().eq("id", id);
   if (error) throw error;
@@ -159,7 +176,9 @@ export async function commitSync(
           content: r.content,
           created_date: r.created_date,
           mcpack_data: r.extra ?? {},
-          status: "Disponible",
+          // Statut MCPACK vèbatim (TRANSFERIDO...). "Disponible" se admin ki mete l
+          // lè koli a rive depo STANDA a. Si Excel la pa gen Estatus -> Disponible.
+          status: r.status_raw?.trim() || "Disponible",
           price_usd: p?.price ?? 0,
           tax_usd: p?.tax ?? 0,
           price_htg: p ? round2(p.price * rate) : 0,
@@ -331,6 +350,7 @@ export async function registerClientProfile(p: {
   auth_user_id: string; fullname: string; surname: string; email: string;
   phone: string; whatsapp: string; country: string; city: string; city2: string;
   address: string; id_type: string; id_number: string;
+  ville_id?: string | null;   // lyen otomatik ak tarification (vil kliyan an chwazi a)
 }): Promise<void> {
   const { error } = await supabase.from("clients").insert({
     ...p,

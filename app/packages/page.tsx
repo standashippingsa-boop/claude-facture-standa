@@ -1,18 +1,19 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Calculator, FileText, Trash2, X } from "lucide-react";
+import { Calculator, ClipboardList, FileText, PackageCheck, Trash2, X } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import {
   ClientTarifInfo, createInvoice, deletePackage, getClient, getClientTarifMap,
-  getPackages, getSettings, getSmallParcelPrice, getUsdRate,
+  getPackages, getSettings, getSmallParcelPrice, getUsdRate, markDisponible,
   saveInvoicePdfUrl, updatePackagePrice
 } from "@/lib/db";
 import { computePrice, round2 } from "@/lib/pricing";
 import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Pkg } from "@/lib/types";
-import { htg, usd } from "@/lib/utils";
+import { htg, parseMcpackDate, usd } from "@/lib/utils";
+import { generateBonRemise } from "@/lib/bonremise";
 
 const PER_PAGE = 25;
 
@@ -54,25 +55,69 @@ export default function PackagesPage() {
   };
   useEffect(() => { load().catch((e) => setNotice("Erè bazdone: " + e.message)); }, []);
 
+  /** Lis statut ki egziste toutbon (pou filtre a) — san Livré, ki rete nan Historique */
+  const statusOptions = useMemo(() => {
+    const set = new Set(pkgs.filter((p) => p.status !== "Livré").map((p) => p.status));
+    set.add("Disponible");
+    return Array.from(set).sort();
+  }, [pkgs]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return pkgs.filter((p) =>
-      (!q || p.customer_code.toLowerCase().includes(q) || p.customer_name.toLowerCase().includes(q)
-        || p.tracking_number.toLowerCase().includes(q))
-      && (!status || p.status === status)
-      && (!dateF || p.created_date.includes(dateF)));
-  }, [pkgs, search, status, dateF]);
+    return pkgs
+      // Koli livré yo pa parèt isit la — yo rete nan Historique (anyen pa efase)
+      .filter((p) => p.status !== "Livré")
+      .filter((p) => {
+        if (status && p.status !== status) return false;
+        if (dateF && !p.created_date.includes(dateF)) return false;
+        if (!q) return true;
+        // Rechèch avanse an tan reyèl: tracking, kòd, non, telefòn kliyan, vil kliyan
+        const info = tarifMap.get(p.customer_code);
+        return p.tracking_number.toLowerCase().includes(q)
+          || p.customer_code.toLowerCase().includes(q)
+          || p.customer_name.toLowerCase().includes(q)
+          || (info?.fullname ?? "").toLowerCase().includes(q)
+          || (info?.phone ?? "").toLowerCase().includes(q)
+          || (info?.ville?.name ?? "").toLowerCase().includes(q);
+      })
+      // Tri otomatik: koli ki fèk rive yo anlè, pi ansyen yo anba —
+      // rete konsa apre chak import MCPACK
+      .slice()
+      .sort((a, b) => parseMcpackDate(b.created_date) - parseMcpackDate(a.created_date));
+  }, [pkgs, search, status, dateF, tarifMap]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const pageRows = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   useEffect(() => { setPage(1); }, [search, status, dateF]);
 
-  const selected = filtered.filter((p) => p.selected && p.status === "Disponible");
+  const selectedAll = filtered.filter((p) => p.selected);                       // Bon de Remise / Marquer Disponible
+  const selected = selectedAll.filter((p) => p.status === "Disponible");        // Facturation (san chanjman)
   const toggle = (id: string) =>
     setPkgs((prev) => prev.map((p) => (p.id === id ? { ...p, selected: !p.selected } : p)));
   const toggleAll = (checked: boolean) => {
-    const ids = new Set(pageRows.filter((p) => p.status === "Disponible").map((p) => p.id));
+    const ids = new Set(pageRows.map((p) => p.id));
     setPkgs((prev) => prev.map((p) => (ids.has(p.id) ? { ...p, selected: checked } : p)));
+  };
+
+  /** Admin: koli yo rive depo STANDA — pase yo "Disponible" (sèl statut ki pa MCPACK) */
+  const marquerDisponible = async () => {
+    const targets = selectedAll.filter((p) => p.status !== "Disponible" && p.status !== "Facturé");
+    if (!targets.length) return;
+    try {
+      await markDisponible(targets.map((p) => p.id));
+      setPkgs((prev) => prev.map((p) =>
+        targets.some((t) => t.id === p.id) ? { ...p, status: "Disponible", selected: false } : p));
+      setNotice(`${targets.length} colis marqué(s) Disponible.`);
+    } catch (e: any) { setNotice("Erè: " + e.message); }
+  };
+
+  /** Bon de remise: lis koli w ap voye bay ajan yo nan lòt vil */
+  const bonRemise = async () => {
+    if (!selectedAll.length) return;
+    try {
+      await generateBonRemise(selectedAll, tarifMap);
+      setNotice(`Bon de remise créé (${selectedAll.length} colis) — PDF telechaje.`);
+    } catch (e: any) { setNotice("Erè: " + e.message); }
   };
 
   /** Modifikasyon manyèl: chanje fakti aktyèl la sèlman, PA tarif Paramètres yo */
@@ -158,31 +203,31 @@ export default function PackagesPage() {
 
   const tp = selected.reduce((s, p) => s + p.price_usd, 0);
   const tt = selected.reduce((s, p) => s + p.tax_usd, 0);
-  const allChecked = pageRows.filter((p) => p.status === "Disponible").length > 0 &&
-    pageRows.filter((p) => p.status === "Disponible").every((p) => p.selected);
+  const allChecked = pageRows.length > 0 && pageRows.every((p) => p.selected);
+  const nbAMarquer = selectedAll.filter((p) => p.status !== "Disponible" && p.status !== "Facturé").length;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-extrabold text-navy">Packages</h1>
         <div className="flex gap-2 flex-wrap">
-          <input className="input w-72" placeholder="Code client, nom, tracking..." value={search}
+          <input className="input w-72" placeholder="Tracking, code, nom, telefòn, vil..." value={search}
             onChange={(e) => setSearch(e.target.value)} />
           <input className="input w-36" placeholder="Date (2026.07)" value={dateF}
             onChange={(e) => setDateF(e.target.value)} />
-          <select className="input w-40" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <select className="input w-44" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">Tous statuts</option>
-            <option>Disponible</option><option>Facturé</option><option>Livré</option>
+            {statusOptions.map((s) => <option key={s}>{s}</option>)}
           </select>
         </div>
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <thead><tr>
-            <th className="th"><input type="checkbox" checked={allChecked} onChange={(e) => toggleAll(e.target.checked)} /></th>
-            {["Code Client", "Nom Client", "Ville", "Tracking ID (Guía)", "Date", "Weight (lb)", "Content", "Price (USD)", "Tax (USD)", "Total (USD)", "Total (HTG)", "Status", ""]
-              .map((h) => <th key={h} className="th">{h}</th>)}
+            <th className="thc"><input type="checkbox" checked={allChecked} onChange={(e) => toggleAll(e.target.checked)} /></th>
+            {["Code", "Nom Client", "Ville", "Tracking ID (Guía)", "Date", "Lb", "Content", "Price $", "Tax $", "Total $", "Total HTG", "Status", ""]
+              .map((h) => <th key={h} className="thc">{h}</th>)}
           </tr></thead>
           <tbody>
             {pageRows.length === 0 ? (
@@ -191,31 +236,40 @@ export default function PackagesPage() {
               </td></tr>
             ) : pageRows.map((p, i) => (
               <tr key={p.id} className={`${i % 2 ? "bg-mist" : ""} ${p.selected ? "!bg-blue-50" : ""}`}>
-                <td className="td">
-                  {p.status === "Disponible" &&
-                    <input type="checkbox" checked={!!p.selected} onChange={() => toggle(p.id)} />}
+                <td className="tdc">
+                  <input type="checkbox" checked={!!p.selected} onChange={() => toggle(p.id)} />
                 </td>
-                <td className="td font-bold text-navy">{p.customer_code}</td>
-                <td className="td">{p.customer_name}</td>
-                <td className="td text-xs">{tarifMap.get(p.customer_code)?.ville?.name ?? <span className="text-amber-600">—</span>}</td>
-                <td className="td font-mono text-xs">{p.tracking_number}</td>
-                <td className="td whitespace-nowrap">{p.created_date}</td>
-                <td className="td">{p.weight}</td>
-                <td className="td">{p.content}</td>
-                <td className="td">
+                <td className="tdc font-bold text-navy whitespace-nowrap">{p.customer_code}</td>
+                <td className="tdc max-w-[110px] truncate" title={p.customer_name}>{p.customer_name}</td>
+                <td className="tdc max-w-[80px] truncate" title={tarifMap.get(p.customer_code)?.ville?.name ?? ""}>
+                  {tarifMap.get(p.customer_code)?.ville?.name ?? <span className="text-amber-600">—</span>}
+                </td>
+                <td className="tdc font-mono text-[11px] whitespace-nowrap">{p.tracking_number}</td>
+                <td className="tdc whitespace-nowrap">{p.created_date}</td>
+                <td className="tdc text-right">{p.weight}</td>
+                <td className="tdc max-w-[90px] truncate" title={p.content}>{p.content}</td>
+                <td className="tdc">
                   <input type="number" step="0.01" defaultValue={p.price_usd} disabled={p.status !== "Disponible"}
-                    className="input !w-20 !py-1 text-right"
+                    className="input !w-16 !py-0.5 !px-1 !text-xs text-right"
                     onBlur={(e) => savePrice(p, Number(e.target.value), p.tax_usd)} />
                 </td>
-                <td className="td">
+                <td className="tdc">
                   <input type="number" step="0.01" defaultValue={p.tax_usd} disabled={p.status !== "Disponible"}
-                    className="input !w-20 !py-1 text-right"
+                    className="input !w-14 !py-0.5 !px-1 !text-xs text-right"
                     onBlur={(e) => savePrice(p, p.price_usd, Number(e.target.value))} />
                 </td>
-                <td className="td text-right font-semibold">{usd(p.total_usd)}</td>
-                <td className="td text-right text-xs text-slate-500 whitespace-nowrap">{htg(p.total_htg)}</td>
-                <td className="td"><StatusBadge status={p.status} /></td>
-                <td className="td">
+                <td className="tdc text-right font-semibold whitespace-nowrap">{usd(p.total_usd)}</td>
+                <td className="tdc text-right text-[11px] text-slate-500 whitespace-nowrap">{htg(p.total_htg)}</td>
+                <td className="tdc"><StatusBadge status={p.status} /></td>
+                <td className="tdc whitespace-nowrap">
+                  {p.status !== "Disponible" && p.status !== "Facturé" && (
+                    <button className="text-emerald-600 hover:text-emerald-800 mr-1"
+                      title="Koli a rive depo — Marquer Disponible"
+                      onClick={() => { markDisponible([p.id]).then(() => setPkgs((prev) =>
+                        prev.map((x) => x.id === p.id ? { ...x, status: "Disponible" } : x))); }}>
+                      <PackageCheck size={14} />
+                    </button>
+                  )}
                   <button className="text-slate-400 hover:text-red-600" onClick={() => remove(p)}><Trash2 size={14} /></button>
                 </td>
               </tr>
@@ -238,7 +292,16 @@ export default function PackagesPage() {
             <p className="text-xs text-white/70">Total HTG (taux {rate.toFixed(2)})</p>
             <p className="text-xl font-bold text-white">{htg((tp + tt) * rate)}</p></div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 flex-wrap">
+          {nbAMarquer > 0 && (
+            <button className="btn !bg-emerald-600 hover:!bg-emerald-700" onClick={marquerDisponible} disabled={busy}>
+              <PackageCheck size={15} /> Marquer Disponible ({nbAMarquer})
+            </button>
+          )}
+          <button className="btn btn-ghost border border-line" onClick={bonRemise}
+            disabled={busy || !selectedAll.length} title="Lis koli pou ajan transpò yo">
+            <ClipboardList size={15} /> Créer Bon de Remise{selectedAll.length ? ` (${selectedAll.length})` : ""}
+          </button>
           <button className="btn btn-ghost border border-line" onClick={applyTarif} disabled={busy}>
             <Calculator size={15} /> Appliquer tarification
           </button>
