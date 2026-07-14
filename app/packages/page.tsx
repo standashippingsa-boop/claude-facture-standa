@@ -5,13 +5,13 @@ import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import {
   ClientTarifInfo, createInvoice, deletePackage, getClient, getClientTarifMap,
-  getPackages, getSettings, getSmallParcelPrice, getUsdRate, markDisponible,
+  getPackages, getSettings, getUsdRate, saveTrackingManual, setPackagesStatus,
   saveInvoicePdfUrl, updatePackagePrice
 } from "@/lib/db";
 import { computePrice, round2 } from "@/lib/pricing";
 import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
-import { Pkg } from "@/lib/types";
+import { INTERNAL_STATUSES, Pkg } from "@/lib/types";
 import { htg, parseMcpackDate, usd } from "@/lib/utils";
 import { generateBonRemise } from "@/lib/bonremise";
 
@@ -33,7 +33,7 @@ export default function PackagesPage() {
   const [pkgs, setPkgs] = useState<Pkg[]>([]);
   const [tarifMap, setTarifMap] = useState<Map<string, ClientTarifInfo>>(new Map());
   const [rate, setRate] = useState(0);
-  const [smallPrice, setSmallPrice] = useState(3.7);
+  const [bulkStatus, setBulkStatus] = useState("");
   const [footer, setFooter] = useState("Mèsi paske ou fè STANDA COMMERCIAL konfyans.");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -44,22 +44,22 @@ export default function PackagesPage() {
   const [sim, setSim] = useState<Simulation | null>(null);
 
   const load = async () => {
-    const [p, tm, r, sp, s] = await Promise.all([
-      getPackages(), getClientTarifMap(), getUsdRate(), getSmallParcelPrice(), getSettings()
+    const [p, tm, r, s] = await Promise.all([
+      getPackages(), getClientTarifMap(), getUsdRate(), getSettings()
     ]);
     setPkgs(p.map((x) => ({ ...x, selected: false })));
     setTarifMap(tm);
     setRate(r);
-    setSmallPrice(sp);
     if (s.invoice_footer) setFooter(s.invoice_footer);
   };
   useEffect(() => { load().catch((e) => setNotice("Erè bazdone: " + e.message)); }, []);
 
   /** Lis statut ki egziste toutbon (pou filtre a) — san Livré, ki rete nan Historique */
   const statusOptions = useMemo(() => {
-    const set = new Set(pkgs.filter((p) => p.status !== "Livré").map((p) => p.status));
-    set.add("Disponible");
-    return Array.from(set).sort();
+    const set = new Set<string>(INTERNAL_STATUSES.filter((s) => s !== "Livré"));
+    pkgs.filter((p) => p.status !== "Livré").forEach((p) => set.add(p.status));
+    set.add("Facturé");
+    return Array.from(set);
   }, [pkgs]);
 
   const filtered = useMemo(() => {
@@ -99,15 +99,56 @@ export default function PackagesPage() {
     setPkgs((prev) => prev.map((p) => (ids.has(p.id) ? { ...p, selected: checked } : p)));
   };
 
-  /** Admin: koli yo rive depo STANDA — pase yo "Disponible" (sèl statut ki pa MCPACK) */
-  const marquerDisponible = async () => {
-    const targets = selectedAll.filter((p) => p.status !== "Disponible" && p.status !== "Facturé");
-    if (!targets.length) return;
+  /**
+   * Admin SÈLMAN: mete menm statut la sou tout koli ki make yo.
+   * "Reçu à Miami" ak "Disponible" voye yon email otomatik bay chak kliyan konsène
+   * (si kliyan an gen imèl epi RESEND_API_KEY konfigire nan Vercel).
+   */
+  const appliquerStatut = async () => {
+    if (!bulkStatus || !selectedAll.length) return;
+    const targets = selectedAll.filter((p) => p.status !== "Facturé");
+    if (!targets.length) { setNotice("Koli Facturé yo pa ka chanje statut isit la."); return; }
     try {
-      await markDisponible(targets.map((p) => p.id));
+      await setPackagesStatus(targets.map((p) => p.id), bulkStatus);
       setPkgs((prev) => prev.map((p) =>
-        targets.some((t) => t.id === p.id) ? { ...p, status: "Disponible", selected: false } : p));
-      setNotice(`${targets.length} colis marqué(s) Disponible.`);
+        targets.some((t) => t.id === p.id) ? { ...p, status: bulkStatus, selected: false } : p));
+
+      let mailInfo = "";
+      if (bulkStatus === "Reçu à Miami" || bulkStatus === "Disponible") {
+        const type = bulkStatus === "Reçu à Miami" ? "recu_miami" : "disponible";
+        const byClient = new Map<string, Pkg[]>();
+        targets.forEach((p) => {
+          const arr = byClient.get(p.customer_code) ?? [];
+          arr.push(p); byClient.set(p.customer_code, arr);
+        });
+        let sent = 0, noEmail = 0;
+        for (const [code, list] of Array.from(byClient.entries())) {
+          const info = tarifMap.get(code);
+          if (!info?.email) { noEmail++; continue; }
+          try {
+            const res = await fetch("/api/notify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                type,
+                client: { name: info.fullname || list[0].customer_name, code, ville: info.ville?.name ?? "", email: info.email },
+                packages: list.map((p) => ({
+                  tracking_number: p.tracking_number,
+                  tracking_manual: p.tracking_manual,
+                  content: p.content,
+                  weight: p.weight,
+                  fournisseur: p.mcpack_data?.["Proveedor"] ?? p.mcpack_data?.["proveedor"] ?? ""
+                }))
+              })
+            });
+            const j = await res.json();
+            if (j.ok) sent++;
+          } catch { /* email pa bloke aksyon an */ }
+        }
+        mailInfo = ` Email: ${sent} voye${noEmail ? `, ${noEmail} kliyan san imèl` : ""}.`;
+      }
+      setNotice(`Statut "${bulkStatus}" appliqué sur ${targets.length} colis.` + mailInfo);
+      setBulkStatus("");
     } catch (e: any) { setNotice("Erè: " + e.message); }
   };
 
@@ -136,7 +177,7 @@ export default function PackagesPage() {
     let n = 0, sans = 0;
     for (const p of targets) {
       const info = tarifMap.get(p.customer_code);
-      const r = info ? computePrice(p.weight, info.account_type, info.ville, smallPrice) : null;
+      const r = info ? computePrice(p.weight, info.account_type, info.ville) : null;
       if (r) { await savePrice(p, r.price, r.tax); n++; } else sans++;
     }
     setNotice(
@@ -176,6 +217,7 @@ export default function PackagesPage() {
       const inv = await createInvoice(client, selected, rate);
       const items = selected.map((p) => ({
         invoice_id: inv.id, tracking_number: p.tracking_number,
+        tracking_manual: p.tracking_manual ?? "",
         weight: p.weight, content: p.content, price: p.price_usd, tax: p.tax_usd,
         total: round2(p.price_usd + p.tax_usd)
       }));
@@ -204,7 +246,6 @@ export default function PackagesPage() {
   const tp = selected.reduce((s, p) => s + p.price_usd, 0);
   const tt = selected.reduce((s, p) => s + p.tax_usd, 0);
   const allChecked = pageRows.length > 0 && pageRows.every((p) => p.selected);
-  const nbAMarquer = selectedAll.filter((p) => p.status !== "Disponible" && p.status !== "Facturé").length;
 
   return (
     <div className="space-y-4">
@@ -226,12 +267,12 @@ export default function PackagesPage() {
         <table className="w-full text-xs">
           <thead><tr>
             <th className="thc"><input type="checkbox" checked={allChecked} onChange={(e) => toggleAll(e.target.checked)} /></th>
-            {["Code", "Nom Client", "Ville", "Tracking ID (Guía)", "Date", "Lb", "Content", "Price $", "Tax $", "Total $", "Total HTG", "Status", ""]
+            {["Code", "Nom Client", "Ville", "Tracking ID (Guía)", "Tracking No", "Date", "Lb", "Content", "Price $", "Tax $", "Total $", "Total HTG", "Status", ""]
               .map((h) => <th key={h} className="thc">{h}</th>)}
           </tr></thead>
           <tbody>
             {pageRows.length === 0 ? (
-              <tr><td colSpan={14} className="text-center py-10 text-slate-400">
+              <tr><td colSpan={15} className="text-center py-10 text-slate-400">
                 Aucun colis. Utilisez <a href="/sync" className="text-navy underline font-semibold">Synchronisation MCPACK</a>.
               </td></tr>
             ) : pageRows.map((p, i) => (
@@ -245,6 +286,18 @@ export default function PackagesPage() {
                   {tarifMap.get(p.customer_code)?.ville?.name ?? <span className="text-amber-600">—</span>}
                 </td>
                 <td className="tdc font-mono text-[11px] whitespace-nowrap">{p.tracking_number}</td>
+                <td className="tdc">
+                  <input type="text" defaultValue={p.tracking_manual}
+                    placeholder="—" title="Tracking Number (transpòtè) — sync pa janm efase l"
+                    className="input !w-24 !py-0.5 !px-1 !text-[11px] font-mono"
+                    onBlur={(e) => {
+                      const v = e.target.value.trim();
+                      if (v === (p.tracking_manual ?? "")) return;
+                      saveTrackingManual(p.id, v).then(() =>
+                        setPkgs((prev) => prev.map((x) => x.id === p.id ? { ...x, tracking_manual: v } : x))
+                      ).catch((er: any) => setNotice("Erè tracking: " + er.message));
+                    }} />
+                </td>
                 <td className="tdc whitespace-nowrap">{p.created_date}</td>
                 <td className="tdc text-right">{p.weight}</td>
                 <td className="tdc max-w-[90px] truncate" title={p.content}>{p.content}</td>
@@ -264,8 +317,8 @@ export default function PackagesPage() {
                 <td className="tdc whitespace-nowrap">
                   {p.status !== "Disponible" && p.status !== "Facturé" && (
                     <button className="text-emerald-600 hover:text-emerald-800 mr-1"
-                      title="Koli a rive depo — Marquer Disponible"
-                      onClick={() => { markDisponible([p.id]).then(() => setPkgs((prev) =>
+                      title="Marquer Disponible (san email — sèvi ak seleksyon an pou voye email)"
+                      onClick={() => { setPackagesStatus([p.id], "Disponible").then(() => setPkgs((prev) =>
                         prev.map((x) => x.id === p.id ? { ...x, status: "Disponible" } : x))); }}>
                       <PackageCheck size={14} />
                     </button>
@@ -292,11 +345,19 @@ export default function PackagesPage() {
             <p className="text-xs text-white/70">Total HTG (taux {rate.toFixed(2)})</p>
             <p className="text-xl font-bold text-white">{htg((tp + tt) * rate)}</p></div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {nbAMarquer > 0 && (
-            <button className="btn !bg-emerald-600 hover:!bg-emerald-700" onClick={marquerDisponible} disabled={busy}>
-              <PackageCheck size={15} /> Marquer Disponible ({nbAMarquer})
-            </button>
+        <div className="flex gap-2 flex-wrap items-center">
+          {selectedAll.length > 0 && (
+            <>
+              <select className="input !w-44 !py-2" value={bulkStatus}
+                onChange={(e) => setBulkStatus(e.target.value)}>
+                <option value="">— Statut... —</option>
+                {INTERNAL_STATUSES.map((s) => <option key={s}>{s}</option>)}
+              </select>
+              <button className="btn !bg-emerald-600 hover:!bg-emerald-700"
+                onClick={appliquerStatut} disabled={busy || !bulkStatus}>
+                <PackageCheck size={15} /> Appliquer ({selectedAll.length})
+              </button>
+            </>
           )}
           <button className="btn btn-ghost border border-line" onClick={bonRemise}
             disabled={busy || !selectedAll.length} title="Lis koli pou ajan transpò yo">

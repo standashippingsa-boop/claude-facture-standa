@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import {
   AccountType, Client, DashboardStats, ImportLog, Invoice, InvoiceItem, Pkg, Ville
+, Retrait, RetraitStatus
 } from "./types";
 import { McpackRow } from "./xlsx";
 import { computePrice, DEFAULT_SMALL_PARCEL_PRICE, round2 } from "./pricing";
@@ -30,6 +31,7 @@ export interface ClientTarifInfo {
   account_type: AccountType;
   phone: string;      // telefòn + WhatsApp (pou rechèch avanse)
   fullname: string;
+  email: string;      // pou email otomatik yo (Reçu à Miami / Disponible)
 }
 export async function getClientTarifMap(): Promise<Map<string, ClientTarifInfo>> {
   const cs = await getClients();
@@ -37,7 +39,8 @@ export async function getClientTarifMap(): Promise<Map<string, ClientTarifInfo>>
     ville: c.ville ?? null,
     account_type: c.account_type ?? "Personnel",
     phone: [c.phone, c.whatsapp].filter(Boolean).join(" "),
-    fullname: [c.fullname, c.surname].filter(Boolean).join(" ")
+    fullname: [c.fullname, c.surname].filter(Boolean).join(" "),
+    email: c.email ?? ""
   }]));
 }
 export async function upsertClient(c: Client): Promise<void> {
@@ -67,7 +70,7 @@ export async function getPackages(status?: string): Promise<Pkg[]> {
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []).map((p) =>
-    asNum(p, ["weight", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[];
+    asNum(p, ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[];
 }
 export async function getClientPackages(code: string): Promise<Pkg[]> {
   const { data, error } = await supabase
@@ -89,11 +92,21 @@ export async function setPackageStatus(id: string, status: string): Promise<void
   const { error } = await supabase.from("packages").update({ status }).eq("id", id);
   if (error) throw error;
 }
-/** Admin: koli rive depo STANDA — sèl statut ki pa soti nan MCPACK */
-export async function markDisponible(ids: string[]): Promise<void> {
+/** Admin SÈLMAN: mete menm statut entèn nan sou plizyè koli alafwa */
+export async function setPackagesStatus(ids: string[], status: string): Promise<void> {
   if (!ids.length) return;
   const { error } = await supabase.from("packages")
-    .update({ status: "Disponible" }).in("id", ids);
+    .update({ status }).in("id", ids);
+  if (error) throw error;
+}
+/** Konpatibilite: rakousi pou "Disponible" */
+export async function markDisponible(ids: string[]): Promise<void> {
+  return setPackagesStatus(ids, "Disponible");
+}
+/** Tracking Number (transpòtè) — admin antre l manyèlman; sync pa janm ranplase l */
+export async function saveTrackingManual(id: string, tracking_manual: string): Promise<void> {
+  const { error } = await supabase.from("packages")
+    .update({ tracking_manual: tracking_manual.trim() }).eq("id", id);
   if (error) throw error;
 }
 
@@ -104,6 +117,9 @@ export async function deletePackage(id: string): Promise<void> {
 
 // ================= SYNC MCPACK =================
 export interface SyncPreview {
+  /** Koli ki deja nan sistèm nan: sync mete ajou statut MCPACK yo SÈLMAN
+      (li pa manyen statut entèn, pri, ni Tracking Number manyèl la). */
+  existingStatusRows: { tracking_number: string; status_raw: string }[];
   totalRows: number;
   newRows: McpackRow[];
   existing: number;
@@ -122,8 +138,14 @@ export async function previewSync(rows: McpackRow[]): Promise<SyncPreview> {
   const seen = new Set<string>();
   const newRows: McpackRow[] = [];
   let existing = 0;
+  const existingStatusRows: { tracking_number: string; status_raw: string }[] = [];
   for (const r of rows) {
-    if (existSet.has(r.tracking_number) || seen.has(r.tracking_number)) { existing++; continue; }
+    if (existSet.has(r.tracking_number) || seen.has(r.tracking_number)) {
+      existing++;
+      if (existSet.has(r.tracking_number) && r.status_raw?.trim())
+        existingStatusRows.push({ tracking_number: r.tracking_number, status_raw: r.status_raw.trim() });
+      continue;
+    }
     seen.add(r.tracking_number);
     newRows.push(r);
   }
@@ -136,7 +158,7 @@ export async function previewSync(rows: McpackRow[]): Promise<SyncPreview> {
     newClientCodes = codes.filter((c) => !have.has(c));
   }
 
-  return { totalRows: rows.length, newRows, existing, newClientCodes, errors: 0 };
+  return { totalRows: rows.length, newRows, existing, existingStatusRows, newClientCodes, errors: 0 };
 }
 
 /** Valide importation: kreye kliyan ki manke yo + antre nouvo koli yo + log */
@@ -146,7 +168,6 @@ export async function commitSync(
   // Enfo tarif chak kliyan (vil + tip kont). Nouvo kliyan poko gen vil.
   const tarifMap = autoPricing ? await getClientTarifMap() : new Map<string, ClientTarifInfo>();
   const rate = autoPricing ? await getUsdRate() : 0;
-  const smallPrice = autoPricing ? await getSmallParcelPrice() : DEFAULT_SMALL_PARCEL_PRICE;
   // 1) Nouvo kliyan (stub — w ap konplete WhatsApp/pickup nan meni Clients)
   if (preview.newClientCodes.length) {
     const byCode = new Map(preview.newRows.map((r) => [r.customer_code, r.customer_name]));
@@ -165,7 +186,7 @@ export async function commitSync(
       preview.newRows.map((r) => {
         const info = tarifMap.get(r.customer_code);
         const p = autoPricing && info
-          ? computePrice(r.weight, info.account_type, info.ville, smallPrice)
+          ? computePrice(r.weight, info.account_type, info.ville)
           : null;
         return {
           tracking_number: r.tracking_number,
@@ -176,9 +197,11 @@ export async function commitSync(
           content: r.content,
           created_date: r.created_date,
           mcpack_data: r.extra ?? {},
-          // Statut MCPACK vèbatim (TRANSFERIDO...). "Disponible" se admin ki mete l
-          // lè koli a rive depo STANDA a. Si Excel la pa gen Estatus -> Disponible.
-          status: r.status_raw?.trim() || "Disponible",
+          fob: r.fob || 0,
+          tracking_manual: "",                       // admin antre l manyèlman — sync pa janm efase l
+          status_mcpack: r.status_raw?.trim() || "", // statut MCPACK orijinal (enfòmatif)
+          // Statut ENTÈN: se admin sèlman ki chanje l apre. Nouvo koli antre "Reçu à Miami".
+          status: "Reçu à Miami",
           price_usd: p?.price ?? 0,
           tax_usd: p?.tax ?? 0,
           price_htg: p ? round2(p.price * rate) : 0,
@@ -188,6 +211,23 @@ export async function commitSync(
       { onConflict: "tracking_number", ignoreDuplicates: true }
     );
     if (error) throw error;
+  }
+
+  // 2b) Koli ki egziste deja: mete ajou statut MCPACK orijinal la SÈLMAN.
+  //     (Statut entèn, pri, tax, Tracking Number manyèl — sync PA manyen yo.)
+  if (preview.existingStatusRows.length) {
+    const byStatus = new Map<string, string[]>();
+    for (const r of preview.existingStatusRows) {
+      const list = byStatus.get(r.status_raw) ?? [];
+      list.push(r.tracking_number);
+      byStatus.set(r.status_raw, list);
+    }
+    for (const [statusRaw, trackings] of byStatus) {
+      const { error } = await supabase.from("packages")
+        .update({ status_mcpack: statusRaw })
+        .in("tracking_number", trackings);
+      if (error) throw error;
+    }
   }
 
   // 3) Log importation an
@@ -384,4 +424,51 @@ export async function getClientPackagesAndInvoices(code: string) {
     supabase.from("invoices").select("*").eq("customer_code", code).order("created_at", { ascending: false })
   ]);
   return { pkgs: (p.data ?? []) as Pkg[], invs: (i.data ?? []) as Invoice[] };
+}
+
+// ================= DEMANDES DE RETRAIT (v8) =================
+
+/** Kliyan an: "Notifier mon retrait" — kreye demann lan (pa chanje statut okenn koli) */
+export async function createRetrait(client: Client, pkgs: Pkg[]): Promise<void> {
+  const { data, error } = await supabase.from("retraits").insert({
+    customer_code: client.customer_code,
+    customer_name: [client.fullname, client.surname].filter(Boolean).join(" "),
+    ville: client.ville?.name || client.city || "",
+    package_count: pkgs.length,
+    total_weight: round2(pkgs.reduce((s, p) => s + p.weight, 0)),
+    status: "En attente"
+  }).select().single();
+  if (error) throw error;
+  const items = pkgs.map((p) => ({
+    retrait_id: data.id,
+    tracking_number: p.tracking_number,
+    tracking_manual: p.tracking_manual ?? "",
+    content: p.content,
+    weight: p.weight
+  }));
+  const { error: e2 } = await supabase.from("retrait_items").insert(items);
+  if (e2) throw e2;
+}
+
+export async function getRetraits(): Promise<Retrait[]> {
+  const { data, error } = await supabase.from("retraits")
+    .select("*, items:retrait_items(*)")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({ ...r, total_weight: Number(r.total_weight) })) as Retrait[];
+}
+
+export async function getClientRetraits(code: string): Promise<Retrait[]> {
+  if (!code) return [];
+  const { data, error } = await supabase.from("retraits")
+    .select("*, items:retrait_items(*)")
+    .eq("customer_code", code)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({ ...r, total_weight: Number(r.total_weight) })) as Retrait[];
+}
+
+export async function setRetraitStatus(id: string, status: RetraitStatus): Promise<void> {
+  const { error } = await supabase.from("retraits").update({ status }).eq("id", id);
+  if (error) throw error;
 }

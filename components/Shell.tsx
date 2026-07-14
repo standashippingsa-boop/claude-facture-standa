@@ -2,7 +2,7 @@
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 
-const PUBLIC_PREFIXES = ["/inscription", "/login", "/espace-client"];
+const PUBLIC_PREFIXES = ["/inscription", "/login", "/espace-client", "/reset-password"];
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();

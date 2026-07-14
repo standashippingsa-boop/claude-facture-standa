@@ -230,3 +230,42 @@ alter table clients alter column customer_code drop not null;
 
 -- Ansyen kliyan yo rete Actif
 update clients set account_status = 'Actif' where account_status is null or account_status = '';
+
+-- ============================================================
+-- v8 — Retraits, statuts entèn, FOB, Tracking Number manyèl
+-- ============================================================
+alter table packages add column if not exists fob numeric not null default 0;
+alter table packages add column if not exists status_mcpack text not null default '';
+alter table packages add column if not exists tracking_manual text not null default '';
+alter table invoice_items add column if not exists tracking_manual text not null default '';
+
+-- Demandes de retrait de colis
+create table if not exists retraits (
+  id uuid primary key default gen_random_uuid(),
+  customer_code text not null,
+  customer_name text not null default '',
+  ville text not null default '',
+  package_count int not null default 0,
+  total_weight numeric not null default 0,
+  status text not null default 'En attente',   -- 'En attente' | 'Préparé' | 'Remis'
+  created_at timestamptz not null default now()
+);
+create table if not exists retrait_items (
+  id uuid primary key default gen_random_uuid(),
+  retrait_id uuid not null references retraits(id) on delete cascade,
+  tracking_number text not null default '',
+  tracking_manual text not null default '',
+  content text not null default '',
+  weight numeric not null default 0
+);
+create index if not exists retraits_status_idx on retraits (status);
+create index if not exists retrait_items_rid_idx on retrait_items (retrait_id);
+
+alter table retraits enable row level security;
+alter table retrait_items enable row level security;
+do $$ begin
+  create policy "anon all retraits" on retraits for all using (true) with check (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "anon all retrait_items" on retrait_items for all using (true) with check (true);
+exception when duplicate_object then null; end $$;

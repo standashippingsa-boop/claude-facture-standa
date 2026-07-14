@@ -67,7 +67,7 @@ export async function generateBonRemise(
     head: [["#", "Tracking ID (Guía)", "Code Client", "Nom Client", "Ville", "Poids (lb)"]],
     body: pkgs.map((p, i) => [
       String(i + 1),
-      p.tracking_number,
+      p.tracking_number + (p.tracking_manual ? "\n" + p.tracking_manual : ""),
       p.customer_code,
       p.customer_name,
       villeOf(p.customer_code) || "—",

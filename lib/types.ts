@@ -38,11 +38,21 @@ export interface Client {
   created_at?: string;
 }
 
-export type PackageStatus = "Disponible" | "Facturé" | "Livré";
+/** Statut entèn (admin sèlman) + "Facturé" (facturation) + fleksibilite pou ansyen valè. */
+export type PackageStatus = (typeof INTERNAL_STATUSES)[number] | "Facturé" | (string & {});
+
+/** Statuts entèn STANDA — se ADMIN sèlman ki chanje yo (MCPACK pa manyen yo) */
+export const INTERNAL_STATUSES = [
+  "Reçu à Miami", "En préparation", "En transit", "Arrivé en Haïti",
+  "En route vers agence", "Disponible", "Livré"
+] as const;
 
 export interface Pkg {
   id: string;
   tracking_number: string;   // Tracking ID (Guía) — idantifyan inik la
+  tracking_manual: string;   // Tracking Number (transpòtè) — admin antre l manyèlman, sync pa janm efase l
+  status_mcpack: string;     // statut MCPACK orijinal (enfòmatif — mete ajou pa sync)
+  fob: number;               // valè FOB Excel la (chan apa — li pa kole sou dat la)
   customer_code: string;
   customer_name: string;
   weight: number;
@@ -85,6 +95,7 @@ export interface InvoiceItem {
   id?: string;
   invoice_id: string;
   tracking_number: string;   // Tracking ID (Guía)
+  tracking_manual?: string;  // Tracking Number manyèl (si admin te antre l)
   weight: number;
   content: string;
   price: number;
@@ -110,4 +121,28 @@ export interface DashboardStats {
   totalInvoices: number;
   revenue: number;
   lastImport: ImportLog | null;
+}
+
+// ===== Demande de retrait de colis (v8) =====
+export type RetraitStatus = "En attente" | "Préparé" | "Remis";
+
+export interface Retrait {
+  id: string;
+  customer_code: string;
+  customer_name: string;
+  ville: string;
+  package_count: number;
+  total_weight: number;
+  status: RetraitStatus;
+  created_at: string;
+  items?: RetraitItem[];
+}
+
+export interface RetraitItem {
+  id?: string;
+  retrait_id: string;
+  tracking_number: string;   // Tracking ID (Guía)
+  tracking_manual: string;   // Tracking Number (si disponib)
+  content: string;
+  weight: number;
 }

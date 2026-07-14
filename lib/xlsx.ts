@@ -28,6 +28,16 @@ const HEADER_KEYS: Record<keyof Omit<McpackRow, "customer_code" | "customer_name
   status_raw: ["estatus", "status", "estado"]
 };
 
+/**
+ * Nan Excel MCPACK la, kolòn FOB la vini touswit apre dat la ("13/07/2026   56").
+ * Fonksyon sa a kenbe SÈLMAN dat la — valè FOB la sere apa nan chan `fob`.
+ */
+function cleanDate(raw: string): string {
+  const s = String(raw ?? "").trim();
+  const m = s.match(/^(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\d{4}[\/\-.]\d{1,2}[\/\-.]\d{1,2})/);
+  return m ? m[1] : s;
+}
+
 function findCol(headers: string[], keys: string[]): number {
   return headers.findIndex((h) => keys.some((k) => h.includes(k)));
 }
@@ -117,7 +127,7 @@ export function parseMcpackWorkbook(buf: ArrayBuffer): McpackRow[] {
       weight: col.weight >= 0 ? num(r[col.weight]) : 0,
       quantity: col.quantity >= 0 ? Math.max(1, Math.round(num(r[col.quantity]))) : 1,
       content: col.content >= 0 ? String(r[col.content] ?? "").trim() : "",
-      created_date: col.created >= 0 ? String(r[col.created] ?? "").trim() : "",
+      created_date: cleanDate(col.created >= 0 ? String(r[col.created] ?? "") : ""),
       fob: col.fob >= 0 ? num(r[col.fob]) : 0,
       status_raw: col.status >= 0 ? String(r[col.status] ?? "").trim() : "",
       extra

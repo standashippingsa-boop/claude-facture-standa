@@ -24,12 +24,10 @@ export interface PriceResult {
 export function computePrice(
   weight: number,
   accountType: AccountType,
-  ville: Ville | null | undefined,
-  smallParcelPrice: number = DEFAULT_SMALL_PARCEL_PRICE
+  ville: Ville | null | undefined
 ): PriceResult | null {
-  if (weight > 0 && weight <= SMALL_PARCEL_MAX) {
-    return { price: round2(smallParcelPrice), tax: 0, rule: "small" };
-  }
+  // v8: TOUT koli (menm sa ki poko rive 1 lb yo) kalkile pwa × pri/lb vil la.
+  // Ex: vil 3.99 USD/lb, koli 0.60 lb -> 3.99 × 0.60 = 2.39 USD.
   if (!ville || !ville.active) return null;
   const perLb = accountType === "Business" ? Number(ville.price_business) : Number(ville.price_personal);
   const taxLb = accountType === "Business" ? Number(ville.tax_business) : Number(ville.tax_personal);

@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, LogOut, MapPin, Package } from "lucide-react";
+import { Bell, Clock, LogOut, MapPin, Package } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { getClientByAuthId, getClientPackagesAndInvoices } from "@/lib/db";
-import { Client, Invoice, Pkg } from "@/lib/types";
+import { createRetrait, getClientByAuthId, getClientPackagesAndInvoices, getClientRetraits } from "@/lib/db";
+import { Client, Invoice, Pkg, Retrait } from "@/lib/types";
 import { DEPOT } from "@/lib/depot";
 import { dateFr, usd } from "@/lib/utils";
 
@@ -13,6 +13,10 @@ export default function EspaceClientPage() {
   const [client, setClient] = useState<Client | null>(null);
   const [pkgs, setPkgs] = useState<Pkg[]>([]);
   const [invs, setInvs] = useState<Invoice[]>([]);
+  const [retraits, setRetraits] = useState<Retrait[]>([]);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,14 +26,41 @@ export default function EspaceClientPage() {
       const c = await getClientByAuthId(data.user.id);
       setClient(c);
       if (c?.customer_code) {
-        const { pkgs: p, invs: i } = await getClientPackagesAndInvoices(c.customer_code);
-        setPkgs(p); setInvs(i);
+        const [{ pkgs: p, invs: i }, rs] = await Promise.all([
+          getClientPackagesAndInvoices(c.customer_code),
+          getClientRetraits(c.customer_code)
+        ]);
+        setPkgs(p); setInvs(i); setRetraits(rs);
       }
       setLoading(false);
     })();
   }, [router]);
 
   const logout = async () => { await supabase.auth.signOut(); router.replace("/login"); };
+
+  const toggleSel = (id: string) =>
+    setSel((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  /** "Notifier mon retrait" — di STANDA davans ki koli w ap vin pran (pa chanje statut koli yo) */
+  const notifierRetrait = async () => {
+    if (!client || !sel.size) return;
+    setBusy(true);
+    try {
+      const chosen = pkgs.filter((p) => sel.has(p.id));
+      await createRetrait(client, chosen);
+      setRetraits(await getClientRetraits(client.customer_code));
+      setSel(new Set());
+      setMsg(`Demann ou an voye (${chosen.length} koli). STANDA COMMERCIAL ap prepare yo — w ap wè estati a anba a.`);
+    } catch (e: any) {
+      setMsg("Erè: " + (e.message ?? String(e)));
+    } finally { setBusy(false); }
+  };
+
+  const RETRAIT_BADGE: Record<string, string> = {
+    "En attente": "bg-amber-100 text-amber-700",
+    "Préparé": "bg-blue-100 text-blue-700",
+    "Remis": "bg-emerald-100 text-emerald-700"
+  };
 
   if (loading) return <div className="min-h-screen bg-mist grid place-items-center text-slate-400">Ap chaje...</div>;
 
@@ -118,22 +149,32 @@ export default function EspaceClientPage() {
           <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2 p-4 pb-2">
             <Package size={15} /> Koli ou yo ({pkgs.length})
           </h2>
+          <p className="px-4 pb-2 text-xs text-slate-500">
+            Make koli ki <b>Disponible</b> yo epi peze "Notifier mon retrait" pou n prepare yo anvan ou rive.
+          </p>
           <table className="w-full text-sm">
             <thead><tr>
-              {["Tracking ID (Guía)", "Date", "Weight (lb)", "Content", "Status"].map((h) => <th key={h} className="th">{h}</th>)}
+              <th className="th"></th>
+              {["Tracking ID (Guía)", "Tracking No", "Date", "Weight (lb)", "Content", "Status"].map((h) => <th key={h} className="th">{h}</th>)}
             </tr></thead>
             <tbody>
               {pkgs.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-8 text-slate-400">Poko gen koli.</td></tr>
+                <tr><td colSpan={7} className="text-center py-8 text-slate-400">Poko gen koli.</td></tr>
               ) : pkgs.map((p, i) => (
-                <tr key={p.id} className={i % 2 ? "bg-mist" : ""}>
+                <tr key={p.id} className={`${i % 2 ? "bg-mist" : ""} ${sel.has(p.id) ? "!bg-blue-50" : ""}`}>
+                  <td className="td">
+                    {p.status === "Disponible" && (
+                      <input type="checkbox" checked={sel.has(p.id)} onChange={() => toggleSel(p.id)} />
+                    )}
+                  </td>
                   <td className="td font-mono text-xs">{p.tracking_number}</td>
+                  <td className="td font-mono text-xs">{p.tracking_manual || "—"}</td>
                   <td className="td">{p.created_date}</td>
                   <td className="td">{p.weight}</td>
                   <td className="td">{p.content}</td>
                   <td className="td">
                     <span className={`badge ${p.status === "Disponible" ? "bg-emerald-100 text-emerald-700"
-                      : p.status === "Facturé" ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-600"}`}>
+                      : p.status === "Facturé" || p.status === "Livré" ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-600"}`}>
                       {p.status}
                     </span>
                   </td>
@@ -141,7 +182,42 @@ export default function EspaceClientPage() {
               ))}
             </tbody>
           </table>
+          {sel.size > 0 && (
+            <div className="p-4 border-t border-line flex items-center gap-3 flex-wrap">
+              <button className="btn" onClick={notifierRetrait} disabled={busy}>
+                <Bell size={15} /> Notifier mon retrait ({sel.size} koli)
+              </button>
+              <span className="text-xs text-slate-500">STANDA COMMERCIAL ap prepare koli yo anvan ou rive.</span>
+            </div>
+          )}
+          {msg && <p className="px-4 pb-4 text-sm text-navy">{msg}</p>}
         </section>
+
+        {/* Demandes de retrait */}
+        {retraits.length > 0 && (
+          <section className="card overflow-x-auto">
+            <h2 className="text-sm font-bold text-navy uppercase tracking-wide p-4 pb-2">
+              Demandes de retrait ({retraits.length})
+            </h2>
+            <table className="w-full text-sm">
+              <thead><tr>
+                {["Date", "Colis", "Poids (lb)", "Statut"].map((h) => <th key={h} className="th">{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {retraits.map((r, i) => (
+                  <tr key={r.id} className={i % 2 ? "bg-mist" : ""}>
+                    <td className="td">{new Date(r.created_at).toLocaleDateString("fr-FR")}</td>
+                    <td className="td text-right">{r.package_count}</td>
+                    <td className="td text-right">{Number(r.total_weight).toFixed(2)}</td>
+                    <td className="td">
+                      <span className={`badge ${RETRAIT_BADGE[r.status] ?? "bg-slate-100 text-slate-600"}`}>{r.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
 
         {/* Fakti */}
         <section className="card overflow-x-auto">

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2, Pencil, MapPin } from "lucide-react";
 import {
-  deleteVille, getSettings, getSmallParcelPrice, getUsdRate,
+  deleteVille, getSettings, getUsdRate,
   getVilles, setSetting, setUsdRate, toggleVille, upsertVille
 } from "@/lib/db";
 import { Ville } from "@/lib/types";
@@ -29,7 +29,6 @@ export default function SettingsPage() {
   const [footer, setFooter] = useState("");
   const [autoPricing, setAutoPricing] = useState(true);
   const [rate, setRate] = useState("0");
-  const [smallPrice, setSmallPrice] = useState("3.70");
   const [notice, setNotice] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
@@ -37,11 +36,10 @@ export default function SettingsPage() {
 
   const load = async () => {
     setVilles(await getVilles());
-    const [s, r, sp] = await Promise.all([getSettings(), getUsdRate(), getSmallParcelPrice()]);
+    const [s, r] = await Promise.all([getSettings(), getUsdRate()]);
     setFooter(s.invoice_footer ?? "");
     setAutoPricing(s.auto_pricing !== "false");
     setRate(String(r));
-    setSmallPrice(sp.toFixed(2));
   };
   useEffect(() => { load().catch((e) => setNotice("Erè: " + e.message)); }, []);
 
@@ -99,9 +97,8 @@ export default function SettingsPage() {
           lè w chanje tarif yon vil, tout <b>nouvo</b> fakti itilize nouvo tarif la otomatikman.
         </p>
         <p className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2">
-          <b>Règle spéciale:</b> nenpòt koli 0.01 – 0.99 lb = <b>{usd(Number(smallPrice))}</b> fiks
-          (Personnel kou Business, kèlkeswa vil la). Apati 1.00 lb, tarif vil la aplike.
-          Ou ka chanje pri fiks sa a nan seksyon Général anba a.
+          <b>Petits colis (0.10–0.99 lb):</b> yo kalkile <b>Pwa × Prix/lb</b> vil la,
+          menm jan ak tout lòt koli. Ex: 3.99 USD/lb × 0.60 lb = 2.39 USD.
         </p>
 
         {showForm && (
@@ -193,21 +190,10 @@ export default function SettingsPage() {
       {/* ===== Général ===== */}
       <section className="card p-5 space-y-4">
         <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Général</h2>
-        <label className="block">
-          <span className="text-xs font-medium text-slate-500">
-            Prix fixe petits colis 0.01–0.99 lb (USD)
-          </span>
-          <div className="flex items-center gap-3 mt-1">
-            <input className="input !w-32 text-right" type="number" step="0.01" value={smallPrice}
-              onChange={(e) => setSmallPrice(e.target.value)} />
-            <button className="btn btn-ghost border border-line" onClick={async () => {
-              const n = Number(smallPrice);
-              if (!n || n <= 0) { setNotice("Pri a dwe pi gran pase 0."); return; }
-              await setSetting("small_parcel_price", n.toFixed(2));
-              setNotice(`Prix petits colis enregistré: ${n.toFixed(2)} USD.`);
-            }}>Enregistrer</button>
-          </div>
-        </label>
+        <p className="text-xs text-slate-500 bg-mist rounded-lg px-3 py-2">
+          ℹ️ Petits colis (0.10–0.99 lb): depi v8, yo kalkile <b>Pwa × Prix/lb vil la</b> menm
+          jan ak tout lòt koli (ex: 3.99 USD/lb × 0.60 lb = 2.39 USD). Pa gen pri fiks ankò.
+        </p>
         <label className="block">
           <span className="text-xs font-medium text-slate-500">Pied de page des factures</span>
           <input className="input mt-1" value={footer} onChange={(e) => setFooter(e.target.value)} />

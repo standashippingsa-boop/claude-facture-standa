@@ -90,7 +90,7 @@ export function generateInvoicePdf(
     head: [["#", "Tracking ID (Guía)", "Weight (lb)", "Content", "Price (USD)", "Tax (USD)", "Total (USD)"]],
     body: items.map((k, i) => [
       String(i + 1),
-      k.tracking_number,
+      k.tracking_number + (k.tracking_manual ? "\n" + k.tracking_manual : ""),
       Number(k.weight).toFixed(2),
       k.content,
       Number(k.price).toFixed(2),

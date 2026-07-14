@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, Package, FileText, History, RefreshCw, Settings
+  Inbox, LayoutDashboard, Users, Package, FileText, History, RefreshCw, Settings
 } from "lucide-react";
 import Logo from "./Logo";
 
@@ -11,6 +11,7 @@ const items = [
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/packages", label: "Packages", icon: Package },
   { href: "/invoices", label: "Invoices", icon: FileText },
+  { href: "/retraits", label: "Retraits", icon: Inbox },
   { href: "/historique", label: "Historique", icon: History },
   { href: "/sync", label: "Synchronisation MCPACK", icon: RefreshCw },
   { href: "/settings", label: "Paramètres", icon: Settings }
