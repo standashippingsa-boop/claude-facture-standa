@@ -122,6 +122,7 @@ export default function PackagesPage() {
           arr.push(p); byClient.set(p.customer_code, arr);
         });
         let sent = 0, noEmail = 0;
+        const problems: string[] = [];
         for (const [code, list] of Array.from(byClient.entries())) {
           const info = tarifMap.get(code);
           if (!info?.email) { noEmail++; continue; }
@@ -143,9 +144,11 @@ export default function PackagesPage() {
             });
             const j = await res.json();
             if (j.ok) sent++;
-          } catch { /* email pa bloke aksyon an */ }
+            else problems.push(`${code}: ${j.reason ?? j.error ?? "erè enkoni"}`);
+          } catch (err: any) { problems.push(`${code}: ${err?.message ?? "erè rezo"}`); }
         }
-        mailInfo = ` Email: ${sent} voye${noEmail ? `, ${noEmail} kliyan san imèl` : ""}.`;
+        mailInfo = ` Email: ${sent} voye${noEmail ? `, ${noEmail} kliyan san imèl` : ""}.` +
+          (problems.length ? ` ⚠️ ${problems.slice(0, 2).join(" | ").slice(0, 300)}` : "");
       }
       setNotice(`Statut "${bulkStatus}" appliqué sur ${targets.length} colis.` + mailInfo);
       setBulkStatus("");

@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM || "STANDA COMMERCIAL <onboarding@resend.dev>",
+        from: process.env.EMAIL_FROM || "STANDA COMMERCIAL <notifications@standacommercialsa.com>",
         to: [body.client.email],
         subject,
         html
