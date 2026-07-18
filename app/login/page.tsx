@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const oauth = async (provider: "google" | "apple") => {
+  const oauth = async (provider: "google" | "facebook") => {
     setErr(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -46,53 +46,68 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-mist flex items-center justify-center p-6">
-      <div className="card p-8 max-w-md w-full space-y-5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="STANDA COMMERCIAL" className="mx-auto h-16 object-contain" />
-        <h1 className="text-xl font-extrabold text-navy text-center">Koneksyon kliyan</h1>
+    <div className="min-h-screen bg-[#081226] flex items-center justify-center p-6"
+      style={{ background: "radial-gradient(ellipse at top, #0E2145 0%, #081226 55%, #060D1C 100%)" }}>
+      <div className="w-full max-w-md rounded-3xl bg-[#0D1F3F]/90 border border-white/10 shadow-2xl p-8 space-y-5">
+        <div className="w-20 h-20 mx-auto rounded-2xl bg-white grid place-items-center shadow-lg">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-16 object-contain" />
+        </div>
+        <h1 className="text-2xl font-extrabold text-white text-center">Koneksyon</h1>
 
         <label className="block">
-          <span className="text-xs font-semibold text-slate-600">Imèl</span>
-          <input type="email" className="input mt-1" value={email}
-            onChange={(e) => setEmail(e.target.value)} placeholder="ou@egzanp.com" />
+          <span className="text-xs font-semibold text-slate-300">Imèl</span>
+          <div className="mt-1 flex items-center gap-2 rounded-xl bg-[#122A52] border border-white/10 px-3 focus-within:border-blue-400">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9DB4DC" strokeWidth="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+            <input type="email" className="w-full bg-transparent py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none"
+              value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ou@egzanp.com" />
+          </div>
         </label>
+
         <label className="block">
-          <span className="text-xs font-semibold text-slate-600">Modpas</span>
-          <input type="password" className="input mt-1" value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submit()} />
+          <span className="text-xs font-semibold text-slate-300">Modpas</span>
+          <div className="mt-1 flex items-center gap-2 rounded-xl bg-[#122A52] border border-white/10 px-3 focus-within:border-blue-400">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9DB4DC" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <input type="password" className="w-full bg-transparent py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none"
+              value={password} onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()} />
+          </div>
         </label>
 
-        {err && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{err}</p>}
-        {info && <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">{info}</p>}
+        <div className="text-right -mt-2">
+          <button type="button" onClick={forgot} className="text-xs text-blue-300 hover:text-blue-200 hover:underline">
+            Mot de passe oublié ?
+          </button>
+        </div>
 
-        <button className="btn w-full justify-center py-3" onClick={submit} disabled={busy}>
+        {err && <p className="text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl px-4 py-3">{err}</p>}
+        {info && <p className="text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-400/30 rounded-xl px-4 py-3">{info}</p>}
+
+        <button className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm shadow-lg shadow-blue-900/40 transition-colors disabled:opacity-50"
+          onClick={submit} disabled={busy}>
           {busy ? "Ap konekte..." : "Konekte"}
         </button>
 
-        <button type="button" onClick={forgot}
-          className="block w-full text-center text-xs text-navy font-semibold underline">
-          Mot de passe oublié ?
-        </button>
-
         <div className="flex items-center gap-3">
-          <div className="flex-1 h-px bg-line" /><span className="text-xs text-slate-400">oswa</span><div className="flex-1 h-px bg-line" />
+          <div className="flex-1 h-px bg-white/10" /><span className="text-xs text-slate-500">oswa</span><div className="flex-1 h-px bg-white/10" />
         </div>
 
         <button type="button" onClick={() => oauth("google")}
-          className="w-full flex items-center justify-center gap-2 border border-line rounded-lg py-2.5 text-sm font-semibold hover:bg-mist">
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-white text-slate-800 py-3 text-sm font-semibold hover:bg-slate-100">
           <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
           Continuer avec Google
         </button>
-        <button type="button" onClick={() => oauth("apple")}
-          className="w-full flex items-center justify-center gap-2 bg-black text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-black/85">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.86-3.08.43-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.43C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
-          Continuer avec Apple
+        <button type="button" onClick={() => oauth("facebook")}
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1877F2] text-white py-3 text-sm font-semibold hover:bg-[#166FE0]">
+          <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#fff" d="M24 12a12 12 0 1 0-13.88 11.85v-8.38H7.08V12h3.04V9.36c0-3 1.79-4.67 4.53-4.67 1.31 0 2.68.24 2.68.24v2.95h-1.51c-1.49 0-1.95.92-1.95 1.87V12h3.32l-.53 3.47h-2.79v8.38A12 12 0 0 0 24 12z"/></svg>
+          Continuer avec Facebook
         </button>
 
-        <p className="text-center text-xs text-slate-500">
-          Ou poko gen kont? <Link href="/inscription" className="text-navy font-semibold underline">Enskri la a</Link>
+        <p className="text-center text-xs text-slate-400">
+          Ou poko gen kont? <Link href="/inscription" className="text-blue-300 font-semibold hover:underline">Enskri la a</Link>
+        </p>
+        <p className="text-center text-[11px] text-slate-500">
+          <Link href="/confidentialite" className="hover:underline">Politique de confidentialité</Link>
         </p>
       </div>
     </div>
