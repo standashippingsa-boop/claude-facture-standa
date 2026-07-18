@@ -9,23 +9,77 @@ export const DEPOT = {
   phone: "+1 (786) 685-6050"
 };
 
-/** Mesaj WhatsApp "Voye adrès depo" — non + kòd MC ranplase otomatikman */
-export function buildDepotMessage(c: Client): string {
+/**
+ * Mesaj WhatsApp "Voye adrès depo" — fransè, ak enfòmasyon koneksyon yo
+ * (username MC + modpas tanporè) si yo bay tempPassword la.
+ */
+export function buildDepotMessage(c: Client, tempPassword?: string): string {
   const non = [c.fullname, c.surname].filter(Boolean).join(" ").trim() || c.fullname;
-  const code = c.customer_code || "MC-____";
-  return (
-    `Bonjou ${non} 👋\n\n` +
-    `Kont ou aktive avèk siksè.\n\n` +
-    `Men adrès depo ou Ozetazini:\n\n` +
-    `Full Name / Nombre completo\n${non}\n\n` +
-    `Address 1\n${DEPOT.address1}\n\n` +
-    `Address 2\n${code}\n\n` +
-    `City\n${DEPOT.city}\n\n` +
-    `State\n${DEPOT.state}\n\n` +
-    `ZIP Code\n${DEPOT.zip}\n\n` +
-    `Phone\n${DEPOT.phone}\n\n` +
-    `⚠️ Li enpòtan anpil pou toujou mete kòd ${code} la sou Address 2 chak fwa w ap voye yon pakè. ` +
-    `Se kòd sa a ki pèmèt nou idantifye tout koli ou yo.\n\n` +
-    `Mèsi paske ou chwazi STANDA COMMERCIAL.`
-  );
+  const code = c.customer_code || c.username || "MC-_____";
+  let msg =
+    `Bonjour ${non},
+
+` +
+    `Votre adresse de dépôt aux États-Unis est maintenant disponible.
+
+` +
+    `Nom :
+${non}
+
+` +
+    `Adresse 1 :
+${DEPOT.address1}
+
+` +
+    `Adresse 2 :
+${code}
+
+` +
+    `Ville :
+Miami
+
+` +
+    `État :
+${DEPOT.state}
+
+` +
+    `Code Postal :
+${DEPOT.zip}
+
+` +
+    `Téléphone :
+${DEPOT.phone}
+
+` +
+    `⚠️ IMPORTANT
+` +
+    `Toujours utiliser votre code ${code} sur chacun de vos colis.
+` +
+    `Sans ce code nous ne pourrons pas identifier vos colis.
+`;
+  if (tempPassword) {
+    msg +=
+      `
+----------------------------------------
+` +
+      `INFORMATIONS DE CONNEXION
+
+` +
+      `Nom d'utilisateur :
+${code}
+
+` +
+      `Mot de passe temporaire :
+${tempPassword}
+
+` +
+      `Veuillez conserver ces informations.
+` +
+      `Lors de votre première connexion, le système vous demandera de créer un nouveau mot de passe.
+`;
+  }
+  msg += `
+Merci.
+STANDA COMMERCIAL`;
+  return msg;
 }

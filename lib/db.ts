@@ -387,13 +387,14 @@ export async function getImports(): Promise<ImportLog[]> {
 
 /** Kliyan an fin kreye kont Auth li — nou anrejistre pwofil li (En attente d'activation) */
 export async function registerClientProfile(p: {
-  auth_user_id: string; fullname: string; surname: string; email: string;
+  auth_user_id?: string | null; fullname: string; surname: string; email: string;
   phone: string; whatsapp: string; country: string; city: string; city2: string;
   address: string; id_type: string; id_number: string;
   ville_id?: string | null;   // lyen otomatik ak tarification (vil kliyan an chwazi a)
 }): Promise<void> {
   const { error } = await supabase.from("clients").insert({
     ...p,
+    auth_user_id: p.auth_user_id ?? null,
     customer_code: null,
     pickup_location: "",
     account_status: "En attente d'activation"

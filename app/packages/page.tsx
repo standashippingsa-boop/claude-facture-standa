@@ -14,6 +14,7 @@ import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { INTERNAL_STATUSES, Pkg } from "@/lib/types";
 import { htg, parseMcpackDate, usd } from "@/lib/utils";
 import { generateBonRemise } from "@/lib/bonremise";
+import { useRole } from "@/lib/authx";
 
 const PER_PAGE = 25;
 
@@ -41,6 +42,7 @@ export default function PackagesPage() {
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const { role } = useRole();
   const [sim, setSim] = useState<Simulation | null>(null);
 
   const load = async () => {
@@ -326,7 +328,9 @@ export default function PackagesPage() {
                       <PackageCheck size={14} />
                     </button>
                   )}
-                  <button className="text-slate-400 hover:text-red-600" onClick={() => remove(p)}><Trash2 size={14} /></button>
+                  {role === "admin" && (
+                    <button className="text-slate-400 hover:text-red-600" onClick={() => remove(p)}><Trash2 size={14} /></button>
+                  )}
                 </td>
               </tr>
             ))}

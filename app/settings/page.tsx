@@ -8,8 +8,10 @@ import {
   deleteVille, getSettings, getUsdRate,
   getVilles, setSetting, setUsdRate, toggleVille, upsertVille
 } from "@/lib/db";
-import { Ville } from "@/lib/types";
+import { Staff, Ville } from "@/lib/types";
 import { usd } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { adminApi, useRole } from "@/lib/authx";
 
 const schema = z.object({
   name: z.string().min(1, "Non vil la obligatwa"),
@@ -23,6 +25,7 @@ const schema = z.object({
 type Form = z.infer<typeof schema>;
 
 export default function SettingsPage() {
+  const { role, loading: roleLoading } = useRole();
   const [villes, setVilles] = useState<Ville[]>([]);
   const [editing, setEditing] = useState<Ville | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -79,6 +82,16 @@ export default function SettingsPage() {
     setNotice("Paramètres enregistrés.");
   };
 
+  if (roleLoading) return <p className="text-slate-400">Ap verifye aksè...</p>;
+  if (role !== "admin") {
+    return (
+      <div className="card p-10 max-w-md mx-auto text-center space-y-3">
+        <p className="text-4xl">🚫</p>
+        <h1 className="text-lg font-extrabold text-navy">Accès refusé.</h1>
+        <p className="text-sm text-slate-500">Sèlman Administrateur ki gen aksè nan Paramètres.</p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-6 max-w-4xl">
       <h1 className="text-xl font-extrabold text-navy">Paramètres</h1>
@@ -205,7 +218,120 @@ export default function SettingsPage() {
         <button className="btn" onClick={saveGeneral}>Enregistrer</button>
       </section>
 
+      <EmployesSection onNotice={setNotice} />
+
       {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
     </div>
+  );
+}
+
+// ================= EMPLOYÉS (v9 — admin sèlman) =================
+function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
+  const [list, setList] = useState<Staff[]>([]);
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [f, setF] = useState({ nom: "", prenom: "", email: "", phone: "", id_number: "",
+    username: "", password: "", role: "employe" as "employe" | "admin" });
+  const [photo, setPhoto] = useState<File | null>(null);
+
+  const load = () => supabase.from("staff").select("*").order("created_at")
+    .then(({ data }: { data: Staff[] | null }) => setList((data ?? []) as Staff[]));
+  useEffect(() => { load(); }, []);
+
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setF({ ...f, [k]: e.target.value });
+
+  const save = async () => {
+    if (!f.nom || !f.prenom || !f.username || f.password.length < 6) {
+      onNotice("Nom, Prénom, Nom d'utilisateur ak Mot de passe (6+ karaktè) obligatwa."); return;
+    }
+    setBusy(true);
+    try {
+      let id_photo_url = "";
+      if (photo) {
+        const path = `${Date.now()}_${photo.name.replace(/[^\w.\-]/g, "_")}`;
+        const { error } = await supabase.storage.from("staff-docs").upload(path, photo, { upsert: true });
+        if (!error) id_photo_url = supabase.storage.from("staff-docs").getPublicUrl(path).data.publicUrl;
+      }
+      const j = await adminApi("create_staff", { ...f, id_photo_url });
+      if (!j.ok) { onNotice("Erè: " + j.reason); return; }
+      onNotice(`${f.role === "admin" ? "Administrateur" : "Employé"} "${f.username}" kreye — li ka konekte sou /admin-login.`);
+      setShow(false);
+      setF({ nom: "", prenom: "", email: "", phone: "", id_number: "", username: "", password: "", role: "employe" });
+      setPhoto(null);
+      load();
+    } finally { setBusy(false); }
+  };
+
+  const remove = async (s: Staff) => {
+    if (!confirm(`Efase kont "${s.username}" (${s.prenom} ${s.nom})?`)) return;
+    const j = await adminApi("delete_staff", { staff_id: s.id });
+    if (!j.ok) { onNotice("Erè: " + j.reason); return; }
+    load();
+  };
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-bold text-navy uppercase tracking-wide">👥 Employés</h2>
+        <button className="btn" onClick={() => setShow((s) => !s)}>+ Nouvel Employé</button>
+      </div>
+
+      {show && (
+        <div className="card p-5 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <label className="block"><span className="text-xs font-medium text-slate-500">Nom *</span>
+              <input className="input mt-1" value={f.nom} onChange={set("nom")} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Prénom *</span>
+              <input className="input mt-1" value={f.prenom} onChange={set("prenom")} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Email</span>
+              <input className="input mt-1" value={f.email} onChange={set("email")} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Téléphone</span>
+              <input className="input mt-1" value={f.phone} onChange={set("phone")} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">No Passeport / Carte d&apos;identité</span>
+              <input className="input mt-1" value={f.id_number} onChange={set("id_number")} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Photo Passeport / CIN</span>
+              <input type="file" accept="image/*,.pdf" className="input mt-1 !py-1.5"
+                onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Nom d&apos;utilisateur *</span>
+              <input className="input mt-1" value={f.username} onChange={set("username")} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Mot de passe * (6+)</span>
+              <input type="password" className="input mt-1" value={f.password} onChange={set("password")} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Rôle</span>
+              <select className="input mt-1" value={f.role} onChange={set("role")}>
+                <option value="employe">Employé</option>
+                <option value="admin">Administrateur</option>
+              </select></label>
+          </div>
+          <div className="flex gap-3">
+            <button className="btn" onClick={save} disabled={busy}>{busy ? "Ap kreye..." : "Enregistrer"}</button>
+            <button className="btn btn-ghost" onClick={() => setShow(false)}>Annuler</button>
+          </div>
+        </div>
+      )}
+
+      <div className="card overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr>{["Utilisateur", "Nom", "Rôle", "Téléphone", "Pièce", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
+          <tbody>
+            {list.length === 0 ? (
+              <tr><td colSpan={6} className="text-center py-8 text-slate-400">Poko gen employé.</td></tr>
+            ) : list.map((s, i) => (
+              <tr key={s.id} className={i % 2 ? "bg-mist" : ""}>
+                <td className="td font-bold text-navy">{s.username}</td>
+                <td className="td">{s.prenom} {s.nom}</td>
+                <td className="td"><span className={`badge ${s.role === "admin" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
+                  {s.role === "admin" ? "Administrateur" : "Employé"}</span></td>
+                <td className="td">{s.phone}</td>
+                <td className="td text-xs">{s.id_number}{s.id_photo_url && <> · <a className="text-navy underline" href={s.id_photo_url} target="_blank">foto</a></>}</td>
+                <td className="td text-right">
+                  <button className="text-slate-400 hover:text-red-600 text-xs" onClick={() => remove(s)}>✕</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

@@ -61,7 +61,7 @@ export function openWhatsApp(inv: Invoice, _count?: number) {
 }
 
 /** 📲 Voye adrès depo Ozetazini bay kliyan an sou WhatsApp */
-export function openDepotWhatsApp(c: Client) {
+export function openDepotWhatsApp(c: Client, tempPassword?: string) {
   const phone = normalizePhone(c.whatsapp || c.phone || "");
-  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(buildDepotMessage(c))}`, "_blank");
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(buildDepotMessage(c, tempPassword))}`, "_blank");
 }

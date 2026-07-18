@@ -24,6 +24,7 @@ export default function EspaceClientPage() {
       const { data } = await supabase.auth.getUser();
       if (!data.user) { router.replace("/login"); return; }
       const c = await getClientByAuthId(data.user.id);
+      if (c?.must_change_password) { router.replace("/nouveau-mot-de-passe"); return; }
       setClient(c);
       if (c?.customer_code) {
         const [{ pkgs: p, invs: i }, rs] = await Promise.all([

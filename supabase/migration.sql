@@ -269,3 +269,34 @@ exception when duplicate_object then null; end $$;
 do $$ begin
   create policy "anon all retrait_items" on retrait_items for all using (true) with check (true);
 exception when duplicate_object then null; end $$;
+
+-- ============================================================
+-- v9 — Authentication: Admin / Employé / Client
+-- ============================================================
+create table if not exists staff (
+  id uuid primary key default gen_random_uuid(),
+  auth_user_id uuid unique,
+  role text not null check (role in ('admin','employe')),
+  username text unique not null,
+  nom text not null default '',
+  prenom text not null default '',
+  email text not null default '',
+  phone text not null default '',
+  id_number text not null default '',      -- Paspò oswa CIN
+  id_photo_url text not null default '',
+  created_at timestamptz not null default now()
+);
+alter table staff enable row level security;
+do $$ begin
+  create policy "anon all staff" on staff for all using (true) with check (true);
+exception when duplicate_object then null; end $$;
+
+alter table clients add column if not exists username text unique;             -- = kòd MC (MC-XXXXX)
+alter table clients add column if not exists must_change_password boolean not null default false;
+
+insert into storage.buckets (id, name, public) values ('staff-docs','staff-docs', true)
+on conflict (id) do nothing;
+do $$ begin
+  create policy "anon storage staff-docs" on storage.objects for all
+    using (bucket_id = 'staff-docs') with check (bucket_id = 'staff-docs');
+exception when duplicate_object then null; end $$;

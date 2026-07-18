@@ -5,7 +5,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Pencil, Trash2, Plus, UserPlus, X } from "lucide-react";
-import { assignMcCode, deleteClient, getClients, getVilles, upsertClient } from "@/lib/db";
+import { deleteClient, getClients, getVilles, upsertClient } from "@/lib/db";
+import { adminApi, useRole } from "@/lib/authx";
 import { Client, Ville } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
 import { openDepotWhatsApp } from "@/lib/whatsapp";
@@ -30,6 +31,9 @@ export default function ClientsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [mcClient, setMcClient] = useState<Client | null>(null);  // modal "Créer compte MCPACK"
   const [mcCode, setMcCode] = useState("");
+  // Apre aktivasyon: kredansyèl yo (pou montre + voye WhatsApp)
+  const [creds, setCreds] = useState<{ client: Client; username: string; tempPassword: string } | null>(null);
+  const { role } = useRole();
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
     useForm<Form>({ resolver: zodResolver(schema) });
@@ -56,14 +60,27 @@ export default function ClientsPage() {
   const saveMcCode = async () => {
     if (!mcClient || !mcCode.trim()) return;
     try {
-      await assignMcCode(mcClient.id!, mcCode.trim());
-      setNotice(`Code ${mcCode.trim()} anrejistre — kont ${mcClient.fullname} lan Actif kounye a. ` +
-        `Sèvi ak bouton 📲 la pou voye adrès depo a.`);
+      const j = await adminApi("activate_client", { client_id: mcClient.id, mc_code: mcCode.trim() });
+      if (!j.ok) { setNotice("Erè: " + (j.reason ?? "aktivasyon echwe")); return; }
+      // Sistèm nan: aktive + username = MC-XXXXX + modpas tanporè jenere otomatikman
+      setCreds({
+        client: { ...mcClient, customer_code: j.username, account_status: "Actif" },
+        username: j.username,
+        tempPassword: j.temp_password
+      });
       setMcClient(null); setMcCode("");
       load();
     } catch (e: any) {
-      setNotice(e.message?.includes("duplicate") ? `Kòd "${mcCode}" egziste deja sou yon lòt kliyan.` : "Erè: " + e.message);
+      setNotice("Erè: " + (e.message ?? String(e)));
     }
+  };
+
+  /** 🔑 Rejenere yon modpas tanporè (si kliyan an bliye l anvan premye koneksyon) */
+  const resetClientPassword = async (c: Client) => {
+    if (!confirm(`Rejenere yon modpas tanporè pou ${c.fullname} (${c.customer_code})?`)) return;
+    const j = await adminApi("reset_client_password", { client_id: c.id });
+    if (!j.ok) { setNotice("Erè: " + (j.reason ?? "echwe")); return; }
+    setCreds({ client: c, username: j.username, tempPassword: j.temp_password });
   };
 
   const remove = async (c: Client) => {
@@ -190,12 +207,20 @@ export default function ClientsPage() {
                       onClick={() => { setMcClient(c); setMcCode(""); }}>
                       <UserPlus size={13} /> Créer compte MCPACK
                     </button>
-                  ) : (c.whatsapp || c.phone) ? (
-                    <button className="mr-2 text-lg" title="📲 Voye adrès depo sou WhatsApp"
-                      onClick={() => openDepotWhatsApp(c)}>📲</button>
-                  ) : null}
+                  ) : (
+                    <>
+                      {(c.whatsapp || c.phone) && (
+                        <button className="mr-2 text-lg" title="📲 Voye adrès depo sou WhatsApp"
+                          onClick={() => openDepotWhatsApp(c)}>📲</button>
+                      )}
+                      <button className="mr-2" title="🔑 Rejenere modpas tanporè kliyan an"
+                        onClick={() => resetClientPassword(c)}>🔑</button>
+                    </>
+                  )}
                   <button className="text-navy hover:text-navy-light mr-3" onClick={() => openEdit(c)}><Pencil size={15} /></button>
-                  <button className="text-slate-400 hover:text-red-600" onClick={() => remove(c)}><Trash2 size={15} /></button>
+                  {role === "admin" && (
+                    <button className="text-slate-400 hover:text-red-600" onClick={() => remove(c)}><Trash2 size={15} /></button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -204,6 +229,40 @@ export default function ClientsPage() {
       </div>
 
       {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
+
+      {/* ===== Modal: Kredansyèl kliyan (apre aktivasyon oswa reset) ===== */}
+      {creds && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setCreds(null)}>
+          <div className="card p-6 max-w-md w-full space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-sm font-bold text-navy uppercase tracking-wide">
+              ✅ Kont {[creds.client.fullname, creds.client.surname].filter(Boolean).join(" ")} aktive
+            </h2>
+            <div className="text-sm border border-line rounded-lg divide-y divide-line">
+              <div className="flex justify-between gap-4 px-3 py-2">
+                <span className="text-slate-500 text-xs">Nom d&apos;utilisateur</span>
+                <span className="font-mono font-bold select-all">{creds.username}</span>
+              </div>
+              <div className="flex justify-between gap-4 px-3 py-2">
+                <span className="text-slate-500 text-xs">Mot de passe temporaire</span>
+                <span className="font-mono font-bold select-all">{creds.tempPassword}</span>
+              </div>
+            </div>
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              ⚠️ Modpas sa a parèt <b>yon sèl fwa</b>. Voye l bay kliyan an kounye a — nan premye
+              koneksyon an, sistèm nan ap fòse l chwazi pwòp modpas pa li.
+            </p>
+            <div className="flex gap-3">
+              {(creds.client.whatsapp || creds.client.phone) && (
+                <button className="btn" onClick={() => openDepotWhatsApp(creds.client, creds.tempPassword)}>
+                  📲 Voye adrès depo + kredansyèl yo
+                </button>
+              )}
+              <button className="btn btn-ghost" onClick={() => setCreds(null)}>Fèmen</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== Modal: Créer compte MCPACK ===== */}
       {mcClient && (

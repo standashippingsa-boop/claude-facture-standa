@@ -35,6 +35,8 @@ export interface Client {
   id_number?: string;
   account_status?: AccountStatus;
   auth_user_id?: string | null;
+  username?: string | null;              // = kòd MC (MC-XXXXX)
+  must_change_password?: boolean;
   created_at?: string;
 }
 
@@ -145,4 +147,20 @@ export interface RetraitItem {
   tracking_manual: string;   // Tracking Number (si disponib)
   content: string;
   weight: number;
+}
+
+// ===== v9: Authentication =====
+export type StaffRole = "admin" | "employe";
+export interface Staff {
+  id?: string;
+  auth_user_id?: string | null;
+  role: StaffRole;
+  username: string;
+  nom: string;
+  prenom: string;
+  email: string;
+  phone: string;
+  id_number: string;
+  id_photo_url: string;
+  created_at?: string;
 }
