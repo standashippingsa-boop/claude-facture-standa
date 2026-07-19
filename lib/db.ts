@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { normalizeMcCode } from "./utils";
 import {
   AccountType, Client, DashboardStats, ImportLog, Invoice, InvoiceItem, Pkg, Ville
 , Retrait, RetraitStatus
@@ -45,7 +46,7 @@ export async function getClientTarifMap(): Promise<Map<string, ClientTarifInfo>>
 }
 export async function upsertClient(c: Client): Promise<void> {
   const row = {
-    customer_code: c.customer_code.trim(),
+    customer_code: normalizeMcCode(c.customer_code),
     fullname: c.fullname.trim(),
     whatsapp: c.whatsapp.trim(),
     pickup_location: c.pickup_location.trim(),
@@ -392,6 +393,33 @@ export async function registerClientProfile(p: {
   address: string; id_type: string; id_number: string;
   ville_id?: string | null;   // lyen otomatik ak tarification (vil kliyan an chwazi a)
 }): Promise<void> {
+  // ---- ANTI-DOUBLON (V7.2): si kliyan an deja egziste (kreye pa admin oswa
+  //      pa sync MCPACK), nou METE AJOU kont li a — nou pa kreye yon 2yèm kont.
+  //      Priyorite matching: Email -> WhatsApp -> Téléphone.
+  const digits = (s: string) => s.replace(/\D/g, "");
+  const all = await getClients();
+  const found = all.find((c) =>
+    (p.email && (c.email ?? "").trim().toLowerCase() === p.email.trim().toLowerCase()) ||
+    (digits(p.whatsapp).length >= 7 &&
+      (digits(c.whatsapp ?? "").endsWith(digits(p.whatsapp).slice(-8)) && digits(c.whatsapp ?? "").length >= 7)) ||
+    (digits(p.phone).length >= 7 &&
+      (digits(c.phone ?? "").endsWith(digits(p.phone).slice(-8)) && digits(c.phone ?? "").length >= 7)));
+
+  if (found) {
+    if (found.auth_user_id) {
+      throw new Error("Ou gen yon kont deja sou sistèm nan. Konekte pito — oswa kontakte STANDA COMMERCIAL.");
+    }
+    // Mete ajou kliyan ki egziste a (kenbe kòd li + tout koli/fakti li yo)
+    const { error } = await supabase.from("clients").update({
+      ...p,
+      auth_user_id: p.auth_user_id ?? null,
+      // Si li deja gen kòd MCPACK -> li rete Actif; sinon li tann aktivasyon
+      account_status: found.customer_code ? (found.account_status ?? "Actif") : "En attente d'activation"
+    }).eq("id", found.id);
+    if (error) throw error;
+    return;
+  }
+
   const { error } = await supabase.from("clients").insert({
     ...p,
     auth_user_id: p.auth_user_id ?? null,
@@ -471,5 +499,76 @@ export async function getClientRetraits(code: string): Promise<Retrait[]> {
 
 export async function setRetraitStatus(id: string, status: RetraitStatus): Promise<void> {
   const { error } = await supabase.from("retraits").update({ status }).eq("id", id);
+  if (error) throw error;
+}
+
+// ================= FUSION KONT KLIYAN (V7.2) =================
+
+export interface DupGroup { key: string; reason: string; clients: Client[]; }
+
+/** Jwenn kliyan ki sanble se menm moun (Kòd -> Email -> WhatsApp -> Telefòn -> Non+Prenon) */
+export async function findDuplicateGroups(): Promise<DupGroup[]> {
+  const all = await getClients();
+  const digits = (s?: string | null) => String(s ?? "").replace(/\D/g, "");
+  const used = new Set<string>();
+  const groups: DupGroup[] = [];
+  const push = (key: string, reason: string, list: Client[]) => {
+    const fresh = list.filter((c) => !used.has(c.id!));
+    if (fresh.length >= 2) {
+      fresh.forEach((c) => used.add(c.id!));
+      groups.push({ key, reason, clients: fresh });
+    }
+  };
+  const by = (fn: (c: Client) => string, reason: string) => {
+    const map = new Map<string, Client[]>();
+    all.forEach((c) => { const k = fn(c); if (k) { const a = map.get(k) ?? []; a.push(c); map.set(k, a); } });
+    map.forEach((list, k) => push(reason + ":" + k, reason, list));
+  };
+  by((c) => normalizeMcCode(c.customer_code) || "", "Customer Code");
+  by((c) => (c.email ?? "").trim().toLowerCase(), "Email");
+  by((c) => { const d = digits(c.whatsapp); return d.length >= 7 ? d.slice(-8) : ""; }, "WhatsApp");
+  by((c) => { const d = digits(c.phone); return d.length >= 7 ? d.slice(-8) : ""; }, "Téléphone");
+  by((c) => {
+    const n = [c.fullname, c.surname].filter(Boolean).join(" ").trim().toLowerCase().replace(/\s+/g, " ");
+    return n.length >= 6 ? n : "";
+  }, "Nom + Prénom");
+  return groups;
+}
+
+/**
+ * Fusione 2 kont: tout done sekondè a (koli, fakti, retraits, chan pwofil ki vid
+ * sou prensipal la) transfere sou kont prensipal la, answit kont sekondè a efase.
+ */
+export async function mergeClients(primary: Client, secondary: Client): Promise<void> {
+  const pCode = normalizeMcCode(primary.customer_code);
+  const sCode = normalizeMcCode(secondary.customer_code);
+
+  // 1) Transfere referans yo (packages / invoices / retraits) sou kòd prensipal la
+  if (sCode && pCode && sCode !== pCode) {
+    for (const table of ["packages", "invoices", "retraits"]) {
+      const { error } = await supabase.from(table)
+        .update({ customer_code: pCode }).eq("customer_code", sCode);
+      if (error) throw error;
+    }
+  }
+
+  // 2) Konplete chan ki vid sou prensipal la ak done sekondè a (pa janm efase done)
+  const patch: Record<string, unknown> = {};
+  const fields = ["surname", "email", "phone", "whatsapp", "country", "city", "city2",
+    "address", "id_type", "id_number", "ville_id", "auth_user_id", "username"] as const;
+  fields.forEach((f) => {
+    const pv = (primary as any)[f], sv = (secondary as any)[f];
+    if ((pv === null || pv === undefined || pv === "") && sv) patch[f] = sv;
+  });
+  if (!pCode && sCode) patch.customer_code = sCode;
+  if (primary.account_status !== "Actif" && secondary.account_status === "Actif") patch.account_status = "Actif";
+  if (secondary.must_change_password && !primary.auth_user_id) patch.must_change_password = true;
+  if (Object.keys(patch).length) {
+    const { error } = await supabase.from("clients").update(patch).eq("id", primary.id);
+    if (error) throw error;
+  }
+
+  // 3) Efase kont sekondè a — pa dwe rete okenn kliyan an doub
+  const { error } = await supabase.from("clients").delete().eq("id", secondary.id);
   if (error) throw error;
 }

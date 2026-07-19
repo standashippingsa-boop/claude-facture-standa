@@ -96,7 +96,9 @@ export async function POST(req: Request) {
     if (action === "activate_client") {
       if (role !== "admin" && role !== "employe") return NextResponse.json({ ok: false, reason: "Accès refusé." });
       const clientId = String(body.client_id ?? "");
-      const code = String(body.mc_code ?? "").trim();
+      // Nòmalizasyon V7.2: "25487" -> "MC-25487" — kle inik kliyan an
+      const rawCode = String(body.mc_code ?? "").trim().replace(/\s+/g, "").toUpperCase();
+      const code = rawCode ? (rawCode.startsWith("MC-") ? rawCode : "MC-" + rawCode.replace(/^MC/, "").replace(/^-+/, "")) : "";
       if (!clientId || !code) return NextResponse.json({ ok: false, reason: "Kòd MC obligatwa." });
       const pass = tempPassword();
       const { data: u, error } = await svc.auth.admin.createUser({
@@ -115,13 +117,31 @@ export async function POST(req: Request) {
     if (action === "reset_client_password") {
       if (role !== "admin" && role !== "employe") return NextResponse.json({ ok: false, reason: "Accès refusé." });
       const clientId = String(body.client_id ?? "");
-      const { data: c } = await svc.from("clients").select("auth_user_id, username").eq("id", clientId).maybeSingle();
-      if (!c?.auth_user_id) return NextResponse.json({ ok: false, reason: "Kliyan sa a poko gen kont aktive." });
+      const { data: c } = await svc.from("clients")
+        .select("auth_user_id, username, customer_code").eq("id", clientId).maybeSingle();
+      if (!c) return NextResponse.json({ ok: false, reason: "Kliyan pa jwenn." });
+      const code = String(c.customer_code ?? "").trim();
+      if (!code) return NextResponse.json({ ok: false, reason: "Kliyan sa a poko gen kòd MC — sèvi ak 'Créer compte MCPACK' pito." });
       const pass = tempPassword();
-      const { error } = await svc.auth.admin.updateUserById(c.auth_user_id, { password: pass });
+      let authId = c.auth_user_id as string | null;
+      if (!authId) {
+        // Ansyen kliyan (kreye pa sync/admin) — nou kreye kont koneksyon li kounye a
+        const { data: nu, error: ce } = await svc.auth.admin.createUser({
+          email: clientEmail(code), password: pass, email_confirm: true
+        });
+        if (ce || !nu?.user) return NextResponse.json({ ok: false, reason: "Kreyasyon kont echwe: " + (ce?.message ?? "") });
+        authId = nu.user.id;
+        await svc.from("clients").update({
+          auth_user_id: authId, username: code, must_change_password: true
+        }).eq("id", clientId);
+        return NextResponse.json({ ok: true, username: code, temp_password: pass });
+      }
+      const { error } = await svc.auth.admin.updateUserById(authId, {
+        password: pass, email: clientEmail(code), email_confirm: true
+      } as any);
       if (error) return NextResponse.json({ ok: false, reason: error.message });
-      await svc.from("clients").update({ must_change_password: true }).eq("id", clientId);
-      return NextResponse.json({ ok: true, temp_password: pass, username: c.username });
+      await svc.from("clients").update({ must_change_password: true, username: code }).eq("id", clientId);
+      return NextResponse.json({ ok: true, temp_password: pass, username: code });
     }
 
     return NextResponse.json({ ok: false, reason: "Aksyon enkoni." });

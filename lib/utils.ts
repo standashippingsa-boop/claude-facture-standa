@@ -36,3 +36,14 @@ export function parseMcpackDate(s?: string | null): number {
   const d = Date.parse(t);
   return isNaN(d) ? 0 : d;
 }
+
+/**
+ * Nòmalize yon Customer Code: "25487" -> "MC-25487", "mc-25487" -> "MC-25487".
+ * Kle inik kliyan an — menm fòma toupatou (clients, packages, invoices, retraits).
+ */
+export function normalizeMcCode(raw?: string | null): string {
+  const s = String(raw ?? "").trim().replace(/\s+/g, "");
+  if (!s) return "";
+  const up = s.toUpperCase();
+  return up.startsWith("MC-") ? up : up.startsWith("MC") && /^MC\d/.test(up) ? "MC-" + up.slice(2) : "MC-" + up.replace(/^-+/, "");
+}

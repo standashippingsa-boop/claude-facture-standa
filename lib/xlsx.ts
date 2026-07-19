@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { num } from "./utils";
+import { normalizeMcCode, num } from "./utils";
 
 /** Yon liy ki soti nan fichye Excel MCPACK la */
 export interface McpackRow {
@@ -111,7 +111,8 @@ export function parseMcpackWorkbook(buf: ArrayBuffer): McpackRow[] {
     const r = grid[i];
     const tracking = col.tracking >= 0 ? String(r[col.tracking] ?? "").trim() : "";
     if (!tracking) continue;
-    const { code, name } = splitCliente(col.cliente >= 0 ? String(r[col.cliente] ?? "") : "");
+    const sc = splitCliente(col.cliente >= 0 ? String(r[col.cliente] ?? "") : "");
+    const code = normalizeMcCode(sc.code), name = sc.name;
 
     // TOUT kolòn yo, jan yo ye nan Excel la
     const extra: Record<string, string> = {};

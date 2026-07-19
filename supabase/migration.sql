@@ -300,3 +300,26 @@ do $$ begin
   create policy "anon storage staff-docs" on storage.objects for all
     using (bucket_id = 'staff-docs') with check (bucket_id = 'staff-docs');
 exception when duplicate_object then null; end $$;
+
+-- ============================================================
+-- v10 (V7.2) — Customer Code inik fòma MC-XXXXX toupatou
+-- ============================================================
+-- Korije ansyen kòd yo ("25487" -> "MC-25487") sou TOUT tab yo
+-- san pèdi okenn done. Sync MCPACK ap kontinye mache paske
+-- parser Excel la nòmalize menm jan an kounye a.
+update packages set customer_code = 'MC-' || customer_code
+  where customer_code <> '' and upper(customer_code) not like 'MC-%';
+update invoices set customer_code = 'MC-' || customer_code
+  where customer_code <> '' and upper(customer_code) not like 'MC-%';
+update retraits set customer_code = 'MC-' || customer_code
+  where customer_code <> '' and upper(customer_code) not like 'MC-%';
+-- Kliyan: rebatize sèlman si vèsyon "MC-..." la PA deja egziste.
+-- (Si li egziste = 2 kont pou menm moun -> se bouton "Fusionner les comptes"
+--  nan paj Clients la k ap konbine yo, san pèdi done.)
+update clients c set customer_code = 'MC-' || c.customer_code,
+                     username = case when c.username is not null and c.username <> ''
+                                     then 'MC-' || c.customer_code else c.username end
+  where c.customer_code is not null and c.customer_code <> ''
+    and upper(c.customer_code) not like 'MC-%'
+    and not exists (select 1 from clients c2
+                    where c2.customer_code = 'MC-' || c.customer_code);
