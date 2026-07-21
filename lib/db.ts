@@ -6,6 +6,7 @@ import {
 } from "./types";
 import { McpackRow } from "./xlsx";
 import { computePrice, DEFAULT_SMALL_PARCEL_PRICE, round2 } from "./pricing";
+import type { PdfPkgRow } from "./pdfimport";
 
 const asNum = <T extends Record<string, any>>(r: T, keys: string[]): T => {
   keys.forEach((k) => (r[k as keyof T] = Number(r[k]) as any));
@@ -631,4 +632,67 @@ export async function reapplyTarifDisponible(): Promise<number> {
     }
   }
   return n;
+}
+
+// ================= IMPORT PDF MCPACK (V8 Faz 2) =================
+
+export interface PdfImportResult { created: number; updated: number; ignored: number; }
+
+/**
+ * Anrejistre koli ki soti nan yon PDF MCPACK, asosye ak kliyan admin chwazi a.
+ * Anti-doublon pa Tracking Number: koli ki egziste PA re-kreye — enfo ki
+ * manke sèlman mete ajou. Received method = "Import PDF".
+ */
+export async function commitPdfImport(
+  rows: PdfPkgRow[], client: Client, autoPricing: boolean
+): Promise<PdfImportResult> {
+  const rate = autoPricing ? await getUsdRate() : 0;
+  const info = autoPricing
+    ? (await getClientTarifMap()).get(normalizeMcCode(client.customer_code)) ?? null : null;
+  const now = new Date().toISOString();
+
+  const trackings = rows.map((r) => r.tracking_number).filter(Boolean);
+  const { data: exist } = await supabase.from("packages")
+    .select("tracking_number").in("tracking_number", trackings);
+  const existSet = new Set((exist ?? []).map((e: any) => e.tracking_number));
+
+  let created = 0, updated = 0, ignored = 0;
+  const seen = new Set<string>();
+
+  for (const r of rows) {
+    const tn = r.tracking_number.trim();
+    if (!tn || seen.has(tn)) { ignored++; continue; }
+    seen.add(tn);
+
+    if (existSet.has(tn)) {
+      const patch: Record<string, unknown> = { received_at: now, received_method: "Import PDF" };
+      if (r.status_raw) patch.status_mcpack = r.status_raw;
+      if (r.weight) patch.weight = r.weight;
+      if (r.content) patch.content = r.content;
+      await supabase.from("packages").update(patch).eq("tracking_number", tn);
+      updated++;
+    } else {
+      const p = autoPricing && info ? computePrice(r.weight, info.account_type, info.ville) : null;
+      await supabase.from("packages").insert({
+        tracking_number: tn,
+        customer_code: normalizeMcCode(client.customer_code),
+        customer_name: client.fullname,
+        weight: r.weight,
+        content: r.content,
+        created_date: r.created_date,
+        status: "Reçu à Miami",
+        status_mcpack: r.status_raw,
+        tracking_manual: "",
+        received_at: now,
+        received_method: "Import PDF",
+        mcpack_data: { Guia: r.guia, Hora: r.heure },
+        price_usd: p?.price ?? 0, tax_usd: p?.tax ?? 0,
+        price_htg: p ? round2(p.price * rate) : 0, tax_htg: p ? round2(p.tax * rate) : 0
+      });
+      created++;
+    }
+  }
+  await logAction("Import PDF",
+    `${created} créés, ${updated} mis à jour, ${ignored} ignorés`, "", normalizeMcCode(client.customer_code));
+  return { created, updated, ignored };
 }
