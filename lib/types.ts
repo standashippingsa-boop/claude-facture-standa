@@ -70,6 +70,8 @@ export interface Pkg {
   total_htg: number;
   invoice_id?: string | null;
   mcpack_data?: Record<string, string>; // TOUT kolòn Excel MCPACK la
+  received_at?: string | null;      // dat/lè resepsyon MCPACK (otomatik sèlman)
+  received_method?: string;         // Synchronisation MCPACK | Import PDF | Analyse Photo | Extension Chrome
   selected?: boolean; // UI sèlman
 }
 

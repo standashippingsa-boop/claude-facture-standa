@@ -696,3 +696,81 @@ export async function commitPdfImport(
     `${created} créés, ${updated} mis à jour, ${ignored} ignorés`, "", normalizeMcCode(client.customer_code));
   return { created, updated, ignored };
 }
+
+// ================= ANALYSE PHOTO — MATCHING + ENKOYERANS (V8 Faz 3) =================
+export interface PhotoMatch {
+  filename: string; guia: string; guiaSource: string;
+  customer_code: string; tracking: string; weight: number;
+  matched: boolean; matchedTracking?: string; matchedCode?: string; matchedStatus?: string;
+  incoherences: string[];      // lis pwoblèm ki jwenn pou foto sa a
+}
+
+/**
+ * Konpare foto yo ak bazdone a (pa Guía an premye — soti nan kòd bar — answit Tracking).
+ * Detekte enkoyerans: kòd kliyan diferan, tracking diferan, pwa diferan.
+ */
+export async function matchPhotoScans(scans: {
+  filename: string; guia: string; guiaSource: string;
+  customer_code: string; tracking: string; weight: number;
+}[]): Promise<PhotoMatch[]> {
+  const { data } = await supabase.from("packages")
+    .select("tracking_number, tracking_manual, customer_code, status, weight, mcpack_data");
+  const pkgs = (data ?? []) as any[];
+
+  const guiaOf = (p: any) => String(p.mcpack_data?.Guia ?? p.mcpack_data?.["Guía"] ?? p.tracking_number ?? "").toUpperCase();
+  const byTracking = new Map<string, any>();
+  const byGuia = new Map<string, any>();
+  for (const p of pkgs) {
+    if (p.tracking_number) byTracking.set(String(p.tracking_number).toUpperCase(), p);
+    if (p.tracking_manual) byTracking.set(String(p.tracking_manual).toUpperCase(), p);
+    const g = guiaOf(p);
+    if (g) byGuia.set(g, p);
+  }
+
+  const results: PhotoMatch[] = [];
+  const toMark: string[] = [];
+
+  for (const s of scans) {
+    const g = s.guia.toUpperCase(), t = s.tracking.toUpperCase();
+    // Priyorite: Guía (kòd bar) -> Tracking
+    const hit = (g && (byGuia.get(g) || byTracking.get(g))) || (t && byTracking.get(t));
+    const inc: string[] = [];
+
+    if (hit) {
+      toMark.push(hit.tracking_number);
+      // Enkoyerans: kòd kliyan
+      if (s.customer_code && hit.customer_code &&
+          normalizeMcCode(s.customer_code) !== normalizeMcCode(hit.customer_code)) {
+        inc.push(`Code client photo (${normalizeMcCode(s.customer_code)}) ≠ système (${hit.customer_code})`);
+      }
+      // Enkoyerans: tracking
+      if (s.tracking && hit.tracking_number &&
+          s.tracking.toUpperCase() !== String(hit.tracking_number).toUpperCase() &&
+          s.tracking.toUpperCase() !== String(hit.tracking_manual ?? "").toUpperCase()) {
+        inc.push(`Tracking photo (${s.tracking}) ≠ système (${hit.tracking_number})`);
+      }
+      // Enkoyerans: pwa (twoulèwenn tolerans)
+      if (s.weight > 0 && hit.weight > 0 && Math.abs(s.weight - hit.weight) > 0.3) {
+        inc.push(`Poids photo (${s.weight} lb) ≠ système (${hit.weight} lb)`);
+      }
+      results.push({
+        ...s, matched: true, matchedTracking: hit.tracking_number,
+        matchedCode: hit.customer_code, matchedStatus: hit.status, incoherences: inc
+      });
+    } else {
+      // Pa jwenn — si nou pa t menm ka li Guía a, se yon avètisman
+      if (!s.guia) inc.push("Guía illisible (code-barres + texte flous) — vérifier manuellement");
+      results.push({ ...s, matched: false, incoherences: inc });
+    }
+  }
+
+  if (toMark.length) {
+    await supabase.from("packages")
+      .update({ received_at: new Date().toISOString(), received_method: "Analyse Photo" })
+      .in("tracking_number", toMark);
+  }
+  const totalInc = results.reduce((n, r) => n + r.incoherences.length, 0);
+  await logAction("Analyse Photo",
+    `${scans.length} photos, ${toMark.length} identifiés, ${totalInc} incohérences`, "", "");
+  return results;
+}

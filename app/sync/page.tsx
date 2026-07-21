@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Upload, CheckCircle2, RefreshCw, FileText, X } from "lucide-react";
+import { Upload, CheckCircle2, RefreshCw, FileText, X, Image } from "lucide-react";
 import { parseMcpackWorkbook } from "@/lib/xlsx";
 import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
+import { scanPhotos } from "@/lib/photoscan";
 import {
   commitPdfImport, commitSync, getClients, getImports, getSettings,
-  getVilles, logAction, previewSync, SyncPreview
+  getVilles, logAction, matchPhotoScans, PhotoMatch, previewSync, SyncPreview
 } from "@/lib/db";
 import { Client, ImportLog, Ville } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
@@ -26,6 +27,9 @@ export default function SyncPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [pdfClient, setPdfClient] = useState("");
   const [pdfDone, setPdfDone] = useState<string | null>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const [scans, setScans] = useState<PhotoMatch[] | null>(null);
+  const [scanProg, setScanProg] = useState("");
 
   const loadSide = async () => {
     const [v, s, l, c] = await Promise.all([getVilles(), getSettings(), getImports(), getClients()]);
@@ -59,6 +63,24 @@ export default function SyncPage() {
       await loadSide();
     } catch (e: any) { setErr("Erè: " + e.message); }
     finally { setBusy(false); }
+  };
+
+  const handlePhotos = async (files: FileList) => {
+    setErr(null); setScans(null); setBusy(true);
+    const arr = Array.from(files);
+    try {
+      setScanProg(`Analyse de ${arr.length} photo(s)...`);
+      const raw = await scanPhotos(arr, (idx, total, p) =>
+        setScanProg(`Photo ${idx + 1}/${total} — ${Math.round(p * 100)}%`));
+      const matched = await matchPhotoScans(raw.map((r) => ({
+        filename: r.filename, guia: r.guia, guiaSource: r.guiaSource,
+        customer_code: r.customer_code, tracking: r.tracking, weight: r.weight
+      })));
+      setScans(matched);
+      setScanProg("");
+    } catch (e: any) {
+      setErr("Erè analiz foto: " + (e.message ?? String(e)));
+    } finally { setBusy(false); }
   };
 
   const handleFile = async (f: File) => {
@@ -132,6 +154,94 @@ export default function SyncPage() {
             onChange={(e) => e.target.files?.[0] && handlePdf(e.target.files[0])} />
         </label>
         {pdfDone && <p className="mt-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">{pdfDone}</p>}
+      </div>
+
+      {/* ===== ANALYSE PHOTOS DES COLIS (V8 Faz 3) ===== */}
+      <div className="card p-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Image size={16} className="text-navy-light" />
+          <h2 className="text-sm font-bold text-navy">Analyse Photos des Colis</h2>
+        </div>
+        <p className="text-sm text-slate-600 mb-4">
+          Ajoute plizyè foto etikèt koli yo ansanm. Sistèm nan ap li Customer Code, Tracking Number
+          ak Guía sou chak etikèt, epi konpare yo ak bazdone a. Koli ki <b className="text-emerald-700">deja resevwa</b> nan
+          MCPACK ap parèt an <b className="text-emerald-700">vèt</b>. Sa ede w idantifye koli ki rive menm san lis MCPACK.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-line rounded-xl py-6 cursor-pointer hover:border-navy-light transition-colors">
+            <Image className="text-navy-light" />
+            <span className="text-sm font-semibold text-navy">Chwazi foto yo</span>
+            <span className="text-xs text-slate-400">plizyè imaj</span>
+            <input ref={photoRef} type="file" accept="image/*" multiple className="hidden"
+              onChange={(e) => e.target.files?.length && handlePhotos(e.target.files)} />
+          </label>
+          <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-line rounded-xl py-6 cursor-pointer hover:border-navy-light transition-colors">
+            <FileText className="text-navy-light" />
+            <span className="text-sm font-semibold text-navy">Chwazi yon DOSYE koli</span>
+            <span className="text-xs text-slate-400">non dosye a = dat rive a</span>
+            <input type="file" accept="image/*" multiple {...({ webkitdirectory: "" } as any)}
+              className="hidden" onChange={(e) => e.target.files?.length && handlePhotos(e.target.files)} />
+          </label>
+        </div>
+        {scanProg && <p className="mt-3 text-sm text-navy-light flex items-center gap-2"><RefreshCw size={14} className="animate-spin" /> {scanProg}</p>}
+
+        {scans && (() => {
+          const incs = scans.filter((s) => s.incoherences.length > 0);
+          return (
+            <div className="mt-4 space-y-3">
+              <div className="flex gap-4 text-sm flex-wrap">
+                <span className="text-emerald-700 font-semibold">🟢 {scans.filter((s) => s.matched).length} identifiés</span>
+                <span className="text-slate-500">⚪ {scans.filter((s) => !s.matched).length} non trouvés</span>
+                {incs.length > 0 && <span className="text-amber-700 font-semibold">⚠️ {incs.length} avec incohérences</span>}
+              </div>
+
+              {/* RAPÒ ENKOYERANS */}
+              {incs.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
+                  <p className="text-sm font-bold text-amber-800">⚠️ Incohérences détectées — à vérifier:</p>
+                  {incs.map((s, i) => (
+                    <div key={i} className="text-xs text-amber-800">
+                      <b className="font-mono">{s.guia || s.filename}</b>
+                      <ul className="list-disc ml-5 mt-0.5">
+                        {s.incoherences.map((m, j) => <li key={j}>{m}</li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="border border-line rounded-lg overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead><tr>{["Photo", "Customer Code", "Guía", "Source", "Tracking", "Résultat"].map((h) =>
+                    <th key={h} className="thc">{h}</th>)}</tr></thead>
+                  <tbody>
+                    {scans.map((s, i) => (
+                      <tr key={i} className={s.incoherences.length ? "!bg-amber-50" : s.matched ? "!bg-emerald-50" : i % 2 ? "bg-mist" : ""}>
+                        <td className="tdc max-w-[110px] truncate" title={s.filename}>{s.filename}</td>
+                        <td className="tdc font-bold text-navy">{s.matchedCode || s.customer_code || "—"}</td>
+                        <td className="tdc font-mono text-[11px]">{s.guia || "—"}</td>
+                        <td className="tdc">
+                          {s.guiaSource === "barcode" ? <span className="badge bg-blue-100 text-blue-700">code-barres</span>
+                            : s.guiaSource === "ocr" ? <span className="badge bg-slate-100 text-slate-600">texte</span>
+                            : <span className="text-slate-300">—</span>}
+                        </td>
+                        <td className="tdc font-mono text-[11px]">{s.matchedTracking || s.tracking || "—"}</td>
+                        <td className="tdc">
+                          {s.incoherences.length ? <span className="badge bg-amber-100 text-amber-700">⚠️ Incohérence</span>
+                            : s.matched ? <span className="badge bg-emerald-100 text-emerald-700">🟢 Reçu — {s.matchedStatus}</span>
+                            : <span className="badge bg-slate-200 text-slate-600">⚪ Non trouvé</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Guía li ak <b>code-barres</b> an premye (pi fyab), OCR pou rès la. Koli idantifye yo make resevwa (Analyse Photo). Tout antre nan Journal.
+              </p>
+            </div>
+          );
+        })()}
       </div>
 
       {busy && !preview && !pdfRows && <p className="text-sm text-slate-500">Analyse en cours...</p>}

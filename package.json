@@ -19,7 +19,9 @@
     "react-hook-form": "^7.53.0",
     "xlsx": "^0.18.5",
     "zod": "^3.23.8",
-    "pdfjs-dist": "^4.7.76"
+    "pdfjs-dist": "^4.7.76",
+    "tesseract.js": "^5.1.1",
+    "@zxing/library": "^0.21.3"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
