@@ -6,7 +6,7 @@ import Pagination from "@/components/Pagination";
 import {
   ClientTarifInfo, createInvoice, deletePackage, getClient, getClientTarifMap,
   getPackages, getSettings, getUsdRate, saveTrackingManual, setPackagesStatus,
-  saveInvoicePdfUrl, updatePackagePrice
+  logAction, saveInvoicePdfUrl, updatePackagePrice
 } from "@/lib/db";
 import { computePrice, round2 } from "@/lib/pricing";
 import { generateUploadDownload } from "@/lib/pdf";
@@ -14,6 +14,7 @@ import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { INTERNAL_STATUSES, Pkg } from "@/lib/types";
 import { htg, parseMcpackDate, usd } from "@/lib/utils";
 import { generateBonRemise } from "@/lib/bonremise";
+import { exportPackagesPdf } from "@/lib/listpdf";
 import { useRole } from "@/lib/authx";
 
 const PER_PAGE = 25;
@@ -44,6 +45,7 @@ export default function PackagesPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const { role } = useRole();
   const [sim, setSim] = useState<Simulation | null>(null);
+  const [fraisDga, setFraisDga] = useState("");
 
   const load = async () => {
     const [p, tm, r, s] = await Promise.all([
@@ -112,6 +114,7 @@ export default function PackagesPage() {
     if (!targets.length) { setNotice("Koli Facturé yo pa ka chanje statut isit la."); return; }
     try {
       await setPackagesStatus(targets.map((p) => p.id), bulkStatus);
+      await logAction("Changement Statut", `${targets.length} colis → ${bulkStatus}`, "", targets[0]?.customer_code ?? "");
       setPkgs((prev) => prev.map((p) =>
         targets.some((t) => t.id === p.id) ? { ...p, status: bulkStatus, selected: false } : p));
 
@@ -209,6 +212,7 @@ export default function PackagesPage() {
       subtotal, tax, totalUsd, rate,
       totalHtg: round2(totalUsd * rate)
     });
+    setFraisDga("");
   };
 
   /** Etap 2: konfimasyon -> kreye fakti a toutbon */
@@ -219,7 +223,9 @@ export default function PackagesPage() {
     if (!client) { setNotice(`Client "${code}" pa nan bazdone a. Kreye l nan meni Clients.`); setSim(null); return; }
     setBusy(true);
     try {
-      const inv = await createInvoice(client, selected, rate);
+      const dga = round2(Math.max(0, Number(fraisDga) || 0));
+      const inv = await createInvoice(client, selected, rate, dga);
+      await logAction("Facturation", `${inv.invoice_number} — ${selected.length} colis, ${usd(inv.grand_total)}${dga > 0 ? ` (DGA ${usd(dga)})` : ""}`, inv.invoice_number, code);
       const items = selected.map((p) => ({
         invoice_id: inv.id, tracking_number: p.tracking_number,
         tracking_manual: p.tracking_manual ?? "",
@@ -268,6 +274,10 @@ export default function PackagesPage() {
         </div>
       </div>
 
+      <div className="flex items-center gap-4 text-xs text-slate-500 px-1">
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300 inline-block" /> 🟢 Reçu chez MCPACK</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-white border border-line inline-block" /> ⚪ En attente de réception</span>
+      </div>
       <div className="card overflow-x-auto">
         <table className="w-full text-xs">
           <thead><tr>
@@ -281,7 +291,8 @@ export default function PackagesPage() {
                 Aucun colis. Utilisez <a href="/sync" className="text-navy underline font-semibold">Synchronisation MCPACK</a>.
               </td></tr>
             ) : pageRows.map((p, i) => (
-              <tr key={p.id} className={`${i % 2 ? "bg-mist" : ""} ${p.selected ? "!bg-blue-50" : ""}`}>
+              <tr key={p.id} className={`${p.received_at ? "!bg-emerald-50" : i % 2 ? "bg-mist" : ""} ${p.selected ? "!bg-blue-50" : ""}`}
+                title={p.received_at ? `Reçu chez MCPACK — ${p.received_method}` : "En attente de réception"}>
                 <td className="tdc">
                   <input type="checkbox" checked={!!p.selected} onChange={() => toggle(p.id)} />
                 </td>
@@ -306,16 +317,8 @@ export default function PackagesPage() {
                 <td className="tdc whitespace-nowrap">{p.created_date}</td>
                 <td className="tdc text-right">{p.weight}</td>
                 <td className="tdc max-w-[90px] truncate" title={p.content}>{p.content}</td>
-                <td className="tdc">
-                  <input type="number" step="0.01" defaultValue={p.price_usd} disabled={p.status !== "Disponible"}
-                    className="input !w-16 !py-0.5 !px-1 !text-xs text-right"
-                    onBlur={(e) => savePrice(p, Number(e.target.value), p.tax_usd)} />
-                </td>
-                <td className="tdc">
-                  <input type="number" step="0.01" defaultValue={p.tax_usd} disabled={p.status !== "Disponible"}
-                    className="input !w-14 !py-0.5 !px-1 !text-xs text-right"
-                    onBlur={(e) => savePrice(p, p.price_usd, Number(e.target.value))} />
-                </td>
+                <td className="tdc text-right">{usd(p.price_usd)}</td>
+                <td className="tdc text-right">{usd(p.tax_usd)}</td>
                 <td className="tdc text-right font-semibold whitespace-nowrap">{usd(p.total_usd)}</td>
                 <td className="tdc text-right text-[11px] text-slate-500 whitespace-nowrap">{htg(p.total_htg)}</td>
                 <td className="tdc"><StatusBadge status={p.status} /></td>
@@ -370,6 +373,12 @@ export default function PackagesPage() {
             disabled={busy || !selectedAll.length} title="Lis koli pou ajan transpò yo">
             <ClipboardList size={15} /> Créer Bon de Remise{selectedAll.length ? ` (${selectedAll.length})` : ""}
           </button>
+          <button className="btn btn-ghost border border-line"
+            onClick={() => exportPackagesPdf(selectedAll.length ? selectedAll : filtered, tarifMap,
+              selectedAll.length ? "Colis sélectionnés" : "Liste des colis")}
+            title="Exporter la liste en PDF">
+            <FileText size={15} /> Exporter PDF
+          </button>
           <button className="btn btn-ghost border border-line" onClick={applyTarif} disabled={busy}>
             <Calculator size={15} /> Appliquer tarification
           </button>
@@ -399,13 +408,21 @@ export default function PackagesPage() {
               <div className="border-t border-line my-2" />
               <div className="flex justify-between"><span className="text-slate-500">Sous-total</span><b>{usd(sim.subtotal)}</b></div>
               <div className="flex justify-between"><span className="text-slate-500">Tax</span><b>{usd(sim.tax)}</b></div>
-              <div className="flex justify-between text-navy"><span className="font-semibold">Grand Total USD</span><b>{usd(sim.totalUsd)}</b></div>
+              <label className="flex justify-between items-center gap-3 py-1">
+                <span className="text-slate-500">Frais DGA (douane, USD)</span>
+                <input type="number" step="0.01" min="0" className="input !w-24 !py-1 text-right"
+                  value={fraisDga} onChange={(e) => setFraisDga(e.target.value)} placeholder="0.00" />
+              </label>
+              <div className="flex justify-between text-navy border-t border-line pt-1">
+                <span className="font-semibold">Grand Total USD</span>
+                <b>{usd(round2(sim.totalUsd + Math.max(0, Number(fraisDga) || 0)))}</b>
+              </div>
               <div className="flex justify-between text-xs text-slate-500">
                 <span>Taux utilisé</span><span>1 USD = {sim.rate.toFixed(2)} HTG</span>
               </div>
               <div className="flex justify-between items-center bg-navy text-white rounded-lg px-3 py-2 mt-2">
                 <span className="font-semibold">Grand Total HTG</span>
-                <b className="text-lg">{htg(sim.totalHtg)}</b>
+                <b className="text-lg">{htg(round2((sim.totalUsd + Math.max(0, Number(fraisDga) || 0)) * sim.rate))}</b>
               </div>
             </div>
             <div className="mt-5 flex gap-3">

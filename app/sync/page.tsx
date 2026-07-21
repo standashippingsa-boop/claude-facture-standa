@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Upload, CheckCircle2, RefreshCw } from "lucide-react";
 import { parseMcpackWorkbook } from "@/lib/xlsx";
-import { commitSync, getImports, getSettings, getVilles, previewSync, SyncPreview } from "@/lib/db";
+import { commitSync, getImports, getSettings, getVilles, logAction, previewSync, SyncPreview } from "@/lib/db";
 import { ImportLog, Ville } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
 
@@ -44,6 +44,8 @@ export default function SyncPage() {
     setBusy(true);
     try {
       const log = await commitSync(preview, filename, autoPricing);
+      await logAction("Synchronisation MCPACK",
+        `${filename}: ${log.new_packages} nouveaux, ${log.existing_packages} existants, ${log.new_clients} clients, ${log.errors} erreurs`);
       setDone(log); setPreview(null);
       if (fileRef.current) fileRef.current.value = "";
       await loadSide();
@@ -117,10 +119,23 @@ export default function SyncPage() {
       )}
 
       {done && (
-        <p className="card px-4 py-3 text-sm text-emerald-700 bg-emerald-50 border-emerald-200">
-          ✓ Importation validée: {done.new_packages} nouveaux colis, {done.new_clients} nouveaux clients,{" "}
-          {done.existing_packages} déjà existants, {done.errors} erreurs.
-        </p>
+        <div className="card p-5 bg-emerald-50 border-emerald-200 space-y-3">
+          <div className="flex items-center gap-2 text-emerald-700 font-bold">
+            <CheckCircle2 size={20} /> Synchronisation terminée avec succès
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+            {([["Nouveaux packages", done.new_packages, "text-emerald-700"],
+               ["Packages mis à jour", done.existing_packages, "text-blue-700"],
+               ["Nouveaux clients", done.new_clients, "text-teal-700"],
+               ["Erreurs", done.errors, done.errors > 0 ? "text-red-600" : "text-slate-500"]] as const).map(([k, v, c]) => (
+              <div key={k} className="bg-white rounded-lg py-3 border border-emerald-100">
+                <p className={`text-2xl font-extrabold ${c}`}>{v}</p>
+                <p className="text-[11px] text-slate-500 uppercase mt-0.5">{k}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-emerald-700">Enregistré dans le Journal. Les doublons (même Guía / Tracking) ont été ignorés automatiquement.</p>
+        </div>
       )}
 
       <div className="card overflow-x-auto">

@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2, Pencil, MapPin } from "lucide-react";
 import {
   deleteVille, getSettings, getUsdRate,
-  getVilles, setSetting, setUsdRate, toggleVille, upsertVille
+  getVilles, logAction, reapplyTarifDisponible, setSetting, setUsdRate, toggleVille, upsertVille
 } from "@/lib/db";
 import { Staff, Ville } from "@/lib/types";
 import { usd } from "@/lib/utils";
@@ -56,8 +56,14 @@ export default function SettingsPage() {
   const onSubmit = async (f: Form) => {
     try {
       await upsertVille({ ...f, id: editing?.id });
+      await logAction("Modification Prix", `Ville ${f.name}: ${f.price_personal}/${f.price_business} USD/lb`, "", "");
+      let extra = "";
+      if (editing) {
+        const n = await reapplyTarifDisponible();
+        extra = n > 0 ? ` — ${n} colis Disponible re-tarifés automatiquement.` : "";
+      }
       setShowForm(false);
-      setNotice(editing ? `Ville "${f.name}" modifiée.` : `Ville "${f.name}" ajoutée.`);
+      setNotice(`✅ Ville "${f.name}" ${editing ? "modifiée" : "ajoutée"} avec succès.${extra}`);
       load();
     } catch (e: any) {
       setNotice(e.message?.includes("duplicate")

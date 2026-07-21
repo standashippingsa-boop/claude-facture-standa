@@ -83,7 +83,8 @@ export interface Invoice {
   ville: string;             // vil kliyan an (fikse lè fakti a kreye)
   subtotal: number;       // USD
   tax: number;            // USD
-  grand_total: number;    // USD
+  grand_total: number;
+  frais_dga?: number;    // USD
   exchange_rate_used: number;
   total_usd: number;
   total_htg: number;

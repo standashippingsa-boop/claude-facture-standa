@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Pencil, Trash2, Plus, UserPlus, X } from "lucide-react";
-import { DupGroup, deleteClient, findDuplicateGroups, getClients, getVilles, mergeClients, upsertClient } from "@/lib/db";
+import { DupGroup, deleteClient, findDuplicateGroups, getClients, getVilles, logAction, mergeClients, upsertClient } from "@/lib/db";
 import { adminApi, useRole } from "@/lib/authx";
 import { Client, Ville } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
@@ -98,6 +98,7 @@ export default function ClientsPage() {
         username: j.username,
         tempPassword: j.temp_password
       });
+      await logAction("Activation Client", `${mcClient.fullname} activé`, "", j.username);
       setMcClient(null); setMcCode("");
       load();
     } catch (e: any) {

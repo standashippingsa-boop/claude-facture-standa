@@ -246,10 +246,11 @@ export async function commitSync(
 }
 
 // ================= INVOICES =================
-export async function createInvoice(client: Client, pkgs: Pkg[], rate: number): Promise<Invoice> {
+export async function createInvoice(client: Client, pkgs: Pkg[], rate: number, fraisDga = 0): Promise<Invoice> {
   const subtotal = round2(pkgs.reduce((s, p) => s + p.price_usd, 0));
   const tax = round2(pkgs.reduce((s, p) => s + p.tax_usd, 0));
-  const grand = round2(subtotal + tax);
+  const dga = round2(Math.max(0, fraisDga));
+  const grand = round2(subtotal + tax + dga);
   const invoice_number = "SC-" + Date.now().toString().slice(-6);
 
   const { data: inv, error } = await supabase.from("invoices").insert({
@@ -259,7 +260,7 @@ export async function createInvoice(client: Client, pkgs: Pkg[], rate: number): 
     whatsapp: client.whatsapp,
     pickup_location: client.pickup_location,
     ville: client.ville?.name ?? "",
-    subtotal, tax, grand_total: grand,
+    subtotal, tax, frais_dga: dga, grand_total: grand,
     exchange_rate_used: rate,
     total_usd: grand,
     total_htg: round2(grand * rate),
@@ -571,4 +572,63 @@ export async function mergeClients(primary: Client, secondary: Client): Promise<
   // 3) Efase kont sekondè a — pa dwe rete okenn kliyan an doub
   const { error } = await supabase.from("clients").delete().eq("id", secondary.id);
   if (error) throw error;
+}
+
+// ================= JOURNAL (V8 Faz 1) =================
+export async function logAction(action: string, details = "", packageRef = "", customerCode = "") {
+  try {
+    let userName = "";
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      const { data: s } = await supabase.from("staff")
+        .select("prenom, nom, role").eq("auth_user_id", data.user.id).maybeSingle();
+      if (s) userName = (s.prenom ? s.prenom + " " : "") + (s.nom ?? "") + " (" + s.role + ")";
+    }
+    await supabase.from("journal").insert({
+      user_name: userName.trim(), action, details, package_ref: packageRef, customer_code: customerCode
+    });
+  } catch { /* journal pa dwe janm bloke operasyon an */ }
+}
+
+export interface JournalRow {
+  id: string; created_at: string; user_name: string; action: string;
+  details: string; package_ref: string; customer_code: string;
+}
+export async function getJournal(limit = 300): Promise<JournalRow[]> {
+  const { data } = await supabase.from("journal").select("*")
+    .order("created_at", { ascending: false }).limit(limit);
+  return (data ?? []) as JournalRow[];
+}
+export async function clearJournal(): Promise<void> {
+  const { error } = await supabase.from("journal").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  if (error) throw error;
+}
+
+// ================= RE-TARIFICATION OTOMATIK (V8 Faz 1) =================
+/**
+ * Apre admin chanje pri yon vil nan Paramètres: tout koli Disponible
+ * (PA facturés) mete ajou otomatikman ak nouvo pri a. Facturés yo pa touche.
+ * Retounen kantite koli ki chanje.
+ */
+export async function reapplyTarifDisponible(): Promise<number> {
+  const [tarif, rate] = await Promise.all([getClientTarifMap(), getUsdRate()]);
+  const { data } = await supabase.from("packages")
+    .select("*").eq("status", "Disponible");
+  const pkgs = (data ?? []) as Pkg[];
+  let n = 0;
+  for (const p of pkgs) {
+    const info = tarif.get(p.customer_code);
+    if (!info) continue;
+    const r = computePrice(p.weight, info.account_type, info.ville);
+    if (!r) continue;
+    if (round2(p.price_usd) !== r.price || round2(p.tax_usd) !== r.tax) {
+      await supabase.from("packages").update({
+        price_usd: r.price, tax_usd: r.tax,
+        price_htg: round2(r.price * rate), tax_htg: round2(r.tax * rate),
+        total_usd: round2(r.price + r.tax), total_htg: round2((r.price + r.tax) * rate)
+      }).eq("id", p.id);
+      n++;
+    }
+  }
+  return n;
 }

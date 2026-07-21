@@ -127,8 +127,10 @@ export function generateInvoicePdf(
   const rate = Number(inv.exchange_rate_used) || 0;
   const totalHtg = Number(inv.total_htg) || Number(inv.grand_total) * rate;
 
+  const dga = Number(inv.frais_dga) || 0;
+  const boxH = dga > 0 ? 38 : 31;
   doc.setFillColor(...MIST);
-  doc.roundedRect(x, y, boxW, 31, 2, 2, "F");
+  doc.roundedRect(x, y, boxW, boxH, 2, 2, "F");
   doc.setFontSize(10);
   doc.setTextColor(40, 40, 40);
   doc.setFont("helvetica", "normal");
@@ -136,21 +138,27 @@ export function generateInvoicePdf(
   doc.text(usd(inv.subtotal), x + boxW - 5, y + 7, { align: "right" });
   doc.text("Tax:", x + 5, y + 14);
   doc.text(usd(inv.tax), x + boxW - 5, y + 14, { align: "right" });
+  let yg = y + 21;
+  if (dga > 0) {
+    doc.text("Frais DGA (douane):", x + 5, yg);
+    doc.text(usd(dga), x + boxW - 5, yg, { align: "right" });
+    yg += 7;
+  }
   doc.setFont("helvetica", "bold");
-  doc.text("Grand Total USD:", x + 5, y + 21);
-  doc.text(usd(inv.grand_total), x + boxW - 5, y + 21, { align: "right" });
+  doc.text("Grand Total USD:", x + 5, yg);
+  doc.text(usd(inv.grand_total), x + boxW - 5, yg, { align: "right" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(90, 90, 90);
-  doc.text(`Taux: 1 USD = ${rate.toFixed(2)} HTG`, x + 5, y + 27.5);
+  doc.text(`Taux: 1 USD = ${rate.toFixed(2)} HTG`, x + 5, yg + 6.5);
 
   doc.setFillColor(...NAVY);
-  doc.roundedRect(x, y + 31, boxW, 11, 2, 2, "F");
+  doc.roundedRect(x, y + boxH, boxW, 11, 2, 2, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.5);
-  doc.text("GRAND TOTAL HTG:", x + 5, y + 38);
-  doc.text(htg(totalHtg), x + boxW - 5, y + 38, { align: "right" });
+  doc.text("GRAND TOTAL HTG:", x + 5, y + boxH + 7);
+  doc.text(htg(totalHtg), x + boxW - 5, y + boxH + 7, { align: "right" });
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
