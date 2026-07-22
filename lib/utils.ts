@@ -47,3 +47,17 @@ export function normalizeMcCode(raw?: string | null): string {
   const up = s.toUpperCase();
   return up.startsWith("MC-") ? up : up.startsWith("MC") && /^MC\d/.test(up) ? "MC-" + up.slice(2) : "MC-" + up.replace(/^-+/, "");
 }
+
+/**
+ * KLASIFIKASYON TRACKING (V8.5)
+ * ─────────────────────────────
+ * Tracking ID (Guía) = tout kòd ki kòmanse ak "WR" (ex: WR102600143471).
+ * Tracking Number    = tout lòt (GFUS..., TBA..., 1Z..., 9400..., UUS..., SPX...).
+ * De kolòn sa yo pa dwe JANM melanje.
+ */
+export const isGuia = (v?: string | null): boolean =>
+  /^WR\d{6,}$/i.test(String(v ?? "").trim());
+
+/** Retire espas/karaktè envizib nan yon kòd tracking. */
+export const cleanTracking = (v?: string | null): string =>
+  String(v ?? "").trim().replace(/\s+/g, "").toUpperCase();

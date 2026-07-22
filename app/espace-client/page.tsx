@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Clock, LogOut, MapPin, Package } from "lucide-react";
+import { Bell, Clock, KeyRound, LogOut, MapPin, Package, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { createRetrait, getClientByAuthId, getClientPackagesAndInvoices, getClientRetraits } from "@/lib/db";
 import { Client, Invoice, Pkg, Retrait } from "@/lib/types";
@@ -24,7 +24,6 @@ export default function EspaceClientPage() {
       const { data } = await supabase.auth.getUser();
       if (!data.user) { router.replace("/login"); return; }
       const c = await getClientByAuthId(data.user.id);
-      if (c?.must_change_password) { router.replace("/nouveau-mot-de-passe"); return; }
       setClient(c);
       if (c?.customer_code) {
         const [{ pkgs: p, invs: i }, rs] = await Promise.all([
@@ -38,6 +37,28 @@ export default function EspaceClientPage() {
   }, [router]);
 
   const logout = async () => { await supabase.auth.signOut(); router.replace("/login"); };
+
+  // ===== Changer mon mot de passe (V8.5 §13) =====
+  const [showPwd, setShowPwd] = useState(false);
+  const [pwd1, setPwd1] = useState("");
+  const [pwd2, setPwd2] = useState("");
+  const [pwdMsg, setPwdMsg] = useState<string | null>(null);
+  const [pwdBusy, setPwdBusy] = useState(false);
+
+  const changePassword = async () => {
+    setPwdMsg(null);
+    if (pwd1.length < 6) { setPwdMsg("Modpas la dwe gen omwen 6 karaktè."); return; }
+    if (pwd1 !== pwd2) { setPwdMsg("De modpas yo pa menm."); return; }
+    setPwdBusy(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pwd1 });
+      if (error) throw error;
+      setPwdMsg("✅ Modpas ou chanje avèk siksè.");
+      setPwd1(""); setPwd2("");
+      setTimeout(() => { setShowPwd(false); setPwdMsg(null); }, 1500);
+    } catch (e: any) { setPwdMsg("Erè: " + (e.message ?? String(e))); }
+    finally { setPwdBusy(false); }
+  };
 
   const toggleSel = (id: string) =>
     setSel((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -113,11 +134,49 @@ export default function EspaceClientPage() {
               <p className="text-xs text-white/70">{non} — {client.customer_code}</p>
             </div>
           </div>
-          <button className="text-white/80 hover:text-white text-sm flex items-center gap-1" onClick={logout}>
-            <LogOut size={15} /> Dekonekte
-          </button>
+          <div className="flex items-center gap-4">
+            <button className="text-white/80 hover:text-white text-sm flex items-center gap-1"
+              onClick={() => setShowPwd(true)}>
+              <KeyRound size={15} /> Changer mon mot de passe
+            </button>
+            <button className="text-white/80 hover:text-white text-sm flex items-center gap-1" onClick={logout}>
+              <LogOut size={15} /> Dekonekte
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* ===== Modal: Changer mon mot de passe ===== */}
+      {showPwd && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowPwd(false)}>
+          <div className="card p-6 max-w-sm w-full space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Changer mon mot de passe</h2>
+              <button className="text-slate-400 hover:text-navy" onClick={() => setShowPwd(false)}><X size={18} /></button>
+            </div>
+            <label className="block">
+              <span className="text-xs font-semibold text-slate-600">Nouveau mot de passe</span>
+              <input type="password" className="input mt-1" value={pwd1} onChange={(e) => setPwd1(e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold text-slate-600">Confirmer le mot de passe</span>
+              <input type="password" className="input mt-1" value={pwd2}
+                onChange={(e) => setPwd2(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && changePassword()} />
+            </label>
+            {pwdMsg && <p className={`text-sm rounded-lg px-3 py-2 ${pwdMsg.startsWith("✅")
+              ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
+              : "text-red-600 bg-red-50 border border-red-200"}`}>{pwdMsg}</p>}
+            <button className="btn w-full justify-center" onClick={changePassword} disabled={pwdBusy}>
+              {pwdBusy ? "Ap chanje..." : "Enregistrer"}
+            </button>
+            <p className="text-[11px] text-slate-400 text-center">
+              Si w bliye modpas ou, kontakte STANDA COMMERCIAL — administratè a ap jenere yon nouvo pou ou.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-5">
         {/* Adrès depo */}

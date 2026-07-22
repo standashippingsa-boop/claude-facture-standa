@@ -2,11 +2,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Upload, CheckCircle2, RefreshCw, FileText, X, Image } from "lucide-react";
 import { parseMcpackWorkbook } from "@/lib/xlsx";
-import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
 import { scanPhotos } from "@/lib/photoscan";
 import {
-  commitPdfImport, commitSync, getClients, getImports, getSettings,
-  getVilles, logAction, matchPhotoScans, PhotoMatch, previewSync, SyncPreview
+  commitSync, getClients, getImports, getSettings,
+  getVilles, logAction, analyzePhotoScans, applyPhotoValidations, logOcrScans, PhotoMatch, previewSync, SyncPreview
 } from "@/lib/db";
 import { Client, ImportLog, Ville } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
@@ -21,15 +20,29 @@ export default function SyncPage() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<ImportLog | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const pdfRef = useRef<HTMLInputElement>(null);
-  const [pdfRows, setPdfRows] = useState<PdfPkgRow[] | null>(null);   // modal chwazi kliyan
-  const [pdfName, setPdfName] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
-  const [pdfClient, setPdfClient] = useState("");
-  const [pdfDone, setPdfDone] = useState<string | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
   const [scans, setScans] = useState<PhotoMatch[] | null>(null);
   const [scanProg, setScanProg] = useState("");
+  const [accepted, setAccepted] = useState<Set<string>>(new Set());
+  const [applyDone, setApplyDone] = useState<string | null>(null);
+
+  const toggleAccept = (f: string) => setAccepted((prev) => {
+    const n = new Set(prev); n.has(f) ? n.delete(f) : n.add(f); return n;
+  });
+
+  const validerPhotos = async () => {
+    if (!scans) return;
+    const items = scans.filter((s) => accepted.has(s.filename) && s.matched);
+    if (!items.length) { setErr("Okenn foto valide ki matche yon koli."); return; }
+    setBusy(true);
+    try {
+      const r = await applyPhotoValidations(items);
+      setApplyDone(`✅ ${r.received} colis marqués reçus${r.trackingAdded ? `, ${r.trackingAdded} Tracking Number ajoutés` : ""}.`);
+      setScans(null); setAccepted(new Set());
+    } catch (e: any) { setErr("Erè: " + e.message); }
+    finally { setBusy(false); }
+  };
 
   const loadSide = async () => {
     const [v, s, l, c] = await Promise.all([getVilles(), getSettings(), getImports(), getClients()]);
@@ -39,32 +52,6 @@ export default function SyncPage() {
   };
   useEffect(() => { loadSide().catch((e) => setErr(e.message)); }, []);
 
-  const handlePdf = async (f: File) => {
-    setErr(null); setPdfDone(null); setPdfName(f.name); setBusy(true);
-    try {
-      const rows = await parseMcpackPdf(await f.arrayBuffer());
-      if (!rows.length) { setErr("Aucun colis détecté dans le PDF. Vérifiez que c'est bien un PDF MCPACK."); return; }
-      setPdfRows(rows); setPdfClient("");
-    } catch (e: any) {
-      setErr("Erè lekti PDF: " + (e.message ?? String(e)));
-    } finally { setBusy(false); }
-  };
-
-  const validerPdf = async () => {
-    if (!pdfRows || !pdfClient) return;
-    const client = clients.find((c) => c.id === pdfClient);
-    if (!client) return;
-    setBusy(true);
-    try {
-      const r = await commitPdfImport(pdfRows, client, autoPricing);
-      setPdfDone(`✅ Import PDF réussi: ${r.created} créés, ${r.updated} mis à jour, ${r.ignored} ignorés — client ${client.customer_code}.`);
-      setPdfRows(null); setPdfClient(""); setPdfName("");
-      if (pdfRef.current) pdfRef.current.value = "";
-      await loadSide();
-    } catch (e: any) { setErr("Erè: " + e.message); }
-    finally { setBusy(false); }
-  };
-
   const handlePhotos = async (files: FileList) => {
     setErr(null); setScans(null); setBusy(true);
     const arr = Array.from(files);
@@ -72,11 +59,15 @@ export default function SyncPage() {
       setScanProg(`Analyse de ${arr.length} photo(s)...`);
       const raw = await scanPhotos(arr, (idx, total, p) =>
         setScanProg(`Photo ${idx + 1}/${total} — ${Math.round(p * 100)}%`));
-      const matched = await matchPhotoScans(raw.map((r) => ({
-        filename: r.filename, guia: r.guia, guiaSource: r.guiaSource,
-        customer_code: r.customer_code, tracking: r.tracking, weight: r.weight
+      const analyzed = await analyzePhotoScans(raw.map((r) => ({
+        filename: r.filename, previewUrl: r.previewUrl, guia: r.guia, guiaSource: r.guiaSource,
+        tracking_number: r.tracking_number, customer_code: r.customer_code,
+        confidence: r.confidence, step: r.step
       })));
-      setScans(matched);
+      await logOcrScans(analyzed);
+      setScans(analyzed);
+      // Pre-seleksyone sèlman sa ki "validated" (konfyans wo, san enkoyerans)
+      setAccepted(new Set(analyzed.filter((a) => a.verdict === "validated").map((a) => a.filename)));
       setScanProg("");
     } catch (e: any) {
       setErr("Erè analiz foto: " + (e.message ?? String(e)));
@@ -135,27 +126,6 @@ export default function SyncPage() {
         </label>
       </div>
 
-      {/* ===== IMPORT PDF MCPACK (V8 Faz 2) ===== */}
-      <div className="card p-6">
-        <div className="flex items-center gap-2 mb-3">
-          <FileText size={16} className="text-navy-light" />
-          <h2 className="text-sm font-bold text-navy">Import PDF MCPACK</h2>
-        </div>
-        <p className="text-sm text-slate-600 mb-4">
-          Pataje oswa telechaje yon PDF ki soti nan MCPACK. Sistèm nan ap li Guía, Tracking Number,
-          Poids, Contenu, Date, Heure ak Estatus otomatikman. Kòm PDF MCPACK yo <b>pa gen Customer Code</b>,
-          w ap chwazi kliyan an apre analiz la.
-        </p>
-        <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-line rounded-xl py-8 cursor-pointer hover:border-navy-light transition-colors">
-          <FileText className="text-navy-light" />
-          <span className="text-sm font-semibold text-navy">Import PDF — chwazi fichye PDF la</span>
-          <span className="text-xs text-slate-400">.pdf {pdfName && `— ${pdfName}`}</span>
-          <input ref={pdfRef} type="file" accept="application/pdf,.pdf" className="hidden"
-            onChange={(e) => e.target.files?.[0] && handlePdf(e.target.files[0])} />
-        </label>
-        {pdfDone && <p className="mt-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">{pdfDone}</p>}
-      </div>
-
       {/* ===== ANALYSE PHOTOS DES COLIS (V8 Faz 3) ===== */}
       <div className="card p-6">
         <div className="flex items-center gap-2 mb-3">
@@ -185,51 +155,64 @@ export default function SyncPage() {
         </div>
         {scanProg && <p className="mt-3 text-sm text-navy-light flex items-center gap-2"><RefreshCw size={14} className="animate-spin" /> {scanProg}</p>}
 
+        {applyDone && <p className="mt-3 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">{applyDone}</p>}
+
         {scans && (() => {
-          const incs = scans.filter((s) => s.incoherences.length > 0);
+          const ok = scans.filter((s) => s.verdict === "validated");
+          const rev = scans.filter((s) => s.verdict === "review");
           return (
             <div className="mt-4 space-y-3">
-              <div className="flex gap-4 text-sm flex-wrap">
-                <span className="text-emerald-700 font-semibold">🟢 {scans.filter((s) => s.matched).length} identifiés</span>
-                <span className="text-slate-500">⚪ {scans.filter((s) => !s.matched).length} non trouvés</span>
-                {incs.length > 0 && <span className="text-amber-700 font-semibold">⚠️ {incs.length} avec incohérences</span>}
+              {/* Rezime */}
+              <div className="flex gap-4 text-sm flex-wrap items-center">
+                <span className="text-emerald-700 font-semibold">🟢 {ok.length} validées</span>
+                <span className="text-amber-700 font-semibold">🟡 {rev.length} à vérifier</span>
+                <span className="text-slate-500">Sélectionnées: {accepted.size}</span>
+                <div className="flex-1" />
+                <button className="btn" onClick={validerPhotos} disabled={busy || !accepted.size}>
+                  Importer {accepted.size} colis validé(s)
+                </button>
               </div>
 
-              {/* RAPÒ ENKOYERANS */}
-              {incs.length > 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
-                  <p className="text-sm font-bold text-amber-800">⚠️ Incohérences détectées — à vérifier:</p>
-                  {incs.map((s, i) => (
-                    <div key={i} className="text-xs text-amber-800">
-                      <b className="font-mono">{s.guia || s.filename}</b>
-                      <ul className="list-disc ml-5 mt-0.5">
-                        {s.incoherences.map((m, j) => <li key={j}>{m}</li>)}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              )}
-
+              {/* Tablo validasyon — Aksepte / Rejte chak foto */}
               <div className="border border-line rounded-lg overflow-x-auto">
                 <table className="w-full text-xs">
-                  <thead><tr>{["Photo", "Customer Code", "Guía", "Source", "Tracking", "Résultat"].map((h) =>
-                    <th key={h} className="thc">{h}</th>)}</tr></thead>
+                  <thead><tr>
+                    <th className="thc">✔</th>
+                    {["Aperçu", "Tracking ID (Guía)", "Tracking Number", "Customer Code", "Confiance", "Résultat"]
+                      .map((h) => <th key={h} className="thc">{h}</th>)}
+                  </tr></thead>
                   <tbody>
                     {scans.map((s, i) => (
-                      <tr key={i} className={s.incoherences.length ? "!bg-amber-50" : s.matched ? "!bg-emerald-50" : i % 2 ? "bg-mist" : ""}>
-                        <td className="tdc max-w-[110px] truncate" title={s.filename}>{s.filename}</td>
-                        <td className="tdc font-bold text-navy">{s.matchedCode || s.customer_code || "—"}</td>
-                        <td className="tdc font-mono text-[11px]">{s.guia || "—"}</td>
+                      <tr key={i} className={
+                        s.verdict === "validated" ? "!bg-emerald-50"
+                        : s.incoherences.length ? "!bg-amber-50" : i % 2 ? "bg-mist" : ""}>
                         <td className="tdc">
-                          {s.guiaSource === "barcode" ? <span className="badge bg-blue-100 text-blue-700">code-barres</span>
-                            : s.guiaSource === "ocr" ? <span className="badge bg-slate-100 text-slate-600">texte</span>
-                            : <span className="text-slate-300">—</span>}
+                          <input type="checkbox" checked={accepted.has(s.filename)}
+                            disabled={!s.matched} onChange={() => toggleAccept(s.filename)} />
                         </td>
-                        <td className="tdc font-mono text-[11px]">{s.matchedTracking || s.tracking || "—"}</td>
                         <td className="tdc">
-                          {s.incoherences.length ? <span className="badge bg-amber-100 text-amber-700">⚠️ Incohérence</span>
-                            : s.matched ? <span className="badge bg-emerald-100 text-emerald-700">🟢 Reçu — {s.matchedStatus}</span>
-                            : <span className="badge bg-slate-200 text-slate-600">⚪ Non trouvé</span>}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={s.previewUrl} alt={s.filename} className="w-12 h-12 object-cover rounded border border-line" />
+                        </td>
+                        <td className="tdc font-mono text-[11px]">
+                          {s.guia || <span className="text-slate-300">—</span>}
+                          {s.guiaSource === "barcode" && <span className="ml-1 badge bg-blue-100 text-blue-700">code-barres</span>}
+                        </td>
+                        <td className="tdc font-mono text-[11px]">{s.tracking_number || s.matchedManual || <span className="text-slate-300">—</span>}</td>
+                        <td className="tdc font-bold text-navy">{s.matchedCode || s.customer_code || "—"}</td>
+                        <td className="tdc">
+                          <span className={`badge ${s.confidence >= 90 ? "bg-emerald-100 text-emerald-700"
+                            : s.confidence >= 70 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
+                            {Math.round(s.confidence)}%
+                          </span>
+                        </td>
+                        <td className="tdc max-w-[260px]">
+                          <span className={s.verdict === "validated" ? "text-emerald-700" : "text-amber-800"}>
+                            {s.verdict === "validated" ? "🟢 " : "🟡 "}{s.message}
+                          </span>
+                          {s.incoherences.map((m, j) => (
+                            <span key={j} className="block text-[11px] text-amber-700">⚠️ {m}</span>
+                          ))}
                         </td>
                       </tr>
                     ))}
@@ -237,76 +220,19 @@ export default function SyncPage() {
                 </table>
               </div>
               <p className="text-[11px] text-slate-400">
-                Guía li ak <b>code-barres</b> an premye (pi fyab), OCR pou rès la. Koli idantifye yo make resevwa (Analyse Photo). Tout antre nan Journal.
+                Scanner a <b>pa devine</b>: barcode an premye (≥98% konfyans), answit Tracking ID nan tèks,
+                answit Tracking Number nan zòn dedye a. Okenn koli pa antre san ou valide l. Pwa foto a pa itilize —
+                pwa ofisyèl la rete sa ki nan sistèm nan. Tout analiz antre nan Journal OCR.
               </p>
             </div>
           );
         })()}
       </div>
 
-      {busy && !preview && !pdfRows && <p className="text-sm text-slate-500">Analyse en cours...</p>}
+      {busy && !preview && <p className="text-sm text-slate-500">Analyse en cours...</p>}
       {err && <p className="card px-4 py-3 text-sm text-red-600">{err}</p>}
 
       {/* ===== Modal: chwazi kliyan pou koli PDF yo ===== */}
-      {pdfRows && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-          onClick={() => setPdfRows(null)}>
-          <div className="card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-4"
-            onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-navy uppercase tracking-wide">
-                Import PDF — {pdfRows.length} colis détectés
-              </h2>
-              <button className="text-slate-400 hover:text-navy" onClick={() => setPdfRows(null)}><X size={18} /></button>
-            </div>
-
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
-              ⚠️ Aucun Customer Code détecté. Veuillez sélectionner le client concerné :
-            </div>
-            <select className="input w-full" value={pdfClient} onChange={(e) => setPdfClient(e.target.value)}>
-              <option value="">— Sélectionner le client —</option>
-              {clients.filter((c) => c.customer_code).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.customer_code} — {[c.fullname, c.surname].filter(Boolean).join(" ")}
-                </option>
-              ))}
-            </select>
-
-            <div className="border border-line rounded-lg overflow-x-auto max-h-64 overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0"><tr>
-                  {["Guía", "Tracking", "Lb", "Contenu", "Date", "Heure", "Estatus"].map((h) =>
-                    <th key={h} className="thc">{h}</th>)}
-                </tr></thead>
-                <tbody>
-                  {pdfRows.map((r, i) => (
-                    <tr key={i} className={i % 2 ? "bg-mist" : ""}>
-                      <td className="tdc font-mono text-[11px]">{r.guia}</td>
-                      <td className="tdc font-mono text-[11px]">{r.tracking_number}</td>
-                      <td className="tdc text-right">{r.weight.toFixed(2)}</td>
-                      <td className="tdc max-w-[110px] truncate" title={r.content}>{r.content}</td>
-                      <td className="tdc whitespace-nowrap">{r.created_date}</td>
-                      <td className="tdc whitespace-nowrap">{r.heure}</td>
-                      <td className="tdc max-w-[120px] truncate" title={r.status_raw}>{r.status_raw}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex gap-3">
-              <button className="btn" onClick={validerPdf} disabled={busy || !pdfClient}>
-                {busy ? "Import en cours..." : `Importer ${pdfRows.length} colis`}
-              </button>
-              <button className="btn btn-ghost" onClick={() => setPdfRows(null)}>Annuler</button>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Anti-doublon: koli ki gen menm Tracking Number deja nan sistèm nan p ap kreye 2 fwa.
-            </p>
-          </div>
-        </div>
-      )}
-
       {preview && (
         <div className="card p-6">
           <h2 className="text-sm font-bold text-navy uppercase tracking-wide mb-4">Résultat de l'analyse — {filename}</h2>

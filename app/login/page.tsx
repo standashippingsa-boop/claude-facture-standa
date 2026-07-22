@@ -22,7 +22,8 @@ export default function LoginPage() {
       if (error) throw error;
       // Premye koneksyon: fòse chanjman modpas tanporè a
       const c = data.user ? await getClientByAuthId(data.user.id) : null;
-      router.push(c?.must_change_password ? "/nouveau-mot-de-passe" : "/espace-client");
+      // V8.5: pa gen fòs chanjman modpas ankò — kliyan an ka itilize modpas admin ba li a
+      router.push("/espace-client");
     } catch {
       setErr("Nom d'utilisateur (MC-XXXXX) oswa mot de passe pa kòrèk.");
     } finally { setBusy(false); }

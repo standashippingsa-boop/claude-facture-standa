@@ -87,21 +87,27 @@ export function generateInvoicePdf(
   // ===== Tablo =====
   autoTable(doc, {
     startY: 80,
-    head: [["#", "Tracking ID (Guía)", "Weight (lb)", "Content", "Price (USD)", "Tax (USD)", "Total (USD)"]],
-    body: items.map((k, i) => [
-      String(i + 1),
-      k.tracking_number + (k.tracking_manual ? "\n" + k.tracking_manual : ""),
-      Number(k.weight).toFixed(2),
-      k.content,
-      Number(k.price).toFixed(2),
-      Number(k.tax).toFixed(2),
-      Number(k.total).toFixed(2)
-    ]),
+    head: [["#", "Tracking ID (Guía)", "Tracking Number", "Poids (lb)", "Prix/lb", "Contenu", "Sous-total", "Tax", "Total (USD)"]],
+    body: items.map((k, i) => {
+      const w = Number(k.weight) || 0;
+      const perLb = w > 0 ? Number(k.price) / w : 0;
+      return [
+        String(i + 1),
+        k.tracking_number,
+        k.tracking_manual || "—",
+        w.toFixed(2),
+        perLb > 0 ? perLb.toFixed(2) : "—",
+        k.content,
+        Number(k.price).toFixed(2),
+        Number(k.tax).toFixed(2),
+        Number(k.total).toFixed(2)
+      ];
+    }),
     theme: "grid",
     headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold" },
     alternateRowStyles: { fillColor: MIST },
-    styles: { fontSize: 8.5, cellPadding: 2.5 },
-    columnStyles: { 3: { halign: "right" }, 5: { halign: "right" }, 6: { halign: "right" }, 7: { halign: "right" } },
+    styles: { fontSize: 7.5, cellPadding: 2, overflow: "linebreak" },
+    columnStyles: { 3: { halign: "right" }, 4: { halign: "right" }, 6: { halign: "right" }, 7: { halign: "right" }, 8: { halign: "right" } },
     margin: { left: 14, right: 14 }
   });
 

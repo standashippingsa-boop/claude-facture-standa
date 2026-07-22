@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2, Pencil, MapPin } from "lucide-react";
 import {
   deleteVille, getSettings, getUsdRate,
-  getVilles, logAction, reapplyTarifDisponible, setSetting, setUsdRate, toggleVille, upsertVille
+  fixTrackingColumns, getVilles, logAction, reapplyTarifDisponible, setSetting, setUsdRate, toggleVille, upsertVille
 } from "@/lib/db";
 import { Staff, Ville } from "@/lib/types";
 import { usd } from "@/lib/utils";
@@ -80,6 +80,14 @@ export default function SettingsPage() {
   const toggle = async (v: Ville) => {
     await toggleVille(v.id!, !v.active);
     load();
+  };
+
+  const corrigerTracking = async () => {
+    if (!confirm("Analyser toute la base et corriger les colonnes Tracking ID / Tracking Number mal placées?")) return;
+    try {
+      const r = await fixTrackingColumns();
+      setNotice(`✅ Correction terminée: ${r.swapped} inversés, ${r.movedToId} corrigés (Guía), ${r.movedToManual} nettoyés.`);
+    } catch (e: any) { setNotice("Erè: " + e.message); }
   };
 
   const saveGeneral = async () => {
@@ -222,6 +230,19 @@ export default function SettingsPage() {
           Tarification automatique lors de la synchronisation MCPACK (selon la ville du client)
         </label>
         <button className="btn" onClick={saveGeneral}>Enregistrer</button>
+      </section>
+
+      {/* ===== MAINTENANCE (V8.5) ===== */}
+      <section className="card p-6 space-y-3">
+        <h2 className="text-sm font-bold text-navy uppercase tracking-wide">🔧 Maintenance</h2>
+        <p className="text-xs text-slate-500">
+          <b>Tracking ID (Guía)</b> se tout kòd ki kòmanse ak <b>WR</b> (ex: WR102600143471).
+          Tout lòt (GFUS, TBA, 1Z, 9400...) se <b>Tracking Number</b>. Bouton sa a analize tout
+          bazdone a epi korije koli kote de kolòn sa yo melanje.
+        </p>
+        <button className="btn btn-ghost border border-line" onClick={corrigerTracking}>
+          Corriger les colonnes Tracking
+        </button>
       </section>
 
       <EmployesSection onNotice={setNotice} />

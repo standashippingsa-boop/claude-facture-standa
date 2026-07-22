@@ -1,12 +1,13 @@
 "use client";
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Calculator, FileText, PackageCheck } from "lucide-react";
+import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import {
-  createInvoice, getClient, getClientPackagesAndInvoices, getSettings,
+  commitPdfImport, createInvoice, getClient, getClientPackagesAndInvoices, getSettings,
   getUsdRate, saveInvoicePdfUrl, setPackagesStatus, updatePackagePrice
 } from "@/lib/db";
+import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
 import { computePrice, round2 } from "@/lib/pricing";
 import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
@@ -31,6 +32,30 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   const [bulkStatus, setBulkStatus] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pdfRows, setPdfRows] = useState<PdfPkgRow[] | null>(null);   // Import PDF pou KLIYAN sa a
+
+  /** IMPORT PDF (V8.5 §9) — dirèkteman sou kont kliyan an */
+  const handlePdf = async (f: File) => {
+    setNotice(null); setBusy(true);
+    try {
+      const rows = await parseMcpackPdf(await f.arrayBuffer());
+      if (!rows.length) { setNotice("Aucun colis détecté dans le PDF."); return; }
+      setPdfRows(rows);
+    } catch (e: any) { setNotice("Erè lekti PDF: " + (e.message ?? String(e))); }
+    finally { setBusy(false); }
+  };
+
+  const validerPdf = async () => {
+    if (!pdfRows || !client) return;
+    setBusy(true);
+    try {
+      const r = await commitPdfImport(pdfRows, client, true);
+      setNotice(`✅ Import PDF: ${r.created} créés, ${r.updated} mis à jour, ${r.ignored} ignorés.`);
+      setPdfRows(null);
+      await load();
+    } catch (e: any) { setNotice("Erè: " + e.message); }
+    finally { setBusy(false); }
+  };
 
   const load = async () => {
     const [c, r, s] = await Promise.all([getClient(decoded), getUsdRate(), getSettings()]);
@@ -197,6 +222,11 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
         <button className="btn" onClick={facturer} disabled={busy || !selectedDisponible.length}>
           <FileText size={14} /> Générer Facture ({selectedDisponible.length})
         </button>
+        <label className="btn btn-ghost border border-line cursor-pointer">
+          <Upload size={14} /> Importer PDF
+          <input type="file" accept="application/pdf,.pdf" className="hidden"
+            onChange={(e) => e.target.files?.[0] && handlePdf(e.target.files[0])} />
+        </label>
       </div>
 
       {/* ===== Koli yo ===== */}
@@ -207,7 +237,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
         <table className="w-full text-xs">
           <thead><tr>
             <th className="thc"><input type="checkbox" checked={allChecked} onChange={(e) => toggleAll(e.target.checked)} /></th>
-            {["Tracking ID (Guía)", "Date", "Lb", "Content", "Price $", "Tax $", "Total $", "Status"]
+            {["Tracking ID (Guía)", "Tracking Number", "Date", "Lb", "Content", "Price $", "Total $", "Status"]
               .map((h) => <th key={h} className="thc">{h}</th>)}
           </tr></thead>
           <tbody>
@@ -216,13 +246,12 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
             ) : visible.map((p, i) => (
               <tr key={p.id} className={`${i % 2 ? "bg-mist" : ""} ${p.selected ? "!bg-blue-50" : ""}`}>
                 <td className="tdc"><input type="checkbox" checked={!!p.selected} onChange={() => toggle(p.id)} /></td>
-                <td className="tdc font-mono text-[11px]">{p.tracking_number}
-                  {p.tracking_manual ? <span className="block text-slate-400">{p.tracking_manual}</span> : null}</td>
+                <td className="tdc font-mono text-[11px]">{p.tracking_number}</td>
+                <td className="tdc font-mono text-[11px]">{p.tracking_manual || <span className="text-slate-300">—</span>}</td>
                 <td className="tdc whitespace-nowrap">{p.created_date}</td>
                 <td className="tdc text-right">{p.weight}</td>
                 <td className="tdc max-w-[110px] truncate" title={p.content}>{p.content}</td>
                 <td className="tdc text-right">{usd(p.price_usd)}</td>
-                <td className="tdc text-right">{usd(p.tax_usd)}</td>
                 <td className="tdc text-right font-semibold">{usd(p.total_usd)}</td>
                 <td className="tdc"><StatusBadge status={p.status} /></td>
               </tr>
@@ -254,6 +283,52 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           </tbody>
         </table>
       </section>
+
+      {/* ===== Modal: apèsi Import PDF pou kliyan sa a ===== */}
+      {pdfRows && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setPdfRows(null)}>
+          <div className="card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-4"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide">
+                Import PDF — {pdfRows.length} colis pour {client.customer_code}
+              </h2>
+              <button className="text-slate-400 hover:text-navy" onClick={() => setPdfRows(null)}><X size={18} /></button>
+            </div>
+            <div className="border border-line rounded-lg overflow-x-auto max-h-72 overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0"><tr>
+                  {["Tracking ID (Guía)", "Tracking Number", "Lb", "Contenu", "Date", "Heure", "Estatus"]
+                    .map((h) => <th key={h} className="thc">{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {pdfRows.map((r, i) => (
+                    <tr key={i} className={i % 2 ? "bg-mist" : ""}>
+                      <td className="tdc font-mono text-[11px]">{r.guia}</td>
+                      <td className="tdc font-mono text-[11px]">{r.tracking_number}</td>
+                      <td className="tdc text-right">{r.weight.toFixed(2)}</td>
+                      <td className="tdc max-w-[110px] truncate" title={r.content}>{r.content}</td>
+                      <td className="tdc whitespace-nowrap">{r.created_date}</td>
+                      <td className="tdc whitespace-nowrap">{r.heure}</td>
+                      <td className="tdc max-w-[110px] truncate" title={r.status_raw}>{r.status_raw}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex gap-3">
+              <button className="btn" onClick={validerPdf} disabled={busy}>
+                {busy ? "Import en cours..." : `Importer ${pdfRows.length} colis`}
+              </button>
+              <button className="btn btn-ghost" onClick={() => setPdfRows(null)}>Annuler</button>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Guía (WR...) = Tracking ID. Lòt kòd yo = Tracking Number. Anti-doublon aktif.
+            </p>
+          </div>
+        </div>
+      )}
 
       {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
     </div>

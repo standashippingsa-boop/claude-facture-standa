@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { normalizeMcCode } from "./utils";
+import { cleanTracking, isGuia, normalizeMcCode } from "./utils";
 import {
   AccountType, Client, DashboardStats, ImportLog, Invoice, InvoiceItem, Pkg, Ville
 , Retrait, RetraitStatus
@@ -651,30 +651,38 @@ export async function commitPdfImport(
     ? (await getClientTarifMap()).get(normalizeMcCode(client.customer_code)) ?? null : null;
   const now = new Date().toISOString();
 
-  const trackings = rows.map((r) => r.tracking_number).filter(Boolean);
+  // V8.5: Guía (WR...) = tracking_number (idantifyan inik).
+  //       Tracking transpòtè a (GFUS/TBA/1Z...) = tracking_manual.
+  const guias = rows.map((r) => r.guia).filter(Boolean);
   const { data: exist } = await supabase.from("packages")
-    .select("tracking_number").in("tracking_number", trackings);
-  const existSet = new Set((exist ?? []).map((e: any) => e.tracking_number));
+    .select("tracking_number, tracking_manual").in("tracking_number", guias);
+  const existMap = new Map<string, { tracking_number: string; tracking_manual?: string }>(
+    (exist ?? []).map((e: any) => [e.tracking_number as string, e]));
 
   let created = 0, updated = 0, ignored = 0;
   const seen = new Set<string>();
 
   for (const r of rows) {
-    const tn = r.tracking_number.trim();
-    if (!tn || seen.has(tn)) { ignored++; continue; }
-    seen.add(tn);
+    const guia = cleanTracking(r.guia);
+    const carrier = cleanTracking(r.tracking_number);   // tracking transpòtè (pa Guía)
+    if (!guia || seen.has(guia)) { ignored++; continue; }
+    seen.add(guia);
 
-    if (existSet.has(tn)) {
+    const hit = existMap.get(guia);
+    if (hit) {
       const patch: Record<string, unknown> = { received_at: now, received_method: "Import PDF" };
       if (r.status_raw) patch.status_mcpack = r.status_raw;
       if (r.weight) patch.weight = r.weight;
       if (r.content) patch.content = r.content;
-      await supabase.from("packages").update(patch).eq("tracking_number", tn);
+      // Ajoute Tracking Number si li poko egziste (pa ranplase l)
+      if (carrier && !isGuia(carrier) && !hit.tracking_manual) patch.tracking_manual = carrier;
+      await supabase.from("packages").update(patch).eq("tracking_number", guia);
       updated++;
     } else {
       const p = autoPricing && info ? computePrice(r.weight, info.account_type, info.ville) : null;
       await supabase.from("packages").insert({
-        tracking_number: tn,
+        tracking_number: guia,                                   // Tracking ID (Guía)
+        tracking_manual: carrier && !isGuia(carrier) ? carrier : "",  // Tracking Number
         customer_code: normalizeMcCode(client.customer_code),
         customer_name: client.fullname,
         weight: r.weight,
@@ -682,10 +690,9 @@ export async function commitPdfImport(
         created_date: r.created_date,
         status: "Reçu à Miami",
         status_mcpack: r.status_raw,
-        tracking_manual: "",
         received_at: now,
         received_method: "Import PDF",
-        mcpack_data: { Guia: r.guia, Hora: r.heure },
+        mcpack_data: { Guia: guia, Hora: r.heure },
         price_usd: p?.price ?? 0, tax_usd: p?.tax ?? 0,
         price_htg: p ? round2(p.price * rate) : 0, tax_htg: p ? round2(p.tax * rate) : 0
       });
@@ -697,80 +704,164 @@ export async function commitPdfImport(
   return { created, updated, ignored };
 }
 
-// ================= ANALYSE PHOTO — MATCHING + ENKOYERANS (V8 Faz 3) =================
+// ================= ANALYSE PHOTO — MATCHING + VALIDASYON (V8.5) =================
+export type ScanVerdict = "validated" | "review" | "rejected";
+
 export interface PhotoMatch {
-  filename: string; guia: string; guiaSource: string;
-  customer_code: string; tracking: string; weight: number;
-  matched: boolean; matchedTracking?: string; matchedCode?: string; matchedStatus?: string;
-  incoherences: string[];      // lis pwoblèm ki jwenn pou foto sa a
+  filename: string; previewUrl: string;
+  guia: string; guiaSource: string;
+  tracking_number: string; customer_code: string;
+  confidence: number; step: string;
+  matched: boolean;
+  matchedPkgId?: string;
+  matchedTracking?: string;      // Guía nan sistèm nan
+  matchedManual?: string;        // Tracking Number nan sistèm nan
+  matchedCode?: string;
+  matchedStatus?: string;
+  verdict: ScanVerdict;
+  message: string;               // eksplikasyon pou admin
+  incoherences: string[];
+  willAddTracking?: string;      // Tracking Number pou ajoute si li manke
 }
 
 /**
- * Konpare foto yo ak bazdone a (pa Guía an premye — soti nan kòd bar — answit Tracking).
- * Detekte enkoyerans: kòd kliyan diferan, tracking diferan, pwa diferan.
+ * ANALIZE SÈLMAN — okenn chanjman nan bazdone a isit la (V8.5 §4, §16, §17).
+ * Admin dwe valide chak foto anvan yo antre. Double verifikasyon:
+ * Guía matche, OSWA Tracking Number matche. Si okenn — pa touche anyen.
  */
-export async function matchPhotoScans(scans: {
-  filename: string; guia: string; guiaSource: string;
-  customer_code: string; tracking: string; weight: number;
+export async function analyzePhotoScans(scans: {
+  filename: string; previewUrl: string; guia: string; guiaSource: string;
+  tracking_number: string; customer_code: string; confidence: number; step: string;
 }[]): Promise<PhotoMatch[]> {
   const { data } = await supabase.from("packages")
-    .select("tracking_number, tracking_manual, customer_code, status, weight, mcpack_data");
+    .select("id, tracking_number, tracking_manual, customer_code, status");
   const pkgs = (data ?? []) as any[];
 
-  const guiaOf = (p: any) => String(p.mcpack_data?.Guia ?? p.mcpack_data?.["Guía"] ?? p.tracking_number ?? "").toUpperCase();
-  const byTracking = new Map<string, any>();
   const byGuia = new Map<string, any>();
+  const byManual = new Map<string, any>();
   for (const p of pkgs) {
-    if (p.tracking_number) byTracking.set(String(p.tracking_number).toUpperCase(), p);
-    if (p.tracking_manual) byTracking.set(String(p.tracking_manual).toUpperCase(), p);
-    const g = guiaOf(p);
-    if (g) byGuia.set(g, p);
+    if (p.tracking_number) byGuia.set(cleanTracking(p.tracking_number), p);
+    if (p.tracking_manual) byManual.set(cleanTracking(p.tracking_manual), p);
   }
 
-  const results: PhotoMatch[] = [];
-  const toMark: string[] = [];
-
-  for (const s of scans) {
-    const g = s.guia.toUpperCase(), t = s.tracking.toUpperCase();
-    // Priyorite: Guía (kòd bar) -> Tracking
-    const hit = (g && (byGuia.get(g) || byTracking.get(g))) || (t && byTracking.get(t));
+  return scans.map((s) => {
+    const guia = cleanTracking(s.guia);
+    const tnum = cleanTracking(s.tracking_number);
     const inc: string[] = [];
+    let hit: any = null;
+
+    // Double verifikasyon: Guía an premye, answit Tracking Number
+    if (guia && isGuia(guia)) hit = byGuia.get(guia) ?? null;
+    if (!hit && tnum) hit = byManual.get(tnum) ?? byGuia.get(tnum) ?? null;
 
     if (hit) {
-      toMark.push(hit.tracking_number);
-      // Enkoyerans: kòd kliyan
       if (s.customer_code && hit.customer_code &&
           normalizeMcCode(s.customer_code) !== normalizeMcCode(hit.customer_code)) {
         inc.push(`Code client photo (${normalizeMcCode(s.customer_code)}) ≠ système (${hit.customer_code})`);
       }
-      // Enkoyerans: tracking
-      if (s.tracking && hit.tracking_number &&
-          s.tracking.toUpperCase() !== String(hit.tracking_number).toUpperCase() &&
-          s.tracking.toUpperCase() !== String(hit.tracking_manual ?? "").toUpperCase()) {
-        inc.push(`Tracking photo (${s.tracking}) ≠ système (${hit.tracking_number})`);
-      }
-      // Enkoyerans: pwa (twoulèwenn tolerans)
-      if (s.weight > 0 && hit.weight > 0 && Math.abs(s.weight - hit.weight) > 0.3) {
-        inc.push(`Poids photo (${s.weight} lb) ≠ système (${hit.weight} lb)`);
-      }
-      results.push({
-        ...s, matched: true, matchedTracking: hit.tracking_number,
-        matchedCode: hit.customer_code, matchedStatus: hit.status, incoherences: inc
-      });
-    } else {
-      // Pa jwenn — si nou pa t menm ka li Guía a, se yon avètisman
-      if (!s.guia) inc.push("Guía illisible (code-barres + texte flous) — vérifier manuellement");
-      results.push({ ...s, matched: false, incoherences: inc });
+      const willAdd = tnum && !isGuia(tnum) && !hit.tracking_manual ? tnum : undefined;
+      const lowConf = s.confidence < 70;
+      return {
+        ...s, matched: true, matchedPkgId: hit.id,
+        matchedTracking: hit.tracking_number, matchedManual: hit.tracking_manual,
+        matchedCode: hit.customer_code, matchedStatus: hit.status,
+        verdict: (lowConf || inc.length ? "review" : "validated") as ScanVerdict,
+        message: inc.length ? "Incohérence détectée — vérifier"
+          : lowConf ? `Confiance faible (${Math.round(s.confidence)}%) — vérifier`
+          : willAdd ? `Colis identifié — Tracking Number "${willAdd}" sera ajouté`
+          : "Colis identifié",
+        incoherences: inc, willAddTracking: willAdd
+      };
+    }
+
+    // Pa jwenn
+    if (s.customer_code && !guia && !tnum) {
+      return {
+        ...s, matched: false, verdict: "review" as ScanVerdict,
+        message: `Nou jwenn yon package pou kliyan ${normalizeMcCode(s.customer_code)} men foto a pa pèmèt nou idantifye Tracking ID oswa Tracking Number.`,
+        incoherences: []
+      };
+    }
+    return {
+      ...s, matched: false, verdict: "review" as ScanVerdict,
+      message: guia || tnum
+        ? `Aucun colis trouvé pour ${guia || tnum} — vérifier manuellement`
+        : "Étiquette illisible (code-barres + texte) — vérifier manuellement",
+      incoherences: []
+    };
+  });
+}
+
+/**
+ * APLIKE sèlman foto admin valide yo: make koli kòm resevwa + ajoute
+ * Tracking Number si li manke. Pa JANM kreye nouvo koli.
+ */
+export async function applyPhotoValidations(items: PhotoMatch[]): Promise<{ received: number; trackingAdded: number }> {
+  const now = new Date().toISOString();
+  let received = 0, trackingAdded = 0;
+  for (const m of items) {
+    if (!m.matched || !m.matchedPkgId) continue;
+    const patch: Record<string, unknown> = { received_at: now, received_method: "Analyse Photo" };
+    if (m.willAddTracking) { patch.tracking_manual = m.willAddTracking; trackingAdded++; }
+    await supabase.from("packages").update(patch).eq("id", m.matchedPkgId);
+    received++;
+  }
+  await logAction("Analyse Photo",
+    `${items.length} validées: ${received} reçus, ${trackingAdded} Tracking Number ajoutés`, "", "");
+  return { received, trackingAdded };
+}
+
+/** JOURNAL OCR — anrejistre chak foto analize (V8.5 §18). */
+export async function logOcrScans(scans: PhotoMatch[]): Promise<void> {
+  for (const s of scans) {
+    await logAction("Journal OCR",
+      `${s.filename} | barcode:${s.guiaSource === "barcode" ? "oui" : "non"} | Guía:${s.guia || "—"} | ` +
+      `Tracking:${s.tracking_number || "—"} | Code:${s.customer_code || "—"} | ` +
+      `confiance:${Math.round(s.confidence)}% | ${s.verdict}`,
+      s.guia || s.tracking_number, s.matchedCode ?? s.customer_code);
+  }
+}
+
+// ================= KOREKSYON OTOMATIK KOLÒN TRACKING (V8.5) =================
+export interface TrackingFixResult { swapped: number; movedToManual: number; movedToId: number; }
+
+/**
+ * Analize tout bazdone a epi korije koli kote Tracking ID (WR...) ak
+ * Tracking Number (GFUS/TBA/1Z...) nan move kolòn.
+ *  - tracking_number DWE toujou se Guía a (WR...)
+ *  - tracking_manual DWE toujou se tracking transpòtè a
+ */
+export async function fixTrackingColumns(): Promise<TrackingFixResult> {
+  const { data } = await supabase.from("packages")
+    .select("id, tracking_number, tracking_manual, mcpack_data");
+  const pkgs = (data ?? []) as any[];
+  let swapped = 0, movedToManual = 0, movedToId = 0;
+
+  for (const p of pkgs) {
+    const tn = cleanTracking(p.tracking_number);
+    const tm = cleanTracking(p.tracking_manual);
+    const guiaData = cleanTracking(p.mcpack_data?.Guia ?? p.mcpack_data?.["Guía"] ?? "");
+
+    // Ka 1: de kolòn yo enveti (ID nan manual, Number nan ID)
+    if (tn && tm && !isGuia(tn) && isGuia(tm)) {
+      await supabase.from("packages").update({ tracking_number: tm, tracking_manual: tn }).eq("id", p.id);
+      swapped++; continue;
+    }
+    // Ka 2: tracking_number pa yon Guía, men mcpack_data gen Guía a
+    if (tn && !isGuia(tn) && isGuia(guiaData) && guiaData !== tn) {
+      await supabase.from("packages").update({
+        tracking_number: guiaData,
+        tracking_manual: tm || tn
+      }).eq("id", p.id);
+      movedToId++; continue;
+    }
+    // Ka 3: tracking_manual gen yon Guía (doub) — retire l nan manual
+    if (tm && isGuia(tm) && isGuia(tn)) {
+      await supabase.from("packages").update({ tracking_manual: "" }).eq("id", p.id);
+      movedToManual++; continue;
     }
   }
-
-  if (toMark.length) {
-    await supabase.from("packages")
-      .update({ received_at: new Date().toISOString(), received_method: "Analyse Photo" })
-      .in("tracking_number", toMark);
-  }
-  const totalInc = results.reduce((n, r) => n + r.incoherences.length, 0);
-  await logAction("Analyse Photo",
-    `${scans.length} photos, ${toMark.length} identifiés, ${totalInc} incohérences`, "", "");
-  return results;
+  await logAction("Correction Tracking",
+    `${swapped} inversés, ${movedToId} corrigés (Guía), ${movedToManual} nettoyés`, "", "");
+  return { swapped, movedToManual, movedToId };
 }

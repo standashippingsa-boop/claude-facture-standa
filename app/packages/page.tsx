@@ -70,7 +70,8 @@ export default function PackagesPage() {
     const q = search.trim().toLowerCase();
     return pkgs
       // Koli livré yo pa parèt isit la — yo rete nan Historique (anyen pa efase)
-      .filter((p) => p.status !== "Livré")
+      // V8.5: koli Facturé yo kite lis aktif la — yo nan Historique
+      .filter((p) => p.status !== "Livré" && p.status !== "Facturé")
       .filter((p) => {
         if (status && p.status !== status) return false;
         if (dateF && !p.created_date.includes(dateF)) return false;
@@ -287,7 +288,7 @@ export default function PackagesPage() {
           </tr></thead>
           <tbody>
             {pageRows.length === 0 ? (
-              <tr><td colSpan={15} className="text-center py-10 text-slate-400">
+              <tr><td colSpan={14} className="text-center py-10 text-slate-400">
                 Aucun colis. Utilisez <a href="/sync" className="text-navy underline font-semibold">Synchronisation MCPACK</a>.
               </td></tr>
             ) : pageRows.map((p, i) => (
@@ -302,6 +303,9 @@ export default function PackagesPage() {
                   {tarifMap.get(p.customer_code)?.ville?.name ?? <span className="text-amber-600">—</span>}
                 </td>
                 <td className="tdc font-mono text-[11px] whitespace-nowrap">{p.tracking_number}</td>
+                <td className="tdc font-mono text-[11px] whitespace-nowrap">
+                  {p.tracking_manual || <span className="text-slate-300">—</span>}
+                </td>
                 <td className="tdc">
                   <input type="text" defaultValue={p.tracking_manual}
                     placeholder="—" title="Tracking Number (transpòtè) — sync pa janm efase l"
@@ -318,7 +322,6 @@ export default function PackagesPage() {
                 <td className="tdc text-right">{p.weight}</td>
                 <td className="tdc max-w-[90px] truncate" title={p.content}>{p.content}</td>
                 <td className="tdc text-right">{usd(p.price_usd)}</td>
-                <td className="tdc text-right">{usd(p.tax_usd)}</td>
                 <td className="tdc text-right font-semibold whitespace-nowrap">{usd(p.total_usd)}</td>
                 <td className="tdc text-right text-[11px] text-slate-500 whitespace-nowrap">{htg(p.total_htg)}</td>
                 <td className="tdc"><StatusBadge status={p.status} /></td>
