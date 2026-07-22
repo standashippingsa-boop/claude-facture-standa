@@ -283,12 +283,12 @@ export default function PackagesPage() {
         <table className="w-full text-xs">
           <thead><tr>
             <th className="thc"><input type="checkbox" checked={allChecked} onChange={(e) => toggleAll(e.target.checked)} /></th>
-            {["Code", "Nom Client", "Ville", "Tracking ID (Guía)", "Tracking No", "Date", "Lb", "Content", "Price $", "Tax $", "Total $", "Total HTG", "Status", ""]
+            {["Code", "Nom Client", "Ville", "Tracking ID (Guía)", "Tracking Number", "Lb", "Content", "Price $", "Total $", "Total HTG", "Status", ""]
               .map((h) => <th key={h} className="thc">{h}</th>)}
           </tr></thead>
           <tbody>
             {pageRows.length === 0 ? (
-              <tr><td colSpan={14} className="text-center py-10 text-slate-400">
+              <tr><td colSpan={13} className="text-center py-10 text-slate-400">
                 Aucun colis. Utilisez <a href="/sync" className="text-navy underline font-semibold">Synchronisation MCPACK</a>.
               </td></tr>
             ) : pageRows.map((p, i) => (
@@ -303,9 +303,6 @@ export default function PackagesPage() {
                   {tarifMap.get(p.customer_code)?.ville?.name ?? <span className="text-amber-600">—</span>}
                 </td>
                 <td className="tdc font-mono text-[11px] whitespace-nowrap">{p.tracking_number}</td>
-                <td className="tdc font-mono text-[11px] whitespace-nowrap">
-                  {p.tracking_manual || <span className="text-slate-300">—</span>}
-                </td>
                 <td className="tdc">
                   <input type="text" defaultValue={p.tracking_manual}
                     placeholder="—" title="Tracking Number (transpòtè) — sync pa janm efase l"
@@ -318,7 +315,6 @@ export default function PackagesPage() {
                       ).catch((er: any) => setNotice("Erè tracking: " + er.message));
                     }} />
                 </td>
-                <td className="tdc whitespace-nowrap">{p.created_date}</td>
                 <td className="tdc text-right">{p.weight}</td>
                 <td className="tdc max-w-[90px] truncate" title={p.content}>{p.content}</td>
                 <td className="tdc text-right">{usd(p.price_usd)}</td>

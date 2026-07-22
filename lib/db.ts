@@ -704,8 +704,19 @@ export async function commitPdfImport(
   return { created, updated, ignored };
 }
 
-// ================= ANALYSE PHOTO — MATCHING + VALIDASYON (V8.5) =================
-export type ScanVerdict = "validated" | "review" | "rejected";
+// ============================================================
+// SCANNER — MODE ZÉRO RISQUE (lekti sèlman, okenn devinèt)
+// ============================================================
+// RÈG YO:
+//  1. Scanner a PA JANM devine. Enfo ki pa sèten rete VID.
+//  2. Scanner a PA JANM kreye yon koli (se Excel/PDF/Sync ki kreye).
+//  3. Konfyans < 98% => okenn modifikasyon otomatik (validasyon manyèl).
+//  4. Si enfo yo kontredi youn lòt => BLOKE, "Conflit détecté".
+//  5. Scanner a ka modifye SÈLMAN: tracking_manual (si konfime),
+//     received_at, received_method. JANM pwa/pri/tax/DGA/vil/kliyan/kòd.
+//  6. Chak chanjman antre nan Historique ak ansyen + nouvo valè.
+
+export type ScanVerdict = "validated" | "review" | "conflict" | "no_match";
 
 export interface PhotoMatch {
   filename: string; previewUrl: string;
@@ -714,20 +725,23 @@ export interface PhotoMatch {
   confidence: number; step: string;
   matched: boolean;
   matchedPkgId?: string;
-  matchedTracking?: string;      // Guía nan sistèm nan
-  matchedManual?: string;        // Tracking Number nan sistèm nan
+  matchedTracking?: string;
+  matchedManual?: string;
   matchedCode?: string;
   matchedStatus?: string;
   verdict: ScanVerdict;
-  message: string;               // eksplikasyon pou admin
-  incoherences: string[];
-  willAddTracking?: string;      // Tracking Number pou ajoute si li manke
+  message: string;
+  conflicts: string[];
+  /** Sèl chanjman scanner a pwopoze (simulation) */
+  proposedTracking?: string;   // Tracking Number pou ajoute (si li konfime e chan an vid)
+  canApply: boolean;           // èske modifikasyon otorize (konfyans + zewo konfli)
 }
 
+const MIN_CONFIDENCE = 98;   // RÈG N°3
+
 /**
- * ANALIZE SÈLMAN — okenn chanjman nan bazdone a isit la (V8.5 §4, §16, §17).
- * Admin dwe valide chak foto anvan yo antre. Double verifikasyon:
- * Guía matche, OSWA Tracking Number matche. Si okenn — pa touche anyen.
+ * ANALIZE SÈLMAN — okenn ekriti nan bazdone.
+ * Retounen egzakteman sa ki ta pral chanje (simulation).
  */
 export async function analyzePhotoScans(scans: {
   filename: string; previewUrl: string; guia: string; guiaSource: string;
@@ -745,73 +759,156 @@ export async function analyzePhotoScans(scans: {
   }
 
   return scans.map((s) => {
-    const guia = cleanTracking(s.guia);
-    const tnum = cleanTracking(s.tracking_number);
-    const inc: string[] = [];
-    let hit: any = null;
+    const guia = isGuia(s.guia) ? cleanTracking(s.guia) : "";   // RÈG: WR sèlman
+    const tnum = s.tracking_number && !isGuia(s.tracking_number)
+      ? cleanTracking(s.tracking_number) : "";                  // RÈG: pa WR isit la
+    const conflicts: string[] = [];
 
-    // Double verifikasyon: Guía an premye, answit Tracking Number
-    if (guia && isGuia(guia)) hit = byGuia.get(guia) ?? null;
-    if (!hit && tnum) hit = byManual.get(tnum) ?? byGuia.get(tnum) ?? null;
+    const hitByGuia = guia ? byGuia.get(guia) ?? null : null;
+    const hitByTnum = tnum ? (byManual.get(tnum) ?? byGuia.get(tnum) ?? null) : null;
 
-    if (hit) {
-      if (s.customer_code && hit.customer_code &&
-          normalizeMcCode(s.customer_code) !== normalizeMcCode(hit.customer_code)) {
-        inc.push(`Code client photo (${normalizeMcCode(s.customer_code)}) ≠ système (${hit.customer_code})`);
+    // RÈG N°4 — enfo ki kontredi youn lòt
+    if (hitByGuia && hitByTnum && hitByGuia.id !== hitByTnum.id) {
+      conflicts.push(`Tracking ID (${guia}) et Tracking Number (${tnum}) pointent vers 2 colis différents`);
+    }
+    const hit = hitByGuia ?? hitByTnum;
+    if (hit && s.customer_code &&
+        normalizeMcCode(s.customer_code) !== normalizeMcCode(hit.customer_code ?? "")) {
+      conflicts.push(`Customer Code photo (${normalizeMcCode(s.customer_code)}) ≠ base (${hit.customer_code})`);
+    }
+    if (hit && tnum && hit.tracking_manual && cleanTracking(hit.tracking_manual) !== tnum) {
+      conflicts.push(`Tracking Number photo (${tnum}) ≠ base (${hit.tracking_manual})`);
+    }
+
+    const base = { ...s, guia, tracking_number: tnum, conflicts };
+
+    // ── Konfli => BLOKE
+    if (conflicts.length) {
+      return { ...base, matched: !!hit, matchedPkgId: hit?.id,
+        matchedTracking: hit?.tracking_number, matchedManual: hit?.tracking_manual,
+        matchedCode: hit?.customer_code, matchedStatus: hit?.status,
+        verdict: "conflict" as ScanVerdict,
+        message: "Conflit détecté. Validation manuelle obligatoire.",
+        canApply: false };
+    }
+
+    // ── Pa jwenn okenn koli
+    if (!hit) {
+      let message: string;
+      if (tnum && !guia) {
+        message = "Tracking Number détecté mais aucun Tracking ID correspondant n'a été trouvé.";   // RÈG 6
+      } else if (guia && !tnum) {
+        message = "Tracking ID détecté. Aucun Tracking Number correspondant trouvé.";               // RÈG 7
+      } else if (s.customer_code) {
+        message = `Nou jwenn yon package pou kliyan ${normalizeMcCode(s.customer_code)} men foto a pa pèmèt nou idantifye Tracking ID oswa Tracking Number.`;
+      } else {
+        message = "Aucun code détecté — étiquette illisible.";
       }
-      const willAdd = tnum && !isGuia(tnum) && !hit.tracking_manual ? tnum : undefined;
-      const lowConf = s.confidence < 70;
-      return {
-        ...s, matched: true, matchedPkgId: hit.id,
-        matchedTracking: hit.tracking_number, matchedManual: hit.tracking_manual,
-        matchedCode: hit.customer_code, matchedStatus: hit.status,
-        verdict: (lowConf || inc.length ? "review" : "validated") as ScanVerdict,
-        message: inc.length ? "Incohérence détectée — vérifier"
-          : lowConf ? `Confiance faible (${Math.round(s.confidence)}%) — vérifier`
-          : willAdd ? `Colis identifié — Tracking Number "${willAdd}" sera ajouté`
-          : "Colis identifié",
-        incoherences: inc, willAddTracking: willAdd
-      };
+      return { ...base, matched: false, verdict: "no_match" as ScanVerdict, message, canApply: false };
     }
 
-    // Pa jwenn
-    if (s.customer_code && !guia && !tnum) {
-      return {
-        ...s, matched: false, verdict: "review" as ScanVerdict,
-        message: `Nou jwenn yon package pou kliyan ${normalizeMcCode(s.customer_code)} men foto a pa pèmèt nou idantifye Tracking ID oswa Tracking Number.`,
-        incoherences: []
-      };
-    }
+    // ── Jwenn: verifye konfyans (RÈG N°3)
+    const lowConf = s.confidence < MIN_CONFIDENCE;
+    // Tracking Number pwopoze SÈLMAN si chan an vid nan baz la e li konfime
+    const proposedTracking = tnum && !hit.tracking_manual ? tnum : undefined;
+
     return {
-      ...s, matched: false, verdict: "review" as ScanVerdict,
-      message: guia || tnum
-        ? `Aucun colis trouvé pour ${guia || tnum} — vérifier manuellement`
-        : "Étiquette illisible (code-barres + texte) — vérifier manuellement",
-      incoherences: []
+      ...base, matched: true, matchedPkgId: hit.id,
+      matchedTracking: hit.tracking_number, matchedManual: hit.tracking_manual,
+      matchedCode: hit.customer_code, matchedStatus: hit.status,
+      verdict: (lowConf ? "review" : "validated") as ScanVerdict,
+      message: lowConf
+        ? `Confiance ${Math.round(s.confidence)}% < ${MIN_CONFIDENCE}% — validation manuelle requise`
+        : proposedTracking
+          ? `Colis identifié — Tracking Number "${proposedTracking}" sera ajouté (champ vide)`
+          : "Colis identifié — réception seulement",
+      canApply: !lowConf,
+      proposedTracking
     };
   });
 }
 
 /**
- * APLIKE sèlman foto admin valide yo: make koli kòm resevwa + ajoute
- * Tracking Number si li manke. Pa JANM kreye nouvo koli.
+ * APLIKE — sèlman sa admin valide. Chan otorize SÈLMAN (RÈG N°5):
+ * tracking_manual (si vid), received_at, received_method.
+ * Chak chanjman anrejistre ak ansyen + nouvo valè (RÈG N°6).
+ * Retounen batch_id pou "Annuler la dernière importation" (RÈG N°8).
  */
-export async function applyPhotoValidations(items: PhotoMatch[]): Promise<{ received: number; trackingAdded: number }> {
+export async function applyPhotoValidations(items: PhotoMatch[]): Promise<{
+  batchId: string; received: number; trackingAdded: number;
+}> {
   const now = new Date().toISOString();
+  const batchId = "SCAN-" + Date.now().toString(36).toUpperCase();
   let received = 0, trackingAdded = 0;
+  const undo: any[] = [];
+
   for (const m of items) {
-    if (!m.matched || !m.matchedPkgId) continue;
+    if (!m.matched || !m.matchedPkgId) continue;   // RÈG N°2: pa kreye anyen
+
+    // Eta anvan (pou backup / anilasyon)
+    const { data: before } = await supabase.from("packages")
+      .select("id, tracking_manual, received_at, received_method").eq("id", m.matchedPkgId).maybeSingle();
+    if (!before) continue;
+
     const patch: Record<string, unknown> = { received_at: now, received_method: "Analyse Photo" };
-    if (m.willAddTracking) { patch.tracking_manual = m.willAddTracking; trackingAdded++; }
+    if (m.proposedTracking && !before.tracking_manual) {
+      patch.tracking_manual = m.proposedTracking;
+      trackingAdded++;
+    }
+
     await supabase.from("packages").update(patch).eq("id", m.matchedPkgId);
     received++;
+    undo.push({
+      id: before.id,
+      tracking_manual: before.tracking_manual ?? "",
+      received_at: before.received_at,
+      received_method: before.received_method ?? ""
+    });
+
+    await logAction("Analyse Photo",
+      `${m.filename} | Guía:${m.guia || "—"} | confiance:${Math.round(m.confidence)}% | ` +
+      (patch.tracking_manual
+        ? `Tracking Number: "${before.tracking_manual ?? ""}" → "${patch.tracking_manual}"`
+        : "réception seulement") +
+      ` | réception: "${before.received_at ?? "—"}" → "${now}"`,
+      m.matchedTracking ?? "", m.matchedCode ?? "");
   }
+
+  // Pwen restorasyon (RÈG N°9) — pou anile enpòtasyon an
+  await supabase.from("import_batches").insert({
+    batch_id: batchId, kind: "Analyse Photo",
+    items_count: received, undo_data: undo
+  });
   await logAction("Analyse Photo",
-    `${items.length} validées: ${received} reçus, ${trackingAdded} Tracking Number ajoutés`, "", "");
-  return { received, trackingAdded };
+    `Batch ${batchId}: ${received} colis reçus, ${trackingAdded} Tracking Number ajoutés`, batchId, "");
+
+  return { batchId, received, trackingAdded };
 }
 
-/** JOURNAL OCR — anrejistre chak foto analize (V8.5 §18). */
+/** ANILE dènye enpòtasyon (RÈG N°8) — remete eta anvan an. */
+export async function undoLastImport(): Promise<{ ok: boolean; batchId?: string; restored?: number; reason?: string }> {
+  const { data } = await supabase.from("import_batches")
+    .select("*").eq("undone", false).order("created_at", { ascending: false }).limit(1);
+  const batch = (data ?? [])[0] as any;
+  if (!batch) return { ok: false, reason: "Aucune importation à annuler." };
+
+  const undo = Array.isArray(batch.undo_data) ? batch.undo_data : [];
+  let restored = 0;
+  for (const u of undo) {
+    await supabase.from("packages").update({
+      tracking_manual: u.tracking_manual ?? "",
+      received_at: u.received_at ?? null,
+      received_method: u.received_method ?? ""
+    }).eq("id", u.id);
+    restored++;
+  }
+  await supabase.from("import_batches").update({ undone: true }).eq("id", batch.id);
+  await logAction("Annulation Import",
+    `Batch ${batch.batch_id} annulé — ${restored} colis restaurés`, batch.batch_id, "");
+  return { ok: true, batchId: batch.batch_id, restored };
+}
+
+/** JOURNAL OCR — chak foto analize (menm sa ki pa aplike). */
 export async function logOcrScans(scans: PhotoMatch[]): Promise<void> {
   for (const s of scans) {
     await logAction("Journal OCR",

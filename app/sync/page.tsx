@@ -5,7 +5,7 @@ import { parseMcpackWorkbook } from "@/lib/xlsx";
 import { scanPhotos } from "@/lib/photoscan";
 import {
   commitSync, getClients, getImports, getSettings,
-  getVilles, logAction, analyzePhotoScans, applyPhotoValidations, logOcrScans, PhotoMatch, previewSync, SyncPreview
+  getVilles, logAction, analyzePhotoScans, applyPhotoValidations, logOcrScans, PhotoMatch, previewSync, SyncPreview, undoLastImport
 } from "@/lib/db";
 import { Client, ImportLog, Ville } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
@@ -26,6 +26,21 @@ export default function SyncPage() {
   const [scanProg, setScanProg] = useState("");
   const [accepted, setAccepted] = useState<Set<string>>(new Set());
   const [applyDone, setApplyDone] = useState<string | null>(null);
+  const [lastBatch, setLastBatch] = useState<string | null>(null);
+
+  /** RÈG N°8 — Annuler la dernière importation */
+  const annulerImport = async () => {
+    if (!confirm("Annuler la dernière importation photo? Les colis reviendront à leur état précédent.")) return;
+    setBusy(true);
+    try {
+      const r = await undoLastImport();
+      setApplyDone(r.ok
+        ? `↩️ Importation ${r.batchId} annulée — ${r.restored} colis restaurés.`
+        : `⚠️ ${r.reason}`);
+      setLastBatch(null);
+    } catch (e: any) { setErr("Erè: " + e.message); }
+    finally { setBusy(false); }
+  };
 
   const toggleAccept = (f: string) => setAccepted((prev) => {
     const n = new Set(prev); n.has(f) ? n.delete(f) : n.add(f); return n;
@@ -38,7 +53,8 @@ export default function SyncPage() {
     setBusy(true);
     try {
       const r = await applyPhotoValidations(items);
-      setApplyDone(`✅ ${r.received} colis marqués reçus${r.trackingAdded ? `, ${r.trackingAdded} Tracking Number ajoutés` : ""}.`);
+      setLastBatch(r.batchId);
+      setApplyDone(`✅ Importation ${r.batchId}: ${r.received} colis marqués reçus${r.trackingAdded ? `, ${r.trackingAdded} Tracking Number ajoutés` : ""}.`);
       setScans(null); setAccepted(new Set());
     } catch (e: any) { setErr("Erè: " + e.message); }
     finally { setBusy(false); }
@@ -67,7 +83,8 @@ export default function SyncPage() {
       await logOcrScans(analyzed);
       setScans(analyzed);
       // Pre-seleksyone sèlman sa ki "validated" (konfyans wo, san enkoyerans)
-      setAccepted(new Set(analyzed.filter((a) => a.verdict === "validated").map((a) => a.filename)));
+      // MODE ZÉRO RISQUE: pre-koche SÈLMAN sa ki gen konfyans ≥98% e zewo konfli
+      setAccepted(new Set(analyzed.filter((a) => a.canApply).map((a) => a.filename)));
       setScanProg("");
     } catch (e: any) {
       setErr("Erè analiz foto: " + (e.message ?? String(e)));
@@ -131,6 +148,10 @@ export default function SyncPage() {
         <div className="flex items-center gap-2 mb-3">
           <Image size={16} className="text-navy-light" />
           <h2 className="text-sm font-bold text-navy">Analyse Photos des Colis</h2>
+          <div className="flex-1" />
+          <button className="btn btn-ghost border border-line !py-1 !text-xs" onClick={annulerImport} disabled={busy}>
+            ↩️ Annuler la dernière importation
+          </button>
         </div>
         <p className="text-sm text-slate-600 mb-4">
           Ajoute plizyè foto etikèt koli yo ansanm. Sistèm nan ap li Customer Code, Tracking Number
@@ -160,17 +181,38 @@ export default function SyncPage() {
         {scans && (() => {
           const ok = scans.filter((s) => s.verdict === "validated");
           const rev = scans.filter((s) => s.verdict === "review");
+          const conf = scans.filter((s) => s.verdict === "conflict");
+          const nom = scans.filter((s) => s.verdict === "no_match");
           return (
             <div className="mt-4 space-y-3">
               {/* Rezime */}
-              <div className="flex gap-4 text-sm flex-wrap items-center">
-                <span className="text-emerald-700 font-semibold">🟢 {ok.length} validées</span>
-                <span className="text-amber-700 font-semibold">🟡 {rev.length} à vérifier</span>
-                <span className="text-slate-500">Sélectionnées: {accepted.size}</span>
-                <div className="flex-1" />
-                <button className="btn" onClick={validerPhotos} disabled={busy || !accepted.size}>
-                  Importer {accepted.size} colis validé(s)
-                </button>
+              <div className="bg-navy/5 border border-line rounded-lg p-4 space-y-3">
+                <p className="text-sm font-bold text-navy">🔍 Simulation d&apos;importation — rien n&apos;est encore enregistré</p>
+                <div className="flex gap-4 text-sm flex-wrap items-center">
+                  <span className="text-emerald-700 font-semibold">🟢 {ok.length} validées (≥98%)</span>
+                  <span className="text-amber-700 font-semibold">🟡 {rev.length} à vérifier</span>
+                  {conf.length > 0 && <span className="text-red-600 font-semibold">🔴 {conf.length} conflits</span>}
+                  {nom.length > 0 && <span className="text-slate-500">⚪ {nom.length} non trouvés</span>}
+                </div>
+                <div className="flex gap-2 flex-wrap items-center">
+                  <button className="btn btn-ghost border border-line !py-1 !text-xs"
+                    onClick={() => setAccepted(new Set(scans.filter((s) => s.matched).map((s) => s.filename)))}>
+                    Tout accepter
+                  </button>
+                  <button className="btn btn-ghost border border-line !py-1 !text-xs"
+                    onClick={() => setAccepted(new Set())}>
+                    Tout refuser
+                  </button>
+                  <div className="flex-1" />
+                  <span className="text-xs text-slate-500">Sélectionnées: <b>{accepted.size}</b></span>
+                  <button className="btn" onClick={validerPhotos} disabled={busy || !accepted.size}>
+                    Enregistrer {accepted.size} modification(s)
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Chanjman otorize yo: <b>Tracking Number</b> (si chan an vid), <b>date/heure de réception</b>.
+                  Scanner a pa ka JANM chanje pwa, pri, tax, DGA, vil, kliyan ni Customer Code.
+                </p>
               </div>
 
               {/* Tablo validasyon — Aksepte / Rejte chak foto */}
@@ -178,17 +220,19 @@ export default function SyncPage() {
                 <table className="w-full text-xs">
                   <thead><tr>
                     <th className="thc">✔</th>
-                    {["Aperçu", "Tracking ID (Guía)", "Tracking Number", "Customer Code", "Confiance", "Résultat"]
+                    {["Aperçu", "Tracking ID (Guía)", "Tracking Number", "Client", "Confiance", "Action proposée"]
                       .map((h) => <th key={h} className="thc">{h}</th>)}
                   </tr></thead>
                   <tbody>
                     {scans.map((s, i) => (
                       <tr key={i} className={
-                        s.verdict === "validated" ? "!bg-emerald-50"
-                        : s.incoherences.length ? "!bg-amber-50" : i % 2 ? "bg-mist" : ""}>
+                        s.verdict === "conflict" ? "!bg-red-50"
+                        : s.verdict === "validated" ? "!bg-emerald-50"
+                        : s.verdict === "review" ? "!bg-amber-50" : i % 2 ? "bg-mist" : ""}>
                         <td className="tdc">
                           <input type="checkbox" checked={accepted.has(s.filename)}
-                            disabled={!s.matched} onChange={() => toggleAccept(s.filename)} />
+                            disabled={!s.matched || s.verdict === "conflict"}
+                            onChange={() => toggleAccept(s.filename)} />
                         </td>
                         <td className="tdc">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -198,7 +242,11 @@ export default function SyncPage() {
                           {s.guia || <span className="text-slate-300">—</span>}
                           {s.guiaSource === "barcode" && <span className="ml-1 badge bg-blue-100 text-blue-700">code-barres</span>}
                         </td>
-                        <td className="tdc font-mono text-[11px]">{s.tracking_number || s.matchedManual || <span className="text-slate-300">—</span>}</td>
+                        <td className="tdc font-mono text-[11px]">
+                          {s.proposedTracking
+                            ? <span className="text-emerald-700 font-semibold">+ {s.proposedTracking}</span>
+                            : s.matchedManual || s.tracking_number || <span className="text-slate-300">— (vide)</span>}
+                        </td>
                         <td className="tdc font-bold text-navy">{s.matchedCode || s.customer_code || "—"}</td>
                         <td className="tdc">
                           <span className={`badge ${s.confidence >= 90 ? "bg-emerald-100 text-emerald-700"
@@ -206,12 +254,16 @@ export default function SyncPage() {
                             {Math.round(s.confidence)}%
                           </span>
                         </td>
-                        <td className="tdc max-w-[260px]">
-                          <span className={s.verdict === "validated" ? "text-emerald-700" : "text-amber-800"}>
-                            {s.verdict === "validated" ? "🟢 " : "🟡 "}{s.message}
+                        <td className="tdc max-w-[280px]">
+                          <span className={
+                            s.verdict === "conflict" ? "text-red-700 font-semibold"
+                            : s.verdict === "validated" ? "text-emerald-700"
+                            : s.verdict === "review" ? "text-amber-800" : "text-slate-500"}>
+                            {s.verdict === "conflict" ? "🔴 " : s.verdict === "validated" ? "🟢 "
+                              : s.verdict === "review" ? "🟡 " : "⚪ "}{s.message}
                           </span>
-                          {s.incoherences.map((m, j) => (
-                            <span key={j} className="block text-[11px] text-amber-700">⚠️ {m}</span>
+                          {s.conflicts.map((m, j) => (
+                            <span key={j} className="block text-[11px] text-red-700">⚠️ {m}</span>
                           ))}
                         </td>
                       </tr>
@@ -220,9 +272,9 @@ export default function SyncPage() {
                 </table>
               </div>
               <p className="text-[11px] text-slate-400">
-                Scanner a <b>pa devine</b>: barcode an premye (≥98% konfyans), answit Tracking ID nan tèks,
-                answit Tracking Number nan zòn dedye a. Okenn koli pa antre san ou valide l. Pwa foto a pa itilize —
-                pwa ofisyèl la rete sa ki nan sistèm nan. Tout analiz antre nan Journal OCR.
+                <b>Mode Zéro Risque:</b> scanner a pa devine, pa kreye koli, epi li bloke tout konfli.
+                Konfyans minimòm pou modifikasyon otomatik: <b>98%</b>. Fakti yo toujou kalkile ak done bazdone a
+                (jamè done foto). Tout analiz nan Journal OCR ak ansyen/nouvo valè.
               </p>
             </div>
           );

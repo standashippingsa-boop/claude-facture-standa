@@ -32,10 +32,26 @@ const HEADER_KEYS: Record<keyof Omit<McpackRow, "customer_code" | "customer_name
  * Nan Excel MCPACK la, kolòn FOB la vini touswit apre dat la ("13/07/2026   56").
  * Fonksyon sa a kenbe SÈLMAN dat la — valè FOB la sere apa nan chan `fob`.
  */
+/**
+ * MODE ZÉRO RISQUE: kolòn Date DWE genyen SÈLMAN dat.
+ * Si valè a pa yon dat valab (ex: yon tracking), nou retounen "" — nou pa
+ * JANM mete yon lòt done nan kolòn dat la.
+ */
 function cleanDate(raw: string): string {
   const s = String(raw ?? "").trim();
   const m = s.match(/^(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\d{4}[\/\-.]\d{1,2}[\/\-.]\d{1,2})/);
-  return m ? m[1] : s;
+  if (!m) return "";                 // pa yon dat -> rete VID
+  const d = m[1];
+  // Verifikasyon reyèl: jou/mwa valab
+  const parts = d.split(/[\/\-.]/).map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return "";
+  const [a, b, c] = parts;
+  const isYmd = String(parts[0]).length === 4;
+  const day = isYmd ? c : a, month = isYmd ? b : b, year = isYmd ? a : c;
+  if (month < 1 || month > 12) return "";
+  if (day < 1 || day > 31) return "";
+  if (year < 1900 || year > 2200) return "";
+  return d;
 }
 
 function findCol(headers: string[], keys: string[]): number {
