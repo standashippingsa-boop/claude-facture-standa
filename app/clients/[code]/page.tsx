@@ -4,8 +4,8 @@ import Link from "next/link";
 import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import {
-  commitPdfImport, createInvoice, getClient, getClientPackagesAndInvoices, getSettings,
-  getUsdRate, saveInvoicePdfUrl, setPackagesStatus, updatePackagePrice
+  commitPdfImport, createInvoice, getClient, getClientPackagesAndInvoices,
+  getInvoiceFlags, getSettings, getUsdRate, saveInvoicePdfUrl, setPackagesStatus, updatePackagePrice
 } from "@/lib/db";
 import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
 import { computePrice, round2 } from "@/lib/pricing";
@@ -33,6 +33,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pdfRows, setPdfRows] = useState<PdfPkgRow[] | null>(null);   // Import PDF pou KLIYAN sa a
+  const [flags, setFlags] = useState({ taxFix: false, taxDga: false });
 
   /** IMPORT PDF (V8.5 §9) — dirèkteman sou kont kliyan an */
   const handlePdf = async (f: File) => {
@@ -58,7 +59,8 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   };
 
   const load = async () => {
-    const [c, r, s] = await Promise.all([getClient(decoded), getUsdRate(), getSettings()]);
+    const [c, r, s, fl] = await Promise.all([getClient(decoded), getUsdRate(), getSettings(), getInvoiceFlags()]);
+    setFlags(fl);
     setClient(c); setRate(r);
     if (s.invoice_footer) setFooter(s.invoice_footer);
     const { pkgs: p, invs: i } = await getClientPackagesAndInvoices(decoded);
@@ -89,7 +91,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     try {
       for (const p of targets) {
         const r = computePrice(p.weight, client.account_type, client.ville);
-        if (r) await updatePackagePrice(p.id, r.price, r.tax, rate);
+        if (r) await updatePackagePrice(p.id, r.price, flags.taxFix ? r.taxFix : 0, rate);
       }
       setNotice(`Tarification aplike sou ${targets.length} colis.`);
       await load();

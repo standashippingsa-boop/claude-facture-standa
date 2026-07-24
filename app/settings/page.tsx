@@ -31,6 +31,8 @@ export default function SettingsPage() {
   const [showForm, setShowForm] = useState(false);
   const [footer, setFooter] = useState("");
   const [autoPricing, setAutoPricing] = useState(true);
+  const [taxFixOn, setTaxFixOn] = useState(false);
+  const [taxDgaOn, setTaxDgaOn] = useState(false);
   const [rate, setRate] = useState("0");
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -41,6 +43,8 @@ export default function SettingsPage() {
     setVilles(await getVilles());
     const [s, r] = await Promise.all([getSettings(), getUsdRate()]);
     setFooter(s.invoice_footer ?? "");
+    setTaxFixOn(s.tax_fix_enabled === "true");
+    setTaxDgaOn(s.tax_dga_enabled === "true");
     setAutoPricing(s.auto_pricing !== "false");
     setRate(String(r));
   };
@@ -92,6 +96,8 @@ export default function SettingsPage() {
 
   const saveGeneral = async () => {
     await setSetting("invoice_footer", footer);
+    await setSetting("tax_fix_enabled", String(taxFixOn));
+    await setSetting("tax_dga_enabled", String(taxDgaOn));
     await setSetting("auto_pricing", String(autoPricing));
     setNotice("Paramètres enregistrés.");
   };
@@ -229,6 +235,21 @@ export default function SettingsPage() {
           <input type="checkbox" checked={autoPricing} onChange={(e) => setAutoPricing(e.target.checked)} />
           Tarification automatique lors de la synchronisation MCPACK (selon la ville du client)
         </label>
+        <div className="border-t border-line pt-3 space-y-2">
+          <p className="text-xs font-bold text-navy uppercase tracking-wide">Composition des factures</p>
+          <p className="text-[11px] text-slate-500">
+            Kolòn <b>Prix USD / HTG</b> yo montre <b>sèlman pri transpò a</b>. Tax yo rete anrejistre
+            nan sistèm nan, men yo antre nan kalkil fakti a SÈLMAN si w aktive yo isit la.
+          </p>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={taxFixOn} onChange={(e) => setTaxFixOn(e.target.checked)} />
+            Inclure <b>Tax Fix</b> dans les factures (tax/lb + frais fixe de la ville)
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={taxDgaOn} onChange={(e) => setTaxDgaOn(e.target.checked)} />
+            Inclure <b>Tax DGA</b> (douane — saisie manuelle sur chaque facture)
+          </label>
+        </div>
         <button className="btn" onClick={saveGeneral}>Enregistrer</button>
       </section>
 

@@ -6,7 +6,7 @@ import Pagination from "@/components/Pagination";
 import {
   ClientTarifInfo, createInvoice, deletePackage, getClient, getClientTarifMap,
   getPackages, getSettings, getUsdRate, saveTrackingManual, setPackagesStatus,
-  logAction, saveInvoicePdfUrl, updatePackagePrice
+  getInvoiceFlags, logAction, saveInvoicePdfUrl, updatePackagePrice
 } from "@/lib/db";
 import { computePrice, round2 } from "@/lib/pricing";
 import { generateUploadDownload } from "@/lib/pdf";
@@ -46,11 +46,14 @@ export default function PackagesPage() {
   const { role } = useRole();
   const [sim, setSim] = useState<Simulation | null>(null);
   const [fraisDga, setFraisDga] = useState("");
+  const [discount, setDiscount] = useState("");
+  const [flags, setFlags] = useState({ taxFix: false, taxDga: false });
 
   const load = async () => {
-    const [p, tm, r, s] = await Promise.all([
-      getPackages(), getClientTarifMap(), getUsdRate(), getSettings()
+    const [p, tm, r, s, fl] = await Promise.all([
+      getPackages(), getClientTarifMap(), getUsdRate(), getSettings(), getInvoiceFlags()
     ]);
+    setFlags(fl);
     setPkgs(p.map((x) => ({ ...x, selected: false })));
     setTarifMap(tm);
     setRate(r);
@@ -187,7 +190,7 @@ export default function PackagesPage() {
     for (const p of targets) {
       const info = tarifMap.get(p.customer_code);
       const r = info ? computePrice(p.weight, info.account_type, info.ville) : null;
-      if (r) { await savePrice(p, r.price, r.tax); n++; } else sans++;
+      if (r) { await savePrice(p, r.price, flags.taxFix ? r.taxFix : 0); n++; } else sans++;
     }
     setNotice(
       `Tarification appliquée sur ${n} colis${selected.length ? " sélectionnés" : " disponibles"}.` +
@@ -213,7 +216,7 @@ export default function PackagesPage() {
       subtotal, tax, totalUsd, rate,
       totalHtg: round2(totalUsd * rate)
     });
-    setFraisDga("");
+    setFraisDga(""); setDiscount("");
   };
 
   /** Etap 2: konfimasyon -> kreye fakti a toutbon */
@@ -225,7 +228,8 @@ export default function PackagesPage() {
     setBusy(true);
     try {
       const dga = round2(Math.max(0, Number(fraisDga) || 0));
-      const inv = await createInvoice(client, selected, rate, dga);
+      const disc = round2(Math.max(0, Number(discount) || 0));
+      const inv = await createInvoice(client, selected, rate, dga, disc);
       await logAction("Facturation", `${inv.invoice_number} — ${selected.length} colis, ${usd(inv.grand_total)}${dga > 0 ? ` (DGA ${usd(dga)})` : ""}`, inv.invoice_number, code);
       const items = selected.map((p) => ({
         invoice_id: inv.id, tracking_number: p.tracking_number,
@@ -258,6 +262,14 @@ export default function PackagesPage() {
   const tp = selected.reduce((s, p) => s + p.price_usd, 0);
   const tt = selected.reduce((s, p) => s + p.tax_usd, 0);
   const allChecked = pageRows.length > 0 && pageRows.every((p) => p.selected);
+
+  /** TOTAL fakti a = pri transpò + Tax Fix (si aktive) + Tax DGA (si aktive) − Discount */
+  const simTotal = sim ? round2(
+    sim.subtotal
+    + (flags.taxFix ? sim.tax : 0)
+    + (flags.taxDga ? Math.max(0, Number(fraisDga) || 0) : 0)
+    - Math.max(0, Number(discount) || 0)
+  ) : 0;
 
   return (
     <div className="space-y-4">
@@ -405,23 +417,44 @@ export default function PackagesPage() {
               <div className="flex justify-between"><span className="text-slate-500">Nombre de colis</span><b>{sim.count}</b></div>
               <div className="flex justify-between"><span className="text-slate-500">Poids total</span><b>{sim.weight.toFixed(2)} LB</b></div>
               <div className="border-t border-line my-2" />
-              <div className="flex justify-between"><span className="text-slate-500">Sous-total</span><b>{usd(sim.subtotal)}</b></div>
-              <div className="flex justify-between"><span className="text-slate-500">Tax</span><b>{usd(sim.tax)}</b></div>
+              {/* PRIX LIV LA KOUTE A — transpò sèlman */}
+              <div className="flex justify-between">
+                <span className="text-slate-500">Prix liv la koute a</span><b>{usd(sim.subtotal)}</b>
+              </div>
+
+              {/* Tax Fix — sèlman si aktive nan Paramètres E li gen valè */}
+              {flags.taxFix && sim.tax > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Tax Fix</span><b>{usd(sim.tax)}</b>
+                </div>
+              )}
+
+              {/* Tax DGA — sèlman si aktive nan Paramètres */}
+              {flags.taxDga && (
+                <label className="flex justify-between items-center gap-3 py-1">
+                  <span className="text-slate-500">Tax DGA (douane, USD)</span>
+                  <input type="number" step="0.01" min="0" className="input !w-24 !py-1 text-right"
+                    value={fraisDga} onChange={(e) => setFraisDga(e.target.value)} placeholder="0.00" />
+                </label>
+              )}
+
+              {/* Discount — toujou disponib, parèt nan total sèlman si > 0 */}
               <label className="flex justify-between items-center gap-3 py-1">
-                <span className="text-slate-500">Frais DGA (douane, USD)</span>
+                <span className="text-slate-500">Discount (USD)</span>
                 <input type="number" step="0.01" min="0" className="input !w-24 !py-1 text-right"
-                  value={fraisDga} onChange={(e) => setFraisDga(e.target.value)} placeholder="0.00" />
+                  value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="0.00" />
               </label>
+
               <div className="flex justify-between text-navy border-t border-line pt-1">
-                <span className="font-semibold">Grand Total USD</span>
-                <b>{usd(round2(sim.totalUsd + Math.max(0, Number(fraisDga) || 0)))}</b>
+                <span className="font-semibold">TOTAL USD</span>
+                <b>{usd(simTotal)}</b>
               </div>
               <div className="flex justify-between text-xs text-slate-500">
                 <span>Taux utilisé</span><span>1 USD = {sim.rate.toFixed(2)} HTG</span>
               </div>
               <div className="flex justify-between items-center bg-navy text-white rounded-lg px-3 py-2 mt-2">
                 <span className="font-semibold">Grand Total HTG</span>
-                <b className="text-lg">{htg(round2((sim.totalUsd + Math.max(0, Number(fraisDga) || 0)) * sim.rate))}</b>
+                <b className="text-lg">{htg(round2(simTotal * sim.rate))}</b>
               </div>
             </div>
             <div className="mt-5 flex gap-3">

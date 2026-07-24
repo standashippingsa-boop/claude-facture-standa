@@ -7,7 +7,11 @@ export const SMALL_PARCEL_MAX = 0.99;
 export const DEFAULT_SMALL_PARCEL_PRICE = 3.7;
 
 export interface PriceResult {
+  /** PRIX LIV LA KOUTE A — transpò SÈLMAN (pwa × pri/lb). Pa gen okenn frè ladan l. */
   price: number;          // USD
+  /** TAX FIX — frè fiks vil la + tax pa liv (soti nan Paramètres). Separe nèt de pri a. */
+  taxFix: number;         // USD
+  /** Alias konpatibilite (menm valè ak taxFix). */
   tax: number;            // USD
   rule: "small" | "ville";
 }
@@ -31,9 +35,8 @@ export function computePrice(
   if (!ville || !ville.active) return null;
   const perLb = accountType === "Business" ? Number(ville.price_business) : Number(ville.price_personal);
   const taxLb = accountType === "Business" ? Number(ville.tax_business) : Number(ville.tax_personal);
-  return {
-    price: round2(weight * perLb + Number(ville.fixed_fee || 0)),
-    tax: round2(weight * taxLb),
-    rule: "ville"
-  };
+  // Pri transpò a PA JANM gen frè ladan l (frais fixe / tax ale nan taxFix).
+  const price = round2(weight * perLb);
+  const taxFix = round2(weight * taxLb + Number(ville.fixed_fee || 0));
+  return { price, taxFix, tax: taxFix, rule: "ville" };
 }

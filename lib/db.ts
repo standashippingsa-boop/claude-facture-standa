@@ -247,11 +247,17 @@ export async function commitSync(
 }
 
 // ================= INVOICES =================
-export async function createInvoice(client: Client, pkgs: Pkg[], rate: number, fraisDga = 0): Promise<Invoice> {
+export async function createInvoice(
+  client: Client, pkgs: Pkg[], rate: number, fraisDga = 0, discount = 0
+): Promise<Invoice> {
+  const flags = await getInvoiceFlags();
+  // PRIX LIV LA KOUTE A — transpò sèlman
   const subtotal = round2(pkgs.reduce((s, p) => s + p.price_usd, 0));
-  const tax = round2(pkgs.reduce((s, p) => s + p.tax_usd, 0));
-  const dga = round2(Math.max(0, fraisDga));
-  const grand = round2(subtotal + tax + dga);
+  // Tax Fix / Tax DGA antre nan kalkil la SÈLMAN si yo aktive nan Paramètres
+  const tax = flags.taxFix ? round2(pkgs.reduce((s, p) => s + p.tax_usd, 0)) : 0;
+  const dga = flags.taxDga ? round2(Math.max(0, fraisDga)) : 0;
+  const disc = round2(Math.max(0, discount));
+  const grand = round2(subtotal + tax + dga - disc);
   const invoice_number = "SC-" + Date.now().toString().slice(-6);
 
   const { data: inv, error } = await supabase.from("invoices").insert({
@@ -261,7 +267,7 @@ export async function createInvoice(client: Client, pkgs: Pkg[], rate: number, f
     whatsapp: client.whatsapp,
     pickup_location: client.pickup_location,
     ville: client.ville?.name ?? "",
-    subtotal, tax, frais_dga: dga, grand_total: grand,
+    subtotal, tax, frais_dga: dga, discount: disc, grand_total: grand,
     exchange_rate_used: rate,
     total_usd: grand,
     total_htg: round2(grand * rate),
@@ -276,8 +282,8 @@ export async function createInvoice(client: Client, pkgs: Pkg[], rate: number, f
     weight: p.weight,
     content: p.content,
     price: p.price_usd,
-    tax: p.tax_usd,
-    total: round2(p.price_usd + p.tax_usd)
+    tax: flags.taxFix ? p.tax_usd : 0,
+    total: round2(p.price_usd + (flags.taxFix ? p.tax_usd : 0))
   }));
   const { error: e2 } = await supabase.from("invoice_items").insert(items);
   if (e2) throw e2;
@@ -354,6 +360,20 @@ export async function getSmallParcelPrice(): Promise<number> {
 }
 
 // ================= SETTINGS =================
+export interface InvoiceFlags { taxFix: boolean; taxDga: boolean; }
+
+/**
+ * Tax Fix ak Tax DGA PA aktive pa defo (dekonekte nan kalkil fakti a).
+ * Administratè a ka aktive yo nan Paramètres lè li vle.
+ */
+export async function getInvoiceFlags(): Promise<InvoiceFlags> {
+  const s = await getSettings();
+  return {
+    taxFix: s.tax_fix_enabled === "true",
+    taxDga: s.tax_dga_enabled === "true"
+  };
+}
+
 export async function getSettings(): Promise<Record<string, string>> {
   const { data } = await supabase.from("app_settings").select("*");
   return Object.fromEntries((data ?? []).map((s) => [s.key, s.value]));
@@ -612,7 +632,7 @@ export async function clearJournal(): Promise<void> {
  * Retounen kantite koli ki chanje.
  */
 export async function reapplyTarifDisponible(): Promise<number> {
-  const [tarif, rate] = await Promise.all([getClientTarifMap(), getUsdRate()]);
+  const [tarif, rate, flags] = await Promise.all([getClientTarifMap(), getUsdRate(), getInvoiceFlags()]);
   const { data } = await supabase.from("packages")
     .select("*").eq("status", "Disponible");
   const pkgs = (data ?? []) as Pkg[];
@@ -622,11 +642,11 @@ export async function reapplyTarifDisponible(): Promise<number> {
     if (!info) continue;
     const r = computePrice(p.weight, info.account_type, info.ville);
     if (!r) continue;
-    if (round2(p.price_usd) !== r.price || round2(p.tax_usd) !== r.tax) {
+    const taxVal = flags.taxFix ? r.taxFix : 0;   // Tax Fix dekonekte pa defo
+    if (round2(p.price_usd) !== r.price || round2(p.tax_usd) !== taxVal) {
       await supabase.from("packages").update({
-        price_usd: r.price, tax_usd: r.tax,
-        price_htg: round2(r.price * rate), tax_htg: round2(r.tax * rate),
-        total_usd: round2(r.price + r.tax), total_htg: round2((r.price + r.tax) * rate)
+        price_usd: r.price, tax_usd: taxVal,
+        price_htg: round2(r.price * rate), tax_htg: round2(taxVal * rate),
       }).eq("id", p.id);
       n++;
     }

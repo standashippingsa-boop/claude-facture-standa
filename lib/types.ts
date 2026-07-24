@@ -86,7 +86,8 @@ export interface Invoice {
   subtotal: number;       // USD
   tax: number;            // USD
   grand_total: number;
-  frais_dga?: number;    // USD
+  frais_dga?: number;    // USD (Tax DGA — manyèl, si aktive)
+  discount?: number;     // USD (rabè — si > 0)
   exchange_rate_used: number;
   total_usd: number;
   total_htg: number;
