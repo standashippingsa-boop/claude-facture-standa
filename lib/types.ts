@@ -89,6 +89,7 @@ export interface Invoice {
   frais_dga?: number;    // USD (Tax DGA — manyèl, si aktive)
   discount?: number;     // USD (rabè — si > 0)
   calc_mode?: string;    // "addition" | "small_control"
+  per_lb_used?: number;  // Prix/LB ki te itilize (jounal finansye)
   exchange_rate_used: number;
   total_usd: number;
   total_htg: number;

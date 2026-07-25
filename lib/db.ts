@@ -7,6 +7,7 @@ import {
 import { McpackRow } from "./xlsx";
 import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
+import { computeInvoice, InvoiceComputation, verifyTotal } from "./invoice-engine";
 
 const asNum = <T extends Record<string, any>>(r: T, keys: string[]): T => {
   keys.forEach((k) => (r[k as keyof T] = Number(r[k]) as any));
@@ -247,88 +248,77 @@ export async function commitSync(
 }
 
 // ================= INVOICES =================
-/** Opsyon fakti admin chwazi nan fenèt konfimasyon an. */
+/** Opsyon fakti (montan admin chwazi yo + mòd). */
 export interface InvoiceOptions {
-  taxeFixe?: number;                        // Taxe Fixe (si admin aktive l)
-  fraisDga?: number;                        // Frais DGA (si admin aktive l)
-  discount?: number;                        // Discount (si admin aktive l)
-  mode?: "addition" | "small_control";      // Mòd kalkil koli yo
+  taxeFixe?: number;
+  fraisDga?: number;
+  discount?: number;
+  mode?: "addition" | "small_control";
 }
 
 /**
- * Kreye yon fakti selon opsyon admin an. Kalkil koli yo:
- *  - "addition"      : chak koli = pwa × pri/lb vil la (pri/lb EGZAK, san awondi)
- *  - "small_control" : ti koli (nan entèval Paramètres) = pri fiks; lòt = pwa × pri/lb
- * Sous-total = sòm liy yo. Total = sous-total + taxeFixe + dga − discount.
- * Prix/LB PA JANM modifye.
+ * Kreye fakti a APATI yon rezilta moteur finansye a (deja verifye).
+ * Sa garanti pri/lb ak montan yo se EGZAKteman sa moteur la kalkile —
+ * okenn rekalkil endepandan, okenn ansyen valè.
  */
-export async function createInvoice(
-  client: Client, pkgs: Pkg[], rate: number, opts: InvoiceOptions = {}
+export async function createInvoiceFromComputation(
+  client: Client, comp: InvoiceComputation, rate: number,
+  mode: "addition" | "small_control"
 ): Promise<Invoice> {
-  const mode = opts.mode ?? "addition";
-  const cfg = await getSmallParcelConfig();
-  const perLb = client.account_type === "Business"
-    ? Number(client.ville?.price_business ?? 0)
-    : Number(client.ville?.price_personal ?? 0);
+  // Sekirite: refize si moteur la pa t valide, oswa total pa kòrèk
+  if (!comp.ok) throw new Error("Facture refusée: " + comp.errors.join(" "));
+  if (!verifyTotal(comp)) throw new Error("Erreur de calcul détectée. Facture bloquée.");
 
-  // Kalkile chak liy (pri/lb egzak — okenn awondi sou pri/lb la)
-  const lines = pkgs.map((p) => {
-    const r = computeLinePrice(p.weight, perLb, mode, cfg);
-    return { pkg: p, price: r.price, isSmall: r.isSmall };
-  });
-
-  const subtotal = round2(lines.reduce((s, l) => s + l.price, 0));
-  const taxe = round2(Math.max(0, opts.taxeFixe ?? 0));
-  const dga = round2(Math.max(0, opts.fraisDga ?? 0));
-  const disc = round2(Math.max(0, opts.discount ?? 0));
-  const grand = round2(subtotal + taxe + dga - disc);
   const invoice_number = "SC-" + Date.now().toString().slice(-6);
-
   const { data: inv, error } = await supabase.from("invoices").insert({
     invoice_number,
     customer_code: client.customer_code,
     customer_name: client.fullname,
     whatsapp: client.whatsapp,
     pickup_location: client.pickup_location,
-    ville: client.ville?.name ?? "",
-    subtotal, tax: taxe, frais_dga: dga, discount: disc, grand_total: grand,
+    ville: comp.ville,
+    subtotal: comp.subtotal,
+    tax: comp.taxeFixe,
+    frais_dga: comp.fraisDga,
+    discount: comp.discount,
+    grand_total: comp.totalUsd,
     exchange_rate_used: rate,
-    total_usd: grand,
-    total_htg: round2(grand * rate),
-    package_count: pkgs.length,
-    total_weight: round2(pkgs.reduce((s, p) => s + p.weight, 0)),
-    calc_mode: mode
+    total_usd: comp.totalUsd,
+    total_htg: comp.totalHtg,
+    package_count: comp.lines.length,
+    total_weight: comp.totalWeight,
+    calc_mode: mode,
+    per_lb_used: comp.perLb
   }).select().single();
   if (error) throw error;
 
-  const items = lines.map((l) => ({
+  const items = comp.lines.map((l) => ({
     invoice_id: inv.id,
     tracking_number: l.pkg.tracking_number,
     tracking_manual: l.pkg.tracking_manual ?? "",
-    weight: l.pkg.weight,
+    weight: l.weight,
     content: l.pkg.content,
-    price: l.price,
+    price: l.amount,
     tax: 0,
-    total: l.price,
-    is_small: l.isSmall,
-    per_lb: perLb
+    total: l.amount
   }));
-  const { error: e2 } = await supabase.from("invoice_items").insert(
-    items.map(({ is_small, per_lb, ...rest }) => rest)   // kolòn baz yo sèlman
-  );
+  const { error: e2 } = await supabase.from("invoice_items").insert(items);
   if (e2) throw e2;
 
-  // Fikse pri liy la + HTG sou chak koli, epi make Facturé
-  await Promise.all(lines.map((l) =>
+  await Promise.all(comp.lines.map((l) =>
     supabase.from("packages").update({
-      status: "Facturé",
-      invoice_id: inv.id,
-      price_usd: l.price,
-      tax_usd: 0,
-      price_htg: round2(l.price * rate),
-      tax_htg: 0
+      status: "Facturé", invoice_id: inv.id,
+      price_usd: l.amount, tax_usd: 0,
+      price_htg: round2(l.amount * rate), tax_htg: 0
     }).eq("id", l.pkg.id)
   ));
+
+  // JOURNAL FINANCIER (§9)
+  await logAction("Facturation",
+    `${invoice_number} | Ville:${comp.ville} | Zone:${comp.zone} | Prix/LB:${comp.perLb} | ` +
+    `Poids:${comp.totalWeight} | Sous-total:${comp.subtotal} | Taxe:${comp.taxeFixe} | ` +
+    `DGA:${comp.fraisDga} | Discount:${comp.discount} | Mode:${mode} | TOTAL:${comp.totalUsd} USD`,
+    invoice_number, client.customer_code);
 
   return asNum(inv, ["subtotal", "tax", "grand_total", "exchange_rate_used", "total_usd", "total_htg", "total_weight"]) as Invoice;
 }

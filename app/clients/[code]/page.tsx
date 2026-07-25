@@ -4,11 +4,12 @@ import Link from "next/link";
 import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import {
-  commitPdfImport, createInvoice, getClient, getClientPackagesAndInvoices,
+  commitPdfImport, createInvoiceFromComputation, getClient, getClientPackagesAndInvoices,
   getInvoiceFlags, getSettings, getUsdRate, saveInvoicePdfUrl, setPackagesStatus, updatePackagePrice
 } from "@/lib/db";
 import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
 import { computePrice, round2 } from "@/lib/pricing";
+import { computeInvoice, verifyTotal } from "@/lib/invoice-engine";
 import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Client, INTERNAL_STATUSES, Invoice, Pkg } from "@/lib/types";
@@ -137,22 +138,24 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   // ===== Facturation dirèk depi dosye a =====
   const facturer = async () => {
     if (!client || !selectedDisponible.length) return;
-    const subtotal = round2(selectedDisponible.reduce((s, p) => s + p.price_usd, 0));
-    const tax = round2(selectedDisponible.reduce((s, p) => s + p.tax_usd, 0));
-    const totalUsd = round2(subtotal + tax);
+    // MOTEUR FINANCIER — validation + kalkil (mode addition)
+    const comp = computeInvoice({
+      client, pkgs: selectedDisponible, rate, smallCfg: { min: 0.1, max: 0.99, price: 3.7 },
+      mode: "addition", taxeFixe: 0, fraisDga: 0, discount: 0
+    });
+    if (!comp.ok) { setNotice("❌ " + comp.errors.join(" ")); return; }
+    if (!verifyTotal(comp)) { setNotice("❌ Erreur de calcul détectée. Facture bloquée."); return; }
     if (!confirm(`Générer facture pou ${selectedDisponible.length} colis?\n` +
-      `Sous-total: ${usd(subtotal)} | Tax: ${usd(tax)} | TOTAL: ${usd(totalUsd)} ` +
-      `(~${(totalUsd * rate).toFixed(0)} HTG, taux ${rate.toFixed(2)})`)) return;
+      `Prix/LB: ${comp.perLb} | Sous-total: ${usd(comp.subtotal)} | TOTAL: ${usd(comp.totalUsd)} ` +
+      `(~${comp.totalHtg.toFixed(0)} HTG, taux ${rate.toFixed(2)})`)) return;
     setBusy(true);
     try {
-      const inv = await createInvoice(client, selectedDisponible, rate, { mode: "addition" });
-      const perLb = client.account_type === "Business"
-        ? Number(client.ville?.price_business ?? 0) : Number(client.ville?.price_personal ?? 0);
-      const items = selectedDisponible.map((p) => ({
-        invoice_id: inv.id, tracking_number: p.tracking_number,
-        tracking_manual: p.tracking_manual ?? "",
-        weight: p.weight, content: p.content, price: p.price_usd, tax: 0,
-        total: p.price_usd, is_small: false, per_lb: perLb
+      const inv = await createInvoiceFromComputation(client, comp, rate, "addition");
+      const items = comp.lines.map((l) => ({
+        invoice_id: inv.id, tracking_number: l.pkg.tracking_number,
+        tracking_manual: l.pkg.tracking_manual ?? "",
+        weight: l.weight, content: l.pkg.content, price: l.amount, tax: 0,
+        total: l.amount, is_small: l.isSmall, per_lb: l.perLb
       }));
       const pdf = await generateUploadDownload(inv, items, footer, { download: true });
       if (pdf.url) { await saveInvoicePdfUrl(inv.id, pdf.url); inv.pdf_url = pdf.url; }

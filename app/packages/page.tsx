@@ -4,14 +4,15 @@ import { Calculator, ClipboardList, FileText, PackageCheck, Trash2, X } from "lu
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import {
-  ClientTarifInfo, createInvoice, deletePackage, getClient, getClientTarifMap,
+  ClientTarifInfo, createInvoiceFromComputation, deletePackage, getClient, getClientTarifMap,
   getPackages, getSettings, getUsdRate, saveTrackingManual, setPackagesStatus,
   getSmallParcelConfig, logAction, saveInvoicePdfUrl, updatePackagePrice
 } from "@/lib/db";
-import { computeLinePrice, computePrice, round2 } from "@/lib/pricing";
+import { computePrice, round2 } from "@/lib/pricing";
+import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
-import { INTERNAL_STATUSES, Pkg } from "@/lib/types";
+import { Client, INTERNAL_STATUSES, Pkg } from "@/lib/types";
 import { htg, parseMcpackDate, usd } from "@/lib/utils";
 import { generateBonRemise } from "@/lib/bonremise";
 import { exportPackagesPdf } from "@/lib/listpdf";
@@ -54,6 +55,7 @@ export default function PackagesPage() {
   const [discount, setDiscount] = useState("");
   const [calcMode, setCalcMode] = useState<"addition" | "small_control">("addition");
   const [smallCfg, setSmallCfg] = useState({ min: 0.1, max: 0.99, price: 3.7 });
+  const [comp, setComp] = useState<InvoiceComputation | null>(null);
 
   const load = async () => {
     const [p, tm, r, s, cfg] = await Promise.all([
@@ -205,59 +207,47 @@ export default function PackagesPage() {
   };
 
   /** Etap 1: Simulation Facture — preview anvan jenerasyon final la */
-  const simuler = () => {
+  const [simClient, setSimClient] = useState<Client | null>(null);
+
+  const simuler = async () => {
     if (!selected.length) return;
     const code = selected[0].customer_code;
     if (!selected.every((p) => p.customer_code === code)) {
       setNotice("Tout koli ki make yo dwe pou menm kliyan an."); return;
     }
-    const subtotal = round2(selected.reduce((s, p) => s + p.price_usd, 0));
-    const tax = round2(selected.reduce((s, p) => s + p.tax_usd, 0));
-    const totalUsd = round2(subtotal + tax);
-    setSim({
-      clientName: selected[0].customer_name,
-      clientCode: code,
-      count: selected.length,
-      weight: round2(selected.reduce((s, p) => s + p.weight, 0)),
-      subtotal, tax, totalUsd, rate,
-      totalHtg: round2(totalUsd * rate)
-    });
+    // Chaje kliyan konplè (ak vil li — sous pri/lb la)
+    const client = await getClient(code);
+    if (!client) { setNotice(`Client "${code}" pa nan bazdone a.`); return; }
+    setSimClient(client);
     setUseTaxe(false); setTaxeVal(""); setUseDga(false); setFraisDga("");
     setUseDisc(false); setDiscount(""); setCalcMode("addition");
+    setSim({
+      clientName: selected[0].customer_name, clientCode: code,
+      count: selected.length,
+      weight: round2(selected.reduce((s, p) => s + p.weight, 0)),
+      subtotal: 0, tax: 0, totalUsd: 0, rate, totalHtg: 0
+    });
   };
 
   /** Etap 2: konfimasyon -> kreye fakti a toutbon */
   const generer = async () => {
-    if (!selected.length || !sim) return;
-    const code = selected[0].customer_code;
-    const client = await getClient(code);
-    if (!client) { setNotice(`Client "${code}" pa nan bazdone a. Kreye l nan meni Clients.`); setSim(null); return; }
+    if (!selected.length || !sim || !simClient) return;
+    if (!comp) { setNotice("Calcul indisponible."); return; }
+    // BLOKE si validasyon moteur la echwe
+    if (!comp.ok) { setNotice("❌ " + comp.errors.join(" ")); return; }
+    if (!verifyTotal(comp)) { setNotice("❌ Erreur de calcul détectée. Facture bloquée."); return; }
+    const code = simClient.customer_code;
     setBusy(true);
     try {
-      const opts = {
-        taxeFixe: useTaxe ? Math.max(0, Number(taxeVal) || 0) : 0,
-        fraisDga: useDga ? Math.max(0, Number(fraisDga) || 0) : 0,
-        discount: useDisc ? Math.max(0, Number(discount) || 0) : 0,
-        mode: calcMode
-      };
-      const inv = await createInvoice(client, selected, rate, opts);
-      await logAction("Facturation",
-        `${inv.invoice_number} — ${selected.length} colis, ${usd(inv.grand_total)} (mode ${calcMode})`,
-        inv.invoice_number, code);
-      // Items pou PDF (menm kalkil ak createInvoice)
-      const info = tarifMap.get(code);
-      const perLb = info?.account_type === "Business"
-        ? Number(info?.ville?.price_business ?? 0) : Number(info?.ville?.price_personal ?? 0);
-      const items = selected.map((p) => {
-        const r = computeLinePrice(p.weight, perLb, calcMode, smallCfg);
-        return {
-          invoice_id: inv.id, tracking_number: p.tracking_number,
-          tracking_manual: p.tracking_manual ?? "",
-          weight: p.weight, content: p.content, price: r.price, tax: 0, total: r.price,
-          is_small: r.isSmall, per_lb: perLb
-        };
-      });
-      const pdf = await generateUploadDownload(inv, items, footer, { download: true });
+      const inv = await createInvoiceFromComputation(simClient, comp, rate, calcMode);
+      // Items pou PDF — soti DIRÈK nan moteur la (menm montan)
+      const items = comp.lines.map((l) => ({
+        invoice_id: inv.id, tracking_number: l.pkg.tracking_number,
+        tracking_manual: l.pkg.tracking_manual ?? "",
+        weight: l.weight, content: l.pkg.content, price: l.amount, tax: 0, total: l.amount,
+        is_small: l.isSmall, per_lb: l.perLb
+      }));
+  const pdf = await generateUploadDownload(inv, items, footer, { download: true });
       if (pdf.url) { await saveInvoicePdfUrl(inv.id, pdf.url); inv.pdf_url = pdf.url; }
       const how = await sendInvoicePdfWhatsApp(inv, pdf.blob, pdf.filename);
       setNotice(
@@ -283,24 +273,21 @@ export default function PackagesPage() {
   const tt = selected.reduce((s, p) => s + p.tax_usd, 0);
   const allChecked = pageRows.length > 0 && pageRows.every((p) => p.selected);
 
-  /** Sous-total selon mòd kalkil la (Addition oswa Contrôle petits colis). */
-  const simSubtotal = (() => {
-    if (!sim || !selected.length) return 0;
-    const info = tarifMap.get(selected[0].customer_code);
-    const perLb = info?.account_type === "Business"
-      ? Number(info?.ville?.price_business ?? 0)
-      : Number(info?.ville?.price_personal ?? 0);
-    return round2(selected.reduce((s, p) =>
-      s + computeLinePrice(p.weight, perLb, calcMode, smallCfg).price, 0));
-  })();
+  /** Rekalkile ak MOTEUR FINANCIER chak fwa opsyon yo chanje. */
+  useEffect(() => {
+    if (!sim || !simClient || !selected.length) { setComp(null); return; }
+    const c = computeInvoice({
+      client: simClient, pkgs: selected, rate, smallCfg, mode: calcMode,
+      taxeFixe: useTaxe ? Number(taxeVal) || 0 : 0,
+      fraisDga: useDga ? Number(fraisDga) || 0 : 0,
+      discount: useDisc ? Number(discount) || 0 : 0
+    });
+    setComp(c);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sim, simClient, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount, rate]);
 
-  /** TOTAL = sous-total + Taxe Fixe (si) + Frais DGA (si) − Discount (si) */
-  const simTotal = round2(
-    simSubtotal
-    + (useTaxe ? Math.max(0, Number(taxeVal) || 0) : 0)
-    + (useDga ? Math.max(0, Number(fraisDga) || 0) : 0)
-    - (useDisc ? Math.max(0, Number(discount) || 0) : 0)
-  );
+  const simSubtotal = comp?.subtotal ?? 0;
+  const simTotal = comp?.totalUsd ?? 0;
 
   return (
     <div className="space-y-4">
@@ -494,8 +481,26 @@ export default function PackagesPage() {
               </label>
             </div>
 
+            {/* PRIX/LB — LECTURE SEULE (soti nan Paramètres) */}
+            <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-2">
+              <span className="text-xs text-slate-600">Prix/LB utilisé <span className="text-slate-400">(Paramètres — lecture seule)</span></span>
+              <b className="text-navy font-mono">{comp && comp.ok ? usd(comp.perLb) : "—"}
+                {comp && comp.ok && <span className="text-slate-400 font-normal"> / {comp.ville}</span>}</b>
+            </div>
+
+            {/* ERÈ VALIDASYON — bloke fakti a */}
+            {comp && !comp.ok && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2 space-y-1">
+                <p className="text-xs font-bold text-red-700">❌ Facture bloquée — corriger avant de continuer:</p>
+                {comp.errors.map((e, i) => <p key={i} className="text-[11px] text-red-600">• {e}</p>)}
+              </div>
+            )}
+
             {/* APERÇU — Résumé */}
             <div className="bg-mist rounded-lg p-3 space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Poids total</span><b>{(comp?.totalWeight ?? 0).toFixed(2)} LB</b>
+              </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Sous-total colis</span><b>{usd(simSubtotal)}</b>
               </div>
@@ -513,13 +518,13 @@ export default function PackagesPage() {
               </div>
               <div className="flex justify-between items-center bg-navy text-white rounded-lg px-3 py-2 mt-1">
                 <span className="font-semibold">TOTAL HTG</span>
-                <b className="text-lg">{htg(round2(simTotal * sim.rate))}</b>
+                <b className="text-lg">{htg(comp?.totalHtg ?? 0)}</b>
               </div>
               <p className="text-[11px] text-slate-400 text-right">Taux: 1 USD = {sim.rate.toFixed(2)} HTG · Prix/LB non modifié</p>
             </div>
 
             <div className="mt-5 flex gap-3">
-              <button className="btn flex-1" onClick={generer} disabled={busy}>
+              <button className="btn flex-1" onClick={generer} disabled={busy || !comp || !comp.ok}>
                 {busy ? "Génération..." : "Confirmer & Générer PDF"}
               </button>
               <button className="btn btn-ghost border border-line" onClick={() => setSim(null)} disabled={busy}>
