@@ -299,6 +299,8 @@ export default function SettingsPage() {
         </button>
       </section>
 
+      {role === "admin" && <ApiTokensSection onNotice={setNotice} />}
+
       <EmployesSection onNotice={setNotice} />
 
       {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
@@ -413,6 +415,98 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
           </tbody>
         </table>
       </div>
+    </section>
+  );
+}
+
+// ================= API TOKENS (Extension Chrome — admin sèlman) =================
+function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
+  const [tokens, setTokens] = useState<import("@/lib/db").ApiToken[]>([]);
+  const [label, setLabel] = useState("Extension Chrome");
+  const [newToken, setNewToken] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    const { getApiTokens } = await import("@/lib/db");
+    setTokens(await getApiTokens());
+  };
+  useEffect(() => { load(); }, []);
+
+  const create = async () => {
+    setBusy(true);
+    try {
+      const { createApiToken } = await import("@/lib/db");
+      const t = await createApiToken(label);
+      setNewToken(t);
+      await load();
+    } catch (e) { onNotice("Erè: " + (e as Error).message); }
+    finally { setBusy(false); }
+  };
+
+  const toggle = async (id: string, active: boolean) => {
+    const { setApiTokenActive } = await import("@/lib/db");
+    await setApiTokenActive(id, active); await load();
+  };
+  const remove = async (id: string) => {
+    if (!confirm("Efase token sa a? Ekstansyon ki itilize l ap sispann mache.")) return;
+    const { deleteApiToken } = await import("@/lib/db");
+    await deleteApiToken(id); await load();
+  };
+
+  return (
+    <section className="card p-6 space-y-3">
+      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">🔌 API — Extension Chrome</h2>
+      <p className="text-xs text-slate-500">
+        Kreye yon token pou konekte ekstansyon Chrome MCPACK la. Kopye token an yon sèl fwa
+        epi kole l nan konfigirasyon ekstansyon an. Chak koli ki soti nan ekstansyon an
+        antre ak <b>Tracking ID (Guía)</b> ak <b>Tracking Number</b> byen separe.
+      </p>
+
+      <div className="flex gap-2 items-end flex-wrap">
+        <label className="block">
+          <span className="text-xs text-slate-600">Non (pou rekonèt li)</span>
+          <input className="input mt-1" value={label} onChange={(e) => setLabel(e.target.value)} />
+        </label>
+        <button className="btn" onClick={create} disabled={busy}>
+          {busy ? "..." : "Générer un token"}
+        </button>
+      </div>
+
+      {newToken && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+          <p className="text-xs font-bold text-emerald-800 mb-1">✅ Nouvo token (kopye l KOUNYE A — li p ap parèt ankò):</p>
+          <code className="block bg-white border border-emerald-200 rounded px-2 py-1.5 text-xs break-all select-all">{newToken}</code>
+          <button className="text-xs text-emerald-700 underline mt-1"
+            onClick={() => { navigator.clipboard?.writeText(newToken); onNotice("Token kopye."); }}>
+            Kopye token an
+          </button>
+        </div>
+      )}
+
+      {tokens.length > 0 && (
+        <table className="w-full text-sm mt-2">
+          <thead><tr className="text-left text-slate-500 text-xs border-b border-line">
+            <th className="th">Non</th><th className="th">État</th><th className="th">Dernière utilisation</th><th className="th"></th>
+          </tr></thead>
+          <tbody>
+            {tokens.map((t) => (
+              <tr key={t.id} className="border-b border-line/60">
+                <td className="td">{t.label}</td>
+                <td className="td">
+                  <button className={t.active ? "text-emerald-600" : "text-slate-400"}
+                    onClick={() => toggle(t.id, !t.active)}>
+                    {t.active ? "● Actif" : "○ Inactif"}
+                  </button>
+                </td>
+                <td className="td text-slate-500 text-xs">{t.last_used_at ? new Date(t.last_used_at).toLocaleString() : "—"}</td>
+                <td className="td text-right">
+                  <button className="text-slate-400 hover:text-red-600 text-xs" onClick={() => remove(t.id)}>✕</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </section>
   );
 }

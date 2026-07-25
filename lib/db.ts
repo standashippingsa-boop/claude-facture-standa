@@ -394,6 +394,38 @@ export async function getSmallParcelConfig(): Promise<SmallParcelConfig> {
   };
 }
 
+// ================= API TOKENS (Extension Chrome) =================
+export interface ApiToken {
+  id: string; token: string; label: string; active: boolean;
+  created_at: string; last_used_at: string | null;
+}
+
+export async function getApiTokens(): Promise<ApiToken[]> {
+  const { data } = await supabase.from("api_tokens").select("*").order("created_at", { ascending: false });
+  return (data ?? []) as ApiToken[];
+}
+
+/** Kreye yon token opak (32 bytes hex). Retounen valè a yon sèl fwa. */
+export async function createApiToken(label: string): Promise<string> {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const token = "sk_" + Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const { error } = await supabase.from("api_tokens").insert({ token, label: label || "Extension Chrome", active: true });
+  if (error) throw error;
+  await logAction("API", `Token API kreye: ${label || "Extension Chrome"}`, "", "");
+  return token;
+}
+
+export async function setApiTokenActive(id: string, active: boolean): Promise<void> {
+  await supabase.from("api_tokens").update({ active }).eq("id", id);
+  await logAction("API", `Token ${active ? "aktive" : "dezaktive"}`, "", "");
+}
+
+export async function deleteApiToken(id: string): Promise<void> {
+  await supabase.from("api_tokens").delete().eq("id", id);
+  await logAction("API", "Token API efase", "", "");
+}
+
 // ================= SETTINGS =================
 export interface InvoiceFlags { taxFix: boolean; taxDga: boolean; }
 

@@ -18,9 +18,8 @@ import { createClient } from "@supabase/supabase-js";
  */
 
 interface IncomingPkg {
-  tracking_number: string;
-  guia?: string;
-  tracking_id?: string;
+  guia: string;               // Tracking ID (WR...) — KLE INIK
+  tracking_number?: string;   // Tracking Number transpòtè (TBA/GFUS/4203...) -> tracking_manual
   customer_code?: string;
   customer_name?: string;
   weight?: number;
@@ -28,6 +27,10 @@ interface IncomingPkg {
   created_date?: string;
   status_raw?: string;
 }
+
+// Yon Guía valab kòmanse pa WR (menm règ ak lib/utils isGuia)
+const isGuia = (v?: string) => /^WR\d{6,}$/i.test(String(v ?? "").trim());
+const cleanTk = (v?: string) => String(v ?? "").trim().replace(/\s+/g, "").toUpperCase();
 
 function svc() {
   return createClient(
@@ -61,10 +64,10 @@ export async function POST(req: Request) {
     const items: IncomingPkg[] = Array.isArray(body?.packages) ? body.packages : [];
     if (!items.length) return NextResponse.json({ ok: false, reason: "Aucun package reçu." }, { status: 400 });
 
-    // 3) Anti-doublon pa Tracking Number
-    const trackings = items.map((p) => String(p.tracking_number ?? "").trim()).filter(Boolean);
+    // 3) Anti-doublon pa GUÍA (WR) — se kle inik la nan sistèm nan
+    const guias = items.map((p) => cleanTk(p.guia)).filter(isGuia);
     const { data: exist } = await db.from("packages")
-      .select("tracking_number").in("tracking_number", trackings);
+      .select("tracking_number").in("tracking_number", guias);
     const existSet = new Set((exist ?? []).map((e: { tracking_number: string }) => e.tracking_number));
 
     const now = new Date().toISOString();
@@ -72,22 +75,33 @@ export async function POST(req: Request) {
     const seen = new Set<string>();
 
     for (const p of items) {
-      const tn = String(p.tracking_number ?? "").trim();
-      if (!tn || seen.has(tn)) { ignored++; continue; }
-      seen.add(tn);
+      const guia = cleanTk(p.guia);
+      // MODE ZÉRO RISQUE: san yon Guía WR valab, nou pa kreye/modifye anyen
+      if (!isGuia(guia) || seen.has(guia)) { ignored++; continue; }
+      seen.add(guia);
       const code = normalizeMc(p.customer_code);
+      // Tracking Number transpòtè: dwe PA yon WR (sinon nou pa mete l)
+      const tnum = p.tracking_number && !isGuia(p.tracking_number) ? cleanTk(p.tracking_number) : "";
 
-      if (existSet.has(tn)) {
-        // Mete ajou enfo ki chanje sèlman (pa touche statut entèn, pri, tracking manyèl)
+      if (existSet.has(guia)) {
+        // Mete ajou enfo ki chanje sèlman. PA touche statut entèn, pri, ni tracking_manual
+        // ki admin ta ka deja antre — sof si li vid epi nou gen youn ki soti MCPACK.
         const patch: Record<string, unknown> = { received_at: now, received_method: "Extension Chrome" };
         if (p.status_raw?.trim()) patch.status_mcpack = p.status_raw.trim();
         if (p.weight != null) patch.weight = p.weight;
         if (p.content) patch.content = p.content;
-        await db.from("packages").update(patch).eq("tracking_number", tn);
+        if (tnum) {
+          // Ranpli tracking_manual SÈLMAN si li vid nan baz la (pa efase sa admin mete)
+          const { data: cur } = await db.from("packages")
+            .select("tracking_manual").eq("tracking_number", guia).maybeSingle();
+          if (cur && !String(cur.tracking_manual ?? "").trim()) patch.tracking_manual = tnum;
+        }
+        await db.from("packages").update(patch).eq("tracking_number", guia);
         updated++;
       } else {
         await db.from("packages").insert({
-          tracking_number: tn,
+          tracking_number: guia,              // Guía WR = kle inik
+          tracking_manual: tnum,              // Tracking Number transpòtè (kolòn separe)
           customer_code: code,
           customer_name: p.customer_name ?? code,
           weight: p.weight ?? 0,
@@ -95,10 +109,9 @@ export async function POST(req: Request) {
           created_date: p.created_date ?? "",
           status: "Reçu à Miami",
           status_mcpack: p.status_raw?.trim() ?? "",
-          tracking_manual: "",
           received_at: now,
           received_method: "Extension Chrome",
-          mcpack_data: { Guia: p.guia ?? "", TrackingID: p.tracking_id ?? "" }
+          mcpack_data: { Guia: guia, TrackingNumber: tnum }
         });
         created++;
       }
