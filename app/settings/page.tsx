@@ -33,6 +33,9 @@ export default function SettingsPage() {
   const [autoPricing, setAutoPricing] = useState(true);
   const [taxFixOn, setTaxFixOn] = useState(false);
   const [taxDgaOn, setTaxDgaOn] = useState(false);
+  const [spMin, setSpMin] = useState("0.10");
+  const [spMax, setSpMax] = useState("0.99");
+  const [spPrice, setSpPrice] = useState("3.70");
   const [rate, setRate] = useState("0");
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -45,6 +48,9 @@ export default function SettingsPage() {
     setFooter(s.invoice_footer ?? "");
     setTaxFixOn(s.tax_fix_enabled === "true");
     setTaxDgaOn(s.tax_dga_enabled === "true");
+    setSpMin(s.small_parcel_min ?? "0.10");
+    setSpMax(s.small_parcel_max ?? "0.99");
+    setSpPrice(s.small_parcel_price ?? "3.70");
     setAutoPricing(s.auto_pricing !== "false");
     setRate(String(r));
   };
@@ -98,6 +104,9 @@ export default function SettingsPage() {
     await setSetting("invoice_footer", footer);
     await setSetting("tax_fix_enabled", String(taxFixOn));
     await setSetting("tax_dga_enabled", String(taxDgaOn));
+    await setSetting("small_parcel_min", String(Number(spMin) || 0.1));
+    await setSetting("small_parcel_max", String(Number(spMax) || 0.99));
+    await setSetting("small_parcel_price", String(Number(spPrice) || 3.7));
     await setSetting("auto_pricing", String(autoPricing));
     setNotice("Paramètres enregistrés.");
   };
@@ -249,6 +258,30 @@ export default function SettingsPage() {
             <input type="checkbox" checked={taxDgaOn} onChange={(e) => setTaxDgaOn(e.target.checked)} />
             Inclure <b>Tax DGA</b> (douane — saisie manuelle sur chaque facture)
           </label>
+        </div>
+        <div className="border-t border-line pt-3 space-y-2">
+          <p className="text-xs font-bold text-navy uppercase tracking-wide">Tarification des petits colis</p>
+          <p className="text-[11px] text-slate-500">
+            Lè administratè a chwazi mòd <b>Contrôle des petits colis</b> sou yon fakti, tout koli ki nan
+            entèval sa a pran pri fiks la (olye pwa × pri/lb).
+          </p>
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block">
+              <span className="text-xs text-slate-600">Poids min (lb)</span>
+              <input type="number" step="0.01" min="0" className="input mt-1" value={spMin}
+                onChange={(e) => setSpMin(e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-600">Poids max (lb)</span>
+              <input type="number" step="0.01" min="0" className="input mt-1" value={spMax}
+                onChange={(e) => setSpMax(e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="text-xs text-slate-600">Prix fixe (USD)</span>
+              <input type="number" step="0.01" min="0" className="input mt-1" value={spPrice}
+                onChange={(e) => setSpPrice(e.target.value)} />
+            </label>
+          </div>
         </div>
         <button className="btn" onClick={saveGeneral}>Enregistrer</button>
       </section>

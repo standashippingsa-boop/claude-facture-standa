@@ -4,7 +4,39 @@ export const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Règ espesyal: 0.01–0.99 lb = pri fiks (USD), pou TOUT kliyan. */
 export const SMALL_PARCEL_MAX = 0.99;
+export const DEFAULT_SMALL_PARCEL_MIN = 0.1;
 export const DEFAULT_SMALL_PARCEL_PRICE = 3.7;
+
+/** Konfigirasyon ti koli (soti nan Paramètres — admin sèlman). */
+export interface SmallParcelConfig {
+  min: number;    // pwa minimòm (ex 0.10 lb)
+  max: number;    // pwa maksimòm (ex 0.99 lb)
+  price: number;  // pri fiks (ex 3.70 USD)
+}
+export const DEFAULT_SMALL_PARCEL: SmallParcelConfig = {
+  min: DEFAULT_SMALL_PARCEL_MIN, max: SMALL_PARCEL_MAX, price: DEFAULT_SMALL_PARCEL_PRICE
+};
+
+/** Èske yon koli antre nan entèval ti koli a? */
+export function isSmallParcel(weight: number, cfg: SmallParcelConfig): boolean {
+  return weight >= cfg.min && weight <= cfg.max;
+}
+
+/**
+ * Kalkil pri yon SÈL koli selon mòd la:
+ *  - "addition"      : pwa × pri/lb (pri/lb PA JANM chanje/awondi)
+ *  - "small_control" : si koli a nan entèval ti koli a -> pri fiks;
+ *                      sinon pwa × pri/lb.
+ * Retounen {price, isSmall}. Prix/LB itilize EGZAK (san awondi sou pri/lb).
+ */
+export function computeLinePrice(
+  weight: number, perLb: number, mode: "addition" | "small_control", cfg: SmallParcelConfig
+): { price: number; isSmall: boolean } {
+  if (mode === "small_control" && isSmallParcel(weight, cfg)) {
+    return { price: round2(cfg.price), isSmall: true };
+  }
+  return { price: round2(weight * perLb), isSmall: false };
+}
 
 export interface PriceResult {
   /** PRIX LIV LA KOUTE A — transpò SÈLMAN (pwa × pri/lb). Pa gen okenn frè ladan l. */

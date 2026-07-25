@@ -6,9 +6,9 @@ import Pagination from "@/components/Pagination";
 import {
   ClientTarifInfo, createInvoice, deletePackage, getClient, getClientTarifMap,
   getPackages, getSettings, getUsdRate, saveTrackingManual, setPackagesStatus,
-  getInvoiceFlags, logAction, saveInvoicePdfUrl, updatePackagePrice
+  getSmallParcelConfig, logAction, saveInvoicePdfUrl, updatePackagePrice
 } from "@/lib/db";
-import { computePrice, round2 } from "@/lib/pricing";
+import { computeLinePrice, computePrice, round2 } from "@/lib/pricing";
 import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { INTERNAL_STATUSES, Pkg } from "@/lib/types";
@@ -45,15 +45,21 @@ export default function PackagesPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const { role } = useRole();
   const [sim, setSim] = useState<Simulation | null>(null);
+  // Opsyon fakti — chak toggle endepandan (admin chwazi pou CHAK fakti)
+  const [useTaxe, setUseTaxe] = useState(false);
+  const [taxeVal, setTaxeVal] = useState("");
+  const [useDga, setUseDga] = useState(false);
   const [fraisDga, setFraisDga] = useState("");
+  const [useDisc, setUseDisc] = useState(false);
   const [discount, setDiscount] = useState("");
-  const [flags, setFlags] = useState({ taxFix: false, taxDga: false });
+  const [calcMode, setCalcMode] = useState<"addition" | "small_control">("addition");
+  const [smallCfg, setSmallCfg] = useState({ min: 0.1, max: 0.99, price: 3.7 });
 
   const load = async () => {
-    const [p, tm, r, s, fl] = await Promise.all([
-      getPackages(), getClientTarifMap(), getUsdRate(), getSettings(), getInvoiceFlags()
+    const [p, tm, r, s, cfg] = await Promise.all([
+      getPackages(), getClientTarifMap(), getUsdRate(), getSettings(), getSmallParcelConfig()
     ]);
-    setFlags(fl);
+    setSmallCfg(cfg);
     setPkgs(p.map((x) => ({ ...x, selected: false })));
     setTarifMap(tm);
     setRate(r);
@@ -190,7 +196,7 @@ export default function PackagesPage() {
     for (const p of targets) {
       const info = tarifMap.get(p.customer_code);
       const r = info ? computePrice(p.weight, info.account_type, info.ville) : null;
-      if (r) { await savePrice(p, r.price, flags.taxFix ? r.taxFix : 0); n++; } else sans++;
+      if (r) { await savePrice(p, r.price, 0); n++; } else sans++;
     }
     setNotice(
       `Tarification appliquée sur ${n} colis${selected.length ? " sélectionnés" : " disponibles"}.` +
@@ -216,7 +222,8 @@ export default function PackagesPage() {
       subtotal, tax, totalUsd, rate,
       totalHtg: round2(totalUsd * rate)
     });
-    setFraisDga(""); setDiscount("");
+    setUseTaxe(false); setTaxeVal(""); setUseDga(false); setFraisDga("");
+    setUseDisc(false); setDiscount(""); setCalcMode("addition");
   };
 
   /** Etap 2: konfimasyon -> kreye fakti a toutbon */
@@ -227,16 +234,29 @@ export default function PackagesPage() {
     if (!client) { setNotice(`Client "${code}" pa nan bazdone a. Kreye l nan meni Clients.`); setSim(null); return; }
     setBusy(true);
     try {
-      const dga = round2(Math.max(0, Number(fraisDga) || 0));
-      const disc = round2(Math.max(0, Number(discount) || 0));
-      const inv = await createInvoice(client, selected, rate, dga, disc);
-      await logAction("Facturation", `${inv.invoice_number} — ${selected.length} colis, ${usd(inv.grand_total)}${dga > 0 ? ` (DGA ${usd(dga)})` : ""}`, inv.invoice_number, code);
-      const items = selected.map((p) => ({
-        invoice_id: inv.id, tracking_number: p.tracking_number,
-        tracking_manual: p.tracking_manual ?? "",
-        weight: p.weight, content: p.content, price: p.price_usd, tax: p.tax_usd,
-        total: round2(p.price_usd + p.tax_usd)
-      }));
+      const opts = {
+        taxeFixe: useTaxe ? Math.max(0, Number(taxeVal) || 0) : 0,
+        fraisDga: useDga ? Math.max(0, Number(fraisDga) || 0) : 0,
+        discount: useDisc ? Math.max(0, Number(discount) || 0) : 0,
+        mode: calcMode
+      };
+      const inv = await createInvoice(client, selected, rate, opts);
+      await logAction("Facturation",
+        `${inv.invoice_number} — ${selected.length} colis, ${usd(inv.grand_total)} (mode ${calcMode})`,
+        inv.invoice_number, code);
+      // Items pou PDF (menm kalkil ak createInvoice)
+      const info = tarifMap.get(code);
+      const perLb = info?.account_type === "Business"
+        ? Number(info?.ville?.price_business ?? 0) : Number(info?.ville?.price_personal ?? 0);
+      const items = selected.map((p) => {
+        const r = computeLinePrice(p.weight, perLb, calcMode, smallCfg);
+        return {
+          invoice_id: inv.id, tracking_number: p.tracking_number,
+          tracking_manual: p.tracking_manual ?? "",
+          weight: p.weight, content: p.content, price: r.price, tax: 0, total: r.price,
+          is_small: r.isSmall, per_lb: perLb
+        };
+      });
       const pdf = await generateUploadDownload(inv, items, footer, { download: true });
       if (pdf.url) { await saveInvoicePdfUrl(inv.id, pdf.url); inv.pdf_url = pdf.url; }
       const how = await sendInvoicePdfWhatsApp(inv, pdf.blob, pdf.filename);
@@ -263,13 +283,24 @@ export default function PackagesPage() {
   const tt = selected.reduce((s, p) => s + p.tax_usd, 0);
   const allChecked = pageRows.length > 0 && pageRows.every((p) => p.selected);
 
-  /** TOTAL fakti a = pri transpò + Tax Fix (si aktive) + Tax DGA (si aktive) − Discount */
-  const simTotal = sim ? round2(
-    sim.subtotal
-    + (flags.taxFix ? sim.tax : 0)
-    + (flags.taxDga ? Math.max(0, Number(fraisDga) || 0) : 0)
-    - Math.max(0, Number(discount) || 0)
-  ) : 0;
+  /** Sous-total selon mòd kalkil la (Addition oswa Contrôle petits colis). */
+  const simSubtotal = (() => {
+    if (!sim || !selected.length) return 0;
+    const info = tarifMap.get(selected[0].customer_code);
+    const perLb = info?.account_type === "Business"
+      ? Number(info?.ville?.price_business ?? 0)
+      : Number(info?.ville?.price_personal ?? 0);
+    return round2(selected.reduce((s, p) =>
+      s + computeLinePrice(p.weight, perLb, calcMode, smallCfg).price, 0));
+  })();
+
+  /** TOTAL = sous-total + Taxe Fixe (si) + Frais DGA (si) − Discount (si) */
+  const simTotal = round2(
+    simSubtotal
+    + (useTaxe ? Math.max(0, Number(taxeVal) || 0) : 0)
+    + (useDga ? Math.max(0, Number(fraisDga) || 0) : 0)
+    - (useDisc ? Math.max(0, Number(discount) || 0) : 0)
+  );
 
   return (
     <div className="space-y-4">
@@ -399,64 +430,94 @@ export default function PackagesPage() {
         </div>
       </div>
 
-      {/* ===== Simulation Facture ===== */}
+      {/* ===== Fenèt konfimasyon Facture (opsyon pa fakti) ===== */}
       {sim && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
           onClick={() => !busy && setSim(null)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-extrabold text-navy">Simulation Facture</h2>
+              <h2 className="text-lg font-extrabold text-navy">Générer Facture — Options</h2>
               <button className="text-slate-400 hover:text-slate-600" onClick={() => setSim(null)} disabled={busy}>
                 <X size={18} />
               </button>
             </div>
-            <p className="text-sm text-slate-600 mb-4">
-              <b className="text-navy">{sim.clientCode}</b> — {sim.clientName}
+            <p className="text-sm text-slate-600 mb-3">
+              <b className="text-navy">{sim.clientCode}</b> — {sim.clientName} · {sim.count} colis · {sim.weight.toFixed(2)} LB
             </p>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-slate-500">Nombre de colis</span><b>{sim.count}</b></div>
-              <div className="flex justify-between"><span className="text-slate-500">Poids total</span><b>{sim.weight.toFixed(2)} LB</b></div>
-              <div className="border-t border-line my-2" />
-              {/* PRIX LIV LA KOUTE A — transpò sèlman */}
-              <div className="flex justify-between">
-                <span className="text-slate-500">Prix liv la koute a</span><b>{usd(sim.subtotal)}</b>
-              </div>
 
-              {/* Tax Fix — sèlman si aktive nan Paramètres E li gen valè */}
-              {flags.taxFix && sim.tax > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Tax Fix</span><b>{usd(sim.tax)}</b>
-                </div>
-              )}
-
-              {/* Tax DGA — sèlman si aktive nan Paramètres */}
-              {flags.taxDga && (
-                <label className="flex justify-between items-center gap-3 py-1">
-                  <span className="text-slate-500">Tax DGA (douane, USD)</span>
-                  <input type="number" step="0.01" min="0" className="input !w-24 !py-1 text-right"
-                    value={fraisDga} onChange={(e) => setFraisDga(e.target.value)} placeholder="0.00" />
-                </label>
-              )}
-
-              {/* Discount — toujou disponib, parèt nan total sèlman si > 0 */}
-              <label className="flex justify-between items-center gap-3 py-1">
-                <span className="text-slate-500">Discount (USD)</span>
-                <input type="number" step="0.01" min="0" className="input !w-24 !py-1 text-right"
-                  value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="0.00" />
+            {/* MODE DE CALCUL DES COLIS */}
+            <div className="border border-line rounded-lg p-3 mb-3">
+              <p className="text-xs font-bold text-navy uppercase mb-2">Mode de calcul des colis</p>
+              <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">
+                <input type="radio" name="mode" className="mt-1" checked={calcMode === "addition"}
+                  onChange={() => setCalcMode("addition")} />
+                <span><b>Additionner tous les poids</b> — chaque colis = poids × Prix/LB</span>
               </label>
+              <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">
+                <input type="radio" name="mode" className="mt-1" checked={calcMode === "small_control"}
+                  onChange={() => setCalcMode("small_control")} />
+                <span><b>Contrôle des petits colis</b> — {smallCfg.min}–{smallCfg.max} lb = tarif fixe {usd(smallCfg.price)} ; les autres = poids × Prix/LB</span>
+              </label>
+            </div>
 
-              <div className="flex justify-between text-navy border-t border-line pt-1">
-                <span className="font-semibold">TOTAL USD</span>
-                <b>{usd(simTotal)}</b>
+            {/* ÉTAPE 1 — Taxe Fixe */}
+            <div className="space-y-2 mb-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={useTaxe} onChange={(e) => setUseTaxe(e.target.checked)} />
+                <b>Taxe Fixe</b>
+                {useTaxe && (
+                  <input type="number" step="0.01" min="0" autoFocus placeholder="0.00"
+                    className="input !w-28 !py-1 text-right ml-auto"
+                    value={taxeVal} onChange={(e) => setTaxeVal(e.target.value)} />
+                )}
+              </label>
+              {/* ÉTAPE 2 — Frais DGA */}
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={useDga} onChange={(e) => setUseDga(e.target.checked)} />
+                <b>Frais DGA</b>
+                {useDga && (
+                  <input type="number" step="0.01" min="0" placeholder="0.00"
+                    className="input !w-28 !py-1 text-right ml-auto"
+                    value={fraisDga} onChange={(e) => setFraisDga(e.target.value)} />
+                )}
+              </label>
+              {/* ÉTAPE 3 — Discount */}
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={useDisc} onChange={(e) => setUseDisc(e.target.checked)} />
+                <b>Discount</b>
+                {useDisc && (
+                  <input type="number" step="0.01" min="0" placeholder="0.00"
+                    className="input !w-28 !py-1 text-right ml-auto"
+                    value={discount} onChange={(e) => setDiscount(e.target.value)} />
+                )}
+              </label>
+            </div>
+
+            {/* APERÇU — Résumé */}
+            <div className="bg-mist rounded-lg p-3 space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Sous-total colis</span><b>{usd(simSubtotal)}</b>
               </div>
-              <div className="flex justify-between text-xs text-slate-500">
-                <span>Taux utilisé</span><span>1 USD = {sim.rate.toFixed(2)} HTG</span>
+              {useTaxe && Number(taxeVal) > 0 && (
+                <div className="flex justify-between"><span className="text-slate-500">Taxe Fixe</span><b>{usd(Number(taxeVal))}</b></div>
+              )}
+              {useDga && Number(fraisDga) > 0 && (
+                <div className="flex justify-between"><span className="text-slate-500">Frais DGA</span><b>{usd(Number(fraisDga))}</b></div>
+              )}
+              {useDisc && Number(discount) > 0 && (
+                <div className="flex justify-between"><span className="text-slate-500">Discount</span><b>−{usd(Number(discount))}</b></div>
+              )}
+              <div className="flex justify-between border-t border-line pt-1.5 text-navy">
+                <span className="font-bold">TOTAL USD</span><b>{usd(simTotal)}</b>
               </div>
-              <div className="flex justify-between items-center bg-navy text-white rounded-lg px-3 py-2 mt-2">
-                <span className="font-semibold">Grand Total HTG</span>
+              <div className="flex justify-between items-center bg-navy text-white rounded-lg px-3 py-2 mt-1">
+                <span className="font-semibold">TOTAL HTG</span>
                 <b className="text-lg">{htg(round2(simTotal * sim.rate))}</b>
               </div>
+              <p className="text-[11px] text-slate-400 text-right">Taux: 1 USD = {sim.rate.toFixed(2)} HTG · Prix/LB non modifié</p>
             </div>
+
             <div className="mt-5 flex gap-3">
               <button className="btn flex-1" onClick={generer} disabled={busy}>
                 {busy ? "Génération..." : "Confirmer & Générer PDF"}

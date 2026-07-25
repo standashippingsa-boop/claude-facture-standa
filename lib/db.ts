@@ -5,7 +5,7 @@ import {
 , Retrait, RetraitStatus
 } from "./types";
 import { McpackRow } from "./xlsx";
-import { computePrice, DEFAULT_SMALL_PARCEL_PRICE, round2 } from "./pricing";
+import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
 
 const asNum = <T extends Record<string, any>>(r: T, keys: string[]): T => {
@@ -247,17 +247,41 @@ export async function commitSync(
 }
 
 // ================= INVOICES =================
+/** Opsyon fakti admin chwazi nan fenèt konfimasyon an. */
+export interface InvoiceOptions {
+  taxeFixe?: number;                        // Taxe Fixe (si admin aktive l)
+  fraisDga?: number;                        // Frais DGA (si admin aktive l)
+  discount?: number;                        // Discount (si admin aktive l)
+  mode?: "addition" | "small_control";      // Mòd kalkil koli yo
+}
+
+/**
+ * Kreye yon fakti selon opsyon admin an. Kalkil koli yo:
+ *  - "addition"      : chak koli = pwa × pri/lb vil la (pri/lb EGZAK, san awondi)
+ *  - "small_control" : ti koli (nan entèval Paramètres) = pri fiks; lòt = pwa × pri/lb
+ * Sous-total = sòm liy yo. Total = sous-total + taxeFixe + dga − discount.
+ * Prix/LB PA JANM modifye.
+ */
 export async function createInvoice(
-  client: Client, pkgs: Pkg[], rate: number, fraisDga = 0, discount = 0
+  client: Client, pkgs: Pkg[], rate: number, opts: InvoiceOptions = {}
 ): Promise<Invoice> {
-  const flags = await getInvoiceFlags();
-  // PRIX LIV LA KOUTE A — transpò sèlman
-  const subtotal = round2(pkgs.reduce((s, p) => s + p.price_usd, 0));
-  // Tax Fix / Tax DGA antre nan kalkil la SÈLMAN si yo aktive nan Paramètres
-  const tax = flags.taxFix ? round2(pkgs.reduce((s, p) => s + p.tax_usd, 0)) : 0;
-  const dga = flags.taxDga ? round2(Math.max(0, fraisDga)) : 0;
-  const disc = round2(Math.max(0, discount));
-  const grand = round2(subtotal + tax + dga - disc);
+  const mode = opts.mode ?? "addition";
+  const cfg = await getSmallParcelConfig();
+  const perLb = client.account_type === "Business"
+    ? Number(client.ville?.price_business ?? 0)
+    : Number(client.ville?.price_personal ?? 0);
+
+  // Kalkile chak liy (pri/lb egzak — okenn awondi sou pri/lb la)
+  const lines = pkgs.map((p) => {
+    const r = computeLinePrice(p.weight, perLb, mode, cfg);
+    return { pkg: p, price: r.price, isSmall: r.isSmall };
+  });
+
+  const subtotal = round2(lines.reduce((s, l) => s + l.price, 0));
+  const taxe = round2(Math.max(0, opts.taxeFixe ?? 0));
+  const dga = round2(Math.max(0, opts.fraisDga ?? 0));
+  const disc = round2(Math.max(0, opts.discount ?? 0));
+  const grand = round2(subtotal + taxe + dga - disc);
   const invoice_number = "SC-" + Date.now().toString().slice(-6);
 
   const { data: inv, error } = await supabase.from("invoices").insert({
@@ -267,35 +291,43 @@ export async function createInvoice(
     whatsapp: client.whatsapp,
     pickup_location: client.pickup_location,
     ville: client.ville?.name ?? "",
-    subtotal, tax, frais_dga: dga, discount: disc, grand_total: grand,
+    subtotal, tax: taxe, frais_dga: dga, discount: disc, grand_total: grand,
     exchange_rate_used: rate,
     total_usd: grand,
     total_htg: round2(grand * rate),
     package_count: pkgs.length,
-    total_weight: round2(pkgs.reduce((s, p) => s + p.weight, 0))
+    total_weight: round2(pkgs.reduce((s, p) => s + p.weight, 0)),
+    calc_mode: mode
   }).select().single();
   if (error) throw error;
 
-  const items: Omit<InvoiceItem, "id">[] = pkgs.map((p) => ({
+  const items = lines.map((l) => ({
     invoice_id: inv.id,
-    tracking_number: p.tracking_number,
-    weight: p.weight,
-    content: p.content,
-    price: p.price_usd,
-    tax: flags.taxFix ? p.tax_usd : 0,
-    total: round2(p.price_usd + (flags.taxFix ? p.tax_usd : 0))
+    tracking_number: l.pkg.tracking_number,
+    tracking_manual: l.pkg.tracking_manual ?? "",
+    weight: l.pkg.weight,
+    content: l.pkg.content,
+    price: l.price,
+    tax: 0,
+    total: l.price,
+    is_small: l.isSmall,
+    per_lb: perLb
   }));
-  const { error: e2 } = await supabase.from("invoice_items").insert(items);
+  const { error: e2 } = await supabase.from("invoice_items").insert(
+    items.map(({ is_small, per_lb, ...rest }) => rest)   // kolòn baz yo sèlman
+  );
   if (e2) throw e2;
 
-  // Fikse valè HTG yo sou chak koli (to a nan moman fakti a — li pa chanje apre)
-  await Promise.all(pkgs.map((p) =>
+  // Fikse pri liy la + HTG sou chak koli, epi make Facturé
+  await Promise.all(lines.map((l) =>
     supabase.from("packages").update({
       status: "Facturé",
       invoice_id: inv.id,
-      price_htg: round2(p.price_usd * rate),
-      tax_htg: round2(p.tax_usd * rate)
-    }).eq("id", p.id)
+      price_usd: l.price,
+      tax_usd: 0,
+      price_htg: round2(l.price * rate),
+      tax_htg: 0
+    }).eq("id", l.pkg.id)
   ));
 
   return asNum(inv, ["subtotal", "tax", "grand_total", "exchange_rate_used", "total_usd", "total_htg", "total_weight"]) as Invoice;
@@ -357,6 +389,19 @@ export async function getSmallParcelPrice(): Promise<number> {
   const { data } = await supabase.from("app_settings").select("value").eq("key", "small_parcel_price").maybeSingle();
   const n = Number(data?.value);
   return isNaN(n) || n <= 0 ? DEFAULT_SMALL_PARCEL_PRICE : n;
+}
+
+/** Konfigirasyon ti koli konplè (min / max / pri) — soti nan Paramètres. */
+export async function getSmallParcelConfig(): Promise<SmallParcelConfig> {
+  const s = await getSettings();
+  const min = Number(s.small_parcel_min);
+  const max = Number(s.small_parcel_max);
+  const price = Number(s.small_parcel_price);
+  return {
+    min: isNaN(min) || min < 0 ? DEFAULT_SMALL_PARCEL.min : min,
+    max: isNaN(max) || max <= 0 ? DEFAULT_SMALL_PARCEL.max : max,
+    price: isNaN(price) || price <= 0 ? DEFAULT_SMALL_PARCEL.price : price
+  };
 }
 
 // ================= SETTINGS =================

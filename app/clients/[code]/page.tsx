@@ -145,12 +145,14 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       `(~${(totalUsd * rate).toFixed(0)} HTG, taux ${rate.toFixed(2)})`)) return;
     setBusy(true);
     try {
-      const inv = await createInvoice(client, selectedDisponible, rate);
+      const inv = await createInvoice(client, selectedDisponible, rate, { mode: "addition" });
+      const perLb = client.account_type === "Business"
+        ? Number(client.ville?.price_business ?? 0) : Number(client.ville?.price_personal ?? 0);
       const items = selectedDisponible.map((p) => ({
         invoice_id: inv.id, tracking_number: p.tracking_number,
         tracking_manual: p.tracking_manual ?? "",
-        weight: p.weight, content: p.content, price: p.price_usd, tax: p.tax_usd,
-        total: round2(p.price_usd + p.tax_usd)
+        weight: p.weight, content: p.content, price: p.price_usd, tax: 0,
+        total: p.price_usd, is_small: false, per_lb: perLb
       }));
       const pdf = await generateUploadDownload(inv, items, footer, { download: true });
       if (pdf.url) { await saveInvoicePdfUrl(inv.id, pdf.url); inv.pdf_url = pdf.url; }

@@ -88,6 +88,7 @@ export interface Invoice {
   grand_total: number;
   frais_dga?: number;    // USD (Tax DGA — manyèl, si aktive)
   discount?: number;     // USD (rabè — si > 0)
+  calc_mode?: string;    // "addition" | "small_control"
   exchange_rate_used: number;
   total_usd: number;
   total_htg: number;
@@ -107,6 +108,8 @@ export interface InvoiceItem {
   price: number;
   tax: number;
   total: number;
+  is_small?: boolean;   // koli sa a te sèvi ak tarif Petit Colis
+  per_lb?: number;      // pri/lb ki te itilize (pou detay PDF)
 }
 
 export interface ImportLog {
