@@ -1,36 +1,23 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Calculator, ClipboardList, FileText, PackageCheck, Trash2, X } from "lucide-react";
+import { Calculator, ClipboardList, FileText, PackageCheck, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import {
-  ClientTarifInfo, createInvoiceFromComputation, deletePackage, getClient, getClientTarifMap,
+  ClientTarifInfo, deletePackage, getClient, getClientTarifMap,
   getPackages, getSettings, getUsdRate, saveTrackingManual, setPackagesStatus,
-  getSmallParcelConfig, logAction, saveInvoicePdfUrl, updatePackagePrice
+  logAction, updatePackagePrice
 } from "@/lib/db";
 import { computePrice, round2 } from "@/lib/pricing";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
-import { generateUploadDownload } from "@/lib/pdf";
-import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Client, INTERNAL_STATUSES, Pkg } from "@/lib/types";
 import { htg, parseMcpackDate, usd } from "@/lib/utils";
 import { generateBonRemise } from "@/lib/bonremise";
 import { exportPackagesPdf } from "@/lib/listpdf";
+import InvoiceDialog from "@/components/InvoiceDialog";
 import { useRole } from "@/lib/authx";
 
 const PER_PAGE = 25;
-
-interface Simulation {
-  clientName: string;
-  clientCode: string;
-  count: number;
-  weight: number;
-  subtotal: number;
-  tax: number;
-  totalUsd: number;
-  rate: number;
-  totalHtg: number;
-}
 
 export default function PackagesPage() {
   const [pkgs, setPkgs] = useState<Pkg[]>([]);
@@ -42,26 +29,15 @@ export default function PackagesPage() {
   const [status, setStatus] = useState("");
   const [dateF, setDateF] = useState("");
   const [page, setPage] = useState(1);
-  const [busy, setBusy] = useState(false);
+  const [busy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const { role } = useRole();
-  const [sim, setSim] = useState<Simulation | null>(null);
   // Opsyon fakti — chak toggle endepandan (admin chwazi pou CHAK fakti)
-  const [useTaxe, setUseTaxe] = useState(false);
-  const [taxeVal, setTaxeVal] = useState("");
-  const [useDga, setUseDga] = useState(false);
-  const [fraisDga, setFraisDga] = useState("");
-  const [useDisc, setUseDisc] = useState(false);
-  const [discount, setDiscount] = useState("");
-  const [calcMode, setCalcMode] = useState<"addition" | "small_control">("addition");
-  const [smallCfg, setSmallCfg] = useState({ min: 0.1, max: 0.99, price: 3.7 });
-  const [comp, setComp] = useState<InvoiceComputation | null>(null);
 
   const load = async () => {
-    const [p, tm, r, s, cfg] = await Promise.all([
-      getPackages(), getClientTarifMap(), getUsdRate(), getSettings(), getSmallParcelConfig()
+    const [p, tm, r, s] = await Promise.all([
+      getPackages(), getClientTarifMap(), getUsdRate(), getSettings()
     ]);
-    setSmallCfg(cfg);
     setPkgs(p.map((x) => ({ ...x, selected: false })));
     setTarifMap(tm);
     setRate(r);
@@ -206,61 +182,18 @@ export default function PackagesPage() {
     );
   };
 
-  /** Etap 1: Simulation Facture — preview anvan jenerasyon final la */
-  const [simClient, setSimClient] = useState<Client | null>(null);
+  /** Ouvri fenèt fakti pataje a (menm workflow ak tout lòt paj). */
+  const [invClient, setInvClient] = useState<Client | null>(null);
 
-  const simuler = async () => {
+  const ouvriFacture = async () => {
     if (!selected.length) return;
     const code = selected[0].customer_code;
     if (!selected.every((p) => p.customer_code === code)) {
       setNotice("Tout koli ki make yo dwe pou menm kliyan an."); return;
     }
-    // Chaje kliyan konplè (ak vil li — sous pri/lb la)
     const client = await getClient(code);
     if (!client) { setNotice(`Client "${code}" pa nan bazdone a.`); return; }
-    setSimClient(client);
-    setUseTaxe(false); setTaxeVal(""); setUseDga(false); setFraisDga("");
-    setUseDisc(false); setDiscount(""); setCalcMode("addition");
-    setSim({
-      clientName: selected[0].customer_name, clientCode: code,
-      count: selected.length,
-      weight: round2(selected.reduce((s, p) => s + p.weight, 0)),
-      subtotal: 0, tax: 0, totalUsd: 0, rate, totalHtg: 0
-    });
-  };
-
-  /** Etap 2: konfimasyon -> kreye fakti a toutbon */
-  const generer = async () => {
-    if (!selected.length || !sim || !simClient) return;
-    if (!comp) { setNotice("Calcul indisponible."); return; }
-    // BLOKE si validasyon moteur la echwe
-    if (!comp.ok) { setNotice("❌ " + comp.errors.join(" ")); return; }
-    if (!verifyTotal(comp)) { setNotice("❌ Erreur de calcul détectée. Facture bloquée."); return; }
-    const code = simClient.customer_code;
-    setBusy(true);
-    try {
-      const inv = await createInvoiceFromComputation(simClient, comp, rate, calcMode);
-      // Items pou PDF — soti DIRÈK nan moteur la (menm montan)
-      const items = comp.lines.map((l) => ({
-        invoice_id: inv.id, tracking_number: l.pkg.tracking_number,
-        tracking_manual: l.pkg.tracking_manual ?? "",
-        weight: l.weight, content: l.pkg.content, price: l.amount, tax: 0, total: l.amount,
-        is_small: l.isSmall, per_lb: l.perLb
-      }));
-  const pdf = await generateUploadDownload(inv, items, footer, { download: true });
-      if (pdf.url) { await saveInvoicePdfUrl(inv.id, pdf.url); inv.pdf_url = pdf.url; }
-      const how = await sendInvoicePdfWhatsApp(inv, pdf.blob, pdf.filename);
-      setNotice(
-        `Facture ${inv.invoice_number} créée (${items.length} colis → Facturé, taux ${rate.toFixed(2)}). ` +
-        (how === "file" ? "PDF la pataje dirèkteman sou WhatsApp."
-          : how === "link" ? "WhatsApp ouvri ak lyen PDF la — peze Send sèlman."
-          : "Pataj la anile — fakti a nan Invoices, ou ka revoye l nenpòt lè.")
-      );
-      setSim(null);
-      await load();
-    } catch (e: any) {
-      setNotice("Erè: " + e.message);
-    } finally { setBusy(false); }
+    setInvClient(client);
   };
 
   const remove = async (p: Pkg) => {
@@ -273,21 +206,6 @@ export default function PackagesPage() {
   const tt = selected.reduce((s, p) => s + p.tax_usd, 0);
   const allChecked = pageRows.length > 0 && pageRows.every((p) => p.selected);
 
-  /** Rekalkile ak MOTEUR FINANCIER chak fwa opsyon yo chanje. */
-  useEffect(() => {
-    if (!sim || !simClient || !selected.length) { setComp(null); return; }
-    const c = computeInvoice({
-      client: simClient, pkgs: selected, rate, smallCfg, mode: calcMode,
-      taxeFixe: useTaxe ? Number(taxeVal) || 0 : 0,
-      fraisDga: useDga ? Number(fraisDga) || 0 : 0,
-      discount: useDisc ? Number(discount) || 0 : 0
-    });
-    setComp(c);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sim, simClient, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount, rate]);
-
-  const simSubtotal = comp?.subtotal ?? 0;
-  const simTotal = comp?.totalUsd ?? 0;
 
   return (
     <div className="space-y-4">
@@ -411,128 +329,21 @@ export default function PackagesPage() {
           <button className="btn btn-ghost border border-line" onClick={applyTarif} disabled={busy}>
             <Calculator size={15} /> Appliquer tarification
           </button>
-          <button className="btn" onClick={simuler} disabled={busy || !selected.length}>
+          <button className="btn" onClick={ouvriFacture} disabled={busy || !selected.length}>
             <FileText size={15} /> Générer Facture
           </button>
         </div>
       </div>
 
       {/* ===== Fenèt konfimasyon Facture (opsyon pa fakti) ===== */}
-      {sim && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-          onClick={() => !busy && setSim(null)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-extrabold text-navy">Générer Facture — Options</h2>
-              <button className="text-slate-400 hover:text-slate-600" onClick={() => setSim(null)} disabled={busy}>
-                <X size={18} />
-              </button>
-            </div>
-            <p className="text-sm text-slate-600 mb-3">
-              <b className="text-navy">{sim.clientCode}</b> — {sim.clientName} · {sim.count} colis · {sim.weight.toFixed(2)} LB
-            </p>
-
-            {/* MODE DE CALCUL DES COLIS */}
-            <div className="border border-line rounded-lg p-3 mb-3">
-              <p className="text-xs font-bold text-navy uppercase mb-2">Mode de calcul des colis</p>
-              <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">
-                <input type="radio" name="mode" className="mt-1" checked={calcMode === "addition"}
-                  onChange={() => setCalcMode("addition")} />
-                <span><b>Additionner tous les poids</b> — chaque colis = poids × Prix/LB</span>
-              </label>
-              <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">
-                <input type="radio" name="mode" className="mt-1" checked={calcMode === "small_control"}
-                  onChange={() => setCalcMode("small_control")} />
-                <span><b>Contrôle des petits colis</b> — {smallCfg.min}–{smallCfg.max} lb = tarif fixe {usd(smallCfg.price)} ; les autres = poids × Prix/LB</span>
-              </label>
-            </div>
-
-            {/* ÉTAPE 1 — Taxe Fixe */}
-            <div className="space-y-2 mb-2">
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={useTaxe} onChange={(e) => setUseTaxe(e.target.checked)} />
-                <b>Taxe Fixe</b>
-                {useTaxe && (
-                  <input type="number" step="0.01" min="0" autoFocus placeholder="0.00"
-                    className="input !w-28 !py-1 text-right ml-auto"
-                    value={taxeVal} onChange={(e) => setTaxeVal(e.target.value)} />
-                )}
-              </label>
-              {/* ÉTAPE 2 — Frais DGA */}
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={useDga} onChange={(e) => setUseDga(e.target.checked)} />
-                <b>Frais DGA</b>
-                {useDga && (
-                  <input type="number" step="0.01" min="0" placeholder="0.00"
-                    className="input !w-28 !py-1 text-right ml-auto"
-                    value={fraisDga} onChange={(e) => setFraisDga(e.target.value)} />
-                )}
-              </label>
-              {/* ÉTAPE 3 — Discount */}
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={useDisc} onChange={(e) => setUseDisc(e.target.checked)} />
-                <b>Discount</b>
-                {useDisc && (
-                  <input type="number" step="0.01" min="0" placeholder="0.00"
-                    className="input !w-28 !py-1 text-right ml-auto"
-                    value={discount} onChange={(e) => setDiscount(e.target.value)} />
-                )}
-              </label>
-            </div>
-
-            {/* PRIX/LB — LECTURE SEULE (soti nan Paramètres) */}
-            <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-2">
-              <span className="text-xs text-slate-600">Prix/LB utilisé <span className="text-slate-400">(Paramètres — lecture seule)</span></span>
-              <b className="text-navy font-mono">{comp && comp.ok ? usd(comp.perLb) : "—"}
-                {comp && comp.ok && <span className="text-slate-400 font-normal"> / {comp.ville}</span>}</b>
-            </div>
-
-            {/* ERÈ VALIDASYON — bloke fakti a */}
-            {comp && !comp.ok && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2 space-y-1">
-                <p className="text-xs font-bold text-red-700">❌ Facture bloquée — corriger avant de continuer:</p>
-                {comp.errors.map((e, i) => <p key={i} className="text-[11px] text-red-600">• {e}</p>)}
-              </div>
-            )}
-
-            {/* APERÇU — Résumé */}
-            <div className="bg-mist rounded-lg p-3 space-y-1.5 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Poids total</span><b>{(comp?.totalWeight ?? 0).toFixed(2)} LB</b>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Sous-total colis</span><b>{usd(simSubtotal)}</b>
-              </div>
-              {useTaxe && Number(taxeVal) > 0 && (
-                <div className="flex justify-between"><span className="text-slate-500">Taxe Fixe</span><b>{usd(Number(taxeVal))}</b></div>
-              )}
-              {useDga && Number(fraisDga) > 0 && (
-                <div className="flex justify-between"><span className="text-slate-500">Frais DGA</span><b>{usd(Number(fraisDga))}</b></div>
-              )}
-              {useDisc && Number(discount) > 0 && (
-                <div className="flex justify-between"><span className="text-slate-500">Discount</span><b>−{usd(Number(discount))}</b></div>
-              )}
-              <div className="flex justify-between border-t border-line pt-1.5 text-navy">
-                <span className="font-bold">TOTAL USD</span><b>{usd(simTotal)}</b>
-              </div>
-              <div className="flex justify-between items-center bg-navy text-white rounded-lg px-3 py-2 mt-1">
-                <span className="font-semibold">TOTAL HTG</span>
-                <b className="text-lg">{htg(comp?.totalHtg ?? 0)}</b>
-              </div>
-              <p className="text-[11px] text-slate-400 text-right">Taux: 1 USD = {sim.rate.toFixed(2)} HTG · Prix/LB non modifié</p>
-            </div>
-
-            <div className="mt-5 flex gap-3">
-              <button className="btn flex-1" onClick={generer} disabled={busy || !comp || !comp.ok}>
-                {busy ? "Génération..." : "Confirmer & Générer PDF"}
-              </button>
-              <button className="btn btn-ghost border border-line" onClick={() => setSim(null)} disabled={busy}>
-                Annuler
-              </button>
-            </div>
-          </div>
-        </div>
+      {invClient && (
+        <InvoiceDialog
+          client={invClient}
+          pkgs={selected}
+          footer={footer}
+          onClose={() => setInvClient(null)}
+          onDone={(msg) => { setNotice(msg); load(); }}
+        />
       )}
 
       {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}

@@ -4,14 +4,12 @@ import Link from "next/link";
 import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import {
-  commitPdfImport, createInvoiceFromComputation, getClient, getClientPackagesAndInvoices,
-  getInvoiceFlags, getSettings, getUsdRate, saveInvoicePdfUrl, setPackagesStatus, updatePackagePrice
+  commitPdfImport, getClient, getClientPackagesAndInvoices,
+  getInvoiceFlags, getSettings, getUsdRate, setPackagesStatus, updatePackagePrice
 } from "@/lib/db";
 import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
 import { computePrice, round2 } from "@/lib/pricing";
-import { computeInvoice, verifyTotal } from "@/lib/invoice-engine";
-import { generateUploadDownload } from "@/lib/pdf";
-import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
+import InvoiceDialog from "@/components/InvoiceDialog";
 import { Client, INTERNAL_STATUSES, Invoice, Pkg } from "@/lib/types";
 import { dateFr, parseMcpackDate, usd } from "@/lib/utils";
 
@@ -135,36 +133,11 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     finally { setBusy(false); }
   };
 
-  // ===== Facturation dirèk depi dosye a =====
-  const facturer = async () => {
+  // ===== Facturation — MÊME fenêtre partagée que Packages =====
+  const [showInvoice, setShowInvoice] = useState(false);
+  const facturer = () => {
     if (!client || !selectedDisponible.length) return;
-    // MOTEUR FINANCIER — validation + kalkil (mode addition)
-    const comp = computeInvoice({
-      client, pkgs: selectedDisponible, rate, smallCfg: { min: 0.1, max: 0.99, price: 3.7 },
-      mode: "addition", taxeFixe: 0, fraisDga: 0, discount: 0
-    });
-    if (!comp.ok) { setNotice("❌ " + comp.errors.join(" ")); return; }
-    if (!verifyTotal(comp)) { setNotice("❌ Erreur de calcul détectée. Facture bloquée."); return; }
-    if (!confirm(`Générer facture pou ${selectedDisponible.length} colis?\n` +
-      `Prix/LB: ${comp.perLb} | Sous-total: ${usd(comp.subtotal)} | TOTAL: ${usd(comp.totalUsd)} ` +
-      `(~${comp.totalHtg.toFixed(0)} HTG, taux ${rate.toFixed(2)})`)) return;
-    setBusy(true);
-    try {
-      const inv = await createInvoiceFromComputation(client, comp, rate, "addition");
-      const items = comp.lines.map((l) => ({
-        invoice_id: inv.id, tracking_number: l.pkg.tracking_number,
-        tracking_manual: l.pkg.tracking_manual ?? "",
-        weight: l.weight, content: l.pkg.content, price: l.amount, tax: 0,
-        total: l.amount, is_small: l.isSmall, per_lb: l.perLb
-      }));
-      const pdf = await generateUploadDownload(inv, items, footer, { download: true });
-      if (pdf.url) { await saveInvoicePdfUrl(inv.id, pdf.url); inv.pdf_url = pdf.url; }
-      const how = await sendInvoicePdfWhatsApp(inv, pdf.blob, pdf.filename);
-      setNotice(`Facture ${inv.invoice_number} créée (${items.length} colis → Facturé). ` +
-        (how === "file" ? "PDF pataje sou WhatsApp." : how === "link" ? "WhatsApp ouvri — peze Send." : "Fakti a nan Invoices."));
-      await load();
-    } catch (e: any) { setNotice("Erè: " + e.message); }
-    finally { setBusy(false); }
+    setShowInvoice(true);
   };
 
   if (!client) return <p className="text-slate-400 py-10 text-center">Ap chaje dosye a...</p>;
@@ -335,6 +308,16 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
             </p>
           </div>
         </div>
+      )}
+
+      {showInvoice && client && (
+        <InvoiceDialog
+          client={client}
+          pkgs={selectedDisponible}
+          footer={footer}
+          onClose={() => setShowInvoice(false)}
+          onDone={(msg) => { setNotice(msg); load(); }}
+        />
       )}
 
       {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
