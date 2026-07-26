@@ -1,60 +1,96 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
-  Inbox, LayoutDashboard, LogOut, Users, Package, FileText, History, RefreshCw, Settings, ClipboardList
+  Inbox, LayoutDashboard, LogOut, Users, Package, FileText, History,
+  RefreshCw, Settings, ClipboardList
 } from "lucide-react";
 import Logo from "./Logo";
-
-const items = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/clients", label: "Clients", icon: Users },
-  { href: "/packages", label: "Packages", icon: Package },
-  { href: "/invoices", label: "Invoices", icon: FileText },
-  { href: "/retraits", label: "Retraits", icon: Inbox },
-  { href: "/historique", label: "Historique", icon: History },
-  { href: "/journal", label: "Journal", icon: ClipboardList },
-  { href: "/sync", label: "Synchronisation MCPACK", icon: RefreshCw },
-  { href: "/settings", label: "Paramètres", icon: Settings }
-];
-
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
 import { Staff } from "@/lib/types";
+
+// Nav gwoupe pa seksyon (estil dashboard pwofesyonèl)
+const groups: { title: string; items: { href: string; label: string; icon: typeof Users }[] }[] = [
+  {
+    title: "Général",
+    items: [
+      { href: "/", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/clients", label: "Clients", icon: Users },
+      { href: "/packages", label: "Packages", icon: Package }
+    ]
+  },
+  {
+    title: "Facturation",
+    items: [
+      { href: "/invoices", label: "Factures", icon: FileText },
+      { href: "/retraits", label: "Retraits", icon: Inbox }
+    ]
+  },
+  {
+    title: "Système",
+    items: [
+      { href: "/sync", label: "Synchronisation", icon: RefreshCw },
+      { href: "/historique", label: "Historique", icon: History },
+      { href: "/journal", label: "Journal", icon: ClipboardList },
+      { href: "/settings", label: "Paramètres", icon: Settings }
+    ]
+  }
+];
 
 export default function Sidebar({ staff }: { staff?: Staff | null }) {
   const path = usePathname();
   const router = useRouter();
-  // Employé pa gen aksè Paramètres
-  const visible = items.filter((i) => i.href !== "/settings" || staff?.role === "admin");
   const logout = async () => { await supabase.auth.signOut(); router.replace("/admin-login"); };
+  const isAdmin = staff?.role === "admin";
+  const initials = (staff?.prenom || staff?.username || "S").slice(0, 2).toUpperCase();
+
   return (
     <aside className="w-64 shrink-0 bg-navy text-white min-h-screen flex flex-col">
-      <div className="flex items-center gap-3 px-5 h-16 border-b border-white/10">
-        <Logo size={36} />
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-5 h-16">
+        <Logo size={34} />
         <div>
-          <p className="font-extrabold text-sm leading-tight">STANDA COMMERCIAL</p>
-          <p className="text-[11px] text-white/60">Gestion de colis & facturation</p>
+          <p className="font-extrabold text-sm leading-tight">STANDA</p>
+          <p className="text-[10px] text-white/50 tracking-wide">COMMERCIAL</p>
         </div>
       </div>
-      <nav className="p-3 space-y-1">
-        {visible.map(({ href, label, icon: Icon }) => {
-          const active = href === "/" ? path === "/" : path.startsWith(href);
+
+      {/* Nav gwoupe */}
+      <nav className="flex-1 px-3 py-2 space-y-5 overflow-y-auto">
+        {groups.map((g) => {
+          const items = g.items.filter((i) => i.href !== "/settings" || isAdmin);
+          if (!items.length) return null;
           return (
-            <Link key={href} href={href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
-                active ? "bg-white text-navy" : "text-white/80 hover:bg-white/10"}`}>
-              <Icon size={17} /> {label}
-            </Link>
+            <div key={g.title}>
+              <p className="px-3 mb-1.5 text-[10px] font-bold text-white/40 uppercase tracking-widest">{g.title}</p>
+              <div className="space-y-0.5">
+                {items.map(({ href, label, icon: Icon }) => {
+                  const active = href === "/" ? path === "/" : path.startsWith(href);
+                  return (
+                    <Link key={href} href={href}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                        active ? "bg-white text-navy font-semibold shadow-sm" : "text-white/75 hover:bg-white/10 hover:text-white"}`}>
+                      <Icon size={17} className={active ? "text-navy" : ""} /> {label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </nav>
-      <div className="mt-auto p-3 border-t border-white/10">
-        <p className="px-3 text-[11px] text-white/50 mb-1">
-          {staff ? `${staff.prenom || staff.username} — ${staff.role === "admin" ? "Administrateur" : "Employé"}` : ""}
-        </p>
+
+      {/* Kat itilizatè + dekonekte */}
+      <div className="p-3 border-t border-white/10">
+        <div className="flex items-center gap-3 px-2 py-2 mb-1">
+          <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center text-sm font-bold">{initials}</div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold truncate">{staff?.prenom || staff?.username || "—"}</p>
+            <p className="text-[11px] text-white/50">{isAdmin ? "Administrateur" : "Employé"}</p>
+          </div>
+        </div>
         <button onClick={logout}
-          className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/10">
+          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/75 hover:bg-white/10 hover:text-white transition-colors">
           <LogOut size={17} /> Dekonekte
         </button>
       </div>

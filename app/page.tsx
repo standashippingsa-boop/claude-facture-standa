@@ -5,7 +5,6 @@ import { Users, Package, FileText, DollarSign, RefreshCw, CheckCircle2, Bell, In
 import { getClients, getRetraits, getStats } from "@/lib/db";
 import { Client, DashboardStats, Retrait } from "@/lib/types";
 import { dateFr, usd } from "@/lib/utils";
-import Logo from "@/components/Logo";
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -26,33 +25,30 @@ export default function Dashboard() {
   }, []);
 
   const cards = stats ? [
-    { label: "Total clients", value: stats.totalClients, icon: Users, href: "/clients" },
-    { label: "Colis disponibles", value: stats.disponibles, icon: Package, href: "/packages" },
-    { label: "Colis facturés", value: stats.factures, icon: CheckCircle2, href: "/historique" },
-    { label: "Total factures", value: stats.totalInvoices, icon: FileText, href: "/invoices" },
-    { label: "Revenu total (USD)", value: usd(stats.revenue), icon: DollarSign, href: "/invoices" }
+    { label: "Total clients", value: stats.totalClients, icon: Users, href: "/clients", tint: "bg-blue-50 text-blue-600" },
+    { label: "Colis disponibles", value: stats.disponibles, icon: Package, href: "/packages", tint: "bg-brand-light text-brand-dark" },
+    { label: "Colis facturés", value: stats.factures, icon: CheckCircle2, href: "/historique", tint: "bg-emerald-50 text-emerald-600" },
+    { label: "Total factures", value: stats.totalInvoices, icon: FileText, href: "/invoices", tint: "bg-indigo-50 text-indigo-600" },
+    { label: "Revenu total (USD)", value: usd(stats.revenue), icon: DollarSign, href: "/invoices", tint: "bg-amber-50 text-amber-600" }
   ] : [];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Logo size={44} rounded="rounded-xl" />
-        <div>
-          <h1 className="text-xl font-extrabold text-navy leading-tight">Dashboard</h1>
-          <p className="text-xs text-slate-500">STANDA COMMERCIAL — Gestion de colis & facturation</p>
-        </div>
+      <div>
+        <h1 className="h-page">Dashboard</h1>
+        <p className="text-sm text-mute mt-0.5">Vue d&apos;ensemble — colis, clients & facturation</p>
       </div>
 
       {err && <p className="card p-4 text-sm text-red-600">Erè koneksyon bazdone: {err} — verifye .env.local ou a.</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {cards.map(({ label, value, icon: Icon, href }) => (
-          <Link key={label} href={href} className="card p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-slate-500">{label}</p>
-              <Icon size={16} className="text-navy-light" />
+        {cards.map(({ label, value, icon: Icon, href, tint }) => (
+          <Link key={label} href={href} className="stat card-hover">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-1 ${tint}`}>
+              <Icon size={18} />
             </div>
-            <p className="text-2xl font-extrabold text-navy mt-2">{value}</p>
+            <p className="stat-label">{label}</p>
+            <p className="stat-value">{value}</p>
           </Link>
         ))}
         {!stats && !err && <p className="text-sm text-slate-400">Ap chaje estatistik yo...</p>}
@@ -61,7 +57,7 @@ export default function Dashboard() {
       {/* ===== Notifications ===== */}
       {(nouvo.length > 0 || retraits.length > 0) && (
         <section className="space-y-3">
-          <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+          <h2 className="h-sec flex items-center gap-2">
             <Bell size={15} /> Notifications
             <span className="badge bg-amber-100 text-amber-700">{nouvo.length + retraits.length}</span>
           </h2>
@@ -101,7 +97,7 @@ export default function Dashboard() {
       <div className="card p-5">
         <div className="flex items-center gap-2 mb-2">
           <RefreshCw size={15} className="text-navy-light" />
-          <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Dernier import MCPACK</h2>
+          <h2 className="h-sec">Dernier import MCPACK</h2>
         </div>
         {stats?.lastImport ? (
           <p className="text-sm text-slate-600">
