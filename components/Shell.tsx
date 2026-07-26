@@ -3,32 +3,61 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "./Sidebar";
 import { getMyStaff } from "@/lib/authx";
+import { getClientByAuthId } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 import { Staff } from "@/lib/types";
-
-const PUBLIC_PREFIXES = ["/inscription", "/login", "/espace-client", "/reset-password",
-  "/confidentialite", "/admin-login", "/setup", "/nouveau-mot-de-passe"];
+import { AppRole, isClientPath, isPublicPath, resolveAccess } from "@/lib/access";
 
 /**
- * Zòn admin lan (Dashboard, Clients, Packages...) mande yon kont STAFF
- * (Administrateur oswa Employé). Paj piblik yo rete jan yo ye.
+ * Shell — CONTRÔLE D'ACCÈS CENTRALISÉ (RBAC)
+ * ══════════════════════════════════════════════
+ * Yon sèl kote ki deside aksè, ak lib/access.ts kòm sous verite:
+ *   - Detekte wòl la: staff (admin/employe) oswa client.
+ *   - resolveAccess() di si paj la otorize; sinon li redirije pwòpteman
+ *     (kliyan -> /espace-client, employé sou paj admin -> /, elatriye).
+ * Nou pa retire okenn gad ki egziste nan paj yo (defans an pwofondè).
  */
 export default function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const router = useRouter();
-  const isPublic = PUBLIC_PREFIXES.some((p) => path.startsWith(p));
   const [staff, setStaff] = useState<Staff | null>(null);
-  const [checked, setChecked] = useState(false);
+  const [role, setRole] = useState<AppRole | null>(null);
+  const [ready, setReady] = useState(false);
+
+  const publicPath = isPublicPath(path);
 
   useEffect(() => {
-    if (isPublic) return;
-    getMyStaff().then((s) => {
-      if (!s) { router.replace("/admin-login"); return; }
-      setStaff(s); setChecked(true);
-    });
-  }, [isPublic, path, router]);
+    if (publicPath) { setReady(true); return; }
+    let cancelled = false;
+    (async () => {
+      // 1) Staff an premye
+      const s = await getMyStaff();
+      let r: AppRole | null = null;
+      let st: Staff | null = null;
+      if (s) { st = s; r = s.role; }
+      else {
+        // 2) Sinon, èske se yon kliyan?
+        const { data } = await supabase.auth.getUser();
+        if (data.user) {
+          const c = await getClientByAuthId(data.user.id);
+          if (c) r = "client";
+        }
+      }
+      if (cancelled) return;
+      const { allowed, redirect } = resolveAccess(path, r);
+      if (!allowed && redirect) { router.replace(redirect); return; }
+      setStaff(st); setRole(r); setReady(true);
+    })();
+    return () => { cancelled = true; };
+  }, [publicPath, path, router]);
 
-  if (isPublic) return <main className="min-h-screen">{children}</main>;
-  if (!checked) return <div className="min-h-screen bg-mist grid place-items-center text-slate-400">Ap verifye aksè...</div>;
+  if (publicPath) return <main className="min-h-screen">{children}</main>;
+  if (!ready) return <div className="min-h-screen bg-mist grid place-items-center text-slate-400">Ap verifye aksè...</div>;
+
+  // Kliyan: paj san sidebar staff (espace-client gen pwòp entèfas li)
+  if (role === "client" || isClientPath(path)) return <main className="min-h-screen">{children}</main>;
+
+  // Staff: sidebar + kontni
   return (
     <div className="flex">
       <Sidebar staff={staff} />

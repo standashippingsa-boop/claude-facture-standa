@@ -8,6 +8,7 @@ import {
 import Logo from "./Logo";
 import { supabase } from "@/lib/supabase";
 import { Staff } from "@/lib/types";
+import { isAdminOnlyPath } from "@/lib/access";
 
 // Nav gwoupe pa seksyon (estil dashboard pwofesyonèl)
 const groups: { title: string; items: { href: string; label: string; icon: typeof Users }[] }[] = [
@@ -58,7 +59,7 @@ export default function Sidebar({ staff }: { staff?: Staff | null }) {
       {/* Nav gwoupe */}
       <nav className="flex-1 px-3 py-2 space-y-5 overflow-y-auto">
         {groups.map((g) => {
-          const items = g.items.filter((i) => i.href !== "/settings" || isAdmin);
+          const items = g.items.filter((i) => isAdmin || !isAdminOnlyPath(i.href));
           if (!items.length) return null;
           return (
             <div key={g.title}>
