@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Clock, KeyRound, LogOut, MapPin, Package, X } from "lucide-react";
+import { Bell, ChevronDown, Clock, FileText, KeyRound, LogOut, MapPin, Package, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { createRetrait, getClientByAuthId, getClientPackagesAndInvoices, getClientRetraits } from "@/lib/db";
 import { Client, Invoice, Pkg, Retrait } from "@/lib/types";
 import { DEPOT } from "@/lib/depot";
 import { dateFr, usd } from "@/lib/utils";
+import StatusBadge from "@/components/StatusBadge";
 
 export default function EspaceClientPage() {
   const router = useRouter();
@@ -40,6 +41,7 @@ export default function EspaceClientPage() {
 
   // ===== Changer mon mot de passe (V8.5 §13) =====
   const [showPwd, setShowPwd] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [pwd1, setPwd1] = useState("");
   const [pwd2, setPwd2] = useState("");
   const [pwdMsg, setPwdMsg] = useState<string | null>(null);
@@ -120,47 +122,71 @@ export default function EspaceClientPage() {
   }
 
   // ===== Kont Actif =====
+  const disponibles = pkgs.filter((p) => p.status === "Disponible");
+  const enTransit = pkgs.filter((p) => !["Disponible", "Facturé", "Livré"].includes(p.status));
+  const stats = [
+    { label: "Total colis", value: pkgs.length, icon: Package, tint: "bg-blue-50 text-blue-600" },
+    { label: "Disponibles", value: disponibles.length, icon: Bell, tint: "bg-brand-light text-brand-dark" },
+    { label: "En transit", value: enTransit.length, icon: Truck, tint: "bg-amber-50 text-amber-600" },
+    { label: "Factures", value: invs.length, icon: FileText, tint: "bg-indigo-50 text-indigo-600" }
+  ];
+
   return (
-    <div className="min-h-screen bg-mist">
-      <div className="bg-navy text-white">
+    <div className="min-h-screen bg-mist pb-10">
+      {/* ===== Header ===== */}
+      <header className="bg-navy text-white sticky top-0 z-30">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-white grid place-items-center overflow-hidden">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-white grid place-items-center overflow-hidden shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/logo.png" alt="" className="h-8 object-contain" />
             </div>
-            <div>
-              <p className="font-extrabold text-sm">STANDA COMMERCIAL</p>
-              <p className="text-xs text-white/70">{non} — {client.customer_code}</p>
+            <div className="min-w-0">
+              <p className="font-extrabold text-sm leading-tight truncate">STANDA COMMERCIAL</p>
+              <p className="text-[11px] text-white/60 truncate">{non} · {client.customer_code}</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button className="text-white/80 hover:text-white text-sm flex items-center gap-1"
-              onClick={() => setShowPwd(true)}>
-              <KeyRound size={15} /> Changer mon mot de passe
+          <div className="relative">
+            <button className="flex items-center gap-1.5 text-white/85 hover:text-white text-sm rounded-lg px-2 py-1.5 hover:bg-white/10"
+              onClick={() => setMenuOpen((v) => !v)}>
+              <div className="w-7 h-7 rounded-full bg-white/15 grid place-items-center text-xs font-bold">
+                {non.slice(0, 1).toUpperCase()}
+              </div>
+              <ChevronDown size={15} />
             </button>
-            <button className="text-white/80 hover:text-white text-sm flex items-center gap-1" onClick={logout}>
-              <LogOut size={15} /> Dekonekte
-            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lift border border-line py-1 z-20 text-ink">
+                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-mist text-left"
+                    onClick={() => { setMenuOpen(false); setShowPwd(true); }}>
+                    <KeyRound size={15} className="text-mute" /> Changer mon mot de passe
+                  </button>
+                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-mist text-left text-red-600"
+                    onClick={logout}>
+                    <LogOut size={15} /> Dekonekte
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* ===== Modal: Changer mon mot de passe ===== */}
+      {/* ===== Modal: Changer mot de passe ===== */}
       {showPwd && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-          onClick={() => setShowPwd(false)}>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowPwd(false)}>
           <div className="card p-6 max-w-sm w-full space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Changer mon mot de passe</h2>
+              <h2 className="h-sec">Changer mon mot de passe</h2>
               <button className="text-slate-400 hover:text-navy" onClick={() => setShowPwd(false)}><X size={18} /></button>
             </div>
             <label className="block">
-              <span className="text-xs font-semibold text-slate-600">Nouveau mot de passe</span>
+              <span className="text-xs font-semibold text-mute">Nouveau mot de passe</span>
               <input type="password" className="input mt-1" value={pwd1} onChange={(e) => setPwd1(e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs font-semibold text-slate-600">Confirmer le mot de passe</span>
+              <span className="text-xs font-semibold text-mute">Confirmer le mot de passe</span>
               <input type="password" className="input mt-1" value={pwd2}
                 onChange={(e) => setPwd2(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && changePassword()} />
@@ -171,20 +197,36 @@ export default function EspaceClientPage() {
             <button className="btn w-full justify-center" onClick={changePassword} disabled={pwdBusy}>
               {pwdBusy ? "Ap chanje..." : "Enregistrer"}
             </button>
-            <p className="text-[11px] text-slate-400 text-center">
-              Si w bliye modpas ou, kontakte STANDA COMMERCIAL — administratè a ap jenere yon nouvo pou ou.
-            </p>
           </div>
         </div>
       )}
 
       <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-5">
-        {/* Adrès depo */}
-        <section className="card p-6">
-          <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2 mb-4">
-            <MapPin size={15} /> Adrès depo ou Ozetazini
+        {/* ===== Salutation ===== */}
+        <div>
+          <h1 className="h-page">Bonjou, {client.fullname || non} 👋</h1>
+          <p className="text-sm text-mute mt-0.5">Men rezime kont ou an.</p>
+        </div>
+
+        {/* ===== KPI (istwa a) ===== */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {stats.map(({ label, value, icon: Icon, tint }) => (
+            <div key={label} className="stat">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-1 ${tint}`}>
+                <Icon size={18} />
+              </div>
+              <p className="stat-label">{label}</p>
+              <p className="stat-value">{value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* ===== Adrès depo ===== */}
+        <section className="card p-5 md:p-6">
+          <h2 className="h-sec flex items-center gap-2 mb-4">
+            <MapPin size={16} className="text-navy" /> Adrès depo ou Ozetazini
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-0.5 text-sm">
             {([["Full Name / Nombre completo", non],
                ["Address 1", DEPOT.address1],
                ["Address 2", client.customer_code],
@@ -192,117 +234,121 @@ export default function EspaceClientPage() {
                ["State", DEPOT.state],
                ["ZIP Code", DEPOT.zip],
                ["Phone", DEPOT.phone]] as const).map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-4 border-b border-line py-1.5">
-                <span className="text-slate-500">{k}</span>
-                <span className={`font-semibold text-right ${k === "Address 2" ? "text-navy" : ""}`}>{v}</span>
+              <div key={k} className="flex justify-between gap-4 border-b border-line py-2">
+                <span className="text-mute">{k}</span>
+                <span className={`font-semibold text-right ${k === "Address 2" ? "text-navy" : "text-ink"}`}>{v}</span>
               </div>
             ))}
           </div>
-          <p className="mt-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <p className="mt-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
             ⚠️ Toujou mete kòd <b>{client.customer_code}</b> la sou <b>Address 2</b> chak fwa w ap voye
             yon pakè — se kòd sa a ki pèmèt nou idantifye tout koli ou yo.
           </p>
         </section>
 
-        {/* Koli */}
-        <section className="card overflow-x-auto">
-          <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2 p-4 pb-2">
-            <Package size={15} /> Koli ou yo ({pkgs.length})
-          </h2>
-          <p className="px-4 pb-2 text-xs text-slate-500">
-            Make koli ki <b>Disponible</b> yo epi peze "Notifier mon retrait" pou n prepare yo anvan ou rive.
-          </p>
-          <table className="w-full text-sm">
-            <thead><tr>
-              <th className="th"></th>
-              {["Tracking ID (Guía)", "Tracking No", "Date", "Weight (lb)", "Content", "Status"].map((h) => <th key={h} className="th">{h}</th>)}
-            </tr></thead>
-            <tbody>
-              {pkgs.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-8 text-slate-400">Poko gen koli.</td></tr>
-              ) : pkgs.map((p, i) => (
-                <tr key={p.id} className={`${i % 2 ? "bg-mist" : ""} ${sel.has(p.id) ? "!bg-blue-50" : ""}`}>
-                  <td className="td">
-                    {p.status === "Disponible" && (
-                      <input type="checkbox" checked={sel.has(p.id)} onChange={() => toggleSel(p.id)} />
-                    )}
-                  </td>
-                  <td className="td font-mono text-xs">{p.tracking_number}</td>
-                  <td className="td font-mono text-xs">{p.tracking_manual || "—"}</td>
-                  <td className="td">{p.created_date}</td>
-                  <td className="td">{p.weight}</td>
-                  <td className="td">{p.content}</td>
-                  <td className="td">
-                    <span className={`badge ${p.status === "Disponible" ? "bg-emerald-100 text-emerald-700"
-                      : p.status === "Facturé" || p.status === "Livré" ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-600"}`}>
-                      {p.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {sel.size > 0 && (
-            <div className="p-4 border-t border-line flex items-center gap-3 flex-wrap">
-              <button className="btn" onClick={notifierRetrait} disabled={busy}>
-                <Bell size={15} /> Notifier mon retrait ({sel.size} koli)
-              </button>
-              <span className="text-xs text-slate-500">STANDA COMMERCIAL ap prepare koli yo anvan ou rive.</span>
+        {/* ===== Koli (kat responsive) ===== */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="h-sec flex items-center gap-2">
+              <Package size={16} className="text-navy" /> Koli ou yo <span className="text-mute font-normal">({pkgs.length})</span>
+            </h2>
+          </div>
+          {disponibles.length > 0 && (
+            <p className="text-xs text-mute">
+              Make koli <b className="text-brand-dark">Disponible</b> yo epi peze &quot;Notifier mon retrait&quot; pou n prepare yo anvan ou rive.
+            </p>
+          )}
+
+          {pkgs.length === 0 ? (
+            <div className="card p-8 text-center text-mute text-sm">Poko gen koli.</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {pkgs.map((p) => {
+                const selectable = p.status === "Disponible";
+                const on = sel.has(p.id);
+                return (
+                  <div key={p.id}
+                    className={`card p-4 card-hover ${on ? "ring-2 ring-navy/30" : ""} ${selectable ? "cursor-pointer" : ""}`}
+                    onClick={() => selectable && toggleSel(p.id)}>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="min-w-0">
+                        <p className="font-mono text-sm font-bold text-ink truncate">{p.tracking_number}</p>
+                        {p.tracking_manual && <p className="font-mono text-[11px] text-mute truncate mt-0.5">{p.tracking_manual}</p>}
+                      </div>
+                      {selectable && (
+                        <input type="checkbox" checked={on} onChange={() => toggleSel(p.id)}
+                          onClick={(e) => e.stopPropagation()} className="mt-0.5 shrink-0 w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <StatusBadge status={p.status} />
+                      <span className="text-xs text-mute">{Number(p.weight || 0).toFixed(2)} lb</span>
+                    </div>
+                    {p.content && <p className="text-xs text-mute mt-2 truncate">{p.content}</p>}
+                  </div>
+                );
+              })}
             </div>
           )}
-          {msg && <p className="px-4 pb-4 text-sm text-navy">{msg}</p>}
+
+          {sel.size > 0 && (
+            <div className="sticky bottom-4 z-20">
+              <div className="card shadow-lift p-3 flex items-center gap-3 flex-wrap">
+                <button className="btn btn-brand" onClick={notifierRetrait} disabled={busy}>
+                  <Bell size={15} /> Notifier mon retrait ({sel.size})
+                </button>
+                <span className="text-xs text-mute flex-1">STANDA ap prepare koli yo anvan ou rive.</span>
+              </div>
+            </div>
+          )}
+          {msg && <p className="card px-4 py-3 text-sm text-navy">{msg}</p>}
         </section>
 
-        {/* Demandes de retrait */}
+        {/* ===== Demandes de retrait ===== */}
         {retraits.length > 0 && (
-          <section className="card overflow-x-auto">
-            <h2 className="text-sm font-bold text-navy uppercase tracking-wide p-4 pb-2">
-              Demandes de retrait ({retraits.length})
-            </h2>
-            <table className="w-full text-sm">
-              <thead><tr>
-                {["Date", "Colis", "Poids (lb)", "Statut"].map((h) => <th key={h} className="th">{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {retraits.map((r, i) => (
-                  <tr key={r.id} className={i % 2 ? "bg-mist" : ""}>
-                    <td className="td">{new Date(r.created_at).toLocaleDateString("fr-FR")}</td>
-                    <td className="td text-right">{r.package_count}</td>
-                    <td className="td text-right">{Number(r.total_weight).toFixed(2)}</td>
-                    <td className="td">
-                      <span className={`badge ${RETRAIT_BADGE[r.status] ?? "bg-slate-100 text-slate-600"}`}>{r.status}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <section className="space-y-3">
+            <h2 className="h-sec">Demandes de retrait <span className="text-mute font-normal">({retraits.length})</span></h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {retraits.map((r) => (
+                <div key={r.id} className="card p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-ink">{r.package_count} colis · {Number(r.total_weight).toFixed(2)} lb</p>
+                    <p className="text-xs text-mute mt-0.5">{new Date(r.created_at).toLocaleDateString("fr-FR")}</p>
+                  </div>
+                  <span className={`pill ${r.status === "Remis" ? "pill-green" : r.status === "Préparé" ? "pill-blue" : "pill-amber"}`}>
+                    <span className="pill-dot" /> {r.status}
+                  </span>
+                </div>
+              ))}
+            </div>
           </section>
         )}
 
-        {/* Fakti */}
-        <section className="card overflow-x-auto">
-          <h2 className="text-sm font-bold text-navy uppercase tracking-wide p-4 pb-2">Fakti ou yo ({invs.length})</h2>
-          <table className="w-full text-sm">
-            <thead><tr>
-              {["No Facture", "Date", "Total (USD)", "PDF"].map((h) => <th key={h} className="th">{h}</th>)}
-            </tr></thead>
-            <tbody>
-              {invs.length === 0 ? (
-                <tr><td colSpan={4} className="text-center py-8 text-slate-400">Poko gen fakti.</td></tr>
-              ) : invs.map((f, i) => (
-                <tr key={f.id} className={i % 2 ? "bg-mist" : ""}>
-                  <td className="td font-semibold text-navy">{f.invoice_number}</td>
-                  <td className="td">{dateFr(f.created_at)}</td>
-                  <td className="td">{usd(f.grand_total)}</td>
-                  <td className="td">
+        {/* ===== Factures ===== */}
+        <section className="space-y-3">
+          <h2 className="h-sec flex items-center gap-2">
+            <FileText size={16} className="text-navy" /> Fakti ou yo <span className="text-mute font-normal">({invs.length})</span>
+          </h2>
+          {invs.length === 0 ? (
+            <div className="card p-8 text-center text-mute text-sm">Poko gen fakti.</div>
+          ) : (
+            <div className="card divide-y divide-line">
+              {invs.map((f) => (
+                <div key={f.id} className="flex items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-navy">{f.invoice_number}</p>
+                    <p className="text-xs text-mute mt-0.5">{dateFr(f.created_at)}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-extrabold text-ink">{usd(f.grand_total)}</p>
                     {f.pdf_url
-                      ? <a href={f.pdf_url} target="_blank" className="text-navy underline text-xs font-semibold">Telechaje</a>
+                      ? <a href={f.pdf_url} target="_blank" rel="noreferrer" className="text-xs text-navy underline font-semibold">Telechaje PDF</a>
                       : <span className="text-xs text-slate-400">—</span>}
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          )}
         </section>
       </div>
     </div>
