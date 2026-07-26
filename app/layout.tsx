@@ -1,10 +1,35 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Shell from "@/components/Shell";
+import PwaManager from "@/components/PwaManager";
 
 export const metadata: Metadata = {
+  applicationName: "STANDA COMMERCIAL",
   title: "STANDA COMMERCIAL — Gestion de colis & facturation",
-  description: "Logiciel interne de gestion de colis et de facturation"
+  description: "Système professionnel de gestion de colis.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "STANDA"
+  },
+  formatDetection: { telephone: false },
+  icons: {
+    icon: [
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }]
+  }
+};
+
+export const viewport: Viewport = {
+  themeColor: "#122B5C",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -12,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ht">
       <body>
         <Shell>{children}</Shell>
+        <PwaManager />
       </body>
     </html>
   );
