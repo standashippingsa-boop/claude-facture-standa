@@ -1,41 +1,35 @@
 /*
- * STANDA COMMERCIAL — Service Worker
+ * STANDA COMMERCIAL — Service Worker (v2)
  * ══════════════════════════════════════════════════════════
- * Estrateji SEKIRITE (done finansye):
- *  - Nou PA JANM kache Supabase, /api, ni okenn done metye.
- *    Fakti, koli, pri, kliyan TOUJOU soti sou rezo (done fre).
- *  - Nou kache SÈLMAN "app shell" la (paj, JS, CSS, ikòn, font).
- *  - Navigasyon: rezo an premye -> si offline, montre offline.html.
- *  - Sou aktivasyon: efase ansyen cache yo.
- *  - skipWaiting + clients.claim -> mizajou otomatik.
+ * KORÈKSYON v2: navigasyon paj yo TOUJOU pase dirèk sou rezo.
+ * Nou PA entèsepte navigasyon ankò — konsa aplikasyon an pa janm
+ * ka bloke sou yon fo paj "hors ligne" lè gen entènèt.
  *
- * Pou fè yon nouvo vèsyon: chanje CACHE_VERSION.
+ * Estrateji:
+ *  - Paj (navigasyon): rezo dirèk, san entèsepsyon (browser jere l).
+ *  - Resous statik (JS/CSS/ikòn): cache pou vitès + mizajou background.
+ *  - Done metye (API/Supabase): JAMÈ kache — toujou rezo.
+ *  - Netwayaj ansyen cache sou aktivasyon.
  */
-const CACHE_VERSION = "standa-v1";
+const CACHE_VERSION = "standa-v2";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
-const OFFLINE_URL = "/offline.html";
 
-// Resous app-shell nou vle disponib offline
 const PRECACHE = [
-  "/offline.html",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/apple-touch-icon.png"
 ];
 
-// Domèn nou PA JANM kache (done metye — toujou rezo)
 function isNeverCache(url) {
   return (
     url.pathname.startsWith("/api/") ||
     url.hostname.includes("supabase.co") ||
     url.hostname.includes("supabase.in") ||
-    url.pathname.includes("/auth/") ||
-    url.search.includes("no-cache")
+    url.pathname.includes("/auth/")
   );
 }
 
-// Èske se yon resous statik app-shell (JS/CSS/font/imaj)?
 function isStaticAsset(url) {
   return (
     url.pathname.startsWith("/_next/static/") ||
@@ -58,7 +52,6 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Pèmèt paj la fòse mizajou (skipWaiting) lè itilizatè klike "Mettre à jour"
 self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") self.skipWaiting();
 });
@@ -67,23 +60,16 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
 
+  // ⚠️ NAVIGASYON PAJ: pa entèsepte — browser voye l dirèk sou rezo.
+  //    Se sa ki anpeche fo paj "hors ligne" a bloke itilizatè ki gen entènèt.
+  if (req.mode === "navigate") return;
+
   let url;
   try { url = new URL(req.url); } catch { return; }
-  if (url.origin !== self.location.origin && !isStaticAsset(url)) {
-    // Lòt domèn (Supabase etc.) -> pa touche, kite rezo a jere l
-    if (isNeverCache(url)) return;
-  }
-  if (isNeverCache(url)) return; // done metye -> toujou rezo
 
-  // Navigasyon (paj HTML): rezo an premye, offline.html si echwe
-  if (req.mode === "navigate") {
-    event.respondWith(
-      fetch(req).catch(() => caches.match(OFFLINE_URL))
-    );
-    return;
-  }
+  if (isNeverCache(url)) return;              // done metye -> toujou rezo
 
-  // Resous statik: cache-first + mizajou an background (stale-while-revalidate)
+  // Resous statik: cache-first + mizajou background (stale-while-revalidate)
   if (isStaticAsset(url)) {
     event.respondWith(
       caches.open(SHELL_CACHE).then(async (cache) => {
@@ -96,13 +82,10 @@ self.addEventListener("fetch", (event) => {
       })
     );
   }
-  // Rès la: kite navigatè a jere nòmalman (pa entèsepte)
+  // Rès la: navigatè a jere nòmalman
 });
 
-/* ── NOTIFICATIONS PUSH (estrikti prè — pa aktive toujou) ──
- * Backend nan pral voye yon push ak {title, body, url, tag}.
- * Estrikti a la; li kòmanse travay depi w konfigire VAPID + abònman.
- */
+/* ── NOTIFICATIONS PUSH (estrikti prè) ── */
 self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data && event.data.text() }; }
