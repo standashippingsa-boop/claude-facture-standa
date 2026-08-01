@@ -34,6 +34,7 @@ export default function SyncPage() {
   const [factures, setFactures] = useState<FactureMatch[] | null>(null);
   const [factProg, setFactProg] = useState("");
   const [factureText, setFactureText] = useState("");
+  const [corrections, setCorrections] = useState<Record<string, string>>({});
 
   /** RÈG N°8 — Annuler la dernière importation */
   const annulerImport = async () => {
@@ -122,7 +123,27 @@ export default function SyncPage() {
     } finally { setBusy(false); }
   };
 
-  // ===== Valide import facture → Disponible (pwen #6b, SAN imèl) =====
+  // ===== Korije koli non identifiés epi re-verifye (pwen #9) =====
+  const reverifierCorriges = async () => {
+    if (!factures) return;
+    const unmatched = factures.filter((f) => !f.matched);
+    // Pran valè korije yo (si admin chanje) oswa valè orijinal la
+    const corriges = unmatched.map((f) => ({
+      original: f.tracking,
+      value: (corrections[f.tracking] ?? f.tracking).trim()
+    })).filter((c) => c.value);
+    if (!corriges.length) return;
+    setBusy(true); setErr(null);
+    try {
+      const rematched = await matchFactureTrackings(corriges.map((c) => ({ value: c.value, source: "text" as const })));
+      // Rekonstwi lis la: kenbe matched yo, ranplase unmatched ak nouvo rezilta yo
+      const stillMatched = factures.filter((f) => f.matched);
+      setFactures([...stillMatched, ...rematched]);
+      setCorrections({});
+    } catch (e: any) {
+      setErr("Erè re-vérification: " + (e.message ?? String(e)));
+    } finally { setBusy(false); }
+  };
   const validerFactures = async () => {
     if (!factures) return;
     const cibles = factures.filter((f) => f.matched && !f.alreadyDisponible);
@@ -455,28 +476,46 @@ export default function SyncPage() {
                         <th key={h} className="thc">{h}</th>)}
                     </tr></thead>
                     <tbody>
-                      {matched.map((f, i) => (
-                        <tr key={i} className={i % 2 ? "bg-mist" : ""}>
-                          <td className="tdc font-mono">{f.tracking}</td>
-                          <td className="tdc font-mono text-[11px]">{f.guia}</td>
-                          <td className="tdc"><span className="font-bold text-navy">{f.customerCode}</span> — {f.customerName}</td>
-                          <td className="tdc">{f.status}</td>
-                          <td className="tdc text-mute">{f.source === "pdf" ? "PDF" : "Image"}</td>
-                        </tr>
-                      ))}
+                      {matched.map((f, i) => {
+                        const aRendre = !f.alreadyDisponible;   // koli w pran nan fakti a
+                        return (
+                          <tr key={i} className={aRendre ? "bg-red-50 border-l-4 border-red-700" : (i % 2 ? "bg-mist" : "")}>
+                            <td className={`tdc font-mono ${aRendre ? "text-red-800 font-bold" : ""}`}>{f.tracking}</td>
+                            <td className="tdc font-mono text-[11px]">{f.guia}</td>
+                            <td className="tdc"><span className="font-bold text-navy">{f.customerCode}</span> — {f.customerName}</td>
+                            <td className="tdc">{f.status}</td>
+                            <td className="tdc text-mute">{f.source === "pdf" ? "PDF" : f.source === "text" ? "Texte" : "Image"}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               )}
 
               {unmatched.length > 0 && (
-                <div>
-                  <p className="text-xs font-bold text-red-700 mb-1">Colis non identifiés ({unmatched.length}) — à vérifier manuellement :</p>
-                  <div className="flex flex-wrap gap-1.5">
+                <div className="card p-3 bg-red-50/40 border border-red-200">
+                  <p className="text-xs font-bold text-red-700 mb-2">
+                    Colis non identifiés ({unmatched.length}) — corrigez le Tracking Number puis re-vérifiez :
+                  </p>
+                  <div className="space-y-1.5">
                     {unmatched.map((f, i) => (
-                      <span key={i} className="font-mono text-[11px] bg-red-50 text-red-700 rounded px-2 py-0.5">{f.tracking}</span>
+                      <div key={i} className="flex items-center gap-2">
+                        <input
+                          className="input !py-1 !text-[11px] font-mono flex-1"
+                          defaultValue={f.tracking}
+                          onChange={(e) => setCorrections((c) => ({ ...c, [f.tracking]: e.target.value }))}
+                          placeholder="Tracking Number à corriger..." />
+                        <span className="text-[10px] text-mute shrink-0">non trouvé</span>
+                      </div>
                     ))}
                   </div>
+                  <button className="btn btn-ghost mt-2.5" onClick={reverifierCorriges} disabled={busy}>
+                    <RefreshCw size={14} /> Re-vérifier les corrigés
+                  </button>
+                  <p className="text-[10px] text-mute mt-1.5">
+                    Astuce : vérifiez qu&apos;il n&apos;y a pas d&apos;espace, de 0/O ou 1/l confondus. Après correction, les colis trouvés rejoignent la liste à valider.
+                  </p>
                 </div>
               )}
 
