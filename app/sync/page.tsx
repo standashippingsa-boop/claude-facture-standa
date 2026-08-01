@@ -3,9 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { Upload, CheckCircle2, RefreshCw, FileText, X, Image } from "lucide-react";
 import { parseMcpackWorkbook } from "@/lib/xlsx";
 import { scanPhotos } from "@/lib/photoscan";
+import { extractFacture } from "@/lib/factureimport";
 import {
   commitSync, getClients, getImports, getSettings,
-  getVilles, logAction, analyzePhotoScans, applyPhotoValidations, logOcrScans, PhotoMatch, previewSync, SyncPreview, undoLastImport
+  getVilles, logAction, analyzePhotoScans, applyPhotoValidations, logOcrScans, PhotoMatch,
+  matchFactureTrackings, FactureMatch, previewSync, SyncPreview, undoLastImport
 } from "@/lib/db";
 import { Client, ImportLog, Ville } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
@@ -27,6 +29,10 @@ export default function SyncPage() {
   const [accepted, setAccepted] = useState<Set<string>>(new Set());
   const [applyDone, setApplyDone] = useState<string | null>(null);
   const [lastBatch, setLastBatch] = useState<string | null>(null);
+  // ===== Import Facture MCPACK (pwen #6a) =====
+  const factureRef = useRef<HTMLInputElement>(null);
+  const [factures, setFactures] = useState<FactureMatch[] | null>(null);
+  const [factProg, setFactProg] = useState("");
 
   /** RÈG N°8 — Annuler la dernière importation */
   const annulerImport = async () => {
@@ -88,6 +94,30 @@ export default function SyncPage() {
       setScanProg("");
     } catch (e: any) {
       setErr("Erè analiz foto: " + (e.message ?? String(e)));
+    } finally { setBusy(false); }
+  };
+
+  // ===== Import Facture MCPACK — ekstrè + match (pwen #6a, READ-ONLY) =====
+  const handleFactures = async (files: FileList) => {
+    setErr(null); setFactures(null); setBusy(true);
+    try {
+      const arr = Array.from(files);
+      const all: { value: string; weight?: number; source: "pdf" | "image" }[] = [];
+      for (let i = 0; i < arr.length; i++) {
+        setFactProg(`Fichier ${i + 1}/${arr.length} — ${arr[i].name}...`);
+        const items = await extractFacture(arr[i], (p) =>
+          setFactProg(`Fichier ${i + 1}/${arr.length} — ${Math.round(p * 100)}%`));
+        all.push(...items);
+      }
+      // dedoublonnen sou tracking
+      const seen = new Set<string>();
+      const uniq = all.filter((t) => { const k = t.value.toUpperCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+      setFactProg("Vérification des correspondances...");
+      const matched = await matchFactureTrackings(uniq);
+      setFactures(matched);
+      setFactProg("");
+    } catch (e: any) {
+      setErr("Erè import facture: " + (e.message ?? String(e)));
     } finally { setBusy(false); }
   };
 
@@ -342,6 +372,77 @@ export default function SyncPage() {
           <p className="text-xs text-emerald-700">Enregistré dans le Journal. Les doublons (même Guía / Tracking) ont été ignorés automatiquement.</p>
         </div>
       )}
+
+      {/* ===== Import Facture MCPACK (pwen #6a) ===== */}
+      <div className="card p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <FileText size={16} className="text-navy" />
+          <h2 className="h-sec">Import Facture MCPACK <span className="text-mute font-normal">(PDF ou capture d&apos;écran)</span></h2>
+        </div>
+        <p className="text-xs text-mute">
+          Chwazi fakti MCPACK yo (PDF oswa screenshot). Sistèm nan ap ekstrè Tracking Number yo epi
+          montre ki koli yo koresponn — <b>san chanje anyen</b>. Ou verifye anvan.
+        </p>
+        <input ref={factureRef} type="file" accept=".pdf,image/*" multiple className="hidden"
+          onChange={(e) => e.target.files && e.target.files.length && handleFactures(e.target.files)} />
+        <button className="btn btn-ghost" onClick={() => factureRef.current?.click()} disabled={busy}>
+          <Upload size={15} /> Choisir PDF / captures
+        </button>
+        {factProg && <p className="text-xs text-navy flex items-center gap-2"><RefreshCw size={12} className="animate-spin" /> {factProg}</p>}
+
+        {factures && (() => {
+          const matched = factures.filter((f) => f.matched);
+          const unmatched = factures.filter((f) => !f.matched);
+          const dispo = matched.filter((f) => !f.alreadyDisponible);
+          const deja = matched.filter((f) => f.alreadyDisponible);
+          return (
+            <div className="space-y-3 pt-1">
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="pill pill-green"><span className="pill-dot" />{dispo.length} à rendre Disponible</span>
+                <span className="pill pill-gray"><span className="pill-dot" />{deja.length} déjà Disponible/Facturé</span>
+                <span className="pill pill-red"><span className="pill-dot" />{unmatched.length} non identifiés</span>
+              </div>
+
+              {matched.length > 0 && (
+                <div className="card overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead><tr>
+                      {["Tracking Number", "Tracking ID (Guía)", "Client", "Statut actuel", "Source"].map((h) =>
+                        <th key={h} className="thc">{h}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {matched.map((f, i) => (
+                        <tr key={i} className={i % 2 ? "bg-mist" : ""}>
+                          <td className="tdc font-mono">{f.tracking}</td>
+                          <td className="tdc font-mono text-[11px]">{f.guia}</td>
+                          <td className="tdc"><span className="font-bold text-navy">{f.customerCode}</span> — {f.customerName}</td>
+                          <td className="tdc">{f.status}</td>
+                          <td className="tdc text-mute">{f.source === "pdf" ? "PDF" : "Image"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {unmatched.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-red-700 mb-1">Colis non identifiés ({unmatched.length}) — à vérifier manuellement :</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {unmatched.map((f, i) => (
+                      <span key={i} className="font-mono text-[11px] bg-red-50 text-red-700 rounded px-2 py-0.5">{f.tracking}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[11px] text-mute border-t border-line pt-2">
+                ℹ️ Étape suivante : validation → marquer « Disponible » + notification. (À venir)
+              </p>
+            </div>
+          );
+        })()}
+      </div>
 
       <div className="card overflow-x-auto">
         <div className="px-4 py-3 border-b border-line flex items-center gap-2">

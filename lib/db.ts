@@ -78,6 +78,47 @@ export async function getPackages(status?: string, includeArchived = false): Pro
   return includeArchived ? rows : rows.filter((p) => !p.archived);
 }
 
+export interface FactureMatch {
+  tracking: string;
+  weight?: number;
+  source: "pdf" | "image";
+  matched: boolean;
+  pkgId?: string;
+  guia?: string;            // Tracking ID (tracking_number) koli matche a
+  customerCode?: string;
+  customerName?: string;
+  status?: string;
+  alreadyDisponible?: boolean;
+}
+
+/**
+ * Match Tracking Number fakti yo ak koli yo (pa tracking_manual).
+ * READ-ONLY — pa chanje anyen. Retounen matched + non identifiés (pwen #6a, #9).
+ */
+export async function matchFactureTrackings(
+  items: { value: string; weight?: number; source: "pdf" | "image" }[]
+): Promise<FactureMatch[]> {
+  const { data } = await supabase.from("packages")
+    .select("id, tracking_number, tracking_manual, customer_code, customer_name, status, archived");
+  const index = new Map<string, any>();
+  for (const p of (data ?? [])) {
+    if (p.archived) continue;
+    const key = cleanTracking(p.tracking_manual);
+    if (key) index.set(key, p);
+  }
+  return items.map((it) => {
+    const key = cleanTracking(it.value);
+    const p = key ? index.get(key) : null;
+    if (!p) return { tracking: it.value, weight: it.weight, source: it.source, matched: false };
+    return {
+      tracking: it.value, weight: it.weight, source: it.source, matched: true,
+      pkgId: p.id, guia: p.tracking_number, customerCode: p.customer_code,
+      customerName: p.customer_name, status: p.status,
+      alreadyDisponible: p.status === "Disponible" || p.status === "Facturé"
+    };
+  });
+}
+
 /** Archive yon koli (pwen #4 — koli pa janm efase, done rete nan baz la) */
 export async function archivePackage(id: string, by = ""): Promise<void> {
   const { error } = await supabase.from("packages")
@@ -951,10 +992,13 @@ export async function applyPhotoValidations(items: PhotoMatch[]): Promise<{
 
     // Eta anvan (pou backup / anilasyon)
     const { data: before } = await supabase.from("packages")
-      .select("id, tracking_manual, received_at, received_method").eq("id", m.matchedPkgId).maybeSingle();
+      .select("id, tracking_manual, received_at, received_method, status").eq("id", m.matchedPkgId).maybeSingle();
     if (!before) continue;
 
     const patch: Record<string, unknown> = { received_at: now, received_method: "Analyse Photo" };
+    // Pwen #5: make koli a "En route vers agence" (🔴) — men PA fè l rekile si li deja pi lwen
+    const dejaPlusLoin = ["Disponible", "Livré", "Facturé"].includes(before.status);
+    if (!dejaPlusLoin) patch.status = "En route vers agence";
     if (m.proposedTracking && !before.tracking_manual) {
       patch.tracking_manual = m.proposedTracking;
       trackingAdded++;
@@ -966,7 +1010,8 @@ export async function applyPhotoValidations(items: PhotoMatch[]): Promise<{
       id: before.id,
       tracking_manual: before.tracking_manual ?? "",
       received_at: before.received_at,
-      received_method: before.received_method ?? ""
+      received_method: before.received_method ?? "",
+      status: before.status
     });
 
     await logAction("Analyse Photo",
@@ -999,11 +1044,13 @@ export async function undoLastImport(): Promise<{ ok: boolean; batchId?: string;
   const undo = Array.isArray(batch.undo_data) ? batch.undo_data : [];
   let restored = 0;
   for (const u of undo) {
-    await supabase.from("packages").update({
+    const restore: Record<string, unknown> = {
       tracking_manual: u.tracking_manual ?? "",
       received_at: u.received_at ?? null,
       received_method: u.received_method ?? ""
-    }).eq("id", u.id);
+    };
+    if (u.status) restore.status = u.status; // pwen #5: retabli statut si backup la genyen l
+    await supabase.from("packages").update(restore).eq("id", u.id);
     restored++;
   }
   await supabase.from("import_batches").update({ undone: true }).eq("id", batch.id);
