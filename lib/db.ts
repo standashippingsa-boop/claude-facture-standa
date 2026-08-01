@@ -1112,8 +1112,8 @@ export async function uploadScanPhoto(file: File): Promise<string> {
 
 export async function logOcrScans(scans: PhotoMatch[], photoUrls?: Record<string, string>): Promise<void> {
   for (const s of scans) {
-    // Foto ki pa idantifye yo -> aksyon distenk pou ou jwenn yo fasil nan Journal (pwen: detekte + aranje)
-    const action = s.matched ? "Journal OCR" : "Photo non identifiée";
+    // Foto ki PA oto-validé (no_match, review, conflict) -> "Photo non identifiée" pou ou jwenn+aranje yo
+    const action = s.canApply ? "Journal OCR" : "Photo non identifiée";
     const url = photoUrls?.[s.filename];
     await logAction(action,
       `${s.filename} | barcode:${s.guiaSource === "barcode" ? "oui" : "non"} | Guía:${s.guia || "—"} | ` +

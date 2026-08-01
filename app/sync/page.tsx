@@ -88,9 +88,9 @@ export default function SyncPage() {
         tracking_number: r.tracking_number, customer_code: r.customer_code,
         confidence: r.confidence, step: r.step
       })));
-      // Telechaje SÈLMAN foto ki pa idantifye yo (pou admin ka ouvri yo pita nan Journal)
+      // Telechaje foto ki PA oto-validé yo (no_match + review + conflict) — pou admin ka ouvri yo
       const urls: Record<string, string> = {};
-      const nonId = analyzed.filter((a) => !a.matched);
+      const nonId = analyzed.filter((a) => !a.canApply);
       for (let i = 0; i < nonId.length; i++) {
         const f = arr.find((x) => x.name === nonId[i].filename);
         if (!f) continue;
@@ -550,7 +550,7 @@ export default function SyncPage() {
                         const aRendre = !f.alreadyDisponible;   // koli w pran nan fakti a
                         return (
                           <tr key={i} className={aRendre ? "bg-red-50 border-l-4 border-red-700" : (i % 2 ? "bg-mist" : "")}>
-                            <td className={`tdc font-mono ${aRendre ? "text-red-800 font-bold" : ""}`}>{f.tracking}</td>
+                            <td className="tdc font-mono text-red-800 font-bold">{f.tracking}</td>
                             <td className="tdc font-mono text-[11px]">{f.guia}</td>
                             <td className="tdc"><span className="font-bold text-navy">{f.customerCode}</span> — {f.customerName}</td>
                             <td className="tdc">{f.status}</td>
