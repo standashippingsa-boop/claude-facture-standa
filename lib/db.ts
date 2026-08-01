@@ -81,7 +81,7 @@ export async function getPackages(status?: string, includeArchived = false): Pro
 export interface FactureMatch {
   tracking: string;
   weight?: number;
-  source: "pdf" | "image";
+  source: "pdf" | "image" | "text";
   matched: boolean;
   pkgId?: string;
   guia?: string;            // Tracking ID (tracking_number) koli matche a
@@ -96,7 +96,7 @@ export interface FactureMatch {
  * READ-ONLY — pa chanje anyen. Retounen matched + non identifiés (pwen #6a, #9).
  */
 export async function matchFactureTrackings(
-  items: { value: string; weight?: number; source: "pdf" | "image" }[]
+  items: { value: string; weight?: number; source: "pdf" | "image" | "text" }[]
 ): Promise<FactureMatch[]> {
   const { data } = await supabase.from("packages")
     .select("id, tracking_number, tracking_manual, customer_code, customer_name, status, archived");

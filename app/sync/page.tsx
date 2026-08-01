@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Upload, CheckCircle2, RefreshCw, FileText, X, Image } from "lucide-react";
 import { parseMcpackWorkbook } from "@/lib/xlsx";
 import { scanPhotos } from "@/lib/photoscan";
-import { extractFacture } from "@/lib/factureimport";
+import { extractFacture, extractFromText } from "@/lib/factureimport";
 import {
   commitSync, getClients, getImports, getSettings,
   getVilles, logAction, analyzePhotoScans, applyPhotoValidations, logOcrScans, PhotoMatch,
@@ -33,6 +33,7 @@ export default function SyncPage() {
   const factureRef = useRef<HTMLInputElement>(null);
   const [factures, setFactures] = useState<FactureMatch[] | null>(null);
   const [factProg, setFactProg] = useState("");
+  const [factureText, setFactureText] = useState("");
 
   /** RÈG N°8 — Annuler la dernière importation */
   const annulerImport = async () => {
@@ -102,7 +103,7 @@ export default function SyncPage() {
     setErr(null); setFactures(null); setBusy(true);
     try {
       const arr = Array.from(files);
-      const all: { value: string; weight?: number; source: "pdf" | "image" }[] = [];
+      const all: { value: string; weight?: number; source: "pdf" | "image" | "text" }[] = [];
       for (let i = 0; i < arr.length; i++) {
         setFactProg(`Fichier ${i + 1}/${arr.length} — ${arr[i].name}...`);
         const items = await extractFacture(arr[i], (p) =>
@@ -118,6 +119,21 @@ export default function SyncPage() {
       setFactProg("");
     } catch (e: any) {
       setErr("Erè import facture: " + (e.message ?? String(e)));
+    } finally { setBusy(false); }
+  };
+
+  // ===== Import Facture depi TÈKS KOLE (100% egzat, pa gen OCR) — pwen #6a =====
+  const handleFactureText = async () => {
+    setErr(null); setFactures(null); setBusy(true);
+    try {
+      const items = extractFromText(factureText);
+      if (!items.length) { setErr("Okenn Tracking Number detekte nan tèks la."); return; }
+      setFactProg("Vérification des correspondances...");
+      const matched = await matchFactureTrackings(items);
+      setFactures(matched);
+      setFactProg("");
+    } catch (e: any) {
+      setErr("Erè analyse texte: " + (e.message ?? String(e)));
     } finally { setBusy(false); }
   };
 
@@ -388,6 +404,18 @@ export default function SyncPage() {
         <button className="btn btn-ghost" onClick={() => factureRef.current?.click()} disabled={busy}>
           <Upload size={15} /> Choisir PDF / captures
         </button>
+
+        <div className="pt-1">
+          <p className="text-xs font-semibold text-ink mb-1">
+            Ou <span className="text-brand-dark">coller le texte</span> de la facture (le plus fiable) :
+          </p>
+          <textarea className="input !h-24 font-mono text-[11px]"
+            placeholder="Kopye tèks fakti a (menm si li degaye) epi kole l isit — sistèm nan ap pran Tracking Number yo otomatikman..."
+            value={factureText} onChange={(e) => setFactureText(e.target.value)} />
+          <button className="btn btn-brand mt-2" onClick={handleFactureText} disabled={busy || !factureText.trim()}>
+            <CheckCircle2 size={15} /> Analyser le texte collé
+          </button>
+        </div>
         {factProg && <p className="text-xs text-navy flex items-center gap-2"><RefreshCw size={12} className="animate-spin" /> {factProg}</p>}
 
         {factures && (() => {

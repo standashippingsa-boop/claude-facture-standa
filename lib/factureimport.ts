@@ -15,7 +15,7 @@ import { cleanTracking } from "./utils";
 export interface FactureTracking {
   value: string;            // Tracking Number (transpòtè)
   weight?: number;          // Poids si disponib (PDF sèlman)
-  source: "pdf" | "image";  // ki kote li soti
+  source: "pdf" | "image" | "text";  // ki kote li soti
   raw?: string;             // tèks orijinal (dyagnostik)
 }
 
@@ -68,6 +68,11 @@ export async function extractFromImage(
     text = String(data?.text ?? "");
   } catch { text = ""; }
   return candidatesFromText(text).map((value) => ({ value, source: "image" as const }));
+}
+
+/** Ekstrè depi TÈKS KOLE (100% egzat — pa gen OCR, pa gen erè lekti). */
+export function extractFromText(text: string): FactureTracking[] {
+  return candidatesFromText(text).map((value) => ({ value, source: "text" as const }));
 }
 
 /** Dispatch selon tip fichye a. */
