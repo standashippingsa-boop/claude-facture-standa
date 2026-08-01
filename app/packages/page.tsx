@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Calculator, ClipboardList, FileText, PackageCheck, Trash2 } from "lucide-react";
+import { Calculator, ClipboardList, FileText, Lock, PackageCheck, Pencil, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import {
@@ -203,6 +203,26 @@ export default function PackagesPage() {
     setPkgs((prev) => prev.filter((x) => x.id !== p.id));
   };
 
+  /** Koreksyon Tracking Number — ADMIN sèlman, ak audit log (pwen #3) */
+  const correctTracking = async (p: Pkg) => {
+    const nv = window.prompt(
+      `Correction Tracking Number — ${p.tracking_number}\n` +
+      `Ancien: ${p.tracking_manual}\n\n` +
+      `⚠️ Cette correction sera enregistrée dans l'audit.\n\nNouveau Tracking Number:`,
+      p.tracking_manual
+    );
+    if (nv === null) return;
+    const v = nv.trim();
+    if (!v || v === p.tracking_manual) return;
+    try {
+      await saveTrackingManual(p.id, v);
+      await logAction("Correction Tracking Number",
+        `${p.tracking_manual} → ${v}`, p.tracking_number, p.customer_code);
+      setPkgs((prev) => prev.map((x) => x.id === p.id ? { ...x, tracking_manual: v } : x));
+      setNotice("Tracking Number corrigé (enregistré dans l'audit).");
+    } catch (er: any) { setNotice("Erè koreksyon: " + er.message); }
+  };
+
   const tp = selected.reduce((s, p) => s + p.price_usd, 0);
   const tt = selected.reduce((s, p) => s + p.tax_usd, 0);
   const allChecked = pageRows.length > 0 && pageRows.every((p) => p.selected);
@@ -266,16 +286,34 @@ export default function PackagesPage() {
                 </td>
                 <td className="tdc font-mono text-[11px] whitespace-nowrap">{p.tracking_number}</td>
                 <td className="tdc">
-                  <input type="text" defaultValue={p.tracking_manual}
-                    placeholder="—" title="Tracking Number (transpòtè) — sync pa janm efase l"
-                    className="input !w-24 !py-0.5 !px-1 !text-[11px] font-mono"
-                    onBlur={(e) => {
-                      const v = e.target.value.trim();
-                      if (v === (p.tracking_manual ?? "")) return;
-                      saveTrackingManual(p.id, v).then(() =>
-                        setPkgs((prev) => prev.map((x) => x.id === p.id ? { ...x, tracking_manual: v } : x))
-                      ).catch((er: any) => setNotice("Erè tracking: " + er.message));
-                    }} />
+                  {!p.tracking_manual ? (
+                    // Vid: pèmèt premye antre (yon sèl fwa)
+                    <input type="text" defaultValue=""
+                      placeholder="—" title="Tracking Number — antre yon sèl fwa (apre l ap fèmen)"
+                      className="input !w-24 !py-0.5 !px-1 !text-[11px] font-mono"
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (!v) return;
+                        saveTrackingManual(p.id, v).then(() => {
+                          logAction("Ajout Tracking Number", `${p.tracking_number} → ${v}`, p.tracking_number, p.customer_code);
+                          setPkgs((prev) => prev.map((x) => x.id === p.id ? { ...x, tracking_manual: v } : x));
+                        }).catch((er: any) => setNotice("Erè tracking: " + er.message));
+                      }} />
+                  ) : (
+                    // Genyen valè: fèmen (read-only) — admin ka korije ak audit
+                    <span className="inline-flex items-center gap-1 font-mono text-[11px] whitespace-nowrap"
+                      title="Tracking Number verrouillé (donnée critique)">
+                      <Lock size={10} className="text-slate-400 shrink-0" />
+                      {p.tracking_manual}
+                      {role === "admin" && (
+                        <button className="text-slate-400 hover:text-navy ml-0.5 shrink-0"
+                          title="Correction (admin) — enregistrée dans l'audit"
+                          onClick={() => correctTracking(p)}>
+                          <Pencil size={11} />
+                        </button>
+                      )}
+                    </span>
+                  )}
                 </td>
                 <td className="tdc text-right">{p.weight}</td>
                 <td className="tdc max-w-[90px] truncate" title={p.content}>{p.content}</td>
