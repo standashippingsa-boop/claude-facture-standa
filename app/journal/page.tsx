@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { History, Trash2, Filter } from "lucide-react";
+import { History, Trash2, Filter, Eye } from "lucide-react";
 import Pagination from "@/components/Pagination";
 import { JournalRow, clearJournal, getJournal } from "@/lib/db";
 import { useRole } from "@/lib/authx";
@@ -109,7 +109,23 @@ export default function JournalPage() {
                   <td className="tdc whitespace-nowrap">{t.h}</td>
                   <td className="tdc max-w-[150px] truncate" title={r.user_name}>{r.user_name || "—"}</td>
                   <td className="tdc"><span className={`badge ${ACTION_STYLES[r.action] ?? "bg-slate-100 text-slate-600"}`}>{r.action}</span></td>
-                  <td className="tdc max-w-[240px] truncate" title={r.details}>{r.details || "—"}</td>
+                  <td className="tdc max-w-[240px]">
+                    {(() => {
+                      const m = r.details?.match(/photo:(https?:\/\/\S+)/);
+                      const clean = r.details?.replace(/\s*\|\s*photo:https?:\/\/\S+/, "") || "—";
+                      return (
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="truncate" title={clean}>{clean}</span>
+                          {m && (
+                            <a href={m[1]} target="_blank" rel="noreferrer"
+                              className="shrink-0 inline-flex items-center gap-1 text-navy hover:underline font-semibold text-[11px]">
+                              <Eye size={12} /> Voir photo
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td className="tdc font-mono text-[11px]">{r.package_ref || "—"}</td>
                   <td className="tdc font-bold text-navy">{r.customer_code || "—"}</td>
                 </tr>

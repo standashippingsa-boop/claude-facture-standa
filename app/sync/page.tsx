@@ -7,7 +7,7 @@ import { extractFacture, extractFromText } from "@/lib/factureimport";
 import {
   commitSync, getClients, getImports, getSettings,
   getVilles, logAction, analyzePhotoScans, applyPhotoValidations, logOcrScans, PhotoMatch,
-  matchFactureTrackings, FactureMatch, commitFactureDisponible, previewSync, SyncPreview, undoLastImport
+  matchFactureTrackings, FactureMatch, commitFactureDisponible, uploadScanPhoto, previewSync, SyncPreview, undoLastImport
 } from "@/lib/db";
 import { Client, ImportLog, Ville } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
@@ -88,7 +88,17 @@ export default function SyncPage() {
         tracking_number: r.tracking_number, customer_code: r.customer_code,
         confidence: r.confidence, step: r.step
       })));
-      await logOcrScans(analyzed);
+      // Telechaje SÈLMAN foto ki pa idantifye yo (pou admin ka ouvri yo pita nan Journal)
+      const urls: Record<string, string> = {};
+      const nonId = analyzed.filter((a) => !a.matched);
+      for (let i = 0; i < nonId.length; i++) {
+        const f = arr.find((x) => x.name === nonId[i].filename);
+        if (!f) continue;
+        setScanProg(`Sauvegarde photo non identifiée ${i + 1}/${nonId.length}...`);
+        const u = await uploadScanPhoto(f);
+        if (u) urls[nonId[i].filename] = u;
+      }
+      await logOcrScans(analyzed, urls);
       setScans(analyzed);
       // Pre-seleksyone sèlman sa ki "validated" (konfyans wo, san enkoyerans)
       // MODE ZÉRO RISQUE: pre-koche SÈLMAN sa ki gen konfyans ≥98% e zewo konfli

@@ -1097,14 +1097,26 @@ export async function undoLastImport(): Promise<{ ok: boolean; batchId?: string;
 }
 
 /** JOURNAL OCR — chak foto analize (menm sa ki pa aplike). */
-export async function logOcrScans(scans: PhotoMatch[]): Promise<void> {
+/** Telechaje yon foto scan nan Storage (pou ouvri l pita depi Journal). Retounen URL piblik. */
+export async function uploadScanPhoto(file: File): Promise<string> {
+  try {
+    const path = `${Date.now()}_${(file.name || "scan").replace(/[^\w.\-]/g, "_")}`;
+    const { error } = await supabase.storage.from("scan-photos").upload(path, file, { upsert: true });
+    if (error) return "";
+    return supabase.storage.from("scan-photos").getPublicUrl(path).data.publicUrl || "";
+  } catch { return ""; }
+}
+
+export async function logOcrScans(scans: PhotoMatch[], photoUrls?: Record<string, string>): Promise<void> {
   for (const s of scans) {
     // Foto ki pa idantifye yo -> aksyon distenk pou ou jwenn yo fasil nan Journal (pwen: detekte + aranje)
     const action = s.matched ? "Journal OCR" : "Photo non identifiée";
+    const url = photoUrls?.[s.filename];
     await logAction(action,
       `${s.filename} | barcode:${s.guiaSource === "barcode" ? "oui" : "non"} | Guía:${s.guia || "—"} | ` +
       `Tracking:${s.tracking_number || "—"} | Code:${s.customer_code || "—"} | ` +
-      `confiance:${Math.round(s.confidence)}% | ${s.verdict}`,
+      `confiance:${Math.round(s.confidence)}% | ${s.verdict}` +
+      (url ? ` | photo:${url}` : ""),
       s.guia || s.tracking_number, s.matchedCode ?? s.customer_code);
   }
 }
