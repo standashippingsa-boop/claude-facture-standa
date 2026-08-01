@@ -129,9 +129,12 @@ export default function ClientsPage() {
     c.whatsapp.toLowerCase().includes(q)) : clients;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-extrabold text-navy">Clients</h1>
+    <div className="space-y-5">
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="h-page">Clients</h1>
+          <p className="text-sm text-mute mt-0.5">Gestion des clients — codes, villes & comptes</p>
+        </div>
         <div className="flex gap-3">
           <input className="input w-72" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher: code, nom, WhatsApp..." />
@@ -200,7 +203,7 @@ export default function ClientsPage() {
           </tr></thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={10} className="text-center py-10 text-slate-400">Aucun client.</td></tr>
+              <tr><td colSpan={10} className="text-center py-10 text-mute">Aucun client.</td></tr>
             ) : filtered.map((c, i) => (
               <tr key={c.id} className={i % 2 ? "bg-mist" : ""}>
                 <td className="tdc font-bold text-navy">
