@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Calculator, ClipboardList, FileText, Lock, PackageCheck, Pencil, Trash2 } from "lucide-react";
+import { Calculator, ClipboardList, FileText, Lock, Package, PackageCheck, Pencil, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import {
@@ -12,7 +12,7 @@ import {
 import { computePrice, round2 } from "@/lib/pricing";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { Client, INTERNAL_STATUSES, Pkg } from "@/lib/types";
-import { htg, parseMcpackDate, usd } from "@/lib/utils";
+import { dateFr, htg, parseMcpackDate, usd } from "@/lib/utils";
 import { generateBonRemise } from "@/lib/bonremise";
 import { exportPackagesPdf } from "@/lib/listpdf";
 import InvoiceDialog from "@/components/InvoiceDialog";
@@ -33,6 +33,19 @@ export default function PackagesPage() {
   const [busy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const { role } = useRole();
+  // ===== Tooltip modèn sou tracking (pwen #2) =====
+  const [hover, setHover] = useState<{ p: Pkg; ville: string; x: number; y: number } | null>(null);
+  const joursDepot = (p: Pkg): number | null => {
+    const ref = p.received_at || p.created_date;
+    if (!ref) return null;
+    const t = parseMcpackDate(ref) || new Date(ref).getTime();
+    if (!t || isNaN(t)) return null;
+    const d = Math.floor((Date.now() - t) / 86400000);
+    return d >= 0 ? d : null;
+  };
+  const showTip = (p: Pkg, e: any) => setHover({
+    p, ville: tarifMap.get(p.customer_code)?.ville?.name ?? "—", x: e.clientX, y: e.clientY
+  });
   // Opsyon fakti — chak toggle endepandan (admin chwazi pou CHAK fakti)
 
   const load = async () => {
@@ -284,7 +297,12 @@ export default function PackagesPage() {
                 <td className="tdc max-w-[80px] truncate" title={tarifMap.get(p.customer_code)?.ville?.name ?? ""}>
                   {tarifMap.get(p.customer_code)?.ville?.name ?? <span className="text-amber-600">—</span>}
                 </td>
-                <td className="tdc font-mono text-[11px] whitespace-nowrap">{p.tracking_number}</td>
+                <td className="tdc font-mono text-[11px] whitespace-nowrap cursor-help"
+                  onMouseEnter={(e) => showTip(p, e)}
+                  onMouseMove={(e) => showTip(p, e)}
+                  onMouseLeave={() => setHover(null)}>
+                  {p.tracking_number}
+                </td>
                 <td className="tdc">
                   {!p.tracking_manual ? (
                     // Vid: pèmèt premye antre (yon sèl fwa)
@@ -301,8 +319,10 @@ export default function PackagesPage() {
                       }} />
                   ) : (
                     // Genyen valè: fèmen (read-only) — admin ka korije ak audit
-                    <span className="inline-flex items-center gap-1 font-mono text-[11px] whitespace-nowrap"
-                      title="Tracking Number verrouillé (donnée critique)">
+                    <span className="inline-flex items-center gap-1 font-mono text-[11px] whitespace-nowrap cursor-help"
+                      onMouseEnter={(e) => showTip(p, e)}
+                      onMouseMove={(e) => showTip(p, e)}
+                      onMouseLeave={() => setHover(null)}>
                       <Lock size={10} className="text-slate-400 shrink-0" />
                       {p.tracking_manual}
                       {role === "admin" && (
@@ -397,6 +417,53 @@ export default function PackagesPage() {
           onDone={(msg) => { setNotice(msg); load(); }}
         />
       )}
+
+      {/* ===== Tooltip modèn koli (pwen #2) ===== */}
+      {hover && (() => {
+        const p = hover.p;
+        const jrs = joursDepot(p);
+        const rows: [string, React.ReactNode][] = [
+          ["Code Client", <span className="font-bold text-navy">{p.customer_code}</span>],
+          ["Nom Client", p.customer_name || "—"],
+          ["Ville", hover.ville],
+          ["Tracking ID", <span className="font-mono">{p.tracking_number}</span>],
+          ["Tracking Number", <span className="font-mono">{p.tracking_manual || "—"}</span>],
+          ["Poids", `${Number(p.weight || 0)} lb`],
+          ["Contenu", p.content || "—"],
+          ["Statut", <StatusBadge status={p.status} />],
+          ["Date création", dateFr(p.created_date) || "—"],
+          ["Date réception", p.received_at ? dateFr(p.received_at) : "—"],
+          ["Facturé", p.invoice_id
+            ? <span className="pill pill-green"><span className="pill-dot" />Oui</span>
+            : <span className="pill pill-gray"><span className="pill-dot" />Non</span>],
+          ["Jours en dépôt", jrs != null ? `${jrs} j` : "—"]
+        ];
+        // pozisyon: evite depase bò dwat/anba ekran
+        const left = Math.min(hover.x + 16, (typeof window !== "undefined" ? window.innerWidth : 1200) - 300);
+        const top = Math.min(hover.y + 16, (typeof window !== "undefined" ? window.innerHeight : 800) - 380);
+        return (
+          <div className="fixed z-[70] pointer-events-none" style={{ left, top }}>
+            <div className="card shadow-lift w-72 p-3.5 text-xs">
+              <p className="text-[10px] font-bold text-mute uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Package size={12} /> Détails du colis
+              </p>
+              <div className="space-y-1">
+                {rows.map(([k, v]) => (
+                  <div key={k} className="flex items-start justify-between gap-3">
+                    <span className="text-mute shrink-0">{k}</span>
+                    <span className="text-right text-ink font-medium min-w-0 truncate">{v}</span>
+                  </div>
+                ))}
+              </div>
+              {p.received_method && (
+                <p className="mt-2 pt-2 border-t border-line text-[10px] text-mute">
+                  Reçu via {p.received_method}
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
     </div>
