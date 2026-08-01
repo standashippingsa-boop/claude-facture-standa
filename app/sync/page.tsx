@@ -175,13 +175,56 @@ export default function SyncPage() {
     if (!factures) return;
     const cibles = factures.filter((f) => f.matched && !f.alreadyDisponible);
     if (!cibles.length) { setErr("Okenn koli pou mete Disponible."); return; }
-    if (!confirm(`Marquer ${cibles.length} colis comme « Disponible » ?\n\n(Aucun email ne sera envoyé à cette étape.)`)) return;
+
+    // Gwoupe pa kliyan + konte imèl (anti-doublon: sèlman koli ki FÈK vin Disponible)
+    const byClient = new Map<string, FactureMatch[]>();
+    cibles.forEach((f) => {
+      const code = f.customerCode || "";
+      const arr = byClient.get(code) ?? []; arr.push(f); byClient.set(code, arr);
+    });
+    let withEmail = 0, noEmail = 0;
+    for (const code of Array.from(byClient.keys())) {
+      const c = clients.find((x) => x.customer_code === code);
+      if (c?.email) withEmail++; else noEmail++;
+    }
+
+    if (!confirm(
+      `Marquer ${cibles.length} colis « Disponible » ?\n\n` +
+      `📧 ${withEmail} email(s) seront envoyés à ${withEmail} client(s)` +
+      `${noEmail ? ` (${noEmail} client(s) sans email — pas d'envoi)` : ""}.\n\n` +
+      `Les colis déjà Disponible ne reçoivent PAS de nouvel email.`
+    )) return;
+
     setBusy(true); setErr(null);
     try {
       const r = await commitFactureDisponible(factures);
-      setApplyDone(`✅ Import Facture ${r.batchId}: ${r.updated} colis marqués Disponible.`);
+      // Voye imèl — sèlman koli ki fèk vin Disponible (anti-doublon)
+      let sent = 0; const problems: string[] = [];
+      for (const [code, list] of Array.from(byClient.entries())) {
+        const c = clients.find((x) => x.customer_code === code);
+        if (!c?.email) continue;
+        try {
+          const res = await fetch("/api/notify", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "disponible",
+              client: { name: c.fullname || list[0].customerName, code, ville: c.ville?.name ?? "", email: c.email },
+              packages: list.map((f) => ({
+                tracking_number: f.guia, tracking_manual: f.tracking,
+                content: f.content, weight: f.pkgWeight
+              }))
+            })
+          });
+          const j = await res.json();
+          if (j.ok) sent++; else problems.push(`${code}: ${j.reason ?? j.error ?? "erè"}`);
+        } catch (err: any) { problems.push(`${code}: ${err?.message ?? "erè rezo"}`); }
+      }
+      setApplyDone(
+        `✅ Import Facture ${r.batchId}: ${r.updated} colis Disponible • ${sent} email(s) envoyé(s)` +
+        `${noEmail ? `, ${noEmail} sans email` : ""}.` +
+        (problems.length ? ` ⚠️ ${problems.slice(0, 2).join(" | ").slice(0, 200)}` : ""));
       setLastBatch(r.batchId);
-      setFactures(null); setFactureText("");
+      setFactures(null); setFactureText(""); setCorrections({});
       await loadSide();
     } catch (e: any) {
       setErr("Erè validation facture: " + (e.message ?? String(e)));
@@ -554,9 +597,9 @@ export default function SyncPage() {
               {dispo.length > 0 && (
                 <div className="flex items-center gap-3 flex-wrap border-t border-line pt-3">
                   <button className="btn btn-brand" onClick={validerFactures} disabled={busy}>
-                    <CheckCircle2 size={15} /> Valider → Disponible ({dispo.length})
+                    <CheckCircle2 size={15} /> Valider → Disponible + Email ({dispo.length})
                   </button>
-                  <span className="text-xs text-mute">Aucun email envoyé à cette étape. Les colis déjà Disponible/Facturé sont ignorés.</span>
+                  <span className="text-xs text-mute">Un email est envoyé à chaque client. Les colis déjà Disponible/Facturé sont ignorés (pas de doublon).</span>
                 </div>
               )}
             </div>

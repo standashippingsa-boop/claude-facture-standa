@@ -88,6 +88,8 @@ export interface FactureMatch {
   customerCode?: string;
   customerName?: string;
   status?: string;
+  pkgWeight?: number;       // pou imèl
+  content?: string;         // pou imèl
   alreadyDisponible?: boolean;
 }
 
@@ -99,7 +101,7 @@ export async function matchFactureTrackings(
   items: { value: string; weight?: number; source: "pdf" | "image" | "text" }[]
 ): Promise<FactureMatch[]> {
   const { data } = await supabase.from("packages")
-    .select("id, tracking_number, tracking_manual, customer_code, customer_name, status, archived");
+    .select("id, tracking_number, tracking_manual, customer_code, customer_name, status, archived, weight, content");
   const index = new Map<string, any>();
   for (const p of (data ?? [])) {
     if (p.archived) continue;
@@ -114,6 +116,7 @@ export async function matchFactureTrackings(
       tracking: it.value, weight: it.weight, source: it.source, matched: true,
       pkgId: p.id, guia: p.tracking_number, customerCode: p.customer_code,
       customerName: p.customer_name, status: p.status,
+      pkgWeight: Number(p.weight) || 0, content: p.content || "",
       alreadyDisponible: p.status === "Disponible" || p.status === "Facturé"
     };
   });
