@@ -123,6 +123,23 @@ export default function SyncPage() {
     } finally { setBusy(false); }
   };
 
+  // Re-verifye YON SÈL tracking non identifié (menm san chanjman)
+  const reverifierUn = async (originalTracking: string) => {
+    if (!factures) return;
+    const value = (corrections[originalTracking] ?? originalTracking).trim();
+    if (!value) return;
+    setBusy(true); setErr(null);
+    try {
+      const [res] = await matchFactureTrackings([{ value, source: "text" as const }]);
+      // Ranplase antre sa a nan lis la ak nouvo rezilta a
+      setFactures((prev) => (prev ?? []).map((f) =>
+        (!f.matched && f.tracking === originalTracking) ? res : f));
+      setCorrections((c) => { const n = { ...c }; delete n[originalTracking]; return n; });
+    } catch (e: any) {
+      setErr("Erè vérification: " + (e.message ?? String(e)));
+    } finally { setBusy(false); }
+  };
+
   // ===== Korije koli non identifiés epi re-verifye (pwen #9) =====
   const reverifierCorriges = async () => {
     if (!factures) return;
@@ -506,7 +523,12 @@ export default function SyncPage() {
                           defaultValue={f.tracking}
                           onChange={(e) => setCorrections((c) => ({ ...c, [f.tracking]: e.target.value }))}
                           placeholder="Tracking Number à corriger..." />
-                        <span className="text-[10px] text-mute shrink-0">non trouvé</span>
+                        <button className="btn btn-ghost !py-1 !px-2.5 !text-[11px] shrink-0"
+                          onClick={() => reverifierUn(f.tracking)} disabled={busy}
+                          title="Vérifier ce tracking (même sans le modifier)">
+                          <CheckCircle2 size={13} /> Vérifier
+                        </button>
+                        <span className="text-[10px] text-red-600 shrink-0 w-16">non trouvé</span>
                       </div>
                     ))}
                   </div>

@@ -1099,7 +1099,9 @@ export async function undoLastImport(): Promise<{ ok: boolean; batchId?: string;
 /** JOURNAL OCR — chak foto analize (menm sa ki pa aplike). */
 export async function logOcrScans(scans: PhotoMatch[]): Promise<void> {
   for (const s of scans) {
-    await logAction("Journal OCR",
+    // Foto ki pa idantifye yo -> aksyon distenk pou ou jwenn yo fasil nan Journal (pwen: detekte + aranje)
+    const action = s.matched ? "Journal OCR" : "Photo non identifiée";
+    await logAction(action,
       `${s.filename} | barcode:${s.guiaSource === "barcode" ? "oui" : "non"} | Guía:${s.guia || "—"} | ` +
       `Tracking:${s.tracking_number || "—"} | Code:${s.customer_code || "—"} | ` +
       `confiance:${Math.round(s.confidence)}% | ${s.verdict}`,
