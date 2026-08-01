@@ -208,9 +208,12 @@ export default function PackagesPage() {
 
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-extrabold text-navy">Packages</h1>
+    <div className="space-y-5">
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="h-page">Packages</h1>
+          <p className="text-sm text-mute mt-0.5">Gestion des colis — statuts, tarification & facturation</p>
+        </div>
         <div className="flex gap-2 flex-wrap">
           <input className="input w-72" placeholder="Tracking, code, nom, telefòn, vil..." value={search}
             onChange={(e) => setSearch(e.target.value)} />
@@ -223,7 +226,7 @@ export default function PackagesPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 text-xs text-slate-500 px-1">
+      <div className="flex items-center gap-4 text-xs text-mute px-1">
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300 inline-block" /> 🟢 Reçu chez MCPACK</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-white border border-line inline-block" /> ⚪ En attente de réception</span>
       </div>
@@ -236,7 +239,7 @@ export default function PackagesPage() {
           </tr></thead>
           <tbody>
             {pageRows.length === 0 ? (
-              <tr><td colSpan={13} className="text-center py-10 text-slate-400">
+              <tr><td colSpan={13} className="text-center py-10 text-mute">
                 Aucun colis. Utilisez <a href="/sync" className="text-navy underline font-semibold">Synchronisation MCPACK</a>.
               </td></tr>
             ) : pageRows.map((p, i) => (
@@ -291,9 +294,9 @@ export default function PackagesPage() {
 
       <div className="card p-4 flex flex-col md:flex-row md:items-center gap-4 sticky bottom-3">
         <div className="flex gap-6 flex-1 flex-wrap">
-          <div><p className="text-xs text-slate-500">Sélection ({selected.length} colis)</p>
+          <div><p className="text-xs text-mute">Sélection ({selected.length} colis)</p>
             <p className="text-lg font-bold text-navy">{usd(tp)}</p></div>
-          <div><p className="text-xs text-slate-500">Tax</p>
+          <div><p className="text-xs text-mute">Tax</p>
             <p className="text-lg font-bold text-navy">{usd(tt)}</p></div>
           <div className="bg-navy rounded-lg px-4 py-1.5">
             <p className="text-xs text-white/70">Total USD</p>
