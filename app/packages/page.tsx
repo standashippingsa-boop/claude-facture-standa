@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Calculator, ClipboardList, FileText, Lock, Package, PackageCheck, Pencil, Trash2 } from "lucide-react";
+import { Calculator, ClipboardList, FileText, Archive, Lock, Package, PackageCheck, Pencil, RotateCcw } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import {
-  ClientTarifInfo, deletePackage, getClient, getClientTarifMap,
+  ClientTarifInfo, archivePackage, unarchivePackage, getClient, getClientTarifMap,
   getPackages, getSettings, getUsdRate, saveTrackingManual, setPackagesStatus,
   logAction, updatePackagePrice
 } from "@/lib/db";
@@ -32,7 +32,9 @@ export default function PackagesPage() {
   const [page, setPage] = useState(1);
   const [busy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const { role } = useRole();
+  const { role, staff } = useRole();
+  const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
+  const [showArchived, setShowArchived] = useState(false);
   // ===== Tooltip modèn sou tracking (pwen #2) =====
   const [hover, setHover] = useState<{ p: Pkg; ville: string; x: number; y: number } | null>(null);
   const joursDepot = (p: Pkg): number | null => {
@@ -50,14 +52,14 @@ export default function PackagesPage() {
 
   const load = async () => {
     const [p, tm, r, s] = await Promise.all([
-      getPackages(), getClientTarifMap(), getUsdRate(), getSettings()
+      getPackages(undefined, showArchived), getClientTarifMap(), getUsdRate(), getSettings()
     ]);
     setPkgs(p.map((x) => ({ ...x, selected: false })));
     setTarifMap(tm);
     setRate(r);
     if (s.invoice_footer) setFooter(s.invoice_footer);
   };
-  useEffect(() => { load().catch((e) => setNotice("Erè bazdone: " + e.message)); }, []);
+  useEffect(() => { load().catch((e) => setNotice("Erè bazdone: " + e.message)); /* eslint-disable-next-line */ }, [showArchived]);
 
   /** Lis statut ki egziste toutbon (pou filtre a) — san Livré, ki rete nan Historique */
   const statusOptions = useMemo(() => {
@@ -210,10 +212,22 @@ export default function PackagesPage() {
     setInvClient(client);
   };
 
-  const remove = async (p: Pkg) => {
-    if (!confirm(`Efase colis ${p.tracking_number}?`)) return;
-    await deletePackage(p.id);
-    setPkgs((prev) => prev.filter((x) => x.id !== p.id));
+  const archive = async (p: Pkg) => {
+    if (!confirm(`Archiver le colis ${p.tracking_number}?\n\nLes données restent dans la base (jamais supprimées). Il n'apparaîtra plus dans la liste active.`)) return;
+    try {
+      await archivePackage(p.id, staffName);
+      await logAction("Archivage colis", p.tracking_number, p.tracking_number, p.customer_code);
+      setPkgs((prev) => showArchived
+        ? prev.map((x) => x.id === p.id ? { ...x, archived: true } : x)
+        : prev.filter((x) => x.id !== p.id));
+    } catch (e: any) { setNotice("Erè archivage: " + e.message); }
+  };
+  const restore = async (p: Pkg) => {
+    try {
+      await unarchivePackage(p.id);
+      await logAction("Restauration colis", p.tracking_number, p.tracking_number, p.customer_code);
+      setPkgs((prev) => prev.map((x) => x.id === p.id ? { ...x, archived: false } : x));
+    } catch (e: any) { setNotice("Erè restauration: " + e.message); }
   };
 
   /** Koreksyon Tracking Number — ADMIN sèlman, ak audit log (pwen #3) */
@@ -257,6 +271,12 @@ export default function PackagesPage() {
             <option value="">Tous statuts</option>
             {statusOptions.map((s) => <option key={s}>{s}</option>)}
           </select>
+          <button
+            className={`btn ${showArchived ? "btn-brand" : "btn-ghost"}`}
+            onClick={() => setShowArchived((v) => !v)}
+            title="Afficher les colis archivés">
+            <Archive size={15} /> {showArchived ? "Archivés" : "Actifs"}
+          </button>
         </div>
       </div>
 
@@ -351,7 +371,9 @@ export default function PackagesPage() {
                     </button>
                   )}
                   {role === "admin" && (
-                    <button className="text-slate-400 hover:text-red-600" onClick={() => remove(p)}><Trash2 size={14} /></button>
+                    p.archived
+                      ? <button className="text-slate-400 hover:text-emerald-600" title="Restaurer" onClick={() => restore(p)}><RotateCcw size={14} /></button>
+                      : <button className="text-slate-400 hover:text-amber-600" title="Archiver (jamais supprimé)" onClick={() => archive(p)}><Archive size={14} /></button>
                   )}
                 </td>
               </tr>

@@ -72,6 +72,7 @@ export interface Pkg {
   mcpack_data?: Record<string, string>; // TOUT kolòn Excel MCPACK la
   received_at?: string | null;      // dat/lè resepsyon MCPACK (otomatik sèlman)
   received_method?: string;         // Synchronisation MCPACK | Import PDF | Analyse Photo | Extension Chrome
+  archived?: boolean;               // pwen #4 — koli pa janm efase, jis archived
   selected?: boolean; // UI sèlman
 }
 

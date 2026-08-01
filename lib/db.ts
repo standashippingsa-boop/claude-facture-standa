@@ -67,13 +67,29 @@ export async function deleteClient(id: string): Promise<void> {
 }
 
 // ================= PACKAGES =================
-export async function getPackages(status?: string): Promise<Pkg[]> {
+export async function getPackages(status?: string, includeArchived = false): Promise<Pkg[]> {
   let q = supabase.from("packages").select("*").order("created_at", { ascending: false });
   if (status) q = q.eq("status", status);
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []).map((p) =>
+  const rows = (data ?? []).map((p) =>
     asNum(p, ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[];
+  // Filtre nan JS -> pa kraze si migration 'archived' poko kouri (pwen #4)
+  return includeArchived ? rows : rows.filter((p) => !p.archived);
+}
+
+/** Archive yon koli (pwen #4 — koli pa janm efase, done rete nan baz la) */
+export async function archivePackage(id: string, by = ""): Promise<void> {
+  const { error } = await supabase.from("packages")
+    .update({ archived: true, archived_at: new Date().toISOString(), archived_by: by })
+    .eq("id", id);
+  if (error) throw error;
+}
+export async function unarchivePackage(id: string): Promise<void> {
+  const { error } = await supabase.from("packages")
+    .update({ archived: false, archived_at: null })
+    .eq("id", id);
+  if (error) throw error;
 }
 export async function getClientPackages(code: string): Promise<Pkg[]> {
   const { data, error } = await supabase
@@ -81,7 +97,8 @@ export async function getClientPackages(code: string): Promise<Pkg[]> {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((p) =>
-    asNum(p, ["weight", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[];
+    asNum(p, ["weight", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"]))
+    .filter((p: Pkg) => !p.archived) as Pkg[];
 }
 /** Anrejistre pri a an USD epi kalkile ekivalan HTG ak taux aktyèl la */
 export async function updatePackagePrice(id: string, priceUsd: number, taxUsd: number, rate: number): Promise<void> {
@@ -541,7 +558,7 @@ export async function getClientPackagesAndInvoices(code: string) {
     supabase.from("packages").select("*").eq("customer_code", code).order("created_at", { ascending: false }),
     supabase.from("invoices").select("*").eq("customer_code", code).order("created_at", { ascending: false })
   ]);
-  return { pkgs: (p.data ?? []) as Pkg[], invs: (i.data ?? []) as Invoice[] };
+  return { pkgs: (p.data ?? []).filter((x: Pkg) => !x.archived) as Pkg[], invs: (i.data ?? []) as Invoice[] };
 }
 
 // ================= DEMANDES DE RETRAIT (v8) =================
