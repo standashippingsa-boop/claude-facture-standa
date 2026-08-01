@@ -119,6 +119,42 @@ export async function matchFactureTrackings(
   });
 }
 
+/**
+ * VALIDE import facture (pwen #6b) — mete koli matche yo "Disponible".
+ * SAN imèl (imèl se etap #6c apa). Sèlman koli ki PA deja Disponible/Facturé.
+ * Ak audit log + pwen restorasyon (undo).
+ */
+export async function commitFactureDisponible(
+  matches: { pkgId?: string; matched: boolean; alreadyDisponible?: boolean; tracking: string; guia?: string; customerCode?: string }[]
+): Promise<{ batchId: string; updated: number; skipped: number }> {
+  const now = new Date().toISOString();
+  const batchId = "FACT-" + Date.now().toString(36).toUpperCase();
+  const cibles = matches.filter((m) => m.matched && m.pkgId && !m.alreadyDisponible);
+  let updated = 0; const undo: any[] = [];
+
+  for (const m of cibles) {
+    const { data: before } = await supabase.from("packages")
+      .select("id, status").eq("id", m.pkgId!).maybeSingle();
+    if (!before) continue;
+    // pa fè yon Livré rekile
+    if (before.status === "Livré" || before.status === "Facturé" || before.status === "Disponible") continue;
+    await supabase.from("packages").update({ status: "Disponible" }).eq("id", m.pkgId!);
+    updated++;
+    undo.push({ id: before.id, status: before.status });
+    await logAction("Import Facture → Disponible",
+      `${m.guia || "—"} | Tracking:${m.tracking} | "${before.status}" → "Disponible"`,
+      m.guia || "", m.customerCode || "");
+  }
+
+  await supabase.from("import_batches").insert({
+    batch_id: batchId, kind: "Import Facture", items_count: updated, undo_data: undo
+  });
+  await logAction("Import Facture",
+    `Batch ${batchId}: ${updated} colis → Disponible`, batchId, "");
+
+  return { batchId, updated, skipped: matches.filter((m) => m.matched).length - updated };
+}
+
 /** Archive yon koli (pwen #4 — koli pa janm efase, done rete nan baz la) */
 export async function archivePackage(id: string, by = ""): Promise<void> {
   const { error } = await supabase.from("packages")
@@ -1044,12 +1080,13 @@ export async function undoLastImport(): Promise<{ ok: boolean; batchId?: string;
   const undo = Array.isArray(batch.undo_data) ? batch.undo_data : [];
   let restored = 0;
   for (const u of undo) {
-    const restore: Record<string, unknown> = {
-      tracking_manual: u.tracking_manual ?? "",
-      received_at: u.received_at ?? null,
-      received_method: u.received_method ?? ""
-    };
-    if (u.status) restore.status = u.status; // pwen #5: retabli statut si backup la genyen l
+    // Retabli SÈLMAN chan ki nan backup la (batch diferan gen chan diferan)
+    const restore: Record<string, unknown> = {};
+    if ("tracking_manual" in u) restore.tracking_manual = u.tracking_manual ?? "";
+    if ("received_at" in u) restore.received_at = u.received_at ?? null;
+    if ("received_method" in u) restore.received_method = u.received_method ?? "";
+    if ("status" in u && u.status) restore.status = u.status;
+    if (Object.keys(restore).length === 0) continue;
     await supabase.from("packages").update(restore).eq("id", u.id);
     restored++;
   }

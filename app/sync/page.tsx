@@ -7,7 +7,7 @@ import { extractFacture, extractFromText } from "@/lib/factureimport";
 import {
   commitSync, getClients, getImports, getSettings,
   getVilles, logAction, analyzePhotoScans, applyPhotoValidations, logOcrScans, PhotoMatch,
-  matchFactureTrackings, FactureMatch, previewSync, SyncPreview, undoLastImport
+  matchFactureTrackings, FactureMatch, commitFactureDisponible, previewSync, SyncPreview, undoLastImport
 } from "@/lib/db";
 import { Client, ImportLog, Ville } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
@@ -122,7 +122,23 @@ export default function SyncPage() {
     } finally { setBusy(false); }
   };
 
-  // ===== Import Facture depi TÈKS KOLE (100% egzat, pa gen OCR) — pwen #6a =====
+  // ===== Valide import facture → Disponible (pwen #6b, SAN imèl) =====
+  const validerFactures = async () => {
+    if (!factures) return;
+    const cibles = factures.filter((f) => f.matched && !f.alreadyDisponible);
+    if (!cibles.length) { setErr("Okenn koli pou mete Disponible."); return; }
+    if (!confirm(`Marquer ${cibles.length} colis comme « Disponible » ?\n\n(Aucun email ne sera envoyé à cette étape.)`)) return;
+    setBusy(true); setErr(null);
+    try {
+      const r = await commitFactureDisponible(factures);
+      setApplyDone(`✅ Import Facture ${r.batchId}: ${r.updated} colis marqués Disponible.`);
+      setLastBatch(r.batchId);
+      setFactures(null); setFactureText("");
+      await loadSide();
+    } catch (e: any) {
+      setErr("Erè validation facture: " + (e.message ?? String(e)));
+    } finally { setBusy(false); }
+  };
   const handleFactureText = async () => {
     setErr(null); setFactures(null); setBusy(true);
     try {
@@ -464,9 +480,14 @@ export default function SyncPage() {
                 </div>
               )}
 
-              <p className="text-[11px] text-mute border-t border-line pt-2">
-                ℹ️ Étape suivante : validation → marquer « Disponible » + notification. (À venir)
-              </p>
+              {dispo.length > 0 && (
+                <div className="flex items-center gap-3 flex-wrap border-t border-line pt-3">
+                  <button className="btn btn-brand" onClick={validerFactures} disabled={busy}>
+                    <CheckCircle2 size={15} /> Valider → Disponible ({dispo.length})
+                  </button>
+                  <span className="text-xs text-mute">Aucun email envoyé à cette étape. Les colis déjà Disponible/Facturé sont ignorés.</span>
+                </div>
+              )}
             </div>
           );
         })()}
