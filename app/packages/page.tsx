@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Calculator, ClipboardList, FileText, PackageCheck, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
@@ -248,8 +249,18 @@ export default function PackagesPage() {
                 <td className="tdc">
                   <input type="checkbox" checked={!!p.selected} onChange={() => toggle(p.id)} />
                 </td>
-                <td className="tdc font-bold text-navy whitespace-nowrap">{p.customer_code}</td>
-                <td className="tdc max-w-[110px] truncate" title={p.customer_name}>{p.customer_name}</td>
+                <td className="tdc font-bold whitespace-nowrap">
+                  <Link href={`/clients/${encodeURIComponent(p.customer_code)}`}
+                    className="text-navy hover:underline" title="Ouvri dosye kliyan an">
+                    {p.customer_code}
+                  </Link>
+                </td>
+                <td className="tdc max-w-[110px] truncate" title={p.customer_name}>
+                  <Link href={`/clients/${encodeURIComponent(p.customer_code)}`}
+                    className="hover:text-navy hover:underline">
+                    {p.customer_name}
+                  </Link>
+                </td>
                 <td className="tdc max-w-[80px] truncate" title={tarifMap.get(p.customer_code)?.ville?.name ?? ""}>
                   {tarifMap.get(p.customer_code)?.ville?.name ?? <span className="text-amber-600">—</span>}
                 </td>
