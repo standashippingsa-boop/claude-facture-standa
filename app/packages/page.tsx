@@ -20,6 +20,16 @@ import { useRole } from "@/lib/authx";
 
 const PER_PAGE = 25;
 
+/** Sous/Provenance yon koli — pou idantifye rapidman Caribe Tours (foto) vs Facture. */
+function sourceMeta(rm?: string): { key: string; label: string; cls: string } {
+  const m = (rm || "").toLowerCase();
+  if (m.includes("photo") || m.includes("caribe")) return { key: "caribe", label: "Caribe Tours", cls: "bg-red-100 text-red-700" };
+  if (m.includes("facture") || m.includes("pdf")) return { key: "facture", label: "Facture", cls: "bg-emerald-100 text-emerald-700" };
+  if (m.includes("extension")) return { key: "ext", label: "Extension", cls: "bg-blue-100 text-blue-700" };
+  if (m.includes("sync") || m.includes("mcpack")) return { key: "sync", label: "Sync", cls: "bg-indigo-100 text-indigo-700" };
+  return { key: "", label: "—", cls: "bg-slate-100 text-slate-500" };
+}
+
 export default function PackagesPage() {
   const [pkgs, setPkgs] = useState<Pkg[]>([]);
   const [tarifMap, setTarifMap] = useState<Map<string, ClientTarifInfo>>(new Map());
@@ -28,6 +38,7 @@ export default function PackagesPage() {
   const [footer, setFooter] = useState("Mèsi paske ou fè STANDA COMMERCIAL konfyans.");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [source, setSource] = useState("");   // filtè Source/Provenance (pwen: idantifye Caribe Tours vs Facture)
   const [dateF, setDateF] = useState("");
   const [page, setPage] = useState(1);
   const [busy] = useState(false);
@@ -77,6 +88,7 @@ export default function PackagesPage() {
       .filter((p) => p.status !== "Livré" && p.status !== "Facturé")
       .filter((p) => {
         if (status && p.status !== status) return false;
+        if (source && sourceMeta(p.received_method).key !== source) return false;
         if (dateF && !p.created_date.includes(dateF)) return false;
         if (!q) return true;
         // Rechèch avanse an tan reyèl: tracking, kòd, non, telefòn kliyan, vil kliyan
@@ -92,7 +104,7 @@ export default function PackagesPage() {
       // rete konsa apre chak import MCPACK
       .slice()
       .sort((a, b) => parseMcpackDate(b.created_date) - parseMcpackDate(a.created_date));
-  }, [pkgs, search, status, dateF, tarifMap]);
+  }, [pkgs, search, status, source, dateF, tarifMap]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const pageRows = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -271,6 +283,14 @@ export default function PackagesPage() {
             <option value="">Tous statuts</option>
             {statusOptions.map((s) => <option key={s}>{s}</option>)}
           </select>
+          <select className="input w-44" value={source} onChange={(e) => setSource(e.target.value)}
+            title="Filtrer par provenance">
+            <option value="">Toutes provenances</option>
+            <option value="caribe">📷 Caribe Tours (photo)</option>
+            <option value="facture">🧾 Facture</option>
+            <option value="ext">🔗 Extension</option>
+            <option value="sync">🔄 Sync MCPACK</option>
+          </select>
           <button
             className={`btn ${showArchived ? "btn-brand" : "btn-ghost"}`}
             onClick={() => setShowArchived((v) => !v)}
@@ -288,12 +308,12 @@ export default function PackagesPage() {
         <table className="w-full text-xs">
           <thead><tr>
             <th className="thc"><input type="checkbox" checked={allChecked} onChange={(e) => toggleAll(e.target.checked)} /></th>
-            {["Code", "Nom Client", "Ville", "Tracking ID (Guía)", "Tracking Number", "Lb", "Content", "Price $", "Total $", "Total HTG", "Status", ""]
+            {["Code", "Nom Client", "Ville", "Tracking ID (Guía)", "Tracking Number", "Lb", "Content", "Price $", "Total $", "Total HTG", "Source", "Status", ""]
               .map((h) => <th key={h} className="thc">{h}</th>)}
           </tr></thead>
           <tbody>
             {pageRows.length === 0 ? (
-              <tr><td colSpan={13} className="text-center py-10 text-mute">
+              <tr><td colSpan={14} className="text-center py-10 text-mute">
                 Aucun colis. Utilisez <a href="/sync" className="text-navy underline font-semibold">Synchronisation MCPACK</a>.
               </td></tr>
             ) : pageRows.map((p, i) => (
@@ -360,6 +380,14 @@ export default function PackagesPage() {
                 <td className="tdc text-right">{usd(p.price_usd)}</td>
                 <td className="tdc text-right font-semibold whitespace-nowrap">{usd(p.total_usd)}</td>
                 <td className="tdc text-right text-[11px] text-slate-500 whitespace-nowrap">{htg(p.total_htg)}</td>
+                <td className="tdc">
+                  {(() => { const s = sourceMeta(p.received_method); return (
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ${s.cls}`}
+                      title={p.received_method ? `Provenance : ${p.received_method}` : "Provenance inconnue"}>
+                      {s.label}
+                    </span>
+                  ); })()}
+                </td>
                 <td className="tdc"><StatusBadge status={p.status} /></td>
                 <td className="tdc whitespace-nowrap">
                   {p.status !== "Disponible" && p.status !== "Facturé" && (

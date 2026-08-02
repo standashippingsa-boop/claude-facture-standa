@@ -137,13 +137,18 @@ export async function commitFactureDisponible(
 
   for (const m of cibles) {
     const { data: before } = await supabase.from("packages")
-      .select("id, status").eq("id", m.pkgId!).maybeSingle();
+      .select("id, status, received_method, received_at").eq("id", m.pkgId!).maybeSingle();
     if (!before) continue;
     // pa fè yon Livré rekile
     if (before.status === "Livré" || before.status === "Facturé" || before.status === "Disponible") continue;
-    await supabase.from("packages").update({ status: "Disponible" }).eq("id", m.pkgId!);
+    await supabase.from("packages").update({
+      status: "Disponible",
+      received_method: "Import Facture",
+      received_at: before.received_at ?? new Date().toISOString()
+    }).eq("id", m.pkgId!);
     updated++;
-    undo.push({ id: before.id, status: before.status });
+    undo.push({ id: before.id, status: before.status,
+      received_method: before.received_method ?? "", received_at: before.received_at ?? null });
     await logAction("Import Facture → Disponible",
       `${m.guia || "—"} | Tracking:${m.tracking} | "${before.status}" → "Disponible"`,
       m.guia || "", m.customerCode || "");
