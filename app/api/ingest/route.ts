@@ -86,7 +86,7 @@ export async function POST(req: Request) {
       if (existSet.has(guia)) {
         // Mete ajou enfo ki chanje sèlman. PA touche statut entèn, pri, ni tracking_manual
         // ki admin ta ka deja antre — sof si li vid epi nou gen youn ki soti MCPACK.
-        const patch: Record<string, unknown> = { received_at: now, received_method: "Extension Chrome" };
+        const patch: Record<string, unknown> = { received_at: now, received_method: "Extension Chrome", src_extension: true };
         if (p.status_raw?.trim()) patch.status_mcpack = p.status_raw.trim();
         if (p.weight != null) patch.weight = p.weight;
         if (p.content) patch.content = p.content;
@@ -111,6 +111,7 @@ export async function POST(req: Request) {
           status_mcpack: p.status_raw?.trim() ?? "",
           received_at: now,
           received_method: "Extension Chrome",
+          src_extension: true,
           mcpack_data: { Guia: guia, TrackingNumber: tnum }
         });
         created++;

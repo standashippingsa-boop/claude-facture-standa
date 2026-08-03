@@ -144,6 +144,7 @@ export async function commitFactureDisponible(
     await supabase.from("packages").update({
       status: "Disponible",
       received_method: "Import Facture",
+      src_facture: true,
       received_at: before.received_at ?? new Date().toISOString()
     }).eq("id", m.pkgId!);
     updated++;
@@ -1039,7 +1040,7 @@ export async function applyPhotoValidations(items: PhotoMatch[]): Promise<{
       .select("id, tracking_manual, received_at, received_method, status").eq("id", m.matchedPkgId).maybeSingle();
     if (!before) continue;
 
-    const patch: Record<string, unknown> = { received_at: now, received_method: "Analyse Photo" };
+    const patch: Record<string, unknown> = { received_at: now, received_method: "Analyse Photo", src_caribe: true };
     // Pwen #5: make koli a "En route vers agence" (🔴) — men PA fè l rekile si li deja pi lwen
     const dejaPlusLoin = ["Disponible", "Livré", "Facturé"].includes(before.status);
     if (!dejaPlusLoin) patch.status = "En route vers agence";

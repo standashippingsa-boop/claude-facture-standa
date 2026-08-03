@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Calculator, ClipboardList, FileText, Archive, Lock, Package, PackageCheck, Pencil, RotateCcw } from "lucide-react";
+import { Calculator, ClipboardList, FileText, Archive, Camera, Lock, Package, PackageCheck, Puzzle, Receipt, Pencil, RotateCcw } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import {
@@ -20,14 +20,26 @@ import { useRole } from "@/lib/authx";
 
 const PER_PAGE = 25;
 
-/** Sous/Provenance yon koli — pou idantifye rapidman Caribe Tours (foto) vs Facture. */
-function sourceMeta(rm?: string): { key: string; label: string; cls: string } {
-  const m = (rm || "").toLowerCase();
-  if (m.includes("photo") || m.includes("caribe")) return { key: "caribe", label: "Caribe Tours", cls: "bg-red-100 text-red-700" };
-  if (m.includes("facture") || m.includes("pdf")) return { key: "facture", label: "Facture", cls: "bg-emerald-100 text-emerald-700" };
-  if (m.includes("extension")) return { key: "ext", label: "Extension", cls: "bg-blue-100 text-blue-700" };
-  if (m.includes("sync") || m.includes("mcpack")) return { key: "sync", label: "Sync", cls: "bg-indigo-100 text-indigo-700" };
-  return { key: "", label: "—", cls: "bg-slate-100 text-slate-500" };
+/** Sous MILTIP yon koli — yon koli ka gen plizyè (Extension + Caribe + Facture). */
+type SrcKey = "extension" | "caribe" | "facture";
+const SRC_DEFS: { key: SrcKey; label: string; Icon: any; cls: string }[] = [
+  { key: "caribe",    label: "Caribe Tours (scan photo)", Icon: Camera,  cls: "bg-rose-100 text-rose-700" },
+  { key: "facture",   label: "Facture",                   Icon: Receipt, cls: "bg-emerald-100 text-emerald-700" },
+  { key: "extension", label: "Extension MCPACK",          Icon: Puzzle,  cls: "bg-blue-100 text-blue-700" },
+];
+function pkgSources(p: Pkg): SrcKey[] {
+  const out: SrcKey[] = [];
+  if (p.src_caribe) out.push("caribe");
+  if (p.src_facture) out.push("facture");
+  if (p.src_extension) out.push("extension");
+  // Fallback pou vye koli san drapo: dedwi depi received_method
+  if (!out.length && p.received_method) {
+    const m = p.received_method.toLowerCase();
+    if (m.includes("photo") || m.includes("caribe")) out.push("caribe");
+    else if (m.includes("facture") || m.includes("pdf")) out.push("facture");
+    else if (m.includes("extension")) out.push("extension");
+  }
+  return out;
 }
 
 export default function PackagesPage() {
@@ -88,7 +100,7 @@ export default function PackagesPage() {
       .filter((p) => p.status !== "Livré" && p.status !== "Facturé")
       .filter((p) => {
         if (status && p.status !== status) return false;
-        if (source && sourceMeta(p.received_method).key !== source) return false;
+        if (source && !pkgSources(p).includes(source as SrcKey)) return false;
         if (dateF && !p.created_date.includes(dateF)) return false;
         if (!q) return true;
         // Rechèch avanse an tan reyèl: tracking, kòd, non, telefòn kliyan, vil kliyan
@@ -284,12 +296,11 @@ export default function PackagesPage() {
             {statusOptions.map((s) => <option key={s}>{s}</option>)}
           </select>
           <select className="input w-44" value={source} onChange={(e) => setSource(e.target.value)}
-            title="Filtrer par provenance">
+            title="Filtrer par provenance (un colis peut avoir plusieurs sources)">
             <option value="">Toutes provenances</option>
-            <option value="caribe">📷 Caribe Tours (photo)</option>
-            <option value="facture">🧾 Facture</option>
-            <option value="ext">🔗 Extension</option>
-            <option value="sync">🔄 Sync MCPACK</option>
+            <option value="caribe">Caribe Tours (photo)</option>
+            <option value="facture">Facture</option>
+            <option value="extension">Extension MCPACK</option>
           </select>
           <button
             className={`btn ${showArchived ? "btn-brand" : "btn-ghost"}`}
@@ -381,12 +392,17 @@ export default function PackagesPage() {
                 <td className="tdc text-right font-semibold whitespace-nowrap">{usd(p.total_usd)}</td>
                 <td className="tdc text-right text-[11px] text-slate-500 whitespace-nowrap">{htg(p.total_htg)}</td>
                 <td className="tdc">
-                  {(() => { const s = sourceMeta(p.received_method); return (
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ${s.cls}`}
-                      title={p.received_method ? `Provenance : ${p.received_method}` : "Provenance inconnue"}>
-                      {s.label}
-                    </span>
-                  ); })()}
+                  <div className="flex items-center gap-1">
+                    {(() => {
+                      const keys = pkgSources(p);
+                      if (!keys.length) return <span className="text-mute text-[11px]">—</span>;
+                      return SRC_DEFS.filter((d) => keys.includes(d.key)).map((d) => (
+                        <span key={d.key} className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${d.cls}`} title={d.label}>
+                          <d.Icon size={13} />
+                        </span>
+                      ));
+                    })()}
+                  </div>
                 </td>
                 <td className="tdc"><StatusBadge status={p.status} /></td>
                 <td className="tdc whitespace-nowrap">

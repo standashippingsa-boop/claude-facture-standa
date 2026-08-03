@@ -73,6 +73,9 @@ export interface Pkg {
   received_at?: string | null;      // dat/lè resepsyon MCPACK (otomatik sèlman)
   received_method?: string;         // Synchronisation MCPACK | Import PDF | Analyse Photo | Extension Chrome
   archived?: boolean;               // pwen #4 — koli pa janm efase, jis archived
+  src_extension?: boolean;          // sous miltip — koli pase pa Extension
+  src_caribe?: boolean;             // sous miltip — koli scanne (Caribe Tours)
+  src_facture?: boolean;            // sous miltip — koli nan yon Facture
   selected?: boolean; // UI sèlman
 }
 
