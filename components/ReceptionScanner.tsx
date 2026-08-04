@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, CameraOff, CheckCircle2, Search, X, ScanLine, Package } from "lucide-react";
 import { findPackageByScan, verifyPackageReception, ScanResult } from "@/lib/db";
+import { useRole } from "@/lib/authx";
 import { dateFr, parseMcpackDate } from "@/lib/utils";
 import StatusBadge from "@/components/StatusBadge";
 import type { Pkg } from "@/lib/types";
@@ -19,6 +20,8 @@ type Mode = "manuel" | "continu";
 type BeepKind = "ok" | "already" | "notfound" | "error";
 
 export default function ReceptionScanner() {
+  const { staff } = useRole();
+  const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
   const [mode, setMode] = useState<Mode>("manuel");
   const [scanning, setScanning] = useState(false);      // kamera aktif
   const [result, setResult] = useState<ScanResult | null>(null);
@@ -102,7 +105,7 @@ export default function ReceptionScanner() {
   const doConfirm = async (pkg: Pkg) => {
     setBusy(true);
     try {
-      const r = await verifyPackageReception(pkg.id, scanning ? "Caméra" : "Scanner");
+      const r = await verifyPackageReception(pkg.id, scanning ? "Caméra" : "Scanner", staffName);
       if (r.ok) {
         beep("ok");
         setCounts((c) => ({ ...c, validated: c.validated + 1 }));

@@ -216,7 +216,7 @@ export async function findPackageByScan(rawCode: string): Promise<ScanResult> {
  * Statut -> "En route vers agence" (si pa deja pi lwen). Ak audit log.
  */
 export async function verifyPackageReception(
-  pkgId: string, scannerLabel = "Caméra"
+  pkgId: string, scannerLabel = "Caméra", who = ""
 ): Promise<{ ok: boolean; status: string }> {
   const { data: before } = await supabase.from("packages")
     .select("id, status, tracking_number, customer_code, verified, received_at").eq("id", pkgId).maybeSingle();
@@ -226,9 +226,6 @@ export async function verifyPackageReception(
   const dejaPlusLoin = ["Disponible", "Livré", "Facturé"].includes(before.status);
   const newStatus = dejaPlusLoin ? before.status : "En route vers agence";
   const now = new Date().toISOString();
-
-  const staff = await getMyStaff();
-  const who = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
 
   const patch: Record<string, unknown> = {
     verified: true, verified_at: now, verified_by: who, verified_scanner: scannerLabel,
