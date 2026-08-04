@@ -76,6 +76,9 @@ export interface Pkg {
   src_extension?: boolean;          // sous miltip — koli pase pa Extension
   src_caribe?: boolean;             // sous miltip — koli scanne (Caribe Tours)
   src_facture?: boolean;            // sous miltip — koli nan yon Facture
+  verified?: boolean;               // Scanner de Réception — koli verifye fizikman
+  verified_at?: string | null;
+  verified_by?: string;
   selected?: boolean; // UI sèlman
 }
 

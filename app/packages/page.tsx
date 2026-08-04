@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Calculator, ClipboardList, FileText, Archive, Camera, Lock, Package, PackageCheck, Puzzle, Receipt, Pencil, RotateCcw } from "lucide-react";
+import { Calculator, ClipboardList, FileText, Archive, Camera, CheckCircle2, Lock, Package, PackageCheck, Puzzle, Receipt, Pencil, RotateCcw } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import {
@@ -404,7 +404,17 @@ export default function PackagesPage() {
                     })()}
                   </div>
                 </td>
-                <td className="tdc"><StatusBadge status={p.status} /></td>
+                <td className="tdc">
+                  <div className="flex items-center gap-1.5">
+                    <StatusBadge status={p.status} />
+                    {p.verified && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 text-emerald-700 px-1.5 py-0.5 text-[9px] font-bold"
+                        title={`Vérifié MCPACK${p.verified_at ? " — " + dateFr(p.verified_at) : ""}`}>
+                        <CheckCircle2 size={10} /> Vérifié
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td className="tdc whitespace-nowrap">
                   {p.status !== "Disponible" && p.status !== "Facturé" && (
                     <button className="text-emerald-600 hover:text-emerald-800 mr-1"

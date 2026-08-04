@@ -177,6 +177,74 @@ export async function unarchivePackage(id: string): Promise<void> {
     .eq("id", id);
   if (error) throw error;
 }
+
+// ============ SCANNER DE RÉCEPTION MCPACK (Faz 1) ============
+
+export type ScanOutcome = "found" | "already" | "not_found";
+export interface ScanResult {
+  outcome: ScanOutcome;
+  code: string;           // sa scanner a li
+  pkg?: Pkg;
+}
+
+/**
+ * Chèche yon koli depi yon kòd scanne (Barcode/QR/WR/Tracking Number).
+ * READ-ONLY — pa modifye anyen. Chèche pa Guía (tracking_number) OSWA tracking_manual.
+ */
+export async function findPackageByScan(rawCode: string): Promise<ScanResult> {
+  const code = cleanTracking(rawCode);
+  if (!code) return { outcome: "not_found", code: rawCode };
+
+  // 1) Chèche pa Guía (Tracking ID WR) — kle prensipal
+  let { data } = await supabase.from("packages").select("*")
+    .ilike("tracking_number", code).limit(1);
+  // 2) Si pa jwenn, chèche pa Tracking Number transpòtè
+  if (!data || !data.length) {
+    const r = await supabase.from("packages").select("*").ilike("tracking_manual", code).limit(1);
+    data = r.data;
+  }
+  if (!data || !data.length) return { outcome: "not_found", code: rawCode };
+
+  const pkg = asNum(data[0], ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"]) as Pkg;
+  if (pkg.verified) return { outcome: "already", code: rawCode, pkg };
+  return { outcome: "found", code: rawCode, pkg };
+}
+
+/**
+ * VERIFYE yon koli nan resepsyon (apre CONFIRMER).
+ * SEKIRITE: modifye SÈLMAN statut + verified + badge. JANM pri/pwa/tracking/kliyan.
+ * Statut -> "En route vers agence" (si pa deja pi lwen). Ak audit log.
+ */
+export async function verifyPackageReception(
+  pkgId: string, scannerLabel = "Caméra"
+): Promise<{ ok: boolean; status: string }> {
+  const { data: before } = await supabase.from("packages")
+    .select("id, status, tracking_number, customer_code, verified, received_at").eq("id", pkgId).maybeSingle();
+  if (!before) return { ok: false, status: "" };
+  if (before.verified) return { ok: false, status: before.status };
+
+  const dejaPlusLoin = ["Disponible", "Livré", "Facturé"].includes(before.status);
+  const newStatus = dejaPlusLoin ? before.status : "En route vers agence";
+  const now = new Date().toISOString();
+
+  const staff = await getMyStaff();
+  const who = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
+
+  const patch: Record<string, unknown> = {
+    verified: true, verified_at: now, verified_by: who, verified_scanner: scannerLabel,
+    src_caribe: true, received_method: "Scanner Réception",
+    received_at: before.received_at ?? now
+  };
+  if (!dejaPlusLoin) patch.status = "En route vers agence";
+
+  const { error } = await supabase.from("packages").update(patch).eq("id", pkgId);
+  if (error) return { ok: false, status: before.status };
+
+  await logAction("Vérification Scanner",
+    `${before.tracking_number} vérifié (${scannerLabel}) | "${before.status}" → "${newStatus}"`,
+    before.tracking_number, before.customer_code);
+  return { ok: true, status: newStatus };
+}
 export async function getClientPackages(code: string): Promise<Pkg[]> {
   const { data, error } = await supabase
     .from("packages").select("*").eq("customer_code", code)
