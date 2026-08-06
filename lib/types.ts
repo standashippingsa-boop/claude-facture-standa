@@ -79,6 +79,8 @@ export interface Pkg {
   verified?: boolean;               // Scanner de Réception — koli verifye fizikman
   verified_at?: string | null;
   verified_by?: string;
+  proof_photo_url?: string;         // Faz 3 — foto de preuve resepsyon
+  proof_photo_at?: string | null;
   selected?: boolean; // UI sèlman
 }
 

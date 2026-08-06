@@ -29,6 +29,10 @@ export default function ReceptionScanner() {
   const [msg, setMsg] = useState<{ t: "ok" | "warn" | "err"; s: string } | null>(null);
   const [toVerify, setToVerify] = useState<string[]>([]); // koli introuvables (À Vérifier)
   const [counts, setCounts] = useState({ scanned: 0, found: 0, already: 0, notfound: 0, validated: 0 });
+  // ===== Faz 3 — Photo de Preuve =====
+  const [photoFor, setPhotoFor] = useState<Pkg | null>(null);   // koli k ap tann foto
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const photoRef = useRef<any>(null);
   // ===== Faz 2 — Mode Réception Continue (Entrepôt) =====
   const [session, setSession] = useState<{ startedAt: number } | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
@@ -147,6 +151,8 @@ export default function ReceptionScanner() {
         setCounts((c) => ({ ...c, validated: c.validated + 1 }));
         setMsg({ t: "ok", s: `✔ Vérifié — ${pkg.tracking_number} → ${r.status}` });
         setResult(null);
+        // Faz 3: pwopoze foto de preuve (sèlman mòd manuel — pou pa ralanti mòd continu)
+        if (mode === "manuel") setPhotoFor(pkg);
       } else {
         beep("already");
         setMsg({ t: "warn", s: "Déjà vérifié ou non modifiable." });
@@ -155,6 +161,19 @@ export default function ReceptionScanner() {
       beep("error");
       setMsg({ t: "err", s: "Erreur validation : " + (e?.message ?? String(e)) });
     } finally { setBusy(false); refocusKbd(); }
+  };
+
+  // ---------- Faz 3: Photo de Preuve ----------
+  const takeProofPhoto = async (pkg: Pkg, file: File) => {
+    setPhotoBusy(true);
+    try {
+      const { savePackageProofPhoto } = await import("@/lib/db");
+      const r = await savePackageProofPhoto(pkg.id, file, staffName);
+      if (r.ok) { beep("ok"); setMsg({ t: "ok", s: "📷 Photo de preuve enregistrée." }); }
+      else { beep("error"); setMsg({ t: "err", s: "Échec enregistrement photo." }); }
+    } catch (e: any) {
+      beep("error"); setMsg({ t: "err", s: "Erreur photo : " + (e?.message ?? String(e)) });
+    } finally { setPhotoBusy(false); setPhotoFor(null); refocusKbd(); }
   };
 
   // ---------- Kamera ----------
@@ -299,6 +318,31 @@ export default function ReceptionScanner() {
           msg.t === "ok" ? "bg-emerald-50 text-emerald-700" :
           msg.t === "warn" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>
           {msg.t === "ok" ? <CheckCircle2 size={16} /> : <X size={16} />} {msg.s}
+        </div>
+      )}
+
+      {/* Faz 3 — Photo de Preuve (apre validasyon, mòd manuel) */}
+      {photoFor && (
+        <div className="rounded-2xl border-2 border-navy/30 bg-navy/5 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="font-bold text-navy flex items-center gap-2">
+              <Camera size={17} /> Prendre une photo du colis (preuve)
+            </p>
+            <span className="pill pill-green"><span className="pill-dot" />Vérifié</span>
+          </div>
+          <p className="text-xs text-mute mb-3">
+            {photoFor.customer_code} — {photoFor.customer_name} · <span className="font-mono">{photoFor.tracking_number}</span>
+          </p>
+          <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f && photoFor) takeProofPhoto(photoFor, f); if (photoRef.current) photoRef.current.value = ""; }} />
+          <div className="flex gap-2">
+            <button className="btn btn-brand flex-1 !py-2.5" onClick={() => photoRef.current?.click()} disabled={photoBusy}>
+              <Camera size={16} /> {photoBusy ? "Enregistrement…" : "Prendre / Choisir une photo"}
+            </button>
+            <button className="btn btn-ghost" onClick={() => { setPhotoFor(null); refocusKbd(); }} disabled={photoBusy}>
+              Passer
+            </button>
+          </div>
         </div>
       )}
 

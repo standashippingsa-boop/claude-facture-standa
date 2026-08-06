@@ -178,6 +178,24 @@ export async function unarchivePackage(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Foto de Preuve (Faz 3) — sove foto koli a, lye pèmanan ak koli a + audit. */
+export async function savePackageProofPhoto(
+  pkgId: string, file: File, who = ""
+): Promise<{ ok: boolean; url: string }> {
+  const url = await uploadScanPhoto(file);
+  if (!url) return { ok: false, url: "" };
+  const now = new Date().toISOString();
+  const { data: before } = await supabase.from("packages")
+    .select("tracking_number, customer_code").eq("id", pkgId).maybeSingle();
+  const { error } = await supabase.from("packages")
+    .update({ proof_photo_url: url, proof_photo_at: now, proof_photo_by: who }).eq("id", pkgId);
+  if (error) return { ok: false, url: "" };
+  await logAction("Photo Preuve",
+    `Photo de réception enregistrée${before?.tracking_number ? " — " + before.tracking_number : ""} | photo:${url}`,
+    before?.tracking_number ?? "", before?.customer_code ?? "");
+  return { ok: true, url };
+}
+
 /** Anrejistre yon sesyon Réception (Mode Entrepôt) nan Journal — pwen: rapò/audit. */
 export async function logReceptionSession(r: {
   scanned: number; found: number; validated: number; already: number; notfound: number;

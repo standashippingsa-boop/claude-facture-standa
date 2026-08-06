@@ -413,6 +413,13 @@ export default function PackagesPage() {
                         <CheckCircle2 size={10} /> Vérifié
                       </span>
                     )}
+                    {p.proof_photo_url && (
+                      <a href={p.proof_photo_url} target="_blank" rel="noreferrer"
+                        className="inline-flex items-center gap-0.5 rounded-full bg-blue-100 text-blue-700 px-1.5 py-0.5 text-[9px] font-bold hover:bg-blue-200"
+                        title="Voir la photo de preuve">
+                        <Camera size={10} /> Photo
+                      </a>
+                    )}
                   </div>
                 </td>
                 <td className="tdc whitespace-nowrap">
