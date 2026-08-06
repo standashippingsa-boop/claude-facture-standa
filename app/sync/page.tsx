@@ -4,6 +4,7 @@ import { Upload, CheckCircle2, RefreshCw, FileText, X, Image } from "lucide-reac
 import { parseMcpackWorkbook } from "@/lib/xlsx";
 import { scanPhotos } from "@/lib/photoscan";
 import ReceptionScanner from "@/components/ReceptionScanner";
+import ImportConduces from "@/components/ImportConduces";
 import { extractFacture, extractFromText } from "@/lib/factureimport";
 import {
   commitSync, getClients, getImports, getSettings,
@@ -279,6 +280,8 @@ export default function SyncPage() {
       <h1 className="text-xl font-extrabold text-navy">Synchronisation MCPACK</h1>
 
       <ReceptionScanner />
+
+      <ImportConduces />
 
       <div className="card p-6">
         <p className="text-sm text-slate-600 mb-4">

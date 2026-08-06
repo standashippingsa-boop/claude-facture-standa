@@ -75,6 +75,25 @@ export function extractFromText(text: string): FactureTracking[] {
   return candidatesFromText(text).map((value) => ({ value, source: "text" as const }));
 }
 
+/**
+ * Ekstrè TOUT kòd (WR Tracking ID + Tracking Number transpòtè) depi yon tèks kole.
+ * Kontrèman ak candidatesFromText, sa a PA ekskli WR — itilize pou Conduce (Faz 2)
+ * kote Package yo idantifye sitou pa Tracking ID.
+ */
+export function extractAnyCodesFromText(text: string): string[] {
+  const up = (text || "").toUpperCase();
+  const tokens = up.match(/[A-Z0-9]{8,40}/g) ?? [];
+  const seen = new Set<string>(); const out: string[] = [];
+  for (const t of tokens) {
+    const c = cleanTracking(t);
+    if (!c || c.length < 8) continue;
+    if ((c.match(/\d/g)?.length ?? 0) < 3) continue;
+    if (seen.has(c)) continue;
+    seen.add(c); out.push(c);
+  }
+  return out;
+}
+
 /** Dispatch selon tip fichye a. */
 export async function extractFacture(
   file: File, onProgress?: (p: number) => void

@@ -122,6 +122,71 @@ export async function getConduceStats(conduceId: string): Promise<{
   };
 }
 
+// ============ IMPORT CONDUCE (Faz 2) ============
+// RÈG: Package egziste yon sèl fwa. Import Conduce JANM kreye nouvo Package —
+// li JWENN sa ki egziste deja (pa Tracking ID/Guía oswa Tracking Number) epi LYE
+// yo ak conduce_id la. Menm apwòch ak Import Facture (matching, pa devinèt).
+
+export interface ConduceMatch {
+  code: string;                 // kòd (WR... oswa tracking) jwenn nan tèks la
+  matched: boolean;
+  pkgId?: string;
+  guia?: string;
+  customerCode?: string;
+  customerName?: string;
+  status?: string;
+  currentConduceId?: string | null;   // si li deja lye ak yon lòt conduce
+}
+
+/**
+ * Chèche kòd yo (WR... oswa Tracking Number) nan yon tèks kole Conduce MCPACK,
+ * epi match yo ak Package ki egziste deja. READ-ONLY — anyen pa chanje.
+ */
+export async function matchConduceCodes(rawCodes: string[]): Promise<ConduceMatch[]> {
+  const codes = Array.from(new Set(rawCodes.map((c) => cleanTracking(c)).filter(Boolean)));
+  if (!codes.length) return [];
+
+  const { data } = await supabase.from("packages")
+    .select("id, tracking_number, tracking_manual, customer_code, customer_name, status, archived, conduce_id");
+  const byGuia = new Map<string, any>(), byManual = new Map<string, any>();
+  for (const p of (data ?? [])) {
+    if (p.archived) continue;
+    const g = cleanTracking(p.tracking_number); if (g) byGuia.set(g, p);
+    const m = cleanTracking(p.tracking_manual); if (m) byManual.set(m, p);
+  }
+
+  return codes.map((code) => {
+    const p = byGuia.get(code) ?? byManual.get(code);
+    if (!p) return { code, matched: false };
+    return {
+      code, matched: true, pkgId: p.id, guia: p.tracking_number,
+      customerCode: p.customer_code, customerName: p.customer_name,
+      status: p.status, currentConduceId: p.conduce_id ?? null,
+    };
+  });
+}
+
+/**
+ * Lye package ki matche yo ak yon Conduce (met conduce_id). JANM kreye Package.
+ * Ak audit log. Package ki deja lye ak yon LÒT conduce yo skip (san ekrase).
+ */
+export async function linkPackagesToConduce(
+  conduceId: string, conduceNumber: string, matches: ConduceMatch[], who = ""
+): Promise<{ linked: number; alreadyElsewhere: number }> {
+  const cibles = matches.filter((m) => m.matched && m.pkgId && m.currentConduceId !== conduceId);
+  let linked = 0, alreadyElsewhere = 0;
+  for (const m of cibles) {
+    if (m.currentConduceId) { alreadyElsewhere++; continue; }   // deja nan yon lòt conduce — pa touche
+    await supabase.from("packages").update({ conduce_id: conduceId }).eq("id", m.pkgId!);
+    linked++;
+  }
+  if (linked > 0) {
+    await logAction("Import Conduce",
+      `Conduce ${conduceNumber} : ${linked} colis liés`, "", "");
+  }
+  return { linked, alreadyElsewhere };
+}
+
 export interface FactureMatch {
   tracking: string;
   weight?: number;
