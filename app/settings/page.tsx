@@ -30,6 +30,7 @@ export default function SettingsPage() {
   const [editing, setEditing] = useState<Ville | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [footer, setFooter] = useState("");
+  const [mcpackConduceUrl, setMcpackConduceUrl] = useState("");
   const [autoPricing, setAutoPricing] = useState(true);
   const [taxFixOn, setTaxFixOn] = useState(false);
   const [taxDgaOn, setTaxDgaOn] = useState(false);
@@ -46,6 +47,7 @@ export default function SettingsPage() {
     setVilles(await getVilles());
     const [s, r] = await Promise.all([getSettings(), getUsdRate()]);
     setFooter(s.invoice_footer ?? "");
+    setMcpackConduceUrl(s.mcpack_conduce_url ?? "");
     setTaxFixOn(s.tax_fix_enabled === "true");
     setTaxDgaOn(s.tax_dga_enabled === "true");
     setSpMin(s.small_parcel_min ?? "0.10");
@@ -102,6 +104,7 @@ export default function SettingsPage() {
 
   const saveGeneral = async () => {
     await setSetting("invoice_footer", footer);
+    await setSetting("mcpack_conduce_url", mcpackConduceUrl);
     await setSetting("tax_fix_enabled", String(taxFixOn));
     await setSetting("tax_dga_enabled", String(taxDgaOn));
     await setSetting("small_parcel_min", String(Number(spMin) || 0.1));
@@ -239,6 +242,16 @@ export default function SettingsPage() {
         <label className="block">
           <span className="text-xs font-medium text-slate-500">Pied de page des factures</span>
           <input className="input mt-1" value={footer} onChange={(e) => setFooter(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="text-xs font-medium text-slate-500">
+            Lien direct MCPACK pour une Conduce (utilise <code>{"{num}"}</code> comme numéro)
+          </span>
+          <input className="input mt-1 font-mono text-xs" placeholder="https://mcpack.exemple.com/conduce/{num}"
+            value={mcpackConduceUrl} onChange={(e) => setMcpackConduceUrl(e.target.value)} />
+          <span className="text-[11px] text-mute">
+            Permet d&apos;ouvrir directement la conduce sur MCPACK depuis Synchronisation → Importer des Conduces.
+          </span>
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={autoPricing} onChange={(e) => setAutoPricing(e.target.checked)} />
