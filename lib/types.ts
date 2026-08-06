@@ -49,6 +49,18 @@ export const INTERNAL_STATUSES = [
   "En route vers agence", "Disponible", "Livré"
 ] as const;
 
+export interface Conduce {
+  id: string;
+  conduce_number: string;
+  office: string;
+  conduce_date?: string | null;
+  status: string;               // En cours | Complète | Facturée
+  imported_by: string;
+  imported_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Pkg {
   id: string;
   tracking_number: string;   // Tracking ID (Guía) — idantifyan inik la
@@ -81,6 +93,7 @@ export interface Pkg {
   verified_by?: string;
   proof_photo_url?: string;         // Faz 3 — foto de preuve resepsyon
   proof_photo_at?: string | null;
+  conduce_id?: string | null;       // Modil Conduces — Single Source of Truth (filtè, pa dwaplikaj)
   selected?: boolean; // UI sèlman
 }
 

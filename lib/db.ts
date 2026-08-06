@@ -67,15 +67,59 @@ export async function deleteClient(id: string): Promise<void> {
 }
 
 // ================= PACKAGES =================
-export async function getPackages(status?: string, includeArchived = false): Promise<Pkg[]> {
+export async function getPackages(status?: string, includeArchived = false, conduceId?: string): Promise<Pkg[]> {
   let q = supabase.from("packages").select("*").order("created_at", { ascending: false });
   if (status) q = q.eq("status", status);
+  if (conduceId) q = q.eq("conduce_id", conduceId);   // Modil Conduces — menm motè, filtè sèlman
   const { data, error } = await q;
   if (error) throw error;
   const rows = (data ?? []).map((p) =>
     asNum(p, ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[];
   // Filtre nan JS -> pa kraze si migration 'archived' poko kouri (pwen #4)
   return includeArchived ? rows : rows.filter((p) => !p.archived);
+}
+
+// ============ MODIL CONDUCES (Faz 1 — fondasyon) ============
+// Single Source of Truth: AUCUN duplication Package. Yon Conduce se yon gwoup +
+// yon filtè sou packages.conduce_id. Tablo/aksyon yo se MENM Packages engine a.
+
+export async function getConduces(): Promise<Conduce[]> {
+  const { data, error } = await supabase.from("conduces").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Conduce[];
+}
+
+export async function getConduceByNumber(num: string): Promise<Conduce | null> {
+  const { data } = await supabase.from("conduces").select("*").eq("conduce_number", num.trim()).maybeSingle();
+  return (data as Conduce) ?? null;
+}
+
+/** Kreye yon Conduce si li pa egziste, oswa retounen sa ki egziste a (jamè doublon). */
+export async function ensureConduce(num: string, office = "", who = ""): Promise<Conduce> {
+  const existing = await getConduceByNumber(num);
+  if (existing) return existing;
+  const { data, error } = await supabase.from("conduces").insert({
+    conduce_number: num.trim(), office, imported_by: who, imported_at: new Date().toISOString()
+  }).select("*").single();
+  if (error) throw error;
+  await logAction("Création Conduce", `Conduce ${num} créée`, "", "");
+  return data as Conduce;
+}
+
+/** Estatistik yon Conduce, kalkile depi packages ki gen menm conduce_id — jamè chan dwaplike. */
+export async function getConduceStats(conduceId: string): Promise<{
+  count: number; weight: number; facturedCount: number; facturedTotal: number; verifiedCount: number;
+}> {
+  const { data } = await supabase.from("packages")
+    .select("weight, invoice_id, total_usd, verified, archived").eq("conduce_id", conduceId);
+  const rows = (data ?? []).filter((r: any) => !r.archived);
+  return {
+    count: rows.length,
+    weight: rows.reduce((s: number, r: any) => s + (Number(r.weight) || 0), 0),
+    facturedCount: rows.filter((r: any) => r.invoice_id).length,
+    facturedTotal: rows.reduce((s: number, r: any) => s + (r.invoice_id ? (Number(r.total_usd) || 0) : 0), 0),
+    verifiedCount: rows.filter((r: any) => r.verified).length,
+  };
 }
 
 export interface FactureMatch {
