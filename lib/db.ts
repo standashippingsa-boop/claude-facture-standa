@@ -178,6 +178,17 @@ export async function unarchivePackage(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Anrejistre yon sesyon Réception (Mode Entrepôt) nan Journal — pwen: rapò/audit. */
+export async function logReceptionSession(r: {
+  scanned: number; found: number; validated: number; already: number; notfound: number;
+  seconds: number; who: string;
+}): Promise<void> {
+  const avg = r.scanned ? (r.seconds / r.scanned).toFixed(2) : "0";
+  await logAction("Réception Entrepôt",
+    `${r.validated} validés / ${r.scanned} scannés | trouvés:${r.found} déjà:${r.already} introuvables:${r.notfound} | ` +
+    `durée:${Math.round(r.seconds)}s | moy:${avg}s/colis`, "", "");
+}
+
 // ============ SCANNER DE RÉCEPTION MCPACK (Faz 1) ============
 
 export type ScanOutcome = "found" | "already" | "not_found";

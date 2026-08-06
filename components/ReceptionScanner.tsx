@@ -10,7 +10,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Camera, CameraOff, CheckCircle2, Search, X, ScanLine, Package } from "lucide-react";
-import { findPackageByScan, verifyPackageReception, ScanResult } from "@/lib/db";
+import { findPackageByScan, verifyPackageReception, logReceptionSession, ScanResult } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import { dateFr, parseMcpackDate } from "@/lib/utils";
 import StatusBadge from "@/components/StatusBadge";
@@ -29,6 +29,13 @@ export default function ReceptionScanner() {
   const [msg, setMsg] = useState<{ t: "ok" | "warn" | "err"; s: string } | null>(null);
   const [toVerify, setToVerify] = useState<string[]>([]); // koli introuvables (À Vérifier)
   const [counts, setCounts] = useState({ scanned: 0, found: 0, already: 0, notfound: 0, validated: 0 });
+  // ===== Faz 2 — Mode Réception Continue (Entrepôt) =====
+  const [session, setSession] = useState<{ startedAt: number } | null>(null);
+  const [nowTick, setNowTick] = useState(Date.now());
+  const [report, setReport] = useState<null | {
+    scanned: number; found: number; validated: number; already: number; notfound: number;
+    seconds: number; avg: number; who: string; date: string; toVerify: string[];
+  }>(null);
 
   const videoRef = useRef<any>(null);
   const readerRef = useRef<any>(null);
@@ -100,6 +107,35 @@ export default function ReceptionScanner() {
       setMsg({ t: "err", s: "Erreur scan : " + (e?.message ?? String(e)) });
     } finally { setBusy(false); }
   };
+
+  // ---------- Session Réception Continue (Faz 2) ----------
+  const startSession = () => {
+    setCounts({ scanned: 0, found: 0, already: 0, notfound: 0, validated: 0 });
+    setToVerify([]); setReport(null); setResult(null); setMsg(null);
+    setSession({ startedAt: Date.now() });
+    if (mode !== "continu") setMode("continu");
+    refocusKbd();
+  };
+  const endSession = () => {
+    if (!session) return;
+    const seconds = Math.max(1, Math.round((Date.now() - session.startedAt) / 1000));
+    setReport({
+      scanned: counts.scanned, found: counts.found, validated: counts.validated,
+      already: counts.already, notfound: counts.notfound,
+      seconds, avg: counts.scanned ? +(seconds / counts.scanned).toFixed(2) : 0,
+      who: staffName || "—", date: new Date().toLocaleString("fr-FR"), toVerify: [...toVerify],
+    });
+    void logReceptionSession({ ...counts, seconds, who: staffName });
+    setSession(null); stopCamera(); setResult(null);
+  };
+  // Timer vivan (chak segond pandan sesyon an)
+  useEffect(() => {
+    if (!session) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [session]);
+  const elapsed = session ? Math.round((nowTick - session.startedAt) / 1000) : 0;
+  const fmtDur = (s: number) => `${Math.floor(s / 60)}m ${s % 60}s`;
 
   // ---------- CONFIRMER (verifikasyon) ----------
   const doConfirm = async (pkg: Pkg) => {
@@ -173,6 +209,31 @@ export default function ReceptionScanner() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Ba Session — Mode Entrepôt (Faz 2) */}
+      <div className={`rounded-xl p-4 flex items-center justify-between flex-wrap gap-3 ${session ? "bg-emerald-50 border border-emerald-300" : "bg-mist border border-line"}`}>
+        {!session ? (
+          <>
+            <div className="text-sm text-mute">Mode Entrepôt — scanner en continu sans interruption.</div>
+            <button className="btn btn-brand !py-2.5" onClick={startSession}>
+              ▶ Commencer la Réception
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-4 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 text-emerald-700 font-bold text-sm">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Réception en cours
+              </span>
+              <span className="text-sm text-ink font-mono">{fmtDur(elapsed)}</span>
+              <span className="text-sm text-mute">Moy : <b className="text-ink">{counts.scanned ? (elapsed / counts.scanned).toFixed(2) : "0.00"}</b> s/colis</span>
+            </div>
+            <button className="btn btn-ghost !py-2.5 !border-red-300 !text-red-700" onClick={endSession}>
+              ■ Terminer la Réception
+            </button>
+          </>
+        )}
       </div>
 
       {/* Zòn scan */}
@@ -308,6 +369,44 @@ export default function ReceptionScanner() {
               <span key={i} className="font-mono text-[11px] bg-red-50 text-red-700 rounded px-2 py-0.5">{c}</span>
             ))}
           </div>
+        </div>
+      )}
+      {/* Rapport final (Faz 2) */}
+      {report && (
+        <div className="rounded-2xl border-2 border-navy/20 bg-white p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-extrabold text-navy text-lg">Rapport de Réception</h3>
+            <button className="text-mute hover:text-navy" onClick={() => setReport(null)}><X size={18} /></button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            {[
+              ["Total scanné", report.scanned, "text-navy"],
+              ["Validés", report.validated, "text-emerald-600"],
+              ["Déjà vérifiés", report.already, "text-amber-600"],
+              ["Introuvables", report.notfound, "text-red-600"],
+            ].map(([l, n, c]) => (
+              <div key={l as string} className="rounded-xl border border-line p-3 text-center">
+                <div className={`text-2xl font-extrabold ${c}`}>{n as number}</div>
+                <div className="text-[11px] text-mute mt-0.5">{l as string}</div>
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1.5 text-sm border-t border-line pt-3">
+            <div><span className="text-mute">Temps total : </span><b>{fmtDur(report.seconds)}</b></div>
+            <div><span className="text-mute">Moyenne : </span><b>{report.avg} s/colis</b></div>
+            <div><span className="text-mute">Utilisateur : </span><b>{report.who}</b></div>
+            <div className="md:col-span-3"><span className="text-mute">Date : </span><b>{report.date}</b></div>
+          </div>
+          {report.toVerify.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-line">
+              <p className="text-xs font-bold text-red-700 mb-1.5">À Vérifier — introuvables ({report.toVerify.length}) :</p>
+              <div className="flex flex-wrap gap-1.5">
+                {report.toVerify.map((c, i) => (
+                  <span key={i} className="font-mono text-[11px] bg-red-50 text-red-700 rounded px-2 py-0.5">{c}</span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
