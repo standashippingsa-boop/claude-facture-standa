@@ -9,6 +9,7 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Truck, Package, Receipt, Clock, CheckCircle2 } from "lucide-react";
 import PackagesEngine from "@/components/PackagesEngine";
+import ConduceSummaryPanel from "@/components/ConduceSummaryPanel";
 import { getConduces, getConduceStats } from "@/lib/db";
 import { dateFr, usd } from "@/lib/utils";
 import type { Conduce } from "@/lib/types";
@@ -90,8 +91,13 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
         </div>
       </div>
 
-      {/* ===== Tablo Packages — MENM MOTÈ, filtre pa conduce_id ===== */}
-      <PackagesEngine conduceId={conduce.id} hideHeader />
+      {/* ===== Tablo Packages (menm motè) + Summary Panel (Faz 4) ===== */}
+      <div className="grid lg:grid-cols-[1fr_260px] gap-4 items-start">
+        <div><PackagesEngine conduceId={conduce.id} hideHeader /></div>
+        <div className="order-first lg:order-last">
+          <ConduceSummaryPanel conduceId={conduce.id} />
+        </div>
+      </div>
     </div>
   );
 }

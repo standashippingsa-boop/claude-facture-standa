@@ -122,6 +122,35 @@ export async function getConduceStats(conduceId: string): Promise<{
   };
 }
 
+/** Summary Panel (Faz 4) — estatistik konplè pou paj Conduce a. READ-ONLY. */
+export async function getConduceSummary(conduceId: string): Promise<{
+  packages: number; factures: number; nonFactures: number; poids: number;
+  taxes: number; remises: number; montantFacture: number; totalGeneral: number; clients: number;
+}> {
+  const { data } = await supabase.from("packages")
+    .select("weight, invoice_id, total_usd, tax_usd, customer_code, archived").eq("conduce_id", conduceId);
+  const rows = (data ?? []).filter((r: any) => !r.archived);
+
+  const invoiceIds = Array.from(new Set(rows.map((r: any) => r.invoice_id).filter(Boolean)));
+  let remises = 0;
+  if (invoiceIds.length) {
+    const { data: invs } = await supabase.from("invoices").select("discount").in("id", invoiceIds);
+    remises = (invs ?? []).reduce((s: number, i: any) => s + (Number(i.discount) || 0), 0);
+  }
+
+  return {
+    packages: rows.length,
+    factures: rows.filter((r: any) => r.invoice_id).length,
+    nonFactures: rows.filter((r: any) => !r.invoice_id).length,
+    poids: rows.reduce((s: number, r: any) => s + (Number(r.weight) || 0), 0),
+    taxes: rows.reduce((s: number, r: any) => s + (Number(r.tax_usd) || 0), 0),
+    remises,
+    montantFacture: rows.reduce((s: number, r: any) => s + (r.invoice_id ? (Number(r.total_usd) || 0) : 0), 0),
+    totalGeneral: rows.reduce((s: number, r: any) => s + (Number(r.total_usd) || 0), 0),
+    clients: new Set(rows.map((r: any) => r.customer_code).filter(Boolean)).size,
+  };
+}
+
 // ============ IMPORT CONDUCE (Faz 2) ============
 // RÈG: Package egziste yon sèl fwa. Import Conduce JANM kreye nouvo Package —
 // li JWENN sa ki egziste deja (pa Tracking ID/Guía oswa Tracking Number) epi LYE
