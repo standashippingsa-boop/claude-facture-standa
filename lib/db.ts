@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import { cleanTracking, isGuia, normalizeMcCode } from "./utils";
 import {
-  AccountType, Client, DashboardStats, ImportLog, Invoice, InvoiceItem, Pkg, Ville
+  AccountType, Client, Conduce, DashboardStats, ImportLog, Invoice, InvoiceItem, Pkg, Ville
 , Retrait, RetraitStatus
 } from "./types";
 import { McpackRow } from "./xlsx";
