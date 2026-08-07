@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Calculator, ClipboardList, FileText, Archive, Camera, CheckCircle2, Lock, Package, PackageCheck, Puzzle, Receipt, Pencil, RotateCcw } from "lucide-react";
+import { Calculator, ClipboardList, FileText, FileSpreadsheet, Archive, Camera, CheckCircle2, Lock, Package, PackageCheck, Puzzle, Receipt, Pencil, RotateCcw } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import {
@@ -15,6 +15,7 @@ import { Client, INTERNAL_STATUSES, Pkg } from "@/lib/types";
 import { dateFr, htg, parseMcpackDate, usd } from "@/lib/utils";
 import { generateBonRemise } from "@/lib/bonremise";
 import { exportPackagesPdf } from "@/lib/listpdf";
+import { exportPackagesExcel } from "@/lib/listexcel";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import { useRole } from "@/lib/authx";
 
@@ -482,6 +483,12 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
               selectedAll.length ? "Colis sélectionnés" : "Liste des colis")}
             title="Exporter la liste en PDF">
             <FileText size={15} /> Exporter PDF
+          </button>
+          <button className="btn btn-ghost border border-line"
+            onClick={() => exportPackagesExcel(selectedAll.length ? selectedAll : filtered, tarifMap,
+              selectedAll.length ? "Colis sélectionnés" : "Liste des colis")}
+            title="Exporter la liste en Excel">
+            <FileSpreadsheet size={15} /> Exporter Excel
           </button>
           <button className="btn btn-ghost border border-line" onClick={applyTarif} disabled={busy}>
             <Calculator size={15} /> Appliquer tarification
