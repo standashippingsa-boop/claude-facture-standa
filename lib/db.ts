@@ -1031,8 +1031,13 @@ export async function logAction(action: string, details = "", packageRef = "", c
         .select("prenom, nom, role").eq("auth_user_id", data.user.id).maybeSingle();
       if (s) userName = (s.prenom ? s.prenom + " " : "") + (s.nom ?? "") + " (" + s.role + ")";
     }
-    await supabase.from("journal").insert({
-      user_name: userName.trim(), action, details, package_ref: packageRef, customer_code: customerCode
+    // Kapte IP + Navigateur kote sèvè (Audit Log Enterprise) — route dedye,
+    // fallback silansye si li echwe (journal pa dwe janm bloke operasyon an)
+    await fetch("/api/audit-log", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_name: userName.trim(), action, details, package_ref: packageRef, customer_code: customerCode
+      })
     });
   } catch { /* journal pa dwe janm bloke operasyon an */ }
 }
@@ -1040,6 +1045,7 @@ export async function logAction(action: string, details = "", packageRef = "", c
 export interface JournalRow {
   id: string; created_at: string; user_name: string; action: string;
   details: string; package_ref: string; customer_code: string;
+  ip_address?: string; user_agent?: string;
 }
 export async function getJournal(limit = 300): Promise<JournalRow[]> {
   const { data } = await supabase.from("journal").select("*")

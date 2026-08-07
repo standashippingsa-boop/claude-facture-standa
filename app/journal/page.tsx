@@ -24,6 +24,15 @@ const ACTION_STYLES: Record<string, string> = {
   "Activation Client": "bg-teal-100 text-teal-700"
 };
 
+/** Rezime lizib yon User-Agent brit — pou tooltip Audit Log Enterprise. */
+function shortUA(ua: string): string {
+  const browser = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" :
+    /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Navigateur";
+  const os = /Windows/.test(ua) ? "Windows" : /Android/.test(ua) ? "Android" :
+    /iPhone|iPad/.test(ua) ? "iOS" : /Mac OS/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "";
+  return [browser, os].filter(Boolean).join(" · ");
+}
+
 export default function JournalPage() {
   const { role } = useRole();
   const [rows, setRows] = useState<JournalRow[]>([]);
@@ -107,7 +116,11 @@ export default function JournalPage() {
                 <tr key={r.id} className={i % 2 ? "bg-mist" : ""}>
                   <td className="tdc whitespace-nowrap">{t.d}</td>
                   <td className="tdc whitespace-nowrap">{t.h}</td>
-                  <td className="tdc max-w-[150px] truncate" title={r.user_name}>{r.user_name || "—"}</td>
+                  <td className="tdc max-w-[150px] truncate"
+                    title={[r.user_name, r.ip_address && `IP: ${r.ip_address}`, r.user_agent && shortUA(r.user_agent)]
+                      .filter(Boolean).join(" · ")}>
+                    {r.user_name || "—"}
+                  </td>
                   <td className="tdc"><span className={`badge ${ACTION_STYLES[r.action] ?? "bg-slate-100 text-slate-600"}`}>{r.action}</span></td>
                   <td className="tdc max-w-[240px]">
                     {(() => {
