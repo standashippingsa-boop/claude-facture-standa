@@ -68,7 +68,9 @@ export default function ConducesPage() {
                 <td className="tdc text-right">{r.facturedCount}/{r.count}</td>
                 <td className="tdc text-right">{r.verifiedCount}/{r.count}</td>
                 <td className="tdc">
-                  <span className="pill pill-gray"><span className="pill-dot" />{r.status}</span>
+                  {r.count === 0
+                    ? <span className="pill pill-amber"><span className="pill-dot" />En attente</span>
+                    : <span className="pill pill-gray"><span className="pill-dot" />{r.status}</span>}
                 </td>
                 <td className="tdc">
                   <Link href={`/conduces/${r.id}`} className="inline-flex items-center gap-1 text-navy hover:underline font-semibold">

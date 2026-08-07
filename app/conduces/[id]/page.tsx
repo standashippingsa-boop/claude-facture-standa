@@ -10,6 +10,7 @@ import Link from "next/link";
 import { ArrowLeft, Truck, Package, Receipt, Clock, CheckCircle2 } from "lucide-react";
 import PackagesEngine from "@/components/PackagesEngine";
 import ConduceSummaryPanel from "@/components/ConduceSummaryPanel";
+import ConduceManualPaste from "@/components/ConduceManualPaste";
 import { getConduces, getConduceStats } from "@/lib/db";
 import { dateFr, usd } from "@/lib/utils";
 import type { Conduce } from "@/lib/types";
@@ -64,6 +65,13 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
           <span className="pill pill-gray"><span className="pill-dot" />{conduce.status}</span>
         </div>
 
+        {stats && stats.count === 0 && (
+          <div className="rounded-lg bg-amber-50 text-amber-800 text-xs font-semibold px-3 py-2 mb-4 flex items-center gap-2">
+            <Clock size={14} /> En attente d&apos;import — utilisez l&apos;Extension Chrome sur MCPACK avec le numéro
+            <span className="font-mono">{conduce.conduce_number}</span>, ou complétez manuellement ci-dessous.
+          </div>
+        )}
+
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
           {[
             [<Package size={14} />, "Colis", stats?.count ?? 0],
@@ -92,6 +100,8 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
       </div>
 
       {/* ===== Tablo Packages (menm motè) + Summary Panel (Faz 4) ===== */}
+      <ConduceManualPaste conduceId={conduce.id} conduceNumber={conduce.conduce_number} onLinked={load} />
+
       <div className="grid lg:grid-cols-[1fr_260px] gap-4 items-start">
         <div><PackagesEngine conduceId={conduce.id} hideHeader /></div>
         <div className="order-first lg:order-last">

@@ -106,6 +106,25 @@ export async function ensureConduce(num: string, office = "", who = ""): Promise
   return data as Conduce;
 }
 
+/**
+ * Kreye plizyè Conduce "an atant" yon sèl kou (etap 1 workflow la — pa mande kontni).
+ * Yo rete vid jiskaske Extension Chrome ranpli yo via /api/ingest-conduce (etap 2).
+ * JANM doublon — reyitilize ensureConduce pou chak nimewo.
+ */
+export async function createPendingConduces(
+  numbers: string[], who = ""
+): Promise<{ number: string; id: string; alreadyExisted: boolean }[]> {
+  const out: { number: string; id: string; alreadyExisted: boolean }[] = [];
+  for (const raw of numbers) {
+    const num = raw.trim();
+    if (!num) continue;
+    const before = await getConduceByNumber(num);
+    const c = await ensureConduce(num, "", who);
+    out.push({ number: c.conduce_number, id: c.id, alreadyExisted: !!before });
+  }
+  return out;
+}
+
 /** Estatistik yon Conduce, kalkile depi packages ki gen menm conduce_id — jamè chan dwaplike. */
 export async function getConduceStats(conduceId: string): Promise<{
   count: number; weight: number; facturedCount: number; facturedTotal: number; verifiedCount: number;
