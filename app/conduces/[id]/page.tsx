@@ -61,6 +61,9 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
               <h1 className="h-page">Conduce {conduce.conduce_number}</h1>
               <p className="text-sm text-mute mt-0.5">
                 {conduce.office || "Office —"} · {conduce.conduce_date ? dateFr(conduce.conduce_date) : dateFr(conduce.created_at)}
+                {stats && stats.count > 0 && conduce.updated_at && (
+                  <> · Dernière synchronisation : {new Date(conduce.updated_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</>
+                )}
               </p>
             </div>
           </div>

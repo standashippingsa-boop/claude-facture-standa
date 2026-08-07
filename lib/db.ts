@@ -233,6 +233,7 @@ export async function linkPackagesToConduce(
     linked++;
   }
   if (linked > 0) {
+    await supabase.from("conduces").update({ updated_at: new Date().toISOString() }).eq("id", conduceId);
     await logAction("Import Conduce",
       `Conduce ${conduceNumber} : ${linked} colis liés`, "", "");
   }
