@@ -18,7 +18,10 @@ import type { Conduce } from "@/lib/types";
 export default function ConduceDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [conduce, setConduce] = useState<Conduce | null>(null);
-  const [stats, setStats] = useState<{ count: number; weight: number; facturedCount: number; facturedTotal: number; verifiedCount: number } | null>(null);
+  const [stats, setStats] = useState<{
+    count: number; weight: number; facturedCount: number; facturedTotal: number; verifiedCount: number;
+    disponibleCount: number; livreCount: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -41,7 +44,6 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
     </div>
   );
 
-  const pct = stats && stats.count ? Math.round((stats.facturedCount / stats.count) * 100) : 0;
   const restant = stats ? Math.max(0, stats.count - stats.facturedCount) : 0;
 
   return (
@@ -87,15 +89,30 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
           ))}
         </div>
 
-        {/* Progression */}
-        <div>
-          <div className="flex items-center justify-between text-xs text-mute mb-1">
-            <span>Progression (facturation)</span>
-            <span className="font-semibold text-ink">{pct}%</span>
-          </div>
-          <div className="h-2.5 rounded-full bg-mist overflow-hidden">
-            <div className="h-full bg-brand rounded-full transition-all" style={{ width: `${pct}%` }} />
-          </div>
+        {/* Progression pa etap: Synchronisé → Scanné/Validé → Disponible → Facturé → Livré */}
+        <div className="space-y-2.5">
+          <p className="text-xs font-bold text-mute uppercase tracking-wide mb-1">Progression</p>
+          {[
+            ["Synchronisé", stats?.count ?? 0, stats?.count ?? 0],
+            ["Scanné / Validé", stats?.verifiedCount ?? 0, stats?.count ?? 0],
+            ["Disponible", stats?.disponibleCount ?? 0, stats?.count ?? 0],
+            ["Facturé", stats?.facturedCount ?? 0, stats?.count ?? 0],
+            ["Livré", stats?.livreCount ?? 0, stats?.count ?? 0],
+          ].map(([label, done, total], i) => {
+            const d = Number(done), t = Number(total);
+            const p = t ? Math.round((d / t) * 100) : 0;
+            return (
+              <div key={i}>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-mute">{label as string}</span>
+                  <span className="font-semibold text-ink">{d}/{t} · {p}%</span>
+                </div>
+                <div className="h-2 rounded-full bg-mist overflow-hidden">
+                  <div className="h-full bg-brand rounded-full transition-all" style={{ width: `${p}%` }} />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

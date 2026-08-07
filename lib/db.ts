@@ -128,9 +128,10 @@ export async function createPendingConduces(
 /** Estatistik yon Conduce, kalkile depi packages ki gen menm conduce_id — jamè chan dwaplike. */
 export async function getConduceStats(conduceId: string): Promise<{
   count: number; weight: number; facturedCount: number; facturedTotal: number; verifiedCount: number;
+  disponibleCount: number; livreCount: number;
 }> {
   const { data } = await supabase.from("packages")
-    .select("weight, invoice_id, total_usd, verified, archived").eq("conduce_id", conduceId);
+    .select("weight, invoice_id, total_usd, verified, archived, status").eq("conduce_id", conduceId);
   const rows = (data ?? []).filter((r: any) => !r.archived);
   return {
     count: rows.length,
@@ -138,6 +139,9 @@ export async function getConduceStats(conduceId: string): Promise<{
     facturedCount: rows.filter((r: any) => r.invoice_id).length,
     facturedTotal: rows.reduce((s: number, r: any) => s + (r.invoice_id ? (Number(r.total_usd) || 0) : 0), 0),
     verifiedCount: rows.filter((r: any) => r.verified).length,
+    // Pipeline pa etap (pwen: Progression Synchronisé→Scanné→Validé→Facturé→Disponible→Livré)
+    disponibleCount: rows.filter((r: any) => ["Disponible", "Facturé", "Livré"].includes(r.status)).length,
+    livreCount: rows.filter((r: any) => r.status === "Livré").length,
   };
 }
 
