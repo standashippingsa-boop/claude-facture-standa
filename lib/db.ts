@@ -863,6 +863,68 @@ export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; r
   return { ok: true, restored };
 }
 
+/**
+ * Detache koli yo de fakti yo epi remete yo "Disponible" (koreksyon erè, ADMIN).
+ * Diferan de cancelInvoice: isit ou korije KÈK koli, pa tout fakti a.
+ * • Retire invoice_id + remete pri/taks a zewo (kalkil refèt pwòp)
+ * • Mete ajou fakti a (total, kantite) — oswa efase l si li vin vid
+ * • Audit log konplè
+ */
+export async function detachPackagesFromInvoice(
+  pkgIds: string[]
+): Promise<{ ok: boolean; detached: number; invoicesDeleted: number; reason?: string }> {
+  if (!pkgIds.length) return { ok: true, detached: 0, invoicesDeleted: 0 };
+
+  const { data: pkgs } = await supabase.from("packages")
+    .select("id, tracking_number, customer_code, invoice_id, total_usd").in("id", pkgIds);
+  const list = (pkgs ?? []).filter((p: any) => p.invoice_id);
+  if (!list.length) return { ok: true, detached: 0, invoicesDeleted: 0 };
+
+  const invoiceIds = Array.from(new Set(list.map((p: any) => p.invoice_id)));
+
+  // 1) Detache koli yo
+  const { error } = await supabase.from("packages").update({
+    status: "Disponible", invoice_id: null,
+    price_usd: 0, tax_usd: 0, total_usd: 0, price_htg: 0, tax_htg: 0, total_htg: 0
+  }).in("id", list.map((p: any) => p.id));
+  if (error) return { ok: false, detached: 0, invoicesDeleted: 0, reason: error.message };
+
+  // 2) Retire liy yo nan fakti a
+  const trackings = list.map((p: any) => p.tracking_number);
+  for (const invId of invoiceIds) {
+    await supabase.from("invoice_items").delete().eq("invoice_id", invId).in("tracking_number", trackings);
+  }
+
+  // 3) Fakti ki vin vid -> efase; sinon rekalkile total li
+  let invoicesDeleted = 0;
+  for (const invId of invoiceIds) {
+    const { data: items } = await supabase.from("invoice_items").select("total, weight").eq("invoice_id", invId);
+    const rest = items ?? [];
+    if (!rest.length) {
+      await supabase.from("invoices").delete().eq("id", invId);
+      invoicesDeleted++;
+    } else {
+      const subtotal = rest.reduce((s: number, r: any) => s + (Number(r.total) || 0), 0);
+      const weight = rest.reduce((s: number, r: any) => s + (Number(r.weight) || 0), 0);
+      const { data: inv } = await supabase.from("invoices")
+        .select("tax, frais_dga, discount, exchange_rate_used").eq("id", invId).maybeSingle();
+      const total = round2(subtotal + Number(inv?.tax ?? 0) + Number(inv?.frais_dga ?? 0) - Number(inv?.discount ?? 0));
+      await supabase.from("invoices").update({
+        subtotal: round2(subtotal), grand_total: total, total_usd: total,
+        total_htg: round2(total * Number(inv?.exchange_rate_used ?? 0)),
+        package_count: rest.length, total_weight: round2(weight)
+      }).eq("id", invId);
+    }
+  }
+
+  await logAction("Retrait Facture",
+    `${list.length} colis retiré(s) de facture et remis en "Disponible"` +
+    (invoicesDeleted ? ` | ${invoicesDeleted} facture(s) vide(s) supprimée(s)` : ""),
+    trackings.slice(0, 3).join(", "), list[0]?.customer_code ?? "");
+
+  return { ok: true, detached: list.length, invoicesDeleted };
+}
+
 export async function getInvoices(): Promise<Invoice[]> {  const { data, error } = await supabase.from("invoices").select("*")
     .order("created_at", { ascending: false });
   if (error) throw error;

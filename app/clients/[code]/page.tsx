@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import {
-  commitPdfImport, getClient, getClientPackagesAndInvoices,
+  commitPdfImport, detachPackagesFromInvoice, getClient, getClientPackagesAndInvoices,
   getInvoiceFlags, getSettings, getUsdRate, setPackagesStatus, updatePackagePrice
 } from "@/lib/db";
 import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
@@ -101,8 +101,29 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   // ===== Chanjman statut (ak email Reçu à Miami / Disponible) =====
   const appliquerStatut = async () => {
     if (!bulkStatus || !selected.length) return;
+    // "Facturé" -> "Disponible" = koreksyon erè: detache fakti a kòrèkteman
+    const factures = selected.filter((p) => p.status === "Facturé");
+    if (bulkStatus === "Disponible" && factures.length) {
+      if (!confirm(
+        `${factures.length} colis déjà facturé(s) vont être retirés de leur facture.\n\n` +
+        `➜ Ils redeviendront « Disponible » et pourront être re-facturés.\n` +
+        `➜ La facture sera recalculée (ou supprimée si elle devient vide).\n` +
+        `➜ Opération enregistrée dans l'audit.`
+      )) return;
+      setBusy(true);
+      try {
+        const r = await detachPackagesFromInvoice(factures.map((p) => p.id));
+        if (!r.ok) { setNotice("Erè: " + (r.reason ?? "inconnue")); setBusy(false); return; }
+        setNotice(`✅ ${r.detached} colis remis en « Disponible »` +
+          (r.invoicesDeleted ? ` — ${r.invoicesDeleted} facture(s) vide(s) supprimée(s).` : "."));
+        await load();
+      } catch (e: any) {
+        setNotice("Erè: " + (e?.message ?? String(e)));
+      } finally { setBusy(false); }
+      return;
+    }
     const targets = selected.filter((p) => p.status !== "Facturé" || bulkStatus === "Livré");
-    if (!targets.length) { setNotice("Chwazi koli (Facturé yo ka sèlman pase Livré)."); return; }
+    if (!targets.length) { setNotice("Chwazi koli (Facturé yo ka sèlman pase Livré oswa Disponible)."); return; }
     setBusy(true);
     try {
       await setPackagesStatus(targets.map((p) => p.id), bulkStatus);

@@ -7,7 +7,7 @@ import Pagination from "@/components/Pagination";
 import WhatsAppQueue from "@/components/WhatsAppQueue";
 import {
   ClientTarifInfo, archivePackage, unarchivePackage, getClient, getClientTarifMap,
-  getPackages, getPackagesPage, getAllPackagesMatching, getSettings, getUsdRate,
+  getPackages, getPackagesPage, getAllPackagesMatching, detachPackagesFromInvoice, getSettings, getUsdRate,
   saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice
 } from "@/lib/db";
 import { computePrice, round2 } from "@/lib/pricing";
@@ -55,7 +55,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   const [source, setSource] = useState("");   // filtè Source/Provenance (pwen: idantifye Caribe Tours vs Facture)
   const [dateF, setDateF] = useState("");
   const [page, setPage] = useState(1);
-  const [busy] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [showWaQueue, setShowWaQueue] = useState(false);
   const { role, staff } = useRole();
@@ -235,8 +235,29 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
    */
   const appliquerStatut = async () => {
     if (!bulkStatus || !selectedAll.length) return;
+    // "Facturé" -> "Disponible" = koreksyon erè: detache fakti a kòrèkteman
+    const factures = selectedAll.filter((p) => p.status === "Facturé");
+    if (bulkStatus === "Disponible" && factures.length) {
+      if (!confirm(
+        `${factures.length} colis déjà facturé(s) vont être retirés de leur facture.\n\n` +
+        `➜ Ils redeviendront « Disponible » et pourront être re-facturés.\n` +
+        `➜ La facture sera recalculée (ou supprimée si elle devient vide).\n` +
+        `➜ Opération enregistrée dans l'audit.`
+      )) return;
+      setBusy(true);
+      try {
+        const r = await detachPackagesFromInvoice(factures.map((p) => p.id));
+        if (!r.ok) { setNotice("Erè: " + (r.reason ?? "inconnue")); return; }
+        setNotice(`✅ ${r.detached} colis remis en « Disponible »` +
+          (r.invoicesDeleted ? ` — ${r.invoicesDeleted} facture(s) vide(s) supprimée(s).` : "."));
+        await refresh();
+      } catch (e: any) {
+        setNotice("Erè: " + (e?.message ?? String(e)));
+      } finally { setBusy(false); }
+      return;
+    }
     const targets = selectedAll.filter((p) => p.status !== "Facturé");
-    if (!targets.length) { setNotice("Koli Facturé yo pa ka chanje statut isit la."); return; }
+    if (!targets.length) { setNotice("Koli Facturé yo ka sèlman pase « Disponible » (koreksyon)."); return; }
     try {
       await setPackagesStatus(targets.map((p) => p.id), bulkStatus);
       await logAction("Changement Statut", `${targets.length} colis → ${bulkStatus}`, "", targets[0]?.customer_code ?? "");
