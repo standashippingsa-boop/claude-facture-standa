@@ -8,6 +8,7 @@ import { Client, Invoice, Pkg, Retrait } from "@/lib/types";
 import { DEPOT } from "@/lib/depot";
 import { dateFr, usd } from "@/lib/utils";
 import StatusBadge from "@/components/StatusBadge";
+import { StatusTimeline } from "@/components/StatusFlow";
 
 export default function EspaceClientPage() {
   const router = useRouter();
@@ -279,6 +280,9 @@ export default function EspaceClientPage() {
                         <input type="checkbox" checked={on} onChange={() => toggleSel(p.id)}
                           onClick={(e) => e.stopPropagation()} className="mt-0.5 shrink-0 w-4 h-4" />
                       )}
+                    </div>
+                    <div className="my-2.5">
+                      <StatusTimeline status={p.status} compact />
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <StatusBadge status={p.status} />
