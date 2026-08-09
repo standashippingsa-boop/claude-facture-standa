@@ -6,8 +6,8 @@ import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import {
   ClientTarifInfo, archivePackage, unarchivePackage, getClient, getClientTarifMap,
-  getPackages, getSettings, getUsdRate, saveTrackingManual, setPackagesStatus,
-  logAction, updatePackagePrice
+  getPackages, getPackagesPage, getAllPackagesMatching, getSettings, getUsdRate,
+  saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice
 } from "@/lib/db";
 import { computePrice, round2 } from "@/lib/pricing";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
@@ -59,6 +59,29 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   const { role, staff } = useRole();
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
   const [showArchived, setShowArchived] = useState(false);
+  // ===== Performance (pou 1000-5000+ koli) =====
+  // Vi Conduce (conduceId) rete SAN CHANJE: chaje tout (bounded natirèlman, bulk actions pa afekte).
+  // Vi global (Packages, san conduceId): pagination + rechèch SÈVÈ pa default.
+  const [fullyLoaded, setFullyLoaded] = useState<boolean>(!!conduceId);
+  const [total, setTotal] = useState(0);
+  const [loadingPage, setLoadingPage] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+  /** Kòd kliyan ki matche non/telefòn/vil pou rechèch (kalkile sou tarifMap, ki toujou konplè). */
+  const matchingClientCodes = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    if (!q) return [] as string[];
+    const codes: string[] = [];
+    tarifMap.forEach((info, code) => {
+      if ((info.fullname ?? "").toLowerCase().includes(q) ||
+          (info.phone ?? "").toLowerCase().includes(q) ||
+          (info.ville?.name ?? "").toLowerCase().includes(q)) codes.push(code);
+    });
+    return codes;
+  }, [debouncedSearch, tarifMap]);
   // ===== Tooltip modèn sou tracking (pwen #2) =====
   const [hover, setHover] = useState<{ p: Pkg; ville: string; x: number; y: number } | null>(null);
   const joursDepot = (p: Pkg): number | null => {
@@ -74,16 +97,83 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   });
   // Opsyon fakti — chak toggle endepandan (admin chwazi pou CHAK fakti)
 
-  const load = async () => {
-    const [p, tm, r, s] = await Promise.all([
-      getPackages(undefined, showArchived, conduceId), getClientTarifMap(), getUsdRate(), getSettings()
-    ]);
-    setPkgs(p.map((x) => ({ ...x, selected: false })));
+  const loadSide = async () => {
+    const [tm, r, s] = await Promise.all([getClientTarifMap(), getUsdRate(), getSettings()]);
     setTarifMap(tm);
     setRate(r);
     if (s.invoice_footer) setFooter(s.invoice_footer);
   };
-  useEffect(() => { load().catch((e) => setNotice("Erè bazdone: " + e.message)); /* eslint-disable-next-line */ }, [showArchived, conduceId]);
+
+  /** Vi Conduce (bounded) oswa "chaje tout" eksplisit — konpòtman idantik ak anvan. */
+  const load = async () => {
+    await loadSide();
+    const p = await getPackages(undefined, showArchived, conduceId);
+    setPkgs(p.map((x) => ({ ...x, selected: false })));
+    setTotal(p.length);
+  };
+
+  /** Vi global (san conduceId): yon paj sèlman, filtre + pagine KOTE SÈVÈ a. */
+  const fetchServerPage = async (pageNum: number) => {
+    setLoadingPage(true);
+    try {
+      const { rows, total: t } = await getPackagesPage({
+        search: debouncedSearch, matchingClientCodes, status,
+        source: (source as any) || "", dateF, includeArchived: showArchived, conduceId
+      }, pageNum, PER_PAGE);
+      setPkgs((prev) => {
+        const wasSelected = new Set(prev.filter((p) => p.selected).map((p) => p.id));
+        return rows.map((x) => ({ ...x, selected: wasSelected.has(x.id) }));
+      });
+      setTotal(t);
+    } catch (e: any) {
+      setNotice("Erè bazdone: " + e.message);
+    } finally { setLoadingPage(false); }
+  };
+
+  /** Rechaje done yo apre yon aksyon (fakti, elatriye) — respekte mòd aktyèl la. */
+  const refresh = async () => (fullyLoaded ? load() : fetchServerPage(page));
+
+  /** Sou demand: chaje TOUT rezilta ki matche filtè yo, seleksyone yo, pou bulk actions sou anpil paj. */
+  const loadAllForSelection = async () => {
+    setLoadingPage(true);
+    try {
+      const rows = await getAllPackagesMatching({
+        search: debouncedSearch, matchingClientCodes, status,
+        source: (source as any) || "", dateF, includeArchived: showArchived, conduceId
+      }, 3000);
+      setPkgs(rows.map((x) => ({ ...x, selected: true })));
+      setTotal(rows.length);
+      setFullyLoaded(true);
+      setPage(1);
+      setNotice(`${rows.length} colis chargés et sélectionnés.`);
+    } catch (e: any) {
+      setNotice("Erè chargement: " + e.message);
+    } finally { setLoadingPage(false); }
+  };
+
+  // Chajman inisyal: vi Conduce (bounded) chaje tout dirèk; vi global chaje premye paj sèvè a.
+  useEffect(() => {
+    (async () => {
+      try {
+        await loadSide();
+        if (fullyLoaded) {
+          const p = await getPackages(undefined, showArchived, conduceId);
+          setPkgs(p.map((x) => ({ ...x, selected: false })));
+          setTotal(p.length);
+        } else {
+          await fetchServerPage(1);
+        }
+      } catch (e: any) { setNotice("Erè bazdone: " + e.message); }
+    })();
+    /* eslint-disable-next-line */
+  }, [showArchived, conduceId]);
+
+  // Vi global sèlman: chak fwa filtè/paj chanje, rechèch KOTE SÈVÈ a (san rechaje tout done yo).
+  useEffect(() => {
+    if (fullyLoaded) return;
+    fetchServerPage(page);
+    /* eslint-disable-next-line */
+  }, [fullyLoaded, page, status, source, dateF, debouncedSearch, matchingClientCodes]);
 
   /** Lis statut ki egziste toutbon (pou filtre a) — san Livré, ki rete nan Historique */
   const statusOptions = useMemo(() => {
@@ -94,6 +184,8 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   }, [pkgs]);
 
   const filtered = useMemo(() => {
+    // Vi global paginée (sèvè a): pkgs se DEJA sèlman paj aktyèl la, filtre+triye kote sèvè a.
+    if (!fullyLoaded) return pkgs;
     const q = search.trim().toLowerCase();
     return pkgs
       // Koli livré yo pa parèt isit la — yo rete nan Historique (anyen pa efase)
@@ -117,11 +209,13 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
       // rete konsa apre chak import MCPACK
       .slice()
       .sort((a, b) => parseMcpackDate(b.created_date) - parseMcpackDate(a.created_date));
-  }, [pkgs, search, status, source, dateF, tarifMap]);
+  }, [pkgs, search, status, source, dateF, tarifMap, fullyLoaded]);
 
-  const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-  const pageRows = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-  useEffect(() => { setPage(1); }, [search, status, dateF]);
+  const pages = fullyLoaded
+    ? Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+    : Math.max(1, Math.ceil(total / PER_PAGE));
+  const pageRows = fullyLoaded ? filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE) : filtered;
+  useEffect(() => { setPage(1); }, [search, status, source, dateF]);
 
   const selectedAll = filtered.filter((p) => p.selected);                       // Bon de Remise / Marquer Disponible
   const selected = selectedAll.filter((p) => p.status === "Disponible");        // Facturation (san chanjman)
@@ -313,6 +407,17 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
           </button>
         </div>
       </div>
+
+      {!fullyLoaded && (
+        <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-mute -mt-2">
+          <span>{loadingPage ? "Chargement…" : `${total} colis correspondant aux filtres`}</span>
+          {total > PER_PAGE && (
+            <button className="text-navy hover:underline font-semibold" onClick={loadAllForSelection} disabled={loadingPage}>
+              Charger tous les résultats ({total}) pour sélection globale
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-4 text-xs text-mute px-1">
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300 inline-block" /> 🟢 Reçu chez MCPACK</span>
@@ -506,7 +611,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
           pkgs={selected}
           footer={footer}
           onClose={() => setInvClient(null)}
-          onDone={(msg) => { setNotice(msg); load(); }}
+          onDone={(msg) => { setNotice(msg); refresh(); }}
         />
       )}
 

@@ -79,6 +79,66 @@ export async function getPackages(status?: string, includeArchived = false, cond
   return includeArchived ? rows : rows.filter((p) => !p.archived);
 }
 
+// ============ PERFORMANCE — rechèch/pagination SÈVÈ (pou 1000-5000+ koli) ============
+// getPackages() rete SAN TOUCHE (Historique ak lòt kote kontinye itilize l jan yo te ye).
+// Fonksyon sa yo sèvi SÈLMAN pou lis Packages global la (paj ki gwosi ak volim lan).
+export interface PackagesQueryFilters {
+  search?: string;
+  matchingClientCodes?: string[];        // customer_code ki matche non/telefòn/vil kliyan (kalkile kote kliyan)
+  status?: string;
+  source?: "" | "extension" | "caribe" | "facture";
+  dateF?: string;
+  includeArchived?: boolean;
+  conduceId?: string;
+}
+
+function applyPackagesFilters(q: any, f: PackagesQueryFilters) {
+  // Menm règ ak vi aktif la: Livré ak Facturé rete nan Historique
+  q = q.neq("status", "Livré").neq("status", "Facturé");
+  if (!f.includeArchived) q = q.eq("archived", false);
+  if (f.conduceId) q = q.eq("conduce_id", f.conduceId);
+  if (f.status) q = q.eq("status", f.status);
+  if (f.source === "caribe") q = q.eq("src_caribe", true);
+  else if (f.source === "facture") q = q.eq("src_facture", true);
+  else if (f.source === "extension") q = q.eq("src_extension", true);
+  if (f.dateF) q = q.ilike("created_date", `%${f.dateF}%`);
+  const s = (f.search ?? "").replace(/[(),]/g, "").trim();
+  if (s) {
+    const parts = [
+      `tracking_number.ilike.%${s}%`, `tracking_manual.ilike.%${s}%`,
+      `customer_code.ilike.%${s}%`, `customer_name.ilike.%${s}%`,
+    ];
+    if (f.matchingClientCodes?.length) parts.push(`customer_code.in.(${f.matchingClientCodes.join(",")})`);
+    q = q.or(parts.join(","));
+  }
+  return q;
+}
+
+/** Yon paj koli filtre nan bazdone a (pa nan navigatè a) — rapid kèlkeswa volim done a. */
+export async function getPackagesPage(
+  filters: PackagesQueryFilters, page: number, perPage: number
+): Promise<{ rows: Pkg[]; total: number }> {
+  let q = supabase.from("packages").select("*", { count: "exact" });
+  q = applyPackagesFilters(q, filters);
+  q = q.order("created_at", { ascending: false }).range((page - 1) * perPage, page * perPage - 1);
+  const { data, error, count } = await q;
+  if (error) throw error;
+  const rows = (data ?? []).map((p) =>
+    asNum(p, ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[];
+  return { rows, total: count ?? rows.length };
+}
+
+/** Chaje TOUT koli ki matche filtè yo (sou demand — pou seleksyon global/bulk sou anpil paj). */
+export async function getAllPackagesMatching(filters: PackagesQueryFilters, cap = 3000): Promise<Pkg[]> {
+  let q = supabase.from("packages").select("*");
+  q = applyPackagesFilters(q, filters);
+  q = q.order("created_at", { ascending: false }).limit(cap);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []).map((p) =>
+    asNum(p, ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[];
+}
+
 // ============ MODIL CONDUCES (Faz 1 — fondasyon) ============
 // Single Source of Truth: AUCUN duplication Package. Yon Conduce se yon gwoup +
 // yon filtè sou packages.conduce_id. Tablo/aksyon yo se MENM Packages engine a.
