@@ -308,6 +308,61 @@ export async function linkPackagesToConduce(
   return { linked, alreadyElsewhere };
 }
 
+/**
+ * Import Excel espesifik CONDUCE (soti nan "Exportar XLS" sou paj MCPACK Conduce a).
+ * Menm règ ak /api/ingest-conduce (Extension): si koli a egziste deja (pa Guía),
+ * li lye ak Conduce a; si li pa egziste, li KREYE l (sous se yon Excel estriktire
+ * MCPACK, done fyab — pa yon devinèt). Office Conduce a mete ajou ak "Oficina".
+ * JANM doublon Package (Single Source of Truth).
+ */
+export async function importConduceExcelRows(
+  conduceId: string, conduceNumber: string,
+  rows: { guia: string; tracking_number: string; customer_code: string; customer_name: string;
+           office: string; weight: number; content: string; quantity: number }[],
+  who = ""
+): Promise<{ created: number; updated: number; linked: number; totalWeight: number }> {
+  let created = 0, updated = 0, linked = 0;
+  let officeSeen = "";
+  const now = new Date().toISOString();
+
+  for (const r of rows) {
+    if (!r.guia) continue;
+    if (r.office && !officeSeen) officeSeen = r.office;
+
+    const { data: existing } = await supabase.from("packages")
+      .select("id, conduce_id, tracking_manual").eq("tracking_number", r.guia).maybeSingle();
+
+    if (existing) {
+      const patch: Record<string, unknown> = {};
+      if (existing.conduce_id !== conduceId) { patch.conduce_id = conduceId; linked++; }
+      if (r.tracking_number && !existing.tracking_manual) patch.tracking_manual = r.tracking_number;
+      if (r.weight) patch.weight = r.weight;
+      if (r.content) patch.content = r.content;
+      if (Object.keys(patch).length) await supabase.from("packages").update(patch).eq("id", existing.id);
+      updated++;
+    } else {
+      await supabase.from("packages").insert({
+        tracking_number: r.guia, tracking_manual: r.tracking_number || "",
+        customer_code: r.customer_code, customer_name: r.customer_name || r.customer_code,
+        weight: r.weight || 0, content: r.content || "", quantity: r.quantity || 1,
+        status: "Reçu à Miami", conduce_id: conduceId,
+        received_at: now, received_method: "Import Conduce Excel", src_extension: true
+      });
+      created++; linked++;
+    }
+  }
+
+  const patchConduce: Record<string, unknown> = { updated_at: now };
+  if (officeSeen) patchConduce.office = officeSeen;
+  await supabase.from("conduces").update(patchConduce).eq("id", conduceId);
+
+  const totalWeight = rows.reduce((s, r) => s + (r.weight || 0), 0);
+  await logAction("Import Conduce (Excel)",
+    `Conduce ${conduceNumber} : ${created} créés, ${updated} mis à jour/liés, ${rows.length} colis, ${totalWeight.toFixed(2)} lb — par ${who}`,
+    "", "");
+  return { created, updated, linked, totalWeight };
+}
+
 export interface FactureMatch {
   tracking: string;
   weight?: number;

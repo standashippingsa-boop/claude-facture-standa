@@ -72,8 +72,8 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
 
         {stats && stats.count === 0 && (
           <div className="rounded-lg bg-amber-50 text-amber-800 text-xs font-semibold px-3 py-2 mb-4 flex items-center gap-2">
-            <Clock size={14} /> En attente d&apos;import — utilisez l&apos;Extension Chrome sur MCPACK avec le numéro
-            <span className="font-mono">{conduce.conduce_number}</span>, ou complétez manuellement ci-dessous.
+            <Clock size={14} /> En attente d&apos;import — sur MCPACK, ouvrez la Conduce
+            <span className="font-mono">{conduce.conduce_number}</span>, exportez le fichier Excel et importez-le ci-dessous.
           </div>
         )}
 
