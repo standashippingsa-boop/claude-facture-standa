@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Calculator, ClipboardList, FileText, FileSpreadsheet, Archive, Camera, CheckCircle2, Lock, Package, PackageCheck, Puzzle, Receipt, Pencil, RotateCcw } from "lucide-react";
+import { Calculator, ClipboardList, FileText, FileSpreadsheet, Archive, Camera, CheckCircle2, Lock, Package, PackageCheck, Puzzle, Receipt, Pencil, RotateCcw, MessageCircle } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
+import WhatsAppQueue from "@/components/WhatsAppQueue";
 import {
   ClientTarifInfo, archivePackage, unarchivePackage, getClient, getClientTarifMap,
   getPackages, getPackagesPage, getAllPackagesMatching, getSettings, getUsdRate,
@@ -56,6 +57,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   const [page, setPage] = useState(1);
   const [busy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [showWaQueue, setShowWaQueue] = useState(false);
   const { role, staff } = useRole();
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
   const [showArchived, setShowArchived] = useState(false);
@@ -598,11 +600,20 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
           <button className="btn btn-ghost border border-line" onClick={applyTarif} disabled={busy}>
             <Calculator size={15} /> Appliquer tarification
           </button>
+          {selectedAll.length > 0 && (
+            <button className="btn !bg-emerald-600 hover:!bg-emerald-700" onClick={() => setShowWaQueue(true)}>
+              <MessageCircle size={15} /> Envoyer WhatsApp ({selectedAll.length})
+            </button>
+          )}
           <button className="btn" onClick={ouvriFacture} disabled={busy || !selected.length}>
             <FileText size={15} /> Générer Facture
           </button>
         </div>
       </div>
+
+      {showWaQueue && (
+        <WhatsAppQueue pkgs={selectedAll} onClose={() => setShowWaQueue(false)} />
+      )}
 
       {/* ===== Fenèt konfimasyon Facture (opsyon pa fakti) ===== */}
       {invClient && (

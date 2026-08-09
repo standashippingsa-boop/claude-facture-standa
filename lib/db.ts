@@ -28,6 +28,14 @@ export async function getClient(code: string): Promise<Client | null> {
     .eq("customer_code", code).maybeSingle();
   return data as Client | null;
 }
+/** Plizyè kliyan yon sèl kou pa kòd — pou File d'attente WhatsApp / bulk actions. */
+export async function getClientsByCodes(codes: string[]): Promise<Client[]> {
+  if (!codes.length) return [];
+  const { data, error } = await supabase.from("clients").select(CLIENT_SELECT)
+    .in("customer_code", codes);
+  if (error) throw error;
+  return (data ?? []) as Client[];
+}
 /** Map kòd kliyan -> { vil, tip kont } (pou tarification rapid) */
 export interface ClientTarifInfo {
   ville: Ville | null;

@@ -65,3 +65,26 @@ export function openDepotWhatsApp(c: Client, tempPassword?: string) {
   const phone = normalizePhone(c.whatsapp || c.phone || "");
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(buildDepotMessage(c, tempPassword))}`, "_blank");
 }
+
+/** Mesaj pou notifye yon kliyan sou plizyè koli (File d'attente WhatsApp — bulk actions). */
+export function buildPackagesMessage(
+  clientName: string, pkgs: { tracking_number: string; content?: string; status: string }[]
+): string {
+  const lignes = pkgs.map((p) => `• ${p.tracking_number}${p.content ? " — " + p.content : ""} (${p.status})`);
+  return (
+    `Bonjou ${clientName},\n` +
+    `Nouvèl sou ${pkgs.length > 1 ? "vos colis" : "votre colis"} STANDA COMMERCIAL :\n\n` +
+    lignes.join("\n") +
+    `\n\nMèsi paske ou fè STANDA COMMERCIAL konfyans.`
+  );
+}
+
+/** Louvri WhatsApp ak mesaj pre-ranpli pou yon kliyan + lis koli l yo (klik → moun nan voye). */
+export function openPackagesWhatsApp(
+  client: { fullname: string; whatsapp?: string; phone?: string },
+  pkgs: { tracking_number: string; content?: string; status: string }[]
+) {
+  const phone = normalizePhone(client.whatsapp || client.phone || "");
+  const msg = buildPackagesMessage(client.fullname, pkgs);
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+}
