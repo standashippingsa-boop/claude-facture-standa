@@ -429,12 +429,13 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
         <table className="w-full text-xs">
           <thead><tr>
             <th className="thc"><input type="checkbox" checked={allChecked} onChange={(e) => toggleAll(e.target.checked)} /></th>
-            {["Code", "Nom Client", "Ville", "Tracking ID (Guía)", "Tracking Number", "Lb", "Content", "Price $", "Total $", "Total HTG", "Source", "Status", ""]
+            {["Code", "Nom Client", "Ville", "Tracking ID (Guía)", "Tracking Number", "Lb", "Content", "Price $", "Total $", "Total HTG",
+              ...(hideHeader ? [] : ["Source"]), "Status", ""]
               .map((h) => <th key={h} className="thc">{h}</th>)}
           </tr></thead>
           <tbody>
             {pageRows.length === 0 ? (
-              <tr><td colSpan={14} className="text-center py-10 text-mute">
+              <tr><td colSpan={hideHeader ? 13 : 14} className="text-center py-10 text-mute">
                 Aucun colis. Utilisez <a href="/sync" className="text-navy underline font-semibold">Synchronisation MCPACK</a>.
               </td></tr>
             ) : pageRows.map((p, i) => (
@@ -501,19 +502,21 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
                 <td className="tdc text-right">{usd(p.price_usd)}</td>
                 <td className="tdc text-right font-semibold whitespace-nowrap">{usd(p.total_usd)}</td>
                 <td className="tdc text-right text-[11px] text-slate-500 whitespace-nowrap">{htg(p.total_htg)}</td>
-                <td className="tdc">
-                  <div className="flex items-center gap-1">
-                    {(() => {
-                      const keys = pkgSources(p);
-                      if (!keys.length) return <span className="text-mute text-[11px]">—</span>;
-                      return SRC_DEFS.filter((d) => keys.includes(d.key)).map((d) => (
-                        <span key={d.key} className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${d.cls}`} title={d.label}>
-                          <d.Icon size={13} />
-                        </span>
-                      ));
-                    })()}
-                  </div>
-                </td>
+                {!hideHeader && (
+                  <td className="tdc">
+                    <div className="flex items-center gap-1">
+                      {(() => {
+                        const keys = pkgSources(p);
+                        if (!keys.length) return <span className="text-mute text-[11px]">—</span>;
+                        return SRC_DEFS.filter((d) => keys.includes(d.key)).map((d) => (
+                          <span key={d.key} className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${d.cls}`} title={d.label}>
+                            <d.Icon size={13} />
+                          </span>
+                        ));
+                      })()}
+                    </div>
+                  </td>
+                )}
                 <td className="tdc">
                   <div className="flex items-center gap-1.5">
                     <StatusBadge status={p.status} />
@@ -555,19 +558,21 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
       </div>
 
       <div className="card p-4 flex flex-col md:flex-row md:items-center gap-4 sticky bottom-3">
-        <div className="flex gap-6 flex-1 flex-wrap">
-          <div><p className="text-xs text-mute">Sélection ({selected.length} colis)</p>
-            <p className="text-lg font-bold text-navy">{usd(tp)}</p></div>
-          <div><p className="text-xs text-mute">Tax</p>
-            <p className="text-lg font-bold text-navy">{usd(tt)}</p></div>
-          <div className="bg-navy rounded-lg px-4 py-1.5">
-            <p className="text-xs text-white/70">Total USD</p>
-            <p className="text-xl font-bold text-white">{usd(tp + tt)}</p></div>
-          <div className="bg-navy/90 rounded-lg px-4 py-1.5">
-            <p className="text-xs text-white/70">Total HTG (taux {rate.toFixed(2)})</p>
-            <p className="text-xl font-bold text-white">{htg((tp + tt) * rate)}</p></div>
-        </div>
-        <div className="flex gap-2 flex-wrap items-center">
+        {selectedAll.length > 0 && (
+          <div className="flex gap-6 flex-1 flex-wrap">
+            <div><p className="text-xs text-mute">Sélection ({selected.length} colis)</p>
+              <p className="text-lg font-bold text-navy">{usd(tp)}</p></div>
+            <div><p className="text-xs text-mute">Tax</p>
+              <p className="text-lg font-bold text-navy">{usd(tt)}</p></div>
+            <div className="bg-navy rounded-lg px-4 py-1.5">
+              <p className="text-xs text-white/70">Total USD</p>
+              <p className="text-xl font-bold text-white">{usd(tp + tt)}</p></div>
+            <div className="bg-navy/90 rounded-lg px-4 py-1.5">
+              <p className="text-xs text-white/70">Total HTG (taux {rate.toFixed(2)})</p>
+              <p className="text-xl font-bold text-white">{htg((tp + tt) * rate)}</p></div>
+          </div>
+        )}
+        <div className="flex gap-2 flex-wrap items-center md:ml-auto">
           {selectedAll.length > 0 && (
             <>
               <select className="input !w-44 !py-2" value={bulkStatus}
@@ -579,12 +584,12 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
                 onClick={appliquerStatut} disabled={busy || !bulkStatus}>
                 <PackageCheck size={15} /> Appliquer ({selectedAll.length})
               </button>
+              <button className="btn btn-ghost border border-line" onClick={bonRemise} disabled={busy}
+                title="Lis koli pou ajan transpò yo">
+                <ClipboardList size={15} /> Créer Bon de Remise ({selectedAll.length})
+              </button>
             </>
           )}
-          <button className="btn btn-ghost border border-line" onClick={bonRemise}
-            disabled={busy || !selectedAll.length} title="Lis koli pou ajan transpò yo">
-            <ClipboardList size={15} /> Créer Bon de Remise{selectedAll.length ? ` (${selectedAll.length})` : ""}
-          </button>
           <button className="btn btn-ghost border border-line"
             onClick={() => exportPackagesPdf(selectedAll.length ? selectedAll : filtered, tarifMap,
               selectedAll.length ? "Colis sélectionnés" : "Liste des colis")}
@@ -605,9 +610,11 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
               <MessageCircle size={15} /> Envoyer WhatsApp ({selectedAll.length})
             </button>
           )}
-          <button className="btn" onClick={ouvriFacture} disabled={busy || !selected.length}>
-            <FileText size={15} /> Générer Facture
-          </button>
+          {selectedAll.length > 0 && (
+            <button className="btn" onClick={ouvriFacture} disabled={busy || !selected.length}>
+              <FileText size={15} /> Générer Facture
+            </button>
+          )}
         </div>
       </div>
 

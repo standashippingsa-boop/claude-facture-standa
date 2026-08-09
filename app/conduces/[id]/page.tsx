@@ -91,32 +91,6 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
             </div>
           ))}
         </div>
-
-        {/* Progression pa etap: Synchronisé → Scanné/Validé → Disponible → Facturé → Livré */}
-        <div className="space-y-2.5">
-          <p className="text-xs font-bold text-mute uppercase tracking-wide mb-1">Progression</p>
-          {[
-            ["Synchronisé", stats?.count ?? 0, stats?.count ?? 0],
-            ["Scanné / Validé", stats?.verifiedCount ?? 0, stats?.count ?? 0],
-            ["Disponible", stats?.disponibleCount ?? 0, stats?.count ?? 0],
-            ["Facturé", stats?.facturedCount ?? 0, stats?.count ?? 0],
-            ["Livré", stats?.livreCount ?? 0, stats?.count ?? 0],
-          ].map(([label, done, total], i) => {
-            const d = Number(done), t = Number(total);
-            const p = t ? Math.round((d / t) * 100) : 0;
-            return (
-              <div key={i}>
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="text-mute">{label as string}</span>
-                  <span className="font-semibold text-ink">{d}/{t} · {p}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-mist overflow-hidden">
-                  <div className="h-full bg-brand rounded-full transition-all" style={{ width: `${p}%` }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       {/* ===== Tablo Packages (menm motè) + Summary Panel (Faz 4) ===== */}
