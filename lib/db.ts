@@ -817,18 +817,27 @@ export async function createInvoiceFromComputation(
  */
 export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; restored: number; reason?: string }> {
   const { data: inv } = await supabase.from("invoices")
-    .select("id, invoice_number, customer_code, customer_name, total_usd").eq("id", invoiceId).maybeSingle();
+    .select("id, invoice_number, customer_code, customer_name, total_usd, pdf_url").eq("id", invoiceId).maybeSingle();
   if (!inv) return { ok: false, restored: 0, reason: "Facture introuvable." };
 
-  // 1) Koli yo -> Disponible, san fakti, pri remete a zewo
-  const { data: pkgs } = await supabase.from("packages").select("id").eq("invoice_id", invoiceId);
-  const restored = (pkgs ?? []).length;
-  if (restored) {
-    const { error } = await supabase.from("packages").update({
-      status: "Disponible", invoice_id: null,
-      price_usd: 0, tax_usd: 0, total_usd: 0,
-      price_htg: 0, tax_htg: 0, total_htg: 0
-    }).eq("invoice_id", invoiceId);
+  // 1) Koli yo -> Disponible, san fakti, pri remete a zewo.
+  //    EKSEPSYON: koli ki deja "Livré" kenbe statut yo (yo pa dwe rekile) —
+  //    yo jis pèdi lyen fakti a pou yo ka refakture.
+  const { data: pkgs } = await supabase.from("packages").select("id, status").eq("invoice_id", invoiceId);
+  const list = pkgs ?? [];
+  const restored = list.length;
+  const zero = { invoice_id: null, price_usd: 0, tax_usd: 0, total_usd: 0, price_htg: 0, tax_htg: 0, total_htg: 0 };
+
+  const livres = list.filter((p: any) => p.status === "Livré").map((p: any) => p.id);
+  const autres = list.filter((p: any) => p.status !== "Livré").map((p: any) => p.id);
+
+  if (autres.length) {
+    const { error } = await supabase.from("packages")
+      .update({ ...zero, status: "Disponible" }).in("id", autres);
+    if (error) return { ok: false, restored: 0, reason: error.message };
+  }
+  if (livres.length) {
+    const { error } = await supabase.from("packages").update(zero).in("id", livres);
     if (error) return { ok: false, restored: 0, reason: error.message };
   }
 
@@ -837,9 +846,18 @@ export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; r
   const { error: e2 } = await supabase.from("invoices").delete().eq("id", invoiceId);
   if (e2) return { ok: false, restored, reason: e2.message };
 
+  // 3) PDF ki nan Storage (pou pa kite lyen mouri)
+  if (inv.pdf_url) {
+    try {
+      const path = String(inv.pdf_url).split("/invoices/")[1];
+      if (path) await supabase.storage.from("invoices").remove([decodeURIComponent(path)]);
+    } catch { /* PDF opsyonèl — pa bloke anilasyon an */ }
+  }
+
   await logAction("Annulation Facture",
     `${inv.invoice_number} annulée | Client:${inv.customer_code} | Montant:${inv.total_usd} USD | ` +
-    `${restored} colis remis en "Disponible"`,
+    `${autres.length} colis remis en "Disponible"` +
+    (livres.length ? ` | ${livres.length} colis déjà livrés (statut conservé)` : ""),
     inv.invoice_number, inv.customer_code);
 
   return { ok: true, restored };
