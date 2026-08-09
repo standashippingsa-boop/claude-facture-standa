@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Eye, Download, Printer, Send } from "lucide-react";
-import { getInvoiceItems, getInvoices, getSettings, saveInvoicePdfUrl } from "@/lib/db";
+import { Eye, Download, Printer, Send, XCircle } from "lucide-react";
+import { cancelInvoice, getInvoiceItems, getInvoices, getSettings, saveInvoicePdfUrl } from "@/lib/db";
+import { useRole } from "@/lib/authx";
 import { generateUploadDownload, openInvoicePdf } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Invoice } from "@/lib/types";
@@ -12,6 +13,8 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState("");
   const [footer, setFooter] = useState("Mèsi paske ou fè STANDA COMMERCIAL konfyans.");
   const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const { role } = useRole();
 
   useEffect(() => {
     getInvoices().then(setInvoices).catch((e) => setNotice("Erè: " + e.message));
@@ -19,6 +22,31 @@ export default function InvoicesPage() {
   }, []);
 
   const withItems = async (inv: Invoice) => ({ inv, items: await getInvoiceItems(inv.id) });
+
+  /** ANNULER une facture (koreksyon erè) — koli yo retounen "Disponible" pou refakturasyon. */
+  const annuler = async (inv: Invoice) => {
+    if (!confirm(
+      `Annuler la facture ${inv.invoice_number} ?\n\n` +
+      `Client : ${inv.customer_name}\n` +
+      `Montant : ${usd(inv.total_usd)}\n` +
+      `Colis : ${inv.package_count}\n\n` +
+      `➜ Les colis redeviendront « Disponible » et pourront être re-facturés.\n` +
+      `➜ La facture sera supprimée définitivement.\n` +
+      `➜ L'opération est enregistrée dans l'audit.`
+    )) return;
+    setBusy(true);
+    try {
+      const r = await cancelInvoice(inv.id);
+      if (r.ok) {
+        setNotice(`✅ Facture ${inv.invoice_number} annulée — ${r.restored} colis remis en « Disponible ».`);
+        setInvoices((prev) => prev.filter((x) => x.id !== inv.id));
+      } else {
+        setNotice("Erè anilasyon: " + (r.reason ?? "inconnue"));
+      }
+    } catch (e: any) {
+      setNotice("Erè anilasyon: " + (e?.message ?? String(e)));
+    } finally { setBusy(false); }
+  };
 
   const voir = async (inv: Invoice) => {
     if (inv.pdf_url) { window.open(inv.pdf_url, "_blank"); return; }
@@ -83,6 +111,11 @@ export default function InvoicesPage() {
                   <button title="Télécharger" className="text-navy hover:text-navy-light mr-3" onClick={() => telecharger(f)}><Download size={16} /></button>
                   <button title="Ré-imprimer" className="text-navy hover:text-navy-light mr-3" onClick={() => imprimer(f)}><Printer size={16} /></button>
                   <button title="Envoyer sur WhatsApp" className="text-[#128C4B] hover:text-[#25D366]" onClick={() => envoyer(f)}><Send size={16} /></button>
+                  {role === "admin" && (
+                    <button title="Annuler la facture (colis redeviennent Disponible)"
+                      className="text-slate-400 hover:text-red-600 ml-3" disabled={busy}
+                      onClick={() => annuler(f)}><XCircle size={16} /></button>
+                  )}
                 </td>
               </tr>
             ))}

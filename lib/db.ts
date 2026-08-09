@@ -805,8 +805,47 @@ export async function createInvoiceFromComputation(
   return asNum(inv, ["subtotal", "tax", "grand_total", "exchange_rate_used", "total_usd", "total_htg", "total_weight"]) as Invoice;
 }
 
-export async function getInvoices(): Promise<Invoice[]> {
-  const { data, error } = await supabase.from("invoices").select("*")
+/**
+ * ANNULER une facture (koreksyon erè) — ADMIN sèlman.
+ * Defèt TOUT sa fakti a te fè:
+ *   • koli yo retounen "Disponible" (yo ka refakture)
+ *   • invoice_id retire + pri/taks remete a zewo
+ *   • liy fakti yo (invoice_items) efase
+ *   • fakti a efase
+ * Ak audit log konplè (montan, kliyan, konbyen koli).
+ * Koli yo PA JANM efase — yo jis vin disponib ankò.
+ */
+export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; restored: number; reason?: string }> {
+  const { data: inv } = await supabase.from("invoices")
+    .select("id, invoice_number, customer_code, customer_name, total_usd").eq("id", invoiceId).maybeSingle();
+  if (!inv) return { ok: false, restored: 0, reason: "Facture introuvable." };
+
+  // 1) Koli yo -> Disponible, san fakti, pri remete a zewo
+  const { data: pkgs } = await supabase.from("packages").select("id").eq("invoice_id", invoiceId);
+  const restored = (pkgs ?? []).length;
+  if (restored) {
+    const { error } = await supabase.from("packages").update({
+      status: "Disponible", invoice_id: null,
+      price_usd: 0, tax_usd: 0, total_usd: 0,
+      price_htg: 0, tax_htg: 0, total_htg: 0
+    }).eq("invoice_id", invoiceId);
+    if (error) return { ok: false, restored: 0, reason: error.message };
+  }
+
+  // 2) Liy fakti + fakti a
+  await supabase.from("invoice_items").delete().eq("invoice_id", invoiceId);
+  const { error: e2 } = await supabase.from("invoices").delete().eq("id", invoiceId);
+  if (e2) return { ok: false, restored, reason: e2.message };
+
+  await logAction("Annulation Facture",
+    `${inv.invoice_number} annulée | Client:${inv.customer_code} | Montant:${inv.total_usd} USD | ` +
+    `${restored} colis remis en "Disponible"`,
+    inv.invoice_number, inv.customer_code);
+
+  return { ok: true, restored };
+}
+
+export async function getInvoices(): Promise<Invoice[]> {  const { data, error } = await supabase.from("invoices").select("*")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((i) =>
