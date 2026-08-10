@@ -925,6 +925,64 @@ export async function detachPackagesFromInvoice(
   return { ok: true, detached: list.length, invoicesDeleted };
 }
 
+/**
+ * EFASE NÈT yon koli nan TOUT sistèm nan (koreksyon erè ki bloke — ADMIN sèlman).
+ * ⚠️ IREVERSIB. Itilize sèlman lè done a kraze e ou pral re-enpòte koli a
+ *    (Extension MCPACK / Import Conduce) pou l antre pwòp.
+ * Li netwaye:
+ *   • liy fakti a (invoice_items)
+ *   • fakti a: rekalkile, oswa efase si li vin vid
+ *   • koli a menm (packages) — li soti Packages, Historique, Conduce, dosye kliyan
+ * Audit log ANVAN efasman (pou tras la rete menm apre koli a disparèt).
+ */
+export async function hardDeletePackage(
+  pkgId: string
+): Promise<{ ok: boolean; invoiceDeleted: boolean; reason?: string }> {
+  const { data: p } = await supabase.from("packages")
+    .select("id, tracking_number, tracking_manual, customer_code, customer_name, status, invoice_id, weight, content")
+    .eq("id", pkgId).maybeSingle();
+  if (!p) return { ok: false, invoiceDeleted: false, reason: "Colis introuvable." };
+
+  // 1) Tras nan audit ANVAN nou efase (done a p ap egziste apre)
+  await logAction("Suppression Colis",
+    `${p.tracking_number} | Tracking:${p.tracking_manual || "—"} | Client:${p.customer_code} ${p.customer_name} | ` +
+    `Poids:${p.weight} | Contenu:${p.content || "—"} | Statut:${p.status}` +
+    (p.invoice_id ? " | était facturé" : ""),
+    p.tracking_number, p.customer_code);
+
+  // 2) Netwaye fakti a si koli a te fakture
+  let invoiceDeleted = false;
+  if (p.invoice_id) {
+    await supabase.from("invoice_items").delete()
+      .eq("invoice_id", p.invoice_id).eq("tracking_number", p.tracking_number);
+
+    const { data: items } = await supabase.from("invoice_items")
+      .select("total, weight").eq("invoice_id", p.invoice_id);
+    const rest = items ?? [];
+    if (!rest.length) {
+      await supabase.from("invoices").delete().eq("id", p.invoice_id);
+      invoiceDeleted = true;
+    } else {
+      const subtotal = rest.reduce((s: number, r: any) => s + (Number(r.total) || 0), 0);
+      const weight = rest.reduce((s: number, r: any) => s + (Number(r.weight) || 0), 0);
+      const { data: inv } = await supabase.from("invoices")
+        .select("tax, frais_dga, discount, exchange_rate_used").eq("id", p.invoice_id).maybeSingle();
+      const total = round2(subtotal + Number(inv?.tax ?? 0) + Number(inv?.frais_dga ?? 0) - Number(inv?.discount ?? 0));
+      await supabase.from("invoices").update({
+        subtotal: round2(subtotal), grand_total: total, total_usd: total,
+        total_htg: round2(total * Number(inv?.exchange_rate_used ?? 0)),
+        package_count: rest.length, total_weight: round2(weight)
+      }).eq("id", p.invoice_id);
+    }
+  }
+
+  // 3) Efase koli a nèt
+  const { error } = await supabase.from("packages").delete().eq("id", pkgId);
+  if (error) return { ok: false, invoiceDeleted, reason: error.message };
+
+  return { ok: true, invoiceDeleted };
+}
+
 export async function getInvoices(): Promise<Invoice[]> {  const { data, error } = await supabase.from("invoices").select("*")
     .order("created_at", { ascending: false });
   if (error) throw error;

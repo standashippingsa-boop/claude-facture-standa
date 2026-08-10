@@ -1,13 +1,13 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Calculator, ClipboardList, FileText, FileSpreadsheet, Archive, Camera, CheckCircle2, Lock, Package, PackageCheck, Puzzle, Receipt, Pencil, RotateCcw, MessageCircle } from "lucide-react";
+import { Calculator, ClipboardList, FileText, FileSpreadsheet, Archive, Camera, CheckCircle2, Lock, Package, PackageCheck, Puzzle, Receipt, Pencil, RotateCcw, MessageCircle, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import WhatsAppQueue from "@/components/WhatsAppQueue";
 import {
   ClientTarifInfo, archivePackage, unarchivePackage, getClient, getClientTarifMap,
-  getPackages, getPackagesPage, getAllPackagesMatching, detachPackagesFromInvoice, getSettings, getUsdRate,
+  getPackages, getPackagesPage, getAllPackagesMatching, detachPackagesFromInvoice, hardDeletePackage, getSettings, getUsdRate,
   saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice
 } from "@/lib/db";
 import { computePrice, round2 } from "@/lib/pricing";
@@ -354,6 +354,31 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
     setInvClient(client);
   };
 
+  /** EFASE NÈT (admin) — pou done kraze ki bloke. Koli a ka re-enpòte apre via Extension/Conduce. */
+  const supprimerDefinitif = async (p: Pkg) => {
+    if (!confirm(
+      `⚠️ SUPPRIMER DÉFINITIVEMENT ce colis ?\n\n` +
+      `Tracking ID : ${p.tracking_number}\n` +
+      `Client : ${p.customer_code} — ${p.customer_name}\n` +
+      `Statut : ${p.status}\n\n` +
+      `➜ Le colis sera retiré de TOUT le système (Packages, Historique, Conduce, dossier client).\n` +
+      `➜ Sa ligne de facture sera retirée ; la facture sera recalculée ou supprimée si vide.\n` +
+      `➜ CETTE ACTION EST IRRÉVERSIBLE.\n\n` +
+      `Vous pourrez le ré-importer depuis MCPACK (Extension / Import Conduce).`
+    )) return;
+    if (!confirm(`Dernière confirmation — supprimer ${p.tracking_number} définitivement ?`)) return;
+    setBusy(true);
+    try {
+      const r = await hardDeletePackage(p.id);
+      if (!r.ok) { setNotice("Erè: " + (r.reason ?? "inconnue")); return; }
+      setNotice(`🗑 Colis ${p.tracking_number} supprimé définitivement` +
+        (r.invoiceDeleted ? " — facture devenue vide supprimée." : "."));
+      setPkgs((prev) => prev.filter((x) => x.id !== p.id));
+    } catch (e: any) {
+      setNotice("Erè: " + (e?.message ?? String(e)));
+    } finally { setBusy(false); }
+  };
+
   const archive = async (p: Pkg) => {
     if (!confirm(`Archiver le colis ${p.tracking_number}?\n\nLes données restent dans la base (jamais supprimées). Il n'apparaîtra plus dans la liste active.`)) return;
     try {
@@ -569,6 +594,11 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
                     p.archived
                       ? <button className="text-slate-400 hover:text-emerald-600" title="Restaurer" onClick={() => restore(p)}><RotateCcw size={14} /></button>
                       : <button className="text-slate-400 hover:text-amber-600" title="Archiver (jamais supprimé)" onClick={() => archive(p)}><Archive size={14} /></button>
+                  )}
+                  {role === "admin" && (
+                    <button className="text-slate-300 hover:text-red-600 ml-1.5"
+                      title="Supprimer définitivement (données cassées — à ré-importer)"
+                      onClick={() => supprimerDefinitif(p)}><Trash2 size={14} /></button>
                   )}
                 </td>
               </tr>

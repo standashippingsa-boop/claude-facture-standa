@@ -1,12 +1,13 @@
 "use client";
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X } from "lucide-react";
+import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import {
-  commitPdfImport, detachPackagesFromInvoice, getClient, getClientPackagesAndInvoices,
+  commitPdfImport, detachPackagesFromInvoice, hardDeletePackage, getClient, getClientPackagesAndInvoices,
   getInvoiceFlags, getSettings, getUsdRate, setPackagesStatus, updatePackagePrice
 } from "@/lib/db";
+import { useRole } from "@/lib/authx";
 import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
 import { computePrice, round2 } from "@/lib/pricing";
 import InvoiceDialog from "@/components/InvoiceDialog";
@@ -31,6 +32,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   const [bulkStatus, setBulkStatus] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { role } = useRole();
   const [pdfRows, setPdfRows] = useState<PdfPkgRow[] | null>(null);   // Import PDF pou KLIYAN sa a
   const [flags, setFlags] = useState({ taxFix: false, taxDga: false });
 
@@ -96,6 +98,31 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       await load();
     } catch (e: any) { setNotice("Erè: " + e.message); }
     finally { setBusy(false); }
+  };
+
+  /** EFASE NÈT (admin) — pou done kraze. Koli a ka re-enpòte apre via Extension/Conduce. */
+  const supprimerDefinitif = async (p: SelPkg) => {
+    if (!confirm(
+      `⚠️ SUPPRIMER DÉFINITIVEMENT ce colis ?\n\n` +
+      `Tracking ID : ${p.tracking_number}\n` +
+      `Client : ${p.customer_code} — ${p.customer_name}\n` +
+      `Statut : ${p.status}\n\n` +
+      `➜ Le colis sera retiré de TOUT le système (Packages, Historique, Conduce, dossier client).\n` +
+      `➜ Sa ligne de facture sera retirée ; la facture sera recalculée ou supprimée si vide.\n` +
+      `➜ CETTE ACTION EST IRRÉVERSIBLE.\n\n` +
+      `Vous pourrez le ré-importer depuis MCPACK (Extension / Import Conduce).`
+    )) return;
+    if (!confirm(`Dernière confirmation — supprimer ${p.tracking_number} définitivement ?`)) return;
+    setBusy(true);
+    try {
+      const r = await hardDeletePackage(p.id);
+      if (!r.ok) { setNotice("Erè: " + (r.reason ?? "inconnue")); return; }
+      setNotice(`🗑 Colis ${p.tracking_number} supprimé définitivement` +
+        (r.invoiceDeleted ? " — facture devenue vide supprimée." : "."));
+      await load();
+    } catch (e: any) {
+      setNotice("Erè: " + (e?.message ?? String(e)));
+    } finally { setBusy(false); }
   };
 
   // ===== Chanjman statut (ak email Reçu à Miami / Disponible) =====
@@ -238,7 +265,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
         <table className="w-full text-xs">
           <thead><tr>
             <th className="thc"><input type="checkbox" checked={allChecked} onChange={(e) => toggleAll(e.target.checked)} /></th>
-            {["Tracking ID (Guía)", "Tracking Number", "Date", "Lb", "Content", "Price $", "Total $", "Status"]
+            {["Tracking ID (Guía)", "Tracking Number", "Date", "Lb", "Content", "Price $", "Total $", "Status", ""]
               .map((h) => <th key={h} className="thc">{h}</th>)}
           </tr></thead>
           <tbody>
@@ -255,6 +282,13 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
                 <td className="tdc text-right">{usd(p.price_usd)}</td>
                 <td className="tdc text-right font-semibold">{usd(p.total_usd)}</td>
                 <td className="tdc"><StatusBadge status={p.status} /></td>
+                <td className="tdc">
+                  {role === "admin" && (
+                    <button className="text-slate-300 hover:text-red-600"
+                      title="Supprimer définitivement (données cassées — à ré-importer)"
+                      onClick={() => supprimerDefinitif(p)}><Trash2 size={14} /></button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
