@@ -13,6 +13,8 @@ import { Download, RefreshCw, X } from "lucide-react";
 export default function PwaManager() {
   const [installEvt, setInstallEvt] = useState<any>(null);
   const [showInstall, setShowInstall] = useState(false);
+  // iOS pa gen "beforeinstallprompt" — nou montre enstriksyon "Ajouter à l'écran d'accueil"
+  const [iosHint, setIosHint] = useState(false);
   const [waitingSW, setWaitingSW] = useState<ServiceWorker | null>(null);
 
   useEffect(() => {
@@ -50,6 +52,18 @@ export default function PwaManager() {
       if (!standalone) setShowInstall(true);
     };
     window.addEventListener("beforeinstallprompt", onBip);
+
+    // iOS/iPadOS: pa gen prompt otomatik. Si li poko enstale, montre enstriksyon yo.
+    try {
+      const ua = navigator.userAgent || "";
+      const isIOS = /iPhone|iPad|iPod/.test(ua)
+        || (/Macintosh/.test(ua) && (navigator as any).maxTouchPoints > 1); // iPad iOS 13+
+      const standalone = window.matchMedia("(display-mode: standalone)").matches
+        || (navigator as any).standalone === true;
+      if (isIOS && !standalone && !localStorage.getItem("sc_ios_hint_dismissed")) {
+        setIosHint(true);
+      }
+    } catch { /* noop */ }
 
     return () => {
       window.removeEventListener("load", onLoad);
@@ -102,6 +116,29 @@ export default function PwaManager() {
             </div>
             <button onClick={doInstall} className="btn !py-1.5 !px-3 !text-xs shrink-0">Installer</button>
             <button onClick={() => setShowInstall(false)} className="text-slate-400 shrink-0"><X size={16} /></button>
+          </div>
+        </div>
+      )}
+      {/* iOS: enstriksyon "Ajouter à l'écran d'accueil" (pa gen install prompt otomatik) */}
+      {iosHint && !showInstall && !waitingSW && (
+        <div className="fixed bottom-4 inset-x-4 z-[55] mx-auto max-w-sm">
+          <div className="bg-white border border-line rounded-2xl shadow-lift p-4 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-navy flex items-center justify-center shrink-0">
+              <Download size={17} className="text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-ink">Ajouter STANDA COMMERCIAL</p>
+              <p className="text-[11px] text-mute mt-0.5">
+                Appuyez sur <b>Partager</b> en bas de Safari, puis choisissez
+                <b> « Sur l&apos;écran d&apos;accueil »</b>.
+              </p>
+              <button
+                className="text-[11px] text-navy font-semibold mt-1.5"
+                onClick={() => { try { localStorage.setItem("sc_ios_hint_dismissed", "1"); } catch { /* */ } setIosHint(false); }}>
+                Continuer sur le site
+              </button>
+            </div>
+            <button onClick={() => setIosHint(false)} className="text-slate-400 shrink-0"><X size={16} /></button>
           </div>
         </div>
       )}

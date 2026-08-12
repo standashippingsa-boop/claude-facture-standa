@@ -3,8 +3,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { getClientByAuthId } from "@/lib/db";
 import { clientEmail } from "@/lib/authx";
+import { normalizeMcCode } from "@/lib/utils";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,12 +16,24 @@ export default function LoginPage() {
   const submit = async () => {
     setErr(null); setBusy(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: clientEmail(username), password
-      });
+      // KÒZ RASIN #1 korije: kont yo kreye ak kòd NÒMALIZE ("MC-36191"), men
+      // kliyan an ka tape "36191", "mc36191", "MC 36191"... Nou nòmalize anvan.
+      const raw = username.trim();
+      const norm = normalizeMcCode(raw);
+      let data: any = null, error: any = null;
+
+      ({ data, error } = await supabase.auth.signInWithPassword({
+        email: clientEmail(norm), password
+      }));
+      // Konpatibilite: ansyen kont ki ta kreye san nòmalizasyon
+      if (error && raw && norm.toLowerCase() !== raw.toLowerCase()) {
+        const retry = await supabase.auth.signInWithPassword({
+          email: clientEmail(raw), password
+        });
+        if (!retry.error) { data = retry.data; error = null; }
+      }
       if (error) throw error;
-      // Premye koneksyon: fòse chanjman modpas tanporè a
-      const c = data.user ? await getClientByAuthId(data.user.id) : null;
+
       // V8.5: pa gen fòs chanjman modpas ankò — kliyan an ka itilize modpas admin ba li a
       router.push("/espace-client");
     } catch {
