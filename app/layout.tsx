@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Shell from "@/components/Shell";
 import PwaManager from "@/components/PwaManager";
+import InstallGateway from "@/components/InstallGateway";
 
 export const metadata: Metadata = {
   applicationName: "STANDA COMMERCIAL",
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Shell>{children}</Shell>
         <PwaManager />
+        <InstallGateway />
       </body>
     </html>
   );

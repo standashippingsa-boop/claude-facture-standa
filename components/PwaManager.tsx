@@ -1,20 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Download, RefreshCw, X } from "lucide-react";
+import { RefreshCw, X } from "lucide-react";
 
 /**
  * PWA Manager — STANDA COMMERCIAL
  * ════════════════════════════════
  *  - Anrejistre service worker la (/sw.js)
- *  - "Installer l'application" (beforeinstallprompt) — Android/Chrome/Edge
  *  - "Nouvelle version disponible" lè yon SW ap tann -> Mettre à jour / Plus tard
- *  - iOS: pa gen prompt otomatik, se "Ajouter à l'écran d'accueil" nan Safari
+ *
+ * NÒT: ENSTALASYON app la jere pa <InstallGateway /> (deteksyon inivèsèl:
+ * Android, iPhone/iPad, Windows, Mac, Chromebook, fallback web). Nou pa
+ * dwaplike lojik enstalasyon isit la.
  */
 export default function PwaManager() {
-  const [installEvt, setInstallEvt] = useState<any>(null);
-  const [showInstall, setShowInstall] = useState(false);
-  // iOS pa gen "beforeinstallprompt" — nou montre enstriksyon "Ajouter à l'écran d'accueil"
-  const [iosHint, setIosHint] = useState(false);
   const [waitingSW, setWaitingSW] = useState<ServiceWorker | null>(null);
 
   useEffect(() => {
@@ -29,9 +27,7 @@ export default function PwaManager() {
           const nw = reg.installing;
           if (!nw) return;
           nw.addEventListener("statechange", () => {
-            if (nw.state === "installed" && navigator.serviceWorker.controller) {
-              setWaitingSW(nw);
-            }
+            if (nw.state === "installed" && navigator.serviceWorker.controller) setWaitingSW(nw);
           });
         });
       }).catch(() => {});
@@ -43,41 +39,11 @@ export default function PwaManager() {
     const onCtrl = () => { if (!refreshing) { refreshing = true; window.location.reload(); } };
     navigator.serviceWorker.addEventListener("controllerchange", onCtrl);
 
-    // Install prompt (Android/desktop)
-    const onBip = (e: Event) => {
-      e.preventDefault();
-      setInstallEvt(e);
-      // Pa deranje si deja enstale
-      const standalone = window.matchMedia("(display-mode: standalone)").matches;
-      if (!standalone) setShowInstall(true);
-    };
-    window.addEventListener("beforeinstallprompt", onBip);
-
-    // iOS/iPadOS: pa gen prompt otomatik. Si li poko enstale, montre enstriksyon yo.
-    try {
-      const ua = navigator.userAgent || "";
-      const isIOS = /iPhone|iPad|iPod/.test(ua)
-        || (/Macintosh/.test(ua) && (navigator as any).maxTouchPoints > 1); // iPad iOS 13+
-      const standalone = window.matchMedia("(display-mode: standalone)").matches
-        || (navigator as any).standalone === true;
-      if (isIOS && !standalone && !localStorage.getItem("sc_ios_hint_dismissed")) {
-        setIosHint(true);
-      }
-    } catch { /* noop */ }
-
     return () => {
       window.removeEventListener("load", onLoad);
-      window.removeEventListener("beforeinstallprompt", onBip);
       navigator.serviceWorker.removeEventListener("controllerchange", onCtrl);
     };
   }, []);
-
-  const doInstall = async () => {
-    if (!installEvt) return;
-    installEvt.prompt();
-    try { await installEvt.userChoice; } catch { /* noop */ }
-    setInstallEvt(null); setShowInstall(false);
-  };
 
   const doUpdate = () => {
     if (waitingSW) waitingSW.postMessage("SKIP_WAITING");
@@ -93,52 +59,13 @@ export default function PwaManager() {
             <RefreshCw size={18} className="shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold">Nouvelle version disponible</p>
-              <p className="text-[11px] text-white/70">Mettez à jour pour les dernières améliorations.</p>
+              <p className="text-[11px] text-white/70">Mettez à jour pour obtenir les dernières améliorations.</p>
             </div>
-            <button onClick={doUpdate} className="bg-white text-navy rounded-lg px-3 py-1.5 text-xs font-bold shrink-0">
+            <button onClick={doUpdate}
+              className="bg-white text-navy rounded-lg px-3 py-1.5 text-xs font-bold shrink-0">
               Mettre à jour
             </button>
             <button onClick={() => setWaitingSW(null)} className="text-white/60 shrink-0"><X size={16} /></button>
-          </div>
-        </div>
-      )}
-
-      {/* Bandeau enstalasyon */}
-      {showInstall && !waitingSW && (
-        <div className="fixed bottom-4 inset-x-4 z-[55] mx-auto max-w-sm">
-          <div className="bg-white border border-line rounded-2xl shadow-lift p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-navy flex items-center justify-center shrink-0">
-              <Download size={17} className="text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-ink">Installer STANDA COMMERCIAL</p>
-              <p className="text-[11px] text-mute">Accès rapide, plein écran, comme une app.</p>
-            </div>
-            <button onClick={doInstall} className="btn !py-1.5 !px-3 !text-xs shrink-0">Installer</button>
-            <button onClick={() => setShowInstall(false)} className="text-slate-400 shrink-0"><X size={16} /></button>
-          </div>
-        </div>
-      )}
-      {/* iOS: enstriksyon "Ajouter à l'écran d'accueil" (pa gen install prompt otomatik) */}
-      {iosHint && !showInstall && !waitingSW && (
-        <div className="fixed bottom-4 inset-x-4 z-[55] mx-auto max-w-sm">
-          <div className="bg-white border border-line rounded-2xl shadow-lift p-4 flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-navy flex items-center justify-center shrink-0">
-              <Download size={17} className="text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-ink">Ajouter STANDA COMMERCIAL</p>
-              <p className="text-[11px] text-mute mt-0.5">
-                Appuyez sur <b>Partager</b> en bas de Safari, puis choisissez
-                <b> « Sur l&apos;écran d&apos;accueil »</b>.
-              </p>
-              <button
-                className="text-[11px] text-navy font-semibold mt-1.5"
-                onClick={() => { try { localStorage.setItem("sc_ios_hint_dismissed", "1"); } catch { /* */ } setIosHint(false); }}>
-                Continuer sur le site
-              </button>
-            </div>
-            <button onClick={() => setIosHint(false)} className="text-slate-400 shrink-0"><X size={16} /></button>
           </div>
         </div>
       )}
