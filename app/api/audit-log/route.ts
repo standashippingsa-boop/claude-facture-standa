@@ -17,6 +17,15 @@ function svc() {
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => null);
+
+    // SEKIRITE: fòk moun nan otantifye. Anvan, nenpòt moun te ka ekri
+    // fo antre nan jounal la (falsifikasyon tras odit).
+    const db0 = svc();
+    const token = String(body?.token ?? "");
+    if (!token) return NextResponse.json({ ok: false, reason: "Session requise." }, { status: 401 });
+    const { data: au } = await db0.auth.getUser(token);
+    if (!au?.user) return NextResponse.json({ ok: false, reason: "Session invalide." }, { status: 401 });
+
     const userName = String(body?.user_name ?? "");
     const action = String(body?.action ?? "");
     const details = String(body?.details ?? "");
@@ -29,7 +38,7 @@ export async function POST(req: Request) {
     const ip = (xff.split(",")[0] || req.headers.get("x-real-ip") || "").trim();
     const userAgent = req.headers.get("user-agent") ?? "";
 
-    const db = svc();
+    const db = db0;
     await db.from("journal").insert({
       user_name: userName, action, details, package_ref: packageRef, customer_code: customerCode,
       ip_address: ip, user_agent: userAgent

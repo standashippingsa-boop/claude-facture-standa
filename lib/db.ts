@@ -1185,41 +1185,17 @@ export async function registerClientProfile(p: {
   address: string; id_type: string; id_number: string;
   ville_id?: string | null;   // lyen otomatik ak tarification (vil kliyan an chwazi a)
 }): Promise<void> {
-  // ---- ANTI-DOUBLON (V7.2): si kliyan an deja egziste (kreye pa admin oswa
-  //      pa sync MCPACK), nou METE AJOU kont li a — nou pa kreye yon 2yèm kont.
-  //      Priyorite matching: Email -> WhatsApp -> Téléphone.
-  const digits = (s: string) => s.replace(/\D/g, "");
-  const all = await getClients();
-  const found = all.find((c) =>
-    (p.email && (c.email ?? "").trim().toLowerCase() === p.email.trim().toLowerCase()) ||
-    (digits(p.whatsapp).length >= 7 &&
-      (digits(c.whatsapp ?? "").endsWith(digits(p.whatsapp).slice(-8)) && digits(c.whatsapp ?? "").length >= 7)) ||
-    (digits(p.phone).length >= 7 &&
-      (digits(c.phone ?? "").endsWith(digits(p.phone).slice(-8)) && digits(c.phone ?? "").length >= 7)));
-
-  if (found) {
-    if (found.auth_user_id) {
-      throw new Error("Ou gen yon kont deja sou sistèm nan. Konekte pito — oswa kontakte STANDA COMMERCIAL.");
-    }
-    // Mete ajou kliyan ki egziste a (kenbe kòd li + tout koli/fakti li yo)
-    const { error } = await supabase.from("clients").update({
-      ...p,
-      auth_user_id: p.auth_user_id ?? null,
-      // Si li deja gen kòd MCPACK -> li rete Actif; sinon li tann aktivasyon
-      account_status: found.customer_code ? (found.account_status ?? "Actif") : "En attente d'activation"
-    }).eq("id", found.id);
-    if (error) throw error;
-    return;
-  }
-
-  const { error } = await supabase.from("clients").insert({
-    ...p,
-    auth_user_id: p.auth_user_id ?? null,
-    customer_code: null,
-    pickup_location: "",
-    account_status: "En attente d'activation"
+  // SEKIRITE: dedoublonaj + ekriti fèt KOTE SÈVÈ (/api/register-client).
+  // Anvan, sa te fèt nan navigatè a — sa te mande li TOUT tab kliyan an,
+  // ki t ap ekspoze done tout kliyan yo. Kounye a sèvè a fè travay la.
+  const { data: sess } = await supabase.auth.getSession();
+  const token = sess?.session?.access_token ?? "";
+  const res = await fetch("/api/register-client", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, profile: p })
   });
-  if (error) throw error;
+  const j = await res.json().catch(() => ({ ok: false, reason: "Erreur réseau." }));
+  if (!j.ok) throw new Error(j.reason ?? "Enregistrement impossible.");
 }
 
 export async function getClientByAuthId(uid: string): Promise<Client | null> {
@@ -1377,9 +1353,11 @@ export async function logAction(action: string, details = "", packageRef = "", c
     }
     // Kapte IP + Navigateur kote sèvè (Audit Log Enterprise) — route dedye,
     // fallback silansye si li echwe (journal pa dwe janm bloke operasyon an)
+    const { data: sess } = await supabase.auth.getSession();
     await fetch("/api/audit-log", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        token: sess?.session?.access_token ?? "",
         user_name: userName.trim(), action, details, package_ref: packageRef, customer_code: customerCode
       })
     });
