@@ -93,6 +93,7 @@ export interface Pkg {
   verified_by?: string;
   proof_photo_url?: string;         // Faz 3 — foto de preuve resepsyon
   proof_photo_at?: string | null;
+  invoiced_at?: string | null;      // Archivage otomatik apre fakti
   conduce_id?: string | null;       // Modil Conduces — Single Source of Truth (filtè, pa dwaplikaj)
   selected?: boolean; // UI sèlman
 }

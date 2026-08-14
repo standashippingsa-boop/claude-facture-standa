@@ -751,6 +751,32 @@ export async function createInvoiceFromComputation(
   if (!comp.ok) throw new Error("Facture refusée: " + comp.errors.join(" "));
   if (!verifyTotal(comp)) throw new Error("Erreur de calcul détectée. Facture bloquée.");
 
+  // ══ GAD #1: ANTI DOUB-FAKTI (verifye kont BAZDONE a, pa ekran an) ══
+  const pkgIds = comp.lines.map((l) => l.pkg.id);
+  if (!pkgIds.length) throw new Error("Aucun colis à facturer.");
+  const { data: fresh, error: eCheck } = await supabase.from("packages")
+    .select("id, tracking_number, customer_code, status, invoice_id").in("id", pkgIds);
+  if (eCheck) throw eCheck;
+  if (!fresh || fresh.length !== pkgIds.length) {
+    throw new Error("Certains colis n'existent plus. Rafraîchissez la page.");
+  }
+  const deja = fresh.filter((p: any) => p.invoice_id || p.status === "Facturé");
+  if (deja.length) {
+    const { data: dinv } = await supabase.from("invoices")
+      .select("invoice_number, created_at, customer_name")
+      .in("id", deja.map((p: any) => p.invoice_id).filter(Boolean));
+    const ref = (dinv ?? [])[0];
+    throw new Error(
+      `Ce colis est déjà facturé (${deja.map((p: any) => p.tracking_number).slice(0, 3).join(", ")})` +
+      (ref ? ` — Facture ${ref.invoice_number}, ${new Date(ref.created_at).toLocaleDateString("fr-FR")}, ${ref.customer_name}.` : ".")
+    );
+  }
+  // ══ GAD #2: tout koli dwe apateni kliyan an ══
+  const mauvais = fresh.filter((p: any) => p.customer_code !== client.customer_code);
+  if (mauvais.length) {
+    throw new Error(`Colis d'un autre client détecté (${mauvais[0].tracking_number}). Facture bloquée.`);
+  }
+
   const invoice_number = "SC-" + Date.now().toString().slice(-6);
   const { data: inv, error } = await supabase.from("invoices").insert({
     invoice_number,
@@ -785,21 +811,39 @@ export async function createInvoiceFromComputation(
     total: l.amount
   }));
   const { error: e2 } = await supabase.from("invoice_items").insert(items);
-  if (e2) throw e2;
+  if (e2) {
+    // ROLLBACK konpansatwa: pa kite yon fakti òfelen nan bazdone a
+    await supabase.from("invoices").delete().eq("id", inv.id);
+    throw new Error("Impossible de finaliser la facture. Aucun colis n'a été archivé.");
+  }
 
-  await Promise.all(comp.lines.map((l) =>
+  // ARCHIVAGE OTOMATIK: statut + lyen fakti + dat tras (koli PA JANM efase)
+  const invoicedAt = new Date().toISOString();
+  const results = await Promise.all(comp.lines.map((l) =>
     supabase.from("packages").update({
       status: "Facturé", invoice_id: inv.id,
+      invoiced_at: invoicedAt,
       price_usd: l.amount, tax_usd: 0,
       price_htg: round2(l.amount * rate), tax_htg: 0
     }).eq("id", l.pkg.id)
   ));
+  const failed = results.filter((r: any) => r?.error);
+  if (failed.length) {
+    // ROLLBACK: detache koli ki te pase, efase liy yo + fakti a
+    await supabase.from("packages").update({
+      status: "Disponible", invoice_id: null, invoiced_at: null
+    }).eq("invoice_id", inv.id);
+    await supabase.from("invoice_items").delete().eq("invoice_id", inv.id);
+    await supabase.from("invoices").delete().eq("id", inv.id);
+    throw new Error("Impossible de finaliser la facture. Aucun colis n'a été archivé.");
+  }
 
-  // JOURNAL FINANCIER (§9)
+  // JOURNAL FINANCIER (§9) + tras ARCHIVAGE
   await logAction("Facturation",
     `${invoice_number} | Ville:${comp.ville} | Zone:${comp.zone} | Prix/LB:${comp.perLb} | ` +
     `Poids:${comp.totalWeight} | Sous-total:${comp.subtotal} | Taxe:${comp.taxeFixe} | ` +
-    `DGA:${comp.fraisDga} | Discount:${comp.discount} | Mode:${mode} | TOTAL:${comp.totalUsd} USD`,
+    `DGA:${comp.fraisDga} | Discount:${comp.discount} | Mode:${mode} | TOTAL:${comp.totalUsd} USD | ` +
+    `${comp.lines.length} colis "Disponible" → "Facturé" (archivés) | Réf:${inv.id}`,
     invoice_number, client.customer_code);
 
   return asNum(inv, ["subtotal", "tax", "grand_total", "exchange_rate_used", "total_usd", "total_htg", "total_weight"]) as Invoice;
