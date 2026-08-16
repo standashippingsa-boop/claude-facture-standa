@@ -33,12 +33,18 @@ export async function POST(req: Request) {
     const svc = createClient(URL_, SERVICE, { auth: { persistSession: false } });
     const body = await req.json().catch(() => ({}));
 
-    // ---- Otantifikasyon: fòk moun nan gen yon sesyon valid ----
+    // ---- Sesyon OPSYONÈL ----
+    // Enskripsyon piblik la PA kreye kont Auth (admin aktive kliyan an apre,
+    // ak kòd MC a). Donk pa gen sesyon isit la nan ka nòmal.
+    // Pwoteksyon ki ranplase l: rate limiting (5/èdtan/IP), validasyon kote
+    // sèvè, lis blan chan yo, epi wout la pa JANM retounen done lòt kliyan.
+    // Si yon sesyon egziste (ka aktivasyon), nou mare pwofil la ak idantite a.
     const token = String(body.token ?? "");
-    if (!token) return NextResponse.json({ ok: false, reason: "Session requise." }, { status: 401 });
-    const { data: au } = await svc.auth.getUser(token);
-    if (!au?.user) return NextResponse.json({ ok: false, reason: "Session invalide." }, { status: 401 });
-    const authUserId = au.user.id;
+    let authUserId: string | null = null;
+    if (token) {
+      const { data: au } = await svc.auth.getUser(token);
+      authUserId = au?.user?.id ?? null;
+    }
 
     // ---- Validasyon done (kote sèvè) ----
     const p = body.profile ?? {};
@@ -70,12 +76,12 @@ export async function POST(req: Request) {
       (tail && digits(c.phone ?? "").length >= 7 && digits(c.phone ?? "").endsWith(tail)));
 
     if (found) {
-      if (found.auth_user_id && found.auth_user_id !== authUserId) {
+      if (found.auth_user_id && authUserId && found.auth_user_id !== authUserId) {
         return NextResponse.json({ ok: false, reason: "Un compte existe déjà. Connectez-vous ou contactez STANDA COMMERCIAL." }, { status: 409 });
       }
       const { error } = await svc.from("clients").update({
         ...profile,
-        auth_user_id: authUserId,
+        ...(authUserId ? { auth_user_id: authUserId } : {}),
         account_status: found.customer_code ? (found.account_status ?? "Actif") : "En attente d'activation",
       }).eq("id", found.id);
       if (error) return NextResponse.json({ ok: false, reason: "Enregistrement impossible." }, { status: 500 });
@@ -84,7 +90,7 @@ export async function POST(req: Request) {
 
     const { error } = await svc.from("clients").insert({
       ...profile,
-      auth_user_id: authUserId,
+      auth_user_id: authUserId,   // null si enskripsyon piblik (nòmal)
       customer_code: null,
       pickup_location: "",
       account_status: "En attente d'activation",
