@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import RefreshButton from "@/components/RefreshButton";
+import { usePackageSelection } from "@/lib/selection";
 import {
   commitPdfImport, detachPackagesFromInvoice, hardDeletePackage, getClient, getClientPackagesAndInvoices,
   getInvoiceFlags, getSettings, getUsdRate, setPackagesStatus, updatePackagePrice
@@ -34,6 +35,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { role } = useRole();
+  const sel = usePackageSelection();
   const [pdfRows, setPdfRows] = useState<PdfPkgRow[] | null>(null);   // Import PDF pou KLIYAN sa a
   const [flags, setFlags] = useState({ taxFix: false, taxDga: false });
 
@@ -73,10 +75,16 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
 
   const visible = pkgs.filter((p) => p.status !== "Livré");
   const livres = pkgs.filter((p) => p.status === "Livré");
-  const selected = visible.filter((p) => p.selected);
+  // SÉLECTION GLOBALE — pataje ak Packages/Conduces (li travèse kliyan yo)
+  const snap = (p: SelPkg) => ({
+    id: p.id, tracking_number: p.tracking_number, customer_code: p.customer_code,
+    customer_name: p.customer_name, weight: Number(p.weight) || 0,
+    status: p.status, conduce_id: p.conduce_id ?? null,
+  });
+  const selected = visible.filter((p) => sel.has(p.id));
   const selectedDisponible = selected.filter((p) => p.status === "Disponible");
-  const toggle = (id: string) => setPkgs((prev) => prev.map((p) => p.id === id ? { ...p, selected: !p.selected } : p));
-  const toggleAll = (ck: boolean) => setPkgs((prev) => prev.map((p) => p.status !== "Livré" ? { ...p, selected: ck } : p));
+  const toggle = (id: string) => { const p = pkgs.find((x) => x.id === id); if (p) sel.toggle(snap(p)); };
+  const toggleAll = (ck: boolean) => sel.setMany(visible.filter((p) => p.status !== "Livré").map(snap), ck);
 
   // ===== Estatistik =====
   const totalLbs = round2(pkgs.reduce((s, p) => s + p.weight, 0));
@@ -191,7 +199,8 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
 
   if (!client) return <p className="text-slate-400 py-10 text-center">Ap chaje dosye a...</p>;
   const non = [client.fullname, client.surname].filter(Boolean).join(" ");
-  const allChecked = visible.length > 0 && visible.every((p) => p.selected);
+  useEffect(() => { if (pkgs.length) sel.hydrate(pkgs.map(snap)); /* eslint-disable-next-line */ }, [pkgs]);
+  const allChecked = visible.length > 0 && visible.every((p) => sel.has(p.id));
 
   return (
     <div className="space-y-5">
@@ -274,8 +283,8 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
             {visible.length === 0 ? (
               <tr><td colSpan={9} className="text-center py-8 text-slate-400">Pa gen koli aktif.</td></tr>
             ) : visible.map((p, i) => (
-              <tr key={p.id} className={`${i % 2 ? "bg-mist" : ""} ${p.selected ? "!bg-blue-50" : ""}`}>
-                <td className="tdc"><input type="checkbox" checked={!!p.selected} onChange={() => toggle(p.id)} /></td>
+              <tr key={p.id} className={`${i % 2 ? "bg-mist" : ""} ${sel.has(p.id) ? "!bg-blue-50" : ""}`}>
+                <td className="tdc"><input type="checkbox" checked={sel.has(p.id)} onChange={() => toggle(p.id)} /></td>
                 <td className="tdc font-mono text-[11px]">{p.tracking_number}</td>
                 <td className="tdc font-mono text-[11px]">{p.tracking_manual || <span className="text-slate-300">—</span>}</td>
                 <td className="tdc whitespace-nowrap">{p.created_date}</td>

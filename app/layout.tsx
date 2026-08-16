@@ -3,6 +3,8 @@ import "./globals.css";
 import Shell from "@/components/Shell";
 import PwaManager from "@/components/PwaManager";
 import InstallGateway from "@/components/InstallGateway";
+import SelectionBar from "@/components/SelectionBar";
+import { SelectionProvider } from "@/lib/selection";
 
 export const metadata: Metadata = {
   applicationName: "STANDA COMMERCIAL",
@@ -37,7 +39,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ht">
       <body>
-        <Shell>{children}</Shell>
+        <SelectionProvider>
+          <Shell>{children}</Shell>
+          <SelectionBar />
+        </SelectionProvider>
         <PwaManager />
         <InstallGateway />
       </body>

@@ -147,6 +147,25 @@ export async function getAllPackagesMatching(filters: PackagesQueryFilters, cap 
     asNum(p, ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[];
 }
 
+/**
+ * Relije koli seleksyone yo FRE depi bazdone a (validasyon seleksyon global).
+ * Itilize pa aksyon an gwoup: nou pa fè konfyans ak sa ki nan ekran an —
+ * nou verifye koli a egziste toujou epi nou pran vrè eta li.
+ */
+export async function getPackagesByIds(ids: string[]): Promise<Pkg[]> {
+  if (!ids.length) return [];
+  const out: Pkg[] = [];
+  // Pa chaje twòp ID nan yon sèl rekèt (limit URL)
+  for (let i = 0; i < ids.length; i += 200) {
+    const chunk = ids.slice(i, i + 200);
+    const { data, error } = await supabase.from("packages").select("*").in("id", chunk);
+    if (error) throw error;
+    out.push(...(data ?? []).map((p) =>
+      asNum(p, ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[]);
+  }
+  return out;
+}
+
 // ============ MODIL CONDUCES (Faz 1 — fondasyon) ============
 // Single Source of Truth: AUCUN duplication Package. Yon Conduce se yon gwoup +
 // yon filtè sou packages.conduce_id. Tablo/aksyon yo se MENM Packages engine a.

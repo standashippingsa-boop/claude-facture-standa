@@ -6,6 +6,7 @@ import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import WhatsAppQueue from "@/components/WhatsAppQueue";
 import RefreshButton from "@/components/RefreshButton";
+import { usePackageSelection } from "@/lib/selection";
 import {
   ClientTarifInfo, archivePackage, unarchivePackage, getClient, getClientTarifMap,
   getPackages, getPackagesPage, getAllPackagesMatching, detachPackagesFromInvoice, hardDeletePackage, getSettings, getUsdRate,
@@ -62,6 +63,13 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   const { role, staff } = useRole();
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
   const [showArchived, setShowArchived] = useState(false);
+  const sel = usePackageSelection();
+  /** Ti rezime koli a pou seleksyon global la (pa gen done sansib). */
+  const snap = (p: Pkg) => ({
+    id: p.id, tracking_number: p.tracking_number, customer_code: p.customer_code,
+    customer_name: p.customer_name, weight: Number(p.weight) || 0,
+    status: p.status, conduce_id: p.conduce_id ?? null,
+  });
   // ===== Performance (pou 1000-5000+ koli) =====
   // Vi Conduce (conduceId) rete SAN CHANJE: chaje tout (bounded natirèlman, bulk actions pa afekte).
   // Vi global (Packages, san conduceId): pagination + rechèch SÈVÈ pa default.
@@ -111,7 +119,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   const load = async () => {
     await loadSide();
     const p = await getPackages(undefined, showArchived, conduceId);
-    setPkgs(p.map((x) => ({ ...x, selected: false })));
+    setPkgs(p);
     setTotal(p.length);
   };
 
@@ -123,10 +131,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
         search: debouncedSearch, matchingClientCodes, status,
         source: (source as any) || "", dateF, includeArchived: showArchived, conduceId
       }, pageNum, PER_PAGE);
-      setPkgs((prev) => {
-        const wasSelected = new Set(prev.filter((p) => p.selected).map((p) => p.id));
-        return rows.map((x) => ({ ...x, selected: wasSelected.has(x.id) }));
-      });
+      setPkgs(rows);
       setTotal(t);
     } catch (e: any) {
       setNotice("Erè bazdone: " + e.message);
@@ -144,7 +149,8 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
         search: debouncedSearch, matchingClientCodes, status,
         source: (source as any) || "", dateF, includeArchived: showArchived, conduceId
       }, 3000);
-      setPkgs(rows.map((x) => ({ ...x, selected: true })));
+      setPkgs(rows);
+      sel.add(rows.map(snap));
       setTotal(rows.length);
       setFullyLoaded(true);
       setPage(1);
@@ -161,7 +167,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
         await loadSide();
         if (fullyLoaded) {
           const p = await getPackages(undefined, showArchived, conduceId);
-          setPkgs(p.map((x) => ({ ...x, selected: false })));
+          setPkgs(p);
           setTotal(p.length);
         } else {
           await fetchServerPage(1);
@@ -218,16 +224,20 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
     ? Math.max(1, Math.ceil(filtered.length / PER_PAGE))
     : Math.max(1, Math.ceil(total / PER_PAGE));
   const pageRows = fullyLoaded ? filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE) : filtered;
+  // Kenbe panèl seleksyon an enfòme ak dènye detay koli ki chaje yo
+  useEffect(() => { if (pkgs.length) sel.hydrate(pkgs.map(snap)); /* eslint-disable-next-line */ }, [pkgs]);
   useEffect(() => { setPage(1); }, [search, status, source, dateF]);
 
-  const selectedAll = filtered.filter((p) => p.selected);                       // Bon de Remise / Marquer Disponible
-  const selected = selectedAll.filter((p) => p.status === "Disponible");        // Facturation (san chanjman)
-  const toggle = (id: string) =>
-    setPkgs((prev) => prev.map((p) => (p.id === id ? { ...p, selected: !p.selected } : p)));
-  const toggleAll = (checked: boolean) => {
-    const ids = new Set(pageRows.map((p) => p.id));
-    setPkgs((prev) => prev.map((p) => (ids.has(p.id) ? { ...p, selected: checked } : p)));
+  // ===== SÉLECTION GLOBALE (pataje ak tout sistèm nan) =====
+  // Rechèch/filtè/paj/Conduce PA efase seleksyon an. Aksyon yo travay sou
+  // koli seleksyone ki chaje kounye a; sa ki nan lòt paj rete seleksyone.
+  const selectedAll = pkgs.filter((p) => sel.has(p.id));                        // Bon de Remise / Statut
+  const selected = selectedAll.filter((p) => p.status === "Disponible");        // Facturation
+  const toggle = (id: string) => {
+    const p = pkgs.find((x) => x.id === id);
+    if (p) sel.toggle(snap(p));
   };
+  const toggleAll = (checked: boolean) => sel.setMany(pageRows.map(snap), checked);
 
   /**
    * Admin SÈLMAN: mete menm statut la sou tout koli ki make yo.
@@ -263,7 +273,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
       await setPackagesStatus(targets.map((p) => p.id), bulkStatus);
       await logAction("Changement Statut", `${targets.length} colis → ${bulkStatus}`, "", targets[0]?.customer_code ?? "");
       setPkgs((prev) => prev.map((p) =>
-        targets.some((t) => t.id === p.id) ? { ...p, status: bulkStatus, selected: false } : p));
+        targets.some((t) => t.id === p.id) ? { ...p, status: bulkStatus } : p));
 
       let mailInfo = "";
       if (bulkStatus === "Reçu à Miami" || bulkStatus === "Disponible") {
@@ -420,7 +430,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
 
   const tp = selected.reduce((s, p) => s + p.price_usd, 0);
   const tt = selected.reduce((s, p) => s + p.tax_usd, 0);
-  const allChecked = pageRows.length > 0 && pageRows.every((p) => p.selected);
+  const allChecked = pageRows.length > 0 && pageRows.every((p) => sel.has(p.id));
 
 
   return (
@@ -487,10 +497,10 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
                 Aucun colis. Utilisez <a href="/sync" className="text-navy underline font-semibold">Synchronisation MCPACK</a>.
               </td></tr>
             ) : pageRows.map((p, i) => (
-              <tr key={p.id} className={`${p.received_at ? "!bg-emerald-50" : i % 2 ? "bg-mist" : ""} ${p.selected ? "!bg-blue-50" : ""}`}
+              <tr key={p.id} className={`${p.received_at ? "!bg-emerald-50" : i % 2 ? "bg-mist" : ""} ${sel.has(p.id) ? "!bg-blue-50" : ""}`}
                 title={p.received_at ? `Reçu chez MCPACK — ${p.received_method}` : "En attente de réception"}>
                 <td className="tdc">
-                  <input type="checkbox" checked={!!p.selected} onChange={() => toggle(p.id)} />
+                  <input type="checkbox" checked={sel.has(p.id)} onChange={() => toggle(p.id)} />
                 </td>
                 <td className="tdc font-bold whitespace-nowrap">
                   <Link href={`/clients/${encodeURIComponent(p.customer_code)}`}
