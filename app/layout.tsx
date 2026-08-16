@@ -5,8 +5,14 @@ import PwaManager from "@/components/PwaManager";
 import InstallGateway from "@/components/InstallGateway";
 import SelectionBar from "@/components/SelectionBar";
 import { SelectionProvider } from "@/lib/selection";
+import { SITE_URL } from "@/lib/branding";
 
 export const metadata: Metadata = {
+  // Domèn kanonik: tout lyen/aperçu rezoud sou domèn ofisyèl la,
+  // JANM sou URL deplwaman an.
+  metadataBase: new URL(SITE_URL),
+  alternates: { canonical: "/" },
+  robots: { index: false, follow: false },   // zouti entèn: pa endekse pa Google
   applicationName: "STANDA COMMERCIAL",
   title: "STANDA COMMERCIAL — Gestion de colis & facturation",
   description: "Système professionnel de gestion de colis.",
