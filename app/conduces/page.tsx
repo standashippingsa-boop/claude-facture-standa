@@ -48,8 +48,17 @@ export default function ConducesPage() {
       <div className="card overflow-x-auto">
         <table className="w-full text-xs">
           <thead><tr>
-            {["Numéro", "Office", "Date", "Colis", "Poids", "Facturés", "Vérifiés", "Statut", ""].map((h) =>
-              <th key={h} className="thc">{h}</th>)}
+            {[
+              { h: "Numéro", a: "text-left" },
+              { h: "Office", a: "text-left" },
+              { h: "Date", a: "text-left" },
+              { h: "Colis", a: "text-right" },
+              { h: "Poids", a: "text-right" },
+              { h: "Facturés", a: "text-right" },
+              { h: "Vérifiés", a: "text-right" },
+              { h: "Statut", a: "text-left" },
+              { h: "", a: "text-left w-full" },
+            ].map((c) => <th key={c.h} className={`thc ${c.a}`}>{c.h}</th>)}
           </tr></thead>
           <tbody>
             {rows === null ? (
@@ -62,17 +71,17 @@ export default function ConducesPage() {
               <tr key={r.id} className={i % 2 ? "bg-mist" : ""}>
                 <td className="tdc font-bold text-navy font-mono">{r.conduce_number}</td>
                 <td className="tdc">{r.office || "—"}</td>
-                <td className="tdc">{r.conduce_date ? dateFr(r.conduce_date) : dateFr(r.created_at)}</td>
+                <td className="tdc whitespace-nowrap">{r.conduce_date ? dateFr(r.conduce_date) : dateFr(r.created_at)}</td>
                 <td className="tdc text-right font-semibold">{r.count}</td>
-                <td className="tdc text-right">{r.weight.toFixed(1)} lb</td>
-                <td className="tdc text-right">{r.facturedCount}/{r.count}</td>
-                <td className="tdc text-right">{r.verifiedCount}/{r.count}</td>
-                <td className="tdc">
+                <td className="tdc text-right whitespace-nowrap">{r.weight.toFixed(1)} lb</td>
+                <td className="tdc text-right whitespace-nowrap">{r.facturedCount}/{r.count}</td>
+                <td className="tdc text-right whitespace-nowrap">{r.verifiedCount}/{r.count}</td>
+                <td className="tdc whitespace-nowrap">
                   {r.count === 0
                     ? <span className="pill pill-amber"><span className="pill-dot" />En attente</span>
                     : <span className="pill pill-gray"><span className="pill-dot" />{r.status}</span>}
                 </td>
-                <td className="tdc">
+                <td className="tdc whitespace-nowrap">
                   <Link href={`/conduces/${r.id}`} className="inline-flex items-center gap-1 text-navy hover:underline font-semibold">
                     Ouvrir <ExternalLink size={13} />
                   </Link>
