@@ -5,6 +5,7 @@
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import RefreshButton from "@/components/RefreshButton";
 import { ClipboardList, ExternalLink } from "lucide-react";
 import { getConduces, getConduceStats } from "@/lib/db";
 import { dateFr } from "@/lib/utils";
@@ -18,16 +19,17 @@ export default function ConducesPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    (async () => {
+  const load = async () => {
+    try {
       const list = await getConduces();
       const withStats = await Promise.all(list.map(async (c) => {
         const s = await getConduceStats(c.id);
         return { ...c, count: s.count, weight: s.weight, facturedCount: s.facturedCount, verifiedCount: s.verifiedCount };
       }));
       setRows(withStats);
-    })().catch(() => setRows([]));
-  }, []);
+    } catch { setRows([]); }
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
   const filtered = (rows ?? []).filter((r) =>
     !search.trim() || r.conduce_number.toLowerCase().includes(search.trim().toLowerCase()) ||
@@ -41,8 +43,11 @@ export default function ConducesPage() {
           <h1 className="h-page">Conduces</h1>
           <p className="text-sm text-mute mt-0.5">Manifestes MCPACK — groupes de colis (Caribe Tours)</p>
         </div>
-        <input className="input w-64" placeholder="Rechercher un numéro, office…"
-          value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div className="flex gap-2 items-center">
+          <input className="input w-64" placeholder="Rechercher un numéro, office…"
+            value={search} onChange={(e) => setSearch(e.target.value)} />
+          <RefreshButton onRefresh={load} />
+        </div>
       </div>
 
       <div className="card overflow-x-auto">

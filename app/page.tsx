@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Users, Package, FileText, DollarSign, RefreshCw, CheckCircle2, Bell, Inbox, UserPlus } from "lucide-react";
 import { getClients, getRetraits, getStats } from "@/lib/db";
 import { Client, DashboardStats, Retrait } from "@/lib/types";
+import RefreshButton from "@/components/RefreshButton";
 import { dateFr, usd } from "@/lib/utils";
 
 export default function Dashboard() {
@@ -12,17 +13,18 @@ export default function Dashboard() {
   const [retraits, setRetraits] = useState<Retrait[]>([]); // demandes de retrait annatant
   const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => {
-    getStats().then(setStats).catch((e) => setErr(e.message ?? String(e)));
+  const load = async () => {
+    await getStats().then(setStats).catch((e) => setErr(e.message ?? String(e)));
     // Notifikasyon: nouvo kliyan (En attente d'activation) + demandes de retrait
     // (estrikti sa a pare pou Desktop Notifications pita)
-    getClients().then((cs) =>
+    await getClients().then((cs) =>
       setNouvo(cs.filter((c) => c.account_status === "En attente d'activation"))
     ).catch(() => {});
-    getRetraits().then((rs) =>
+    await getRetraits().then((rs) =>
       setRetraits(rs.filter((r) => r.status === "En attente"))
     ).catch(() => {});
-  }, []);
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
   const cards = stats ? [
     { label: "Total clients", value: stats.totalClients, icon: Users, href: "/clients", tint: "bg-blue-50 text-blue-600" },
@@ -34,9 +36,12 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="h-page">Dashboard</h1>
-        <p className="text-sm text-mute mt-0.5">Vue d&apos;ensemble — colis, clients & facturation</p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="h-page">Dashboard</h1>
+          <p className="text-sm text-mute mt-0.5">Vue d&apos;ensemble — colis, clients &amp; facturation</p>
+        </div>
+        <RefreshButton onRefresh={load} />
       </div>
 
       {err && <p className="card p-4 text-sm text-red-600">Erè koneksyon bazdone: {err} — verifye .env.local ou a.</p>}

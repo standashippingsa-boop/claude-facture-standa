@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { History, Trash2, Filter, Eye } from "lucide-react";
+import RefreshButton from "@/components/RefreshButton";
 import Pagination from "@/components/Pagination";
 import { JournalRow, clearJournal, getJournal } from "@/lib/db";
 import { useRole } from "@/lib/authx";
@@ -80,6 +81,7 @@ export default function JournalPage() {
         <h1 className="text-xl font-extrabold text-navy flex items-center gap-2"><History size={20} /> Journal des modifications</h1>
         <span className="badge bg-slate-100 text-slate-600">{filtered.length}</span>
         <div className="flex-1" />
+        <RefreshButton onRefresh={load} />
         {role === "admin" && (
           <button className="btn btn-ghost border border-line text-red-600" onClick={clear}>
             <Trash2 size={15} /> Effacer le journal

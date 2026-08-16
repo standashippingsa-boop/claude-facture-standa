@@ -8,6 +8,7 @@ import { Client, Invoice, Pkg, Retrait } from "@/lib/types";
 import { DEPOT } from "@/lib/depot";
 import { dateFr, usd } from "@/lib/utils";
 import StatusBadge from "@/components/StatusBadge";
+import RefreshButton from "@/components/RefreshButton";
 import { StatusTimeline } from "@/components/StatusFlow";
 
 export default function EspaceClientPage() {
@@ -21,22 +22,21 @@ export default function EspaceClientPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) { router.replace("/login"); return; }
-      const c = await getClientByAuthId(data.user.id);
-      setClient(c);
-      if (c?.customer_code) {
-        const [{ pkgs: p, invs: i }, rs] = await Promise.all([
-          getClientPackagesAndInvoices(c.customer_code),
-          getClientRetraits(c.customer_code)
-        ]);
-        setPkgs(p); setInvs(i); setRetraits(rs);
-      }
-      setLoading(false);
-    })();
-  }, [router]);
+  const load = async () => {
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) { router.replace("/login"); return; }
+    const c = await getClientByAuthId(data.user.id);
+    setClient(c);
+    if (c?.customer_code) {
+      const [{ pkgs: p, invs: i }, rs] = await Promise.all([
+        getClientPackagesAndInvoices(c.customer_code),
+        getClientRetraits(c.customer_code)
+      ]);
+      setPkgs(p); setInvs(i); setRetraits(rs);
+    }
+    setLoading(false);
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [router]);
 
   const logout = async () => { await supabase.auth.signOut(); router.replace("/login"); };
 
@@ -204,9 +204,12 @@ export default function EspaceClientPage() {
 
       <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-5">
         {/* ===== Salutation ===== */}
-        <div>
-          <h1 className="h-page">Bonjou, {client.fullname || non} 👋</h1>
-          <p className="text-sm text-mute mt-0.5">Men rezime kont ou an.</p>
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="h-page">Bonjou, {client.fullname || non} 👋</h1>
+            <p className="text-sm text-mute mt-0.5">Men rezime kont ou an.</p>
+          </div>
+          <RefreshButton onRefresh={load} />
         </div>
 
         {/* ===== KPI (istwa a) ===== */}

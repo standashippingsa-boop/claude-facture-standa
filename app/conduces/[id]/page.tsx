@@ -11,6 +11,7 @@ import { ArrowLeft, Truck, Package, Receipt, Clock, CheckCircle2 } from "lucide-
 import PackagesEngine from "@/components/PackagesEngine";
 import ConduceSummaryPanel from "@/components/ConduceSummaryPanel";
 import ConduceManualPaste from "@/components/ConduceManualPaste";
+import RefreshButton from "@/components/RefreshButton";
 import { getConduces, getConduceStats } from "@/lib/db";
 import { dateFr, usd } from "@/lib/utils";
 import type { Conduce } from "@/lib/types";
@@ -67,7 +68,10 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
               </p>
             </div>
           </div>
-          <span className="pill pill-gray"><span className="pill-dot" />{conduce.status}</span>
+          <div className="flex items-center gap-2">
+            <RefreshButton onRefresh={load} />
+            <span className="pill pill-gray"><span className="pill-dot" />{conduce.status}</span>
+          </div>
         </div>
 
         {stats && stats.count === 0 && (

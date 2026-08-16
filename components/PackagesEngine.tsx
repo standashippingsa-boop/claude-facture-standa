@@ -5,6 +5,7 @@ import { Calculator, ClipboardList, FileText, FileSpreadsheet, Archive, Camera, 
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import WhatsAppQueue from "@/components/WhatsAppQueue";
+import RefreshButton from "@/components/RefreshButton";
 import {
   ClientTarifInfo, archivePackage, unarchivePackage, getClient, getClientTarifMap,
   getPackages, getPackagesPage, getAllPackagesMatching, detachPackagesFromInvoice, hardDeletePackage, getSettings, getUsdRate,
@@ -453,6 +454,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
             title="Afficher les colis archivés">
             <Archive size={15} /> {showArchived ? "Archivés" : "Actifs"}
           </button>
+          <RefreshButton onRefresh={refresh} />
         </div>
       </div>
 

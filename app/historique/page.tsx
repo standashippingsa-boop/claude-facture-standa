@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PackageCheck, CheckCircle2, Camera } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
+import RefreshButton from "@/components/RefreshButton";
 import { getConduces, getInvoices, getPackages, setPackageStatus } from "@/lib/db";
 import { Conduce, Invoice, Pkg } from "@/lib/types";
 import { usd, dateFr } from "@/lib/utils";
@@ -87,6 +88,7 @@ export default function HistoriquePage() {
             <option value="">Toutes conduces</option>
             {conduces.map((c) => <option key={c.id} value={c.id}>Conduce {c.conduce_number}</option>)}
           </select>
+          <RefreshButton onRefresh={load} />
         </div>
       </div>
 

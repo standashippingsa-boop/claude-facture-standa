@@ -3,6 +3,7 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
+import RefreshButton from "@/components/RefreshButton";
 import {
   commitPdfImport, detachPackagesFromInvoice, hardDeletePackage, getClient, getClientPackagesAndInvoices,
   getInvoiceFlags, getSettings, getUsdRate, setPackagesStatus, updatePackagePrice
@@ -234,6 +235,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
 
       {/* ===== Operasyon sou koli yo ===== */}
       <div className="flex gap-2 flex-wrap items-center">
+        <RefreshButton onRefresh={load} />
         <button className="btn btn-ghost border border-line" onClick={applyTarif} disabled={busy}>
           <Calculator size={14} /> Appliquer tarification
         </button>

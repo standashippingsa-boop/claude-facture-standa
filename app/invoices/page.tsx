@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Eye, Download, Printer, Send, XCircle } from "lucide-react";
 import { cancelInvoice, getInvoiceItems, getInvoices, getSettings, saveInvoicePdfUrl } from "@/lib/db";
 import { useRole } from "@/lib/authx";
+import RefreshButton from "@/components/RefreshButton";
 import { generateUploadDownload, openInvoicePdf } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Invoice } from "@/lib/types";
@@ -16,10 +17,11 @@ export default function InvoicesPage() {
   const [busy, setBusy] = useState(false);
   const { role } = useRole();
 
-  useEffect(() => {
-    getInvoices().then(setInvoices).catch((e) => setNotice("Erè: " + e.message));
-    getSettings().then((s) => s.invoice_footer && setFooter(s.invoice_footer));
-  }, []);
+  const load = async () => {
+    await getInvoices().then(setInvoices).catch((e) => setNotice("Erè: " + e.message));
+    await getSettings().then((s) => s.invoice_footer && setFooter(s.invoice_footer)).catch(() => {});
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
   const withItems = async (inv: Invoice) => ({ inv, items: await getInvoiceItems(inv.id) });
 
@@ -84,8 +86,11 @@ export default function InvoicesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-extrabold text-navy">Invoices</h1>
-        <input className="input w-80" placeholder="No facture, code ou nom client..." value={search}
-          onChange={(e) => setSearch(e.target.value)} />
+        <div className="flex gap-2 items-center">
+          <input className="input w-80" placeholder="No facture, code ou nom client..." value={search}
+            onChange={(e) => setSearch(e.target.value)} />
+          <RefreshButton onRefresh={load} />
+        </div>
       </div>
 
       <div className="card overflow-x-auto">

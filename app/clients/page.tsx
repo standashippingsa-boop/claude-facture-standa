@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import RefreshButton from "@/components/RefreshButton";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -141,6 +142,7 @@ export default function ClientsPage() {
           <button className="btn btn-ghost border border-line" onClick={scanDups} title="Detekte kliyan ki egziste 2 fwa">
           🔗 Fusionner les comptes
         </button>
+        <RefreshButton onRefresh={load} />
         <button className="btn" onClick={openNew}><Plus size={15} /> Nouveau client</button>
         </div>
       </div>
