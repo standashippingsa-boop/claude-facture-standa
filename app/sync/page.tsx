@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Upload, CheckCircle2, RefreshCw, FileText, X, Image } from "lucide-react";
 import { parseMcpackWorkbook } from "@/lib/xlsx";
+import { validateUpload } from "@/lib/upload";
 import { scanPhotos } from "@/lib/photoscan";
 import ReceptionScanner from "@/components/ReceptionScanner";
 import ImportConduces from "@/components/ImportConduces";
@@ -79,8 +80,13 @@ export default function SyncPage() {
   useEffect(() => { loadSide().catch((e) => setErr(e.message)); }, []);
 
   const handlePhotos = async (files: FileList) => {
-    setErr(null); setScans(null); setBusy(true);
-    const arr = Array.from(files);
+    setErr(null); setScans(null);
+    // SEKIRITE: kenbe sèlman vrè imaj (tip + gwosè verifye)
+    const all = Array.from(files);
+    const arr = all.filter((f) => validateUpload(f, "image").ok);
+    if (!arr.length) { setErr("Aucune image valide (JPG, PNG, WEBP, HEIC — max 12 Mo)."); return; }
+    if (arr.length < all.length) setErr(`${all.length - arr.length} fichier(s) ignoré(s) : format ou taille non accepté.`);
+    setBusy(true);
     try {
       setScanProg(`Analyse de ${arr.length} photo(s)...`);
       const raw = await scanPhotos(arr, (idx, total, p) =>
@@ -113,9 +119,14 @@ export default function SyncPage() {
 
   // ===== Import Facture MCPACK — ekstrè + match (pwen #6a, READ-ONLY) =====
   const handleFactures = async (files: FileList) => {
-    setErr(null); setFactures(null); setBusy(true);
+    setErr(null); setFactures(null);
+    const allF = Array.from(files);
+    const okF = allF.filter((f) => validateUpload(f, "image-or-pdf").ok);
+    if (!okF.length) { setErr("Aucun fichier valide (PDF ou image — max 25 Mo)."); return; }
+    if (okF.length < allF.length) setErr(`${allF.length - okF.length} fichier(s) ignoré(s) : format ou taille non accepté.`);
+    setBusy(true);
     try {
-      const arr = Array.from(files);
+      const arr = okF;
       const all: { value: string; weight?: number; source: "pdf" | "image" | "text" }[] = [];
       for (let i = 0; i < arr.length; i++) {
         setFactProg(`Fichier ${i + 1}/${arr.length} — ${arr[i].name}...`);
@@ -247,7 +258,10 @@ export default function SyncPage() {
   };
 
   const handleFile = async (f: File) => {
-    setErr(null); setDone(null); setPreview(null); setFilename(f.name); setBusy(true);
+    setErr(null); setDone(null); setPreview(null);
+    const check = validateUpload(f, "spreadsheet");
+    if (!check.ok) { setErr(check.reason ?? "Fichier refusé."); return; }
+    setFilename(f.name); setBusy(true);
     try {
       const rows = parseMcpackWorkbook(await f.arrayBuffer());
       if (!rows.length) {

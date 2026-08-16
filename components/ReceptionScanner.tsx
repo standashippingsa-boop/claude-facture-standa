@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, CameraOff, CheckCircle2, Search, X, ScanLine, Package } from "lucide-react";
 import { findPackageByScan, verifyPackageReception, logReceptionSession, ScanResult } from "@/lib/db";
+import { validateUpload } from "@/lib/upload";
 import { useRole } from "@/lib/authx";
 import { dateFr, parseMcpackDate } from "@/lib/utils";
 import StatusBadge from "@/components/StatusBadge";
@@ -165,6 +166,8 @@ export default function ReceptionScanner() {
 
   // ---------- Faz 3: Photo de Preuve ----------
   const takeProofPhoto = async (pkg: Pkg, file: File) => {
+    const check = validateUpload(file, "image");
+    if (!check.ok) { setMsg({ t: "err", s: check.reason ?? "Photo refusée." }); return; }
     setPhotoBusy(true);
     try {
       const { savePackageProofPhoto } = await import("@/lib/db");

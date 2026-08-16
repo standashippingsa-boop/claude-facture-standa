@@ -14,6 +14,7 @@
 import { useRef, useState } from "react";
 import { Upload, ClipboardList, CheckCircle2, FileSpreadsheet } from "lucide-react";
 import { matchConduceCodes, linkPackagesToConduce, importConduceExcelRows, ConduceMatch } from "@/lib/db";
+import { validateUpload } from "@/lib/upload";
 import { extractAnyCodesFromText } from "@/lib/factureimport";
 import { parseConduceWorkbook, ConduceExcelRow } from "@/lib/conduceexcel";
 import { useRole } from "@/lib/authx";
@@ -37,7 +38,10 @@ export default function ConduceManualPaste({
 
   const chooseFile = () => fileRef.current?.click();
   const onFile = async (f: File) => {
-    setMsg(null); setBusy(true);
+    setMsg(null);
+    const check = validateUpload(f, "spreadsheet");
+    if (!check.ok) { setMsg({ t: "err", s: check.reason ?? "Fichier refusé." }); return; }
+    setBusy(true);
     try {
       const rows = await parseConduceWorkbook(await f.arrayBuffer());
       if (!rows.length) { setMsg({ t: "err", s: "Aucun colis détecté dans ce fichier (vérifiez les colonnes)." }); setExcelRows(null); }

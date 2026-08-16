@@ -9,6 +9,7 @@ import {
   fixTrackingColumns, getVilles, logAction, reapplyTarifDisponible, setSetting, setUsdRate, toggleVille, upsertVille
 } from "@/lib/db";
 import { Staff, Ville } from "@/lib/types";
+import { validateUpload, storagePath } from "@/lib/upload";
 import { usd } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { adminApi, useRole } from "@/lib/authx";
@@ -345,8 +346,12 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
     try {
       let id_photo_url = "";
       if (photo) {
-        const path = `${Date.now()}_${photo.name.replace(/[^\w.\-]/g, "_")}`;
-        const { error } = await supabase.storage.from("staff-docs").upload(path, photo, { upsert: true });
+        // SEKIRITE: verifye tip/gwosè vre anvan telechajman
+        const check = validateUpload(photo, "image-or-pdf");
+        if (!check.ok) { onNotice(check.reason ?? "Fichier refusé."); return; }
+        const path = storagePath(check.filename, "id/");
+        const { error } = await supabase.storage.from("staff-docs")
+          .upload(path, photo, { upsert: false, contentType: photo.type || "application/octet-stream" });
         if (!error) id_photo_url = supabase.storage.from("staff-docs").getPublicUrl(path).data.publicUrl;
       }
       const j = await adminApi("create_staff", { ...f, id_photo_url });

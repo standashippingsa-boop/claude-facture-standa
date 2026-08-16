@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { cleanTracking, isGuia, normalizeMcCode } from "./utils";
+import { validateUpload, storagePath } from "./upload";
 import {
   AccountType, Client, Conduce, DashboardStats, ImportLog, Invoice, InvoiceItem, Pkg, Ville
 , Retrait, RetraitStatus
@@ -1712,8 +1713,12 @@ export async function undoLastImport(): Promise<{ ok: boolean; batchId?: string;
 /** Telechaje yon foto scan nan Storage (pou ouvri l pita depi Journal). Retounen URL piblik. */
 export async function uploadScanPhoto(file: File): Promise<string> {
   try {
-    const path = `${Date.now()}_${(file.name || "scan").replace(/[^\w.\-]/g, "_")}`;
-    const { error } = await supabase.storage.from("scan-photos").upload(path, file, { upsert: true });
+    // SEKIRITE: verifye tip/gwosè vre (accept="image/*" se UX sèlman)
+    const check = validateUpload(file, "image");
+    if (!check.ok) return "";
+    const path = storagePath(check.filename, "scan/");
+    const { error } = await supabase.storage.from("scan-photos")
+      .upload(path, file, { upsert: false, contentType: file.type || "image/jpeg" });
     if (error) return "";
     return supabase.storage.from("scan-photos").getPublicUrl(path).data.publicUrl || "";
   } catch { return ""; }
