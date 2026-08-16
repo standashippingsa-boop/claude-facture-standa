@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, ChevronDown, Clock, FileText, KeyRound, LogOut, MapPin, Package, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { safeMessage } from "@/lib/safeerror";
 import { createRetrait, getClientByAuthId, getClientPackagesAndInvoices, getClientRetraits } from "@/lib/db";
 import { Client, Invoice, Pkg, Retrait } from "@/lib/types";
 import { DEPOT } from "@/lib/depot";
@@ -59,7 +60,7 @@ export default function EspaceClientPage() {
       setPwdMsg("✅ Modpas ou chanje avèk siksè.");
       setPwd1(""); setPwd2("");
       setTimeout(() => { setShowPwd(false); setPwdMsg(null); }, 1500);
-    } catch (e: any) { setPwdMsg("Erè: " + (e.message ?? String(e))); }
+    } catch (e: any) { setPwdMsg(safeMessage(e)); }
     finally { setPwdBusy(false); }
   };
 
@@ -77,7 +78,7 @@ export default function EspaceClientPage() {
       setSel(new Set());
       setMsg(`Demann ou an voye (${chosen.length} koli). STANDA COMMERCIAL ap prepare yo — w ap wè estati a anba a.`);
     } catch (e: any) {
-      setMsg("Erè: " + (e.message ?? String(e)));
+      setMsg(safeMessage(e));
     } finally { setBusy(false); }
   };
 

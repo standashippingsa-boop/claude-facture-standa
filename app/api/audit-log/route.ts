@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { createClient } from "@supabase/supabase-js";
 
 /**
@@ -15,6 +16,10 @@ function svc() {
 }
 
 export async function POST(req: Request) {
+  // Rate limiting — jounal: 120 / min pa IP (itilizasyon nòmal wo)
+  const rl = rateLimit("audit:" + clientIp(req), 120, 60000);
+  if (!rl.ok) return tooMany(rl.retryAfter);
+
   try {
     const body = await req.json().catch(() => null);
 

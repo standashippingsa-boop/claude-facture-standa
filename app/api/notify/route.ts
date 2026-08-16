@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 
 /**
@@ -157,6 +158,10 @@ function buildHtml(b: NotifyBody): { subject: string; html: string } {
 }
 
 export async function POST(req: Request) {
+  // Rate limiting — imèl: 60 / èdtan pa IP (anti-spam kliyan)
+  const rl = rateLimit("notify:" + clientIp(req), 60, 3600000);
+  if (!rl.ok) return tooMany(rl.retryAfter);
+
   try {
     const body = (await req.json()) as NotifyBody;
     const key = process.env.RESEND_API_KEY;

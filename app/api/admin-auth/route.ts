@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { createClient } from "@supabase/supabase-js";
 
 /**
@@ -22,6 +23,10 @@ function tempPassword(len = 8): string {
 }
 
 export async function POST(req: Request) {
+  // Rate limiting — aksyon admin: 20 / 10 min pa IP (anti brute-force)
+  const rl = rateLimit("adminauth:" + clientIp(req), 20, 600000);
+  if (!rl.ok) return tooMany(rl.retryAfter);
+
   try {
     if (!SERVICE) {
       return NextResponse.json({ ok: false, reason: "SUPABASE_SERVICE_ROLE_KEY pa konfigire nan Vercel (Settings > Environment Variables) + Redeploy." });

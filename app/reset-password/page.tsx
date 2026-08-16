@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { safeMessage } from "@/lib/safeerror";
 
 /**
  * Paj chanjman modpas — kliyan an rive isit la atravè lyen imèl
@@ -26,7 +27,7 @@ export default function ResetPasswordPage() {
     } catch (e: any) {
       setErr(e.message?.includes("session")
         ? "Sesyon an ekspire — retounen sou paj koneksyon an epi klike 'Mot de passe oublié ?' ankò."
-        : "Erè: " + (e.message ?? String(e)));
+        : safeMessage(e));
     } finally { setBusy(false); }
   };
 

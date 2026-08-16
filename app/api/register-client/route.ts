@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { createClient } from "@supabase/supabase-js";
 
 /**
@@ -21,6 +22,10 @@ const digits = (s: string) => String(s ?? "").replace(/\D/g, "");
 const clean = (v: unknown, max = 120) => String(v ?? "").trim().slice(0, max);
 
 export async function POST(req: Request) {
+  // Rate limiting — enskripsyon: 5 / èdtan pa IP (anti-spam kont)
+  const rl = rateLimit("register:" + clientIp(req), 5, 3600000);
+  if (!rl.ok) return tooMany(rl.retryAfter);
+
   try {
     if (!SERVICE) {
       return NextResponse.json({ ok: false, reason: "Configuration serveur incomplète." }, { status: 500 });

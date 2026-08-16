@@ -6,6 +6,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2 } from "lucide-react";
 import { getVilles, registerClientProfile, getClientByAuthId } from "@/lib/db";
+import { safeMessage } from "@/lib/safeerror";
 import { SITE_URL } from "@/lib/branding";
 import { Ville } from "@/lib/types";
 
@@ -60,7 +61,7 @@ export default function InscriptionPage() {
     } catch (e: any) {
       setErr(e.message?.includes("already registered")
         ? "Imèl sa a gen yon kont deja. Eseye konekte pito."
-        : "Erè: " + (e.message ?? String(e)));
+        : safeMessage(e));
     }
   };
 

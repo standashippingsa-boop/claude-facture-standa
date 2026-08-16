@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { createClient } from "@supabase/supabase-js";
 
 /**
@@ -47,6 +48,10 @@ function normalizeMc(raw?: string | null): string {
 }
 
 export async function POST(req: Request) {
+  // Rate limiting — ekstansyon: 120 / min pa IP
+  const rl = rateLimit("ingest:" + clientIp(req), 120, 60000);
+  if (!rl.ok) return tooMany(rl.retryAfter);
+
   try {
     // 1) Verifikasyon token
     const auth = req.headers.get("authorization") ?? "";
