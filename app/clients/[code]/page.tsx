@@ -72,6 +72,8 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     setInvs(i);
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [decoded]);
+  // Kenbe panèl seleksyon global la enfòme (DWE anvan nenpòt return kondisyonèl)
+  useEffect(() => { if (pkgs.length) sel.hydrate(pkgs.map(snap)); /* eslint-disable-next-line */ }, [pkgs]);
 
   const visible = pkgs.filter((p) => p.status !== "Livré");
   const livres = pkgs.filter((p) => p.status === "Livré");
@@ -199,7 +201,6 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
 
   if (!client) return <p className="text-slate-400 py-10 text-center">Ap chaje dosye a...</p>;
   const non = [client.fullname, client.surname].filter(Boolean).join(" ");
-  useEffect(() => { if (pkgs.length) sel.hydrate(pkgs.map(snap)); /* eslint-disable-next-line */ }, [pkgs]);
   const allChecked = visible.length > 0 && visible.every((p) => sel.has(p.id));
 
   return (
