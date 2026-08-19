@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "./Sidebar";
+import Loader from "./Loader";
 import { getMyStaff } from "@/lib/authx";
 import { getClientByAuthId } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
@@ -52,7 +53,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   }, [publicPath, path, router]);
 
   if (publicPath) return <main className="min-h-screen">{children}</main>;
-  if (!ready) return <div className="min-h-screen bg-mist grid place-items-center text-slate-400">Ap verifye aksè...</div>;
+  if (!ready) return <Loader />;
 
   // Kliyan: paj san sidebar staff (espace-client gen pwòp entèfas li)
   if (role === "client" || isClientPath(path)) return <main className="min-h-screen">{children}</main>;
