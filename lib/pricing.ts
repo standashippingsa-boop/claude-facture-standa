@@ -38,6 +38,75 @@ export function computeLinePrice(
   return { price: round2(weight * perLb), isSmall: false };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TAXE FIXE SOU PWA TOTAL — règ STANDA COMMERCIAL
+// ───────────────────────────────────────────────────────────────────────────
+// Depi pwa TOTAL koli yo rive nan 6.50 lb, yon taxe fiks 10 USD ajoute.
+// Se yon sèl fwa pa fakti (pa pa koli). Chanje valè yo isit la sèlman.
+// ═══════════════════════════════════════════════════════════════════════════
+export const TAX_THRESHOLD_LB = 6.5;
+export const TAX_FIXED_USD = 10;
+
+/** Taxe fiks la pou yon pwa total bay. */
+export function fixedTaxForWeight(totalWeight: number): number {
+  const w = Number(totalWeight);
+  return Number.isFinite(w) && w >= TAX_THRESHOLD_LB ? TAX_FIXED_USD : 0;
+}
+
+export interface EstimateResult {
+  count: number;        // kantite koli
+  totalWeight: number;  // pwa total (lb)
+  subtotal: number;     // transpò sèlman (USD)
+  fixedTax: number;     // 0 oswa TAX_FIXED_USD
+  total: number;        // subtotal + fixedTax
+  perLb: number;        // pri/lb ki sèvi
+  smallCount: number;   // konbyen koli ki pase kòm "ti koli"
+}
+
+/**
+ * ESTIMASYON POU YON ANSANM KOLI (app kliyan an + apèsi admin).
+ *
+ * Business : TOUT pwa yo adisyone ANVAN, epi miltipliye pa pri/lb Business la.
+ * Lòt kont: chak koli apa —
+ *            0.10 ≤ pwa ≤ 0.99 lb  -> pri fiks ti koli (Paramètres)
+ *            sinon                 -> pwa × pri/lb Personnel
+ * Nan toude ka: si pwa TOTAL ≥ 6.50 lb -> + 10 USD taxe fiks (yon sèl fwa).
+ *
+ * Retounen null si vil kliyan an pa konfigire/aktif — nou pa devine okenn pri.
+ */
+export function estimateForPackages(
+  weights: number[],
+  accountType: AccountType,
+  ville: Ville | null | undefined,
+  cfg: SmallParcelConfig
+): EstimateResult | null {
+  if (!ville || !ville.active) return null;
+  const perLb = accountType === "Business" ? Number(ville.price_business) : Number(ville.price_personal);
+  if (!Number.isFinite(perLb) || perLb <= 0) return null;
+
+  const ws = weights.map((w) => (Number.isFinite(Number(w)) && Number(w) > 0 ? Number(w) : 0));
+  const totalWeight = round2(ws.reduce((s, w) => s + w, 0));
+
+  let subtotal = 0;
+  let smallCount = 0;
+  if (accountType === "Business") {
+    // Adisyone tout pwa yo ANVAN, apre sa miltipliye pa pri/lb la.
+    subtotal = round2(totalWeight * perLb);
+  } else {
+    for (const w of ws) {
+      if (isSmallParcel(w, cfg)) { subtotal += round2(cfg.price); smallCount++; }
+      else subtotal += round2(w * perLb);
+    }
+    subtotal = round2(subtotal);
+  }
+
+  const fixedTax = fixedTaxForWeight(totalWeight);
+  return {
+    count: ws.length, totalWeight, subtotal, fixedTax,
+    total: round2(subtotal + fixedTax), perLb, smallCount
+  };
+}
+
 export interface PriceResult {
   /** PRIX LIV LA KOUTE A — transpò SÈLMAN (pwa × pri/lb). Pa gen okenn frè ladan l. */
   price: number;          // USD
