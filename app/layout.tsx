@@ -23,6 +23,8 @@ export const metadata: Metadata = {
     title: "STANDA"
   },
   formatDetection: { telephone: false },
+  // Bloke bànyè "Traduire la page ?" Chrome/Google la — app la deja nan lang kliyan an.
+  other: { google: "notranslate" },
   icons: {
     icon: [
       { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
@@ -43,7 +45,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ht">
+    <html lang="ht" translate="no" className="notranslate">
       <body>
         <SelectionProvider>
           <Shell>{children}</Shell>
