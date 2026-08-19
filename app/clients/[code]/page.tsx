@@ -1,5 +1,6 @@
 "use client";
 import { use, useEffect, useState } from "react";
+import Loader from "@/components/Loader";
 import Link from "next/link";
 import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
@@ -199,7 +200,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     setShowInvoice(true);
   };
 
-  if (!client) return <p className="text-slate-400 py-10 text-center">Ap chaje dosye a...</p>;
+  if (!client) return <Loader inline />;
   const non = [client.fullname, client.surname].filter(Boolean).join(" ");
   const allChecked = visible.length > 0 && visible.every((p) => sel.has(p.id));
 
