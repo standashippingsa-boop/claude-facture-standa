@@ -17,67 +17,26 @@ export function buildDepotMessage(c: Client, tempPassword?: string): string {
   const non = [c.fullname, c.surname].filter(Boolean).join(" ").trim() || c.fullname;
   const code = c.customer_code || c.username || "MC-_____";
   let msg =
-    `Bonjour ${non},
-
-` +
-    `Votre adresse de dépôt aux États-Unis est maintenant disponible.
-
-` +
-    `Nom :
-${non}
-
-` +
-    `Adresse 1 :
-${DEPOT.address1}
-
-` +
-    `Adresse 2 :
-${code}
-
-` +
-    `Ville :
-Miami
-
-` +
-    `État :
-${DEPOT.state}
-
-` +
-    `Code Postal :
-${DEPOT.zip}
-
-` +
-    `Téléphone :
-${DEPOT.phone}
-
-` +
-    `⚠️ IMPORTANT
-` +
-    `Toujours utiliser votre code ${code} sur chacun de vos colis.
-` +
-    `Sans ce code nous ne pourrons pas identifier vos colis.
-`;
+    `Bonjour ${non},\n\n` +
+    `Votre adresse de dépôt aux États-Unis est maintenant disponible.\n\n` +
+    `Nom :\n${non}\n\n` +
+    `Adresse 1 :\n${DEPOT.address1}\n\n` +
+    `Adresse 2 :\n${code}\n\n` +
+    `Ville :\nMiami\n\n` +
+    `État :\n${DEPOT.state}\n\n` +
+    `Code Postal :\n${DEPOT.zip}\n\n` +
+    `Téléphone :\n${DEPOT.phone}\n\n` +
+    `⚠️ IMPORTANT\n` +
+    `Toujours utiliser votre code ${code} sur chacun de vos colis.\n` +
+    `Sans ce code nous ne pourrons pas identifier vos colis.\n`;
   if (tempPassword) {
     msg +=
-      `
-----------------------------------------
-` +
-      `INFORMATIONS DE CONNEXION
-
-` +
-      `Nom d'utilisateur :
-${code}
-
-` +
-      `Mot de passe :
-${tempPassword}
-
-` +
-      `Veuillez conserver ces informations.
-` ` +
+      `\n----------------------------------------\n` +
+      `INFORMATIONS DE CONNEXION\n\n` +
+      `Nom d'utilisateur :\n${code}\n\n` +
+      `Mot de passe :\n${tempPassword}\n\n` +
+      `Veuillez conserver ces informations.\n`;
   }
-  msg += `
-Merci.
-STANDA COMMERCIAL`;
+  msg += `\nMerci.\nSTANDA COMMERCIAL`;
   return msg;
 }
