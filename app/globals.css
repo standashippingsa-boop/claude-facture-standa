@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Anpeche NENPÒT depasman orizontal — se sa ki t ap bay yon "trè blan"
+   sou bò dwat ekran an sou telefòn. Aplike sou TOUT sistèm nan. */
+html, body { @apply w-full; max-width: 100%; overflow-x: hidden; overscroll-behavior-x: none; }
+
 body { @apply bg-mist text-slate-700 antialiased; }
 
 @layer components {
