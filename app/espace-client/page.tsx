@@ -1,27 +1,23 @@
 "use client";
 /*
- * STANDA COMMERCIAL — ESPACE CLIENT (V11)
+ * STANDA COMMERCIAL — ESPACE CLIENT (V12)
  * ═══════════════════════════════════════
- * Refonte konplè sou modèl aplikasyon mobil kliyan an mande a.
+ * ACCUEIL : 4 liy klikab (Disponibles · Réceptions · Factures · Historique)
+ *           + Demandes de retrait ak detay koli yo.
  *
- * ACCUEIL
- *   • Header: KÒD KLIYAN an sèlman (gwo) + non kliyan anba l.
- *     Bouton Actualiser = yon ICÒN sèlman, anwo. Pa gen "Bonjou", pa gen rezime.
- *   • 4 liy klikab ak konte nan yon boul adwat:
- *       Disponibles · Réceptions · Factures · Historique
+ * LOJIK KOLI
+ *   RÉCEPTIONS  = tout koli ki rive epi ki POKO fakti (Disponibles anlè).
+ *   DISPONIBLES = sou-ansanm Réceptions.
+ *   Fakti/Livre -> soti nan toude -> ale nan HISTORIQUE.
  *
- * LOJIK KOLI (jan kliyan an espesifye l)
- *   RÉCEPTIONS  = tout koli ki rive pou kliyan an epi ki POKO fakti.
- *                 Koli DISPONIBLE yo parèt ANLÈ ak PRI yo.
- *   DISPONIBLES = sou-ansanm Réceptions (yo rete nan Réceptions tou).
- *   Lè yon koli fakti -> li SOTI nan Réceptions ak Disponibles
- *                     -> li ale nan HISTORIQUE.
- *
- * Klike sou yon koli = fenèt detay ak TOUT enfòmasyon sistèm nan genyen.
- *
- * BARE ANBA (navigasyon)
- *   Factures · Mon adresse (📍) · Accueil · Calculatrice · WhatsApp
- *   Adrès depo a PA sou paj dakèy la ankò — li gen pwòp paj li (icòn GPS la).
+ * PRI (V12) — règ STANDA:
+ *   • Koli ki DEJA fakti  -> pri REYÈL admin nan fikse a (total_usd). Pa gen devinèt.
+ *   • Koli ki poko fakti  -> ESTIMASYON GLOBAL sèlman, montre yon sèl fwa anlè lis la:
+ *       Business : tout pwa yo adisyone ANVAN × pri/lb Business
+ *       Lòt kont: ti koli 0.10–0.99 lb -> pri fiks (Paramètres) ; sinon pwa × pri/lb
+ *       Nan toude ka: pwa total ≥ 6.50 lb -> + 10 USD taxe fiks (yon sèl fwa)
+ *     Nou PA mete yon pri sou chak kat koli ankò — sa te bay chif fo
+ *     (li t ap ajoute frè fiks vil la sou CHAK koli).
  *
  * ⚠️ TOUT hooks yo deklare ANVAN nenpòt `return` kondisyonèl (règ React).
  */
@@ -33,11 +29,17 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";
-import { createRetrait, getClientByAuthId, getClientPackagesAndInvoices, getClientRetraits } from "@/lib/db";
+import {
+  createRetrait, getClientByAuthId, getClientPackagesAndInvoices,
+  getClientRetraits, getSmallParcelConfig
+} from "@/lib/db";
 import { Client, Invoice, Pkg, Retrait } from "@/lib/types";
 import { DEPOT } from "@/lib/depot";
 import { SUPPORT_PHONE } from "@/lib/branding";
-import { computePrice, round2 } from "@/lib/pricing";
+import {
+  DEFAULT_SMALL_PARCEL, SmallParcelConfig, TAX_FIXED_USD, TAX_THRESHOLD_LB,
+  estimateForPackages, round2
+} from "@/lib/pricing";
 import { dateFr, usd } from "@/lib/utils";
 import StatusBadge from "@/components/StatusBadge";
 import { StatusTimeline } from "@/components/StatusFlow";
@@ -49,6 +51,23 @@ const WA_LINK = `https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`;
 /** Yon koli "fini" (fakti oswa livre) -> li ale nan Historique. */
 const isDone = (p: Pkg) => p.status === "Facturé" || p.status === "Livré" || !!p.invoice_id;
 
+/** Ekran chajman — logo STANDA k ap vire. */
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-mist grid place-items-center">
+      <div className="flex flex-col items-center gap-5">
+        <div className="relative w-24 h-24 grid place-items-center">
+          <span className="absolute inset-0 rounded-full border-4 border-line" />
+          <span className="absolute inset-0 rounded-full border-4 border-transparent border-t-navy border-r-navy animate-spin" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-12 object-contain animate-pulse" />
+        </div>
+        <p className="text-[11px] font-bold tracking-[.22em] text-mute uppercase">Standa Commercial</p>
+      </div>
+    </div>
+  );
+}
+
 export default function EspaceClientPage() {
   // ── HOOKS (tout ansanm, anvan tout return) ──────────────────────────────
   const router = useRouter();
@@ -56,11 +75,13 @@ export default function EspaceClientPage() {
   const [pkgs, setPkgs] = useState<Pkg[]>([]);
   const [invs, setInvs] = useState<Invoice[]>([]);
   const [retraits, setRetraits] = useState<Retrait[]>([]);
+  const [smallCfg, setSmallCfg] = useState<SmallParcelConfig>(DEFAULT_SMALL_PARCEL);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const [view, setView] = useState<View>("home");
   const [detail, setDetail] = useState<Pkg | null>(null);
+  const [openRetrait, setOpenRetrait] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -77,8 +98,8 @@ export default function EspaceClientPage() {
   const load = async () => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) { router.replace("/login"); return; }
-    const c = await getClientByAuthId(data.user.id);
-    setClient(c);
+    const [c, cfg] = await Promise.all([getClientByAuthId(data.user.id), getSmallParcelConfig()]);
+    setClient(c); setSmallCfg(cfg);
     if (c?.customer_code) {
       const [{ pkgs: p, invs: i }, rs] = await Promise.all([
         getClientPackagesAndInvoices(c.customer_code),
@@ -114,9 +135,11 @@ export default function EspaceClientPage() {
 
   const notifierRetrait = async () => {
     if (!client || !sel.size) return;
+    // GAD: sèlman koli "Disponible" ka antre nan yon demann retrait.
+    const chosen = pkgs.filter((p) => sel.has(p.id) && p.status === "Disponible");
+    if (!chosen.length) { setMsg("Sèlman koli ki Disponib ka antre nan yon demann retrait."); return; }
     setBusy(true);
     try {
-      const chosen = pkgs.filter((p) => sel.has(p.id));
       await createRetrait(client, chosen);
       setRetraits(await getClientRetraits(client.customer_code));
       setSel(new Set());
@@ -126,7 +149,7 @@ export default function EspaceClientPage() {
   };
 
   // ── Gad kondisyonèl (apre TOUT hooks) ───────────────────────────────────
-  if (loading) return <div className="min-h-screen bg-mist grid place-items-center text-slate-400">Ap chaje...</div>;
+  if (loading) return <LoadingScreen />;
 
   if (!client) return (
     <div className="min-h-screen bg-mist grid place-items-center p-6">
@@ -167,15 +190,10 @@ export default function EspaceClientPage() {
   const receptionsAll = pkgs.filter((p) => !isDone(p));
   const disponibles = receptionsAll.filter((p) => p.status === "Disponible");
   const autres = receptionsAll.filter((p) => p.status !== "Disponible");
-  const receptions = [...disponibles, ...autres]; // DISPONIBLE yo anlè
 
-  /** Pri yon koli: sa admin nan fikse, sinon estimasyon tarif vil la. */
-  const prixKoli = (p: Pkg): { total: number; estime: boolean } | null => {
-    const t = Number(p.total_usd);
-    if (Number.isFinite(t) && t > 0) return { total: t, estime: false };
-    const r = computePrice(Number(p.weight) || 0, client.account_type, client.ville);
-    return r ? { total: round2(r.price + r.taxFix), estime: true } : null;
-  };
+  const poidsDe = (list: Pkg[]) => round2(list.reduce((s, p) => s + (Number(p.weight) || 0), 0));
+  const estimation = (list: Pkg[]) =>
+    estimateForPackages(list.map((p) => Number(p.weight) || 0), client.account_type, client.ville, smallCfg);
 
   // ── Ti konpozan ─────────────────────────────────────────────────────────
   const MenuRow = ({ icon: Icon, label, count, to, accent }: {
@@ -191,31 +209,90 @@ export default function EspaceClientPage() {
     </button>
   );
 
-  const PkgCard = ({ p, showPrice }: { p: Pkg; showPrice?: boolean }) => {
-    const pr = showPrice ? prixKoli(p) : null;
+  /** Rezime yon lis koli: kantite, pwa total, epi pri (reyèl oswa estimasyon). */
+  const Totaux = ({ list, reel }: { list: Pkg[]; reel?: boolean }) => {
+    const w = poidsDe(list);
+    const est = reel ? null : estimation(list);
+    const totalReel = reel ? round2(list.reduce((s, p) => s + (Number(p.total_usd) || 0), 0)) : 0;
     return (
-      <button onClick={() => setDetail(p)} className="w-full card card-hover p-4 text-left">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="font-mono text-[13px] font-bold text-ink truncate">{p.tracking_number || "—"}</p>
-            {p.tracking_manual && <p className="font-mono text-[11px] text-mute truncate mt-0.5">{p.tracking_manual}</p>}
+      <div className="card p-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-mute">Total colis</p>
+            <p className="text-2xl font-extrabold text-ink leading-tight">{list.length}</p>
           </div>
-          <StatusBadge status={p.status} />
+          <div className="text-right">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-mute">Poids total</p>
+            <p className="text-2xl font-extrabold text-ink leading-tight">{w.toFixed(2)} <span className="text-sm">lb</span></p>
+          </div>
         </div>
-        <div className="mt-2.5"><StatusTimeline status={p.status} compact /></div>
-        <div className="flex items-center justify-between gap-2 mt-2.5">
-          <span className="text-xs text-mute truncate">{p.content || "—"}</span>
-          <span className="text-xs font-semibold text-ink shrink-0">
-            {Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : "—"}
-          </span>
-        </div>
-        {pr && (
-          <div className="mt-2.5 pt-2.5 border-t border-line flex items-center justify-between">
-            <span className="text-[11px] text-mute">{pr.estime ? "Prix estimé" : "Prix"}</span>
-            <span className="text-base font-extrabold text-navy">{usd(pr.total)}</span>
+        {reel && totalReel > 0 && (
+          <div className="mt-3 pt-3 border-t border-line flex items-center justify-between">
+            <span className="text-[12px] text-mute">Total facturé</span>
+            <span className="text-xl font-extrabold text-navy">{usd(totalReel)}</span>
           </div>
         )}
-      </button>
+        {est && (
+          <div className="mt-3 pt-3 border-t border-line space-y-1.5">
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="text-mute">Transport estimé</span>
+              <span className="font-semibold text-ink">{usd(est.subtotal)}</span>
+            </div>
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="text-mute">Taxe fixe {est.fixedTax > 0 ? `(≥ ${TAX_THRESHOLD_LB} lb)` : ""}</span>
+              <span className="font-semibold text-ink">{est.fixedTax > 0 ? usd(est.fixedTax) : "—"}</span>
+            </div>
+            <div className="flex items-center justify-between pt-1.5 border-t border-line">
+              <span className="text-[13px] font-bold text-ink">Total estimé</span>
+              <span className="text-xl font-extrabold text-navy">{usd(est.total)}</span>
+            </div>
+            <p className="text-[10px] text-mute pt-1">
+              Estimasyon dapre tarif {client.ville?.name ?? "vil ou"} · kont {client.account_type}.
+              Pri final la se sa STANDA COMMERCIAL fikse sou fakti a.
+            </p>
+          </div>
+        )}
+        {!est && !reel && (
+          <p className="mt-3 pt-3 border-t border-line text-[11px] text-amber-700">
+            Tarif vil ou a poko konfigire. Kontakte nou sou WhatsApp.
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  const PkgCard = ({ p, check }: { p: Pkg; check?: boolean }) => {
+    const facture = Number(p.total_usd) > 0 && isDone(p);
+    return (
+      <div className="relative">
+        {check && (
+          <input type="checkbox" aria-label="Chwazi koli a"
+            className="absolute top-4 right-4 z-10 w-4 h-4"
+            checked={sel.has(p.id)} onChange={() => toggleSel(p.id)} />
+        )}
+        <button onClick={() => setDetail(p)} className="w-full card card-hover p-4 text-left">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="font-mono text-[13px] font-bold text-ink truncate">{p.tracking_number || "—"}</p>
+              {p.tracking_manual && <p className="font-mono text-[11px] text-mute truncate mt-0.5">{p.tracking_manual}</p>}
+            </div>
+            {!check && <StatusBadge status={p.status} />}
+          </div>
+          <div className="mt-2.5"><StatusTimeline status={p.status} compact lastStepLabel="Facturé" /></div>
+          <div className="flex items-center justify-between gap-2 mt-2.5">
+            <span className="text-xs text-mute truncate">{p.content || "—"}</span>
+            <span className="text-xs font-semibold text-ink shrink-0">
+              {Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : "—"}
+            </span>
+          </div>
+          {facture && (
+            <div className="mt-2.5 pt-2.5 border-t border-line flex items-center justify-between">
+              <span className="text-[11px] text-mute">Prix facturé</span>
+              <span className="text-base font-extrabold text-navy">{usd(p.total_usd)}</span>
+            </div>
+          )}
+        </button>
+      </div>
     );
   };
 
@@ -238,7 +315,7 @@ export default function EspaceClientPage() {
   // ── Kalkilatris ─────────────────────────────────────────────────────────
   const w = Number(calcW.replace(",", "."));
   const calcOk = Number.isFinite(w) && w > 0;
-  const calcRes = calcOk ? computePrice(w, client.account_type, client.ville) : null;
+  const calcRes = calcOk ? estimateForPackages([w], client.account_type, client.ville, smallCfg) : null;
 
   // ── Bare navigasyon anba ────────────────────────────────────────────────
   const NavBtn = ({ icon: Icon, label, to, href }: {
@@ -267,7 +344,6 @@ export default function EspaceClientPage() {
             <p className="text-[12px] text-white/65 truncate">{non || "—"}</p>
           </div>
 
-          {/* Actualiser — ICÒN SÈLMAN */}
           <button onClick={refresh} disabled={refreshing} aria-label="Actualiser"
             className="w-9 h-9 rounded-lg grid place-items-center text-white/85 hover:text-white hover:bg-white/10 disabled:opacity-50">
             <RefreshCw size={19} className={refreshing ? "animate-spin" : ""} />
@@ -308,35 +384,55 @@ export default function EspaceClientPage() {
         {/* ═══════════ ACCUEIL ═══════════ */}
         {view === "home" && (
           <>
-            {/* Banyè: rapèl kòd la */}
-            <div className="rounded-2xl bg-navy-dark text-white px-5 py-6 text-center">
-              <Bell size={30} className="mx-auto mb-2 text-white/80" />
-              <p className="text-[11px] tracking-[.18em] font-bold text-white/60 uppercase">Adrès 2 sou koli ou yo</p>
-              <p className="text-3xl font-extrabold tracking-tight mt-1">{client.customer_code}</p>
-              <p className="text-[12px] text-white/60 mt-1.5">San kòd sa a nou pa ka idantifye koli ou.</p>
-            </div>
-
             <MenuRow icon={Bell} label="Disponibles" count={disponibles.length} to="disponibles" accent />
-            <MenuRow icon={Box} label="Réceptions" count={receptions.length} to="receptions" />
+            <MenuRow icon={Box} label="Réceptions" count={receptionsAll.length} to="receptions" />
             <MenuRow icon={FileText} label="Factures" count={invs.length} to="factures" />
             <MenuRow icon={History} label="Historique" count={historique.length} to="historique" />
 
             {retraits.length > 0 && (
               <section className="space-y-2 pt-1">
                 <h2 className="h-sec">Demandes de retrait</h2>
-                {retraits.map((r) => (
-                  <div key={r.id} className="card p-4 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-ink">
-                        {r.package_count} colis · {Number(r.total_weight).toFixed(2)} lb
-                      </p>
-                      <p className="text-xs text-mute mt-0.5">{dateFr(r.created_at)}</p>
+                {retraits.map((r) => {
+                  const open = openRetrait === r.id;
+                  return (
+                    <div key={r.id} className="card overflow-hidden">
+                      <button className="w-full p-4 flex items-center justify-between gap-3 text-left"
+                        onClick={() => setOpenRetrait(open ? null : r.id)}>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-ink">
+                            {r.package_count} colis · {Number(r.total_weight).toFixed(2)} lb
+                          </p>
+                          <p className="text-xs text-mute mt-0.5">{dateFr(r.created_at)}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`pill ${r.status === "Remis" ? "pill-green" : r.status === "Préparé" ? "pill-blue" : "pill-amber"}`}>
+                            <span className="pill-dot" /> {r.status}
+                          </span>
+                          <ChevronDown size={15} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                        </div>
+                      </button>
+                      {open && (
+                        <div className="border-t border-line divide-y divide-line">
+                          {(r.items ?? []).length === 0
+                            ? <p className="px-4 py-3 text-xs text-mute">Detay koli yo pa disponib.</p>
+                            : (r.items ?? []).map((it, i) => (
+                              <div key={it.id ?? i} className="px-4 py-2.5">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="font-mono text-[12px] font-bold text-ink truncate">{it.tracking_number || "—"}</p>
+                                  <span className="text-[12px] font-semibold text-ink shrink-0">
+                                    {Number(it.weight) > 0 ? `${Number(it.weight).toFixed(2)} lb` : "—"}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-mute truncate mt-0.5">
+                                  {it.tracking_manual || "—"} · {it.content || "—"}
+                                </p>
+                              </div>
+                            ))}
+                        </div>
+                      )}
                     </div>
-                    <span className={`pill shrink-0 ${r.status === "Remis" ? "pill-green" : r.status === "Préparé" ? "pill-blue" : "pill-amber"}`}>
-                      <span className="pill-dot" /> {r.status}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </section>
             )}
           </>
@@ -345,19 +441,17 @@ export default function EspaceClientPage() {
         {/* ═══════════ DISPONIBLES ═══════════ */}
         {view === "disponibles" && (
           <>
-            <SubHeader title="Disponibles" sub={`${disponibles.length} koli pare pou w vin pran`} />
+            <SubHeader title="Disponibles" sub="Koli pare pou w vin pran" />
             {disponibles.length === 0 ? <Empty t="Pa gen koli disponib pou kounye a." /> : (
-              <div className="space-y-3">
-                {disponibles.map((p) => (
-                  <div key={p.id} className="relative">
-                    <label className="absolute top-4 right-4 z-10 flex items-center gap-1.5 cursor-pointer"
-                      onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" className="w-4 h-4" checked={sel.has(p.id)} onChange={() => toggleSel(p.id)} />
-                    </label>
-                    <PkgCard p={p} showPrice />
-                  </div>
-                ))}
-              </div>
+              <>
+                <Totaux list={disponibles} />
+                <p className="text-[11px] text-mute px-1">
+                  Make koli yo epi peze &quot;Notifier mon retrait&quot; pou n prepare yo anvan ou rive.
+                </p>
+                <div className="space-y-3">
+                  {disponibles.map((p) => <PkgCard key={p.id} p={p} check />)}
+                </div>
+              </>
             )}
             {sel.size > 0 && (
               <div className="sticky bottom-24 z-20">
@@ -373,22 +467,25 @@ export default function EspaceClientPage() {
         {/* ═══════════ RÉCEPTIONS ═══════════ */}
         {view === "receptions" && (
           <>
-            <SubHeader title="Réceptions" sub={`${receptions.length} koli rive pou ou · poko fakti`} />
-            {receptions.length === 0 ? <Empty t="Poko gen koli ki rive." /> : (
-              <div className="space-y-3">
-                {disponibles.length > 0 && (
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-brand-dark">
-                    Disponibles ({disponibles.length})
-                  </p>
-                )}
-                {disponibles.map((p) => <PkgCard key={p.id} p={p} showPrice />)}
-                {autres.length > 0 && (
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-mute pt-2">
-                    En cours ({autres.length})
-                  </p>
-                )}
-                {autres.map((p) => <PkgCard key={p.id} p={p} />)}
-              </div>
+            <SubHeader title="Réceptions" sub="Koli rive pou ou · poko fakti" />
+            {receptionsAll.length === 0 ? <Empty t="Poko gen koli ki rive." /> : (
+              <>
+                <Totaux list={receptionsAll} />
+                <div className="space-y-3">
+                  {disponibles.length > 0 && (
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-brand-dark pt-1">
+                      Disponibles ({disponibles.length})
+                    </p>
+                  )}
+                  {disponibles.map((p) => <PkgCard key={p.id} p={p} />)}
+                  {autres.length > 0 && (
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-mute pt-2">
+                      En cours ({autres.length})
+                    </p>
+                  )}
+                  {autres.map((p) => <PkgCard key={p.id} p={p} />)}
+                </div>
+              </>
             )}
           </>
         )}
@@ -396,9 +493,12 @@ export default function EspaceClientPage() {
         {/* ═══════════ HISTORIQUE ═══════════ */}
         {view === "historique" && (
           <>
-            <SubHeader title="Historique" sub={`${historique.length} koli fakti oswa livre`} />
+            <SubHeader title="Historique" sub="Koli ki fin fakti" />
             {historique.length === 0 ? <Empty t="Poko gen koli nan istorik la." /> : (
-              <div className="space-y-3">{historique.map((p) => <PkgCard key={p.id} p={p} showPrice />)}</div>
+              <>
+                <Totaux list={historique} reel />
+                <div className="space-y-3">{historique.map((p) => <PkgCard key={p.id} p={p} />)}</div>
+              </>
             )}
           </>
         )}
@@ -413,7 +513,9 @@ export default function EspaceClientPage() {
                   <div key={f.id} className="flex items-center justify-between gap-3 p-4">
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-navy">{f.invoice_number}</p>
-                      <p className="text-xs text-mute mt-0.5">{dateFr(f.created_at)} · {f.package_count} koli</p>
+                      <p className="text-xs text-mute mt-0.5">
+                        {dateFr(f.created_at)} · {f.package_count} koli · {Number(f.total_weight).toFixed(2)} lb
+                      </p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-extrabold text-ink">{usd(f.grand_total)}</p>
@@ -428,7 +530,7 @@ export default function EspaceClientPage() {
           </>
         )}
 
-        {/* ═══════════ MON ADRESSE (icòn GPS la) ═══════════ */}
+        {/* ═══════════ MON ADRESSE ═══════════ */}
         {view === "adresse" && (
           <>
             <SubHeader title="Mon adresse" sub="Adrès depo ou Ozetazini" />
@@ -445,10 +547,6 @@ export default function EspaceClientPage() {
                   <span className={`font-semibold text-sm text-right ${k === "Address 2" ? "text-navy" : "text-ink"}`}>{v}</span>
                 </div>
               ))}
-              <p className="mt-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-                Toujou mete kòd <b>{client.customer_code}</b> la sou <b>Address 2</b> chak fwa w ap voye
-                yon pakè — se kòd sa a ki pèmèt nou idantifye koli ou yo.
-              </p>
             </div>
           </>
         )}
@@ -464,40 +562,44 @@ export default function EspaceClientPage() {
                   value={calcW} onChange={(e) => setCalcW(e.target.value)} />
               </label>
 
-              {!client.ville?.active && (
+              {calcOk && !calcRes && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-                  Vil ou a poko konfigire nan sistèm nan. Kontakte nou sou WhatsApp pou tarif ou.
+                  Tarif vil ou a poko konfigire nan sistèm nan. Kontakte nou sou WhatsApp.
                 </p>
               )}
 
               {calcRes && (
                 <div className="rounded-xl border border-line divide-y divide-line">
                   <div className="flex justify-between px-4 py-2.5 text-sm">
-                    <span className="text-mute">Prix transport</span>
-                    <span className="font-semibold text-ink">{usd(calcRes.price)}</span>
+                    <span className="text-mute">
+                      Transport {calcRes.smallCount > 0 ? "(petit colis)" : `(${calcRes.totalWeight.toFixed(2)} lb)`}
+                    </span>
+                    <span className="font-semibold text-ink">{usd(calcRes.subtotal)}</span>
                   </div>
                   <div className="flex justify-between px-4 py-2.5 text-sm">
-                    <span className="text-mute">Frais &amp; taxes</span>
-                    <span className="font-semibold text-ink">{usd(calcRes.taxFix)}</span>
+                    <span className="text-mute">Taxe fixe</span>
+                    <span className="font-semibold text-ink">
+                      {calcRes.fixedTax > 0 ? usd(calcRes.fixedTax) : "—"}
+                    </span>
                   </div>
                   <div className="flex justify-between px-4 py-3 bg-mist rounded-b-xl">
                     <span className="font-bold text-ink text-sm">Total estimé</span>
-                    <span className="font-extrabold text-navy text-lg">{usd(round2(calcRes.price + calcRes.taxFix))}</span>
+                    <span className="font-extrabold text-navy text-lg">{usd(calcRes.total)}</span>
                   </div>
                 </div>
               )}
 
               <p className="text-[11px] text-mute">
-                Sa se yon <b>estimasyon</b> dapre tarif vil ou a
-                {client.ville?.name ? ` (${client.ville.name})` : ""} ak tip kont ou an ({client.account_type}).
-                Pri final la fikse lè koli a peze nan depo a.
+                Taxe fiks {usd(TAX_FIXED_USD)} ajoute depi pwa total la rive {TAX_THRESHOLD_LB} lb.
+                Ti koli {smallCfg.min}–{smallCfg.max} lb: {usd(smallCfg.price)}.
+                Sa se yon <b>estimasyon</b> — pri final la fikse lè koli a peze nan depo a.
               </p>
             </div>
           </>
         )}
       </div>
 
-      {/* ══ DETAY KOLI — TOUT enfòmasyon sistèm nan genyen ══ */}
+      {/* ══ DETAY KOLI ══ */}
       {detail && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4"
           onClick={() => setDetail(null)}>
@@ -508,7 +610,7 @@ export default function EspaceClientPage() {
               <button onClick={() => setDetail(null)} className="text-slate-400 hover:text-navy"><X size={19} /></button>
             </div>
             <div className="p-4 space-y-3">
-              <StatusTimeline status={detail.status} />
+              <StatusTimeline status={detail.status} lastStepLabel="Facturé" />
               <div className="divide-y divide-line">
                 {([
                   ["Tracking ID", detail.tracking_number],
@@ -517,15 +619,11 @@ export default function EspaceClientPage() {
                   ["Poids", Number(detail.weight) > 0 ? `${Number(detail.weight).toFixed(2)} lb` : ""],
                   ["Quantité", detail.quantity ? String(detail.quantity) : ""],
                   ["Statut", detail.status],
-                  ["Statut MCPACK", detail.status_mcpack],
-                  ["Date création", dateFr(detail.created_date)],
                   ["Date réception", detail.received_at ? dateFr(detail.received_at) : ""],
-                  ["Méthode réception", detail.received_method],
                   ["Prix", Number(detail.price_usd) > 0 ? usd(detail.price_usd) : ""],
                   ["Taxes", Number(detail.tax_usd) > 0 ? usd(detail.tax_usd) : ""],
                   ["Total", Number(detail.total_usd) > 0 ? usd(detail.total_usd) : ""],
-                  ["Facturé", isDone(detail) ? "Oui" : "Non"],
-                  ["Vérifié", detail.verified ? "Oui" : "Non"]
+                  ["Facturé", isDone(detail) ? "Oui" : "Non"]
                 ] as const).map(([k, v]) => (
                   <div key={k} className="flex justify-between gap-4 py-2.5">
                     <span className="text-mute text-[13px] shrink-0">{k}</span>
@@ -535,12 +633,6 @@ export default function EspaceClientPage() {
                   </div>
                 ))}
               </div>
-              {!Number(detail.total_usd) && prixKoli(detail) && (
-                <div className="rounded-xl bg-mist px-4 py-3 flex justify-between items-center">
-                  <span className="text-[12px] text-mute">Prix estimé</span>
-                  <span className="font-extrabold text-navy">{usd(prixKoli(detail)!.total)}</span>
-                </div>
-              )}
               <a href={WA_LINK} target="_blank" rel="noreferrer" className="btn btn-wa w-full justify-center">
                 <MessageCircle size={15} /> Poze yon kesyon sou koli sa a
               </a>
