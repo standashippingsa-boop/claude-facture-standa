@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Loader from "@/components/Loader";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -115,7 +116,7 @@ export default function SettingsPage() {
     setNotice("Paramètres enregistrés.");
   };
 
-  if (roleLoading) return <p className="text-slate-400">Ap verifye aksè...</p>;
+  if (roleLoading) return <Loader inline />;
   if (role !== "admin") {
     return (
       <div className="card p-10 max-w-md mx-auto text-center space-y-3">
