@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import Loader from "@/components/Loader";
 import { History, Trash2, Filter, Eye } from "lucide-react";
 import RefreshButton from "@/components/RefreshButton";
 import Pagination from "@/components/Pagination";
@@ -109,7 +110,7 @@ export default function JournalPage() {
           </tr></thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="text-center py-8 text-slate-400">Ap chaje...</td></tr>
+              <tr><td colSpan={7} className="py-4"><Loader inline size={56} /></td></tr>
             ) : view.length === 0 ? (
               <tr><td colSpan={7} className="text-center py-8 text-slate-400">Pa gen anrejistreman.</td></tr>
             ) : view.map((r, i) => {
