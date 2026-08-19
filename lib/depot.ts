@@ -2,10 +2,10 @@ import { Client } from "./types";
 
 /** Adrès depo Ozetazini — chanje isit la si li ta chanje yon jou */
 export const DEPOT = {
-  address1: "1926 NW 135th St",
+  address1: "1926 NW 135th AVE",
   city: "MIAMI",
   state: "Florida",
-  zip: "33182",
+  zip: "33182-1928",
   phone: "+1 (786) 685-6050"
 };
 
