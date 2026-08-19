@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Loader from "@/components/Loader";
 import Link from "next/link";
 import { Users, Package, FileText, DollarSign, RefreshCw, CheckCircle2, Bell, Inbox, UserPlus } from "lucide-react";
 import { getClients, getRetraits, getStats } from "@/lib/db";
@@ -56,7 +57,7 @@ export default function Dashboard() {
             <p className="stat-value">{value}</p>
           </Link>
         ))}
-        {!stats && !err && <p className="text-sm text-slate-400">Ap chaje estatistik yo...</p>}
+        {!stats && !err && <Loader inline size={56} />}
       </div>
 
       {/* ===== Notifications ===== */}
