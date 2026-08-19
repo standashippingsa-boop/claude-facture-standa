@@ -1,6 +1,6 @@
 import { Client } from "./types";
 
-/** Adrès depo Ozetazini — chanje isit la si li ta chanje yon jou */
+/** Adrès depo ou USA — chanje isit la si li ta chanje yon jou */
 export const DEPOT = {
   address1: "1926 NW 135th AVE",
   city: "MIAMI",
@@ -69,14 +69,12 @@ ${DEPOT.phone}
 ${code}
 
 ` +
-      `Mot de passe temporaire :
+      `Mot de passe :
 ${tempPassword}
 
 ` +
       `Veuillez conserver ces informations.
-` +
-      `Lors de votre première connexion, le système vous demandera de créer un nouveau mot de passe.
-`;
+` ` +
   }
   msg += `
 Merci.
