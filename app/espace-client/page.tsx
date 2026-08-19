@@ -41,32 +41,32 @@ import {
   estimateForPackages, round2
 } from "@/lib/pricing";
 import { dateFr, usd } from "@/lib/utils";
+import Loader, { SavedToast, Spinner, SuccessCheck } from "@/components/Loader";
 import StatusBadge from "@/components/StatusBadge";
 import { StatusTimeline } from "@/components/StatusFlow";
 
 type View = "home" | "disponibles" | "receptions" | "factures" | "historique" | "adresse" | "calc";
 
-const WA_LINK = `https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`;
+const WA_NUM = SUPPORT_PHONE.replace(/\D/g, "");
+const WA_LINK = `https://wa.me/${WA_NUM}`;
+
+/**
+ * Lyen WhatsApp pou yon koli — Tracking Number ak Tracking ID nan TÈT mesaj la,
+ * konsa ekip la wè imedyatman de ki koli kliyan an ap pale.
+ */
+function waPkgLink(p: Pkg, code: string): string {
+  const tn = String(p.tracking_manual ?? "").trim() || "—";
+  const id = String(p.tracking_number ?? "").trim() || "—";
+  const msg =
+    `Tracking Number: ${tn}\n` +
+    `Tracking ID: ${id}\n` +
+    `Client: ${code}\n\n` +
+    `Bonjou STANDA COMMERCIAL, mwen gen yon kesyon sou koli sa a.`;
+  return `https://wa.me/${WA_NUM}?text=${encodeURIComponent(msg)}`;
+}
 
 /** Yon koli "fini" (fakti oswa livre) -> li ale nan Historique. */
 const isDone = (p: Pkg) => p.status === "Facturé" || p.status === "Livré" || !!p.invoice_id;
-
-/** Ekran chajman — logo STANDA k ap vire. */
-function LoadingScreen() {
-  return (
-    <div className="min-h-screen bg-mist grid place-items-center">
-      <div className="flex flex-col items-center gap-5">
-        <div className="relative w-24 h-24 grid place-items-center">
-          <span className="absolute inset-0 rounded-full border-4 border-line" />
-          <span className="absolute inset-0 rounded-full border-4 border-transparent border-t-navy border-r-navy animate-spin" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-12 object-contain animate-pulse" />
-        </div>
-        <p className="text-[11px] font-bold tracking-[.22em] text-mute uppercase">Standa Commercial</p>
-      </div>
-    </div>
-  );
-}
 
 export default function EspaceClientPage() {
   // ── HOOKS (tout ansanm, anvan tout return) ──────────────────────────────
@@ -85,6 +85,7 @@ export default function EspaceClientPage() {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
@@ -111,8 +112,37 @@ export default function EspaceClientPage() {
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [router]);
 
+  /**
+   * MIZAJOU OTOMATIK (pwen 4) — chanjman admin fè nan Paramètres (tarif, ti koli,
+   * statut koli) desann pou kont yo: lè kliyan an retounen sou onglè a, epi chak
+   * 60 segond pandan app la louvri. Silansye: pa gen spinner, pa gen toast.
+   */
+  useEffect(() => {
+    const silent = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", silent);
+    window.addEventListener("focus", silent);
+    const timer = setInterval(silent, 60000);
+    return () => {
+      document.removeEventListener("visibilitychange", silent);
+      window.removeEventListener("focus", silent);
+      clearInterval(timer);
+    };
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
+
   // ── Aksyon ──────────────────────────────────────────────────────────────
-  const refresh = async () => { setRefreshing(true); try { await load(); } finally { setRefreshing(false); } };
+  /**
+   * ACTUALISER (pwen 6) — remonte TOUT done yo: pwofil, tarif (Paramètres),
+   * koli, fakti, demann retrait. Ansyen done yo rete sou ekran an pandan tan
+   * an (koli yo pa disparèt), yo ranplase sèlman lè nouvo yo fin desann.
+   * Ilustrasyon an ap vire jiskaske li fini, epi ✅ vèt la parèt.
+   */
+  const refresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try { await load(); setToast("Mizajou fèt"); }
+    finally { setRefreshing(false); }
+  };
   const logout = async () => { await supabase.auth.signOut(); router.replace("/login"); };
 
   const changePassword = async () => {
@@ -123,9 +153,9 @@ export default function EspaceClientPage() {
     try {
       const { error } = await supabase.auth.updateUser({ password: pwd1 });
       if (error) throw error;
-      setPwdMsg("✅ Modpas ou chanje avèk siksè.");
       setPwd1(""); setPwd2("");
-      setTimeout(() => { setShowPwd(false); setPwdMsg(null); }, 1500);
+      setShowPwd(false); setPwdMsg(null);
+      setToast("Modpas ou chanje");
     } catch (e: unknown) { setPwdMsg(safeMessage(e)); }
     finally { setPwdBusy(false); }
   };
@@ -143,13 +173,14 @@ export default function EspaceClientPage() {
       await createRetrait(client, chosen);
       setRetraits(await getClientRetraits(client.customer_code));
       setSel(new Set());
-      setMsg(`Demann ou an voye (${chosen.length} koli). STANDA COMMERCIAL ap prepare yo.`);
+      setMsg(null);
+      setToast(`Demann retrait voye — ${chosen.length} koli`);
     } catch (e: unknown) { setMsg(safeMessage(e)); }
     finally { setBusy(false); }
   };
 
   // ── Gad kondisyonèl (apre TOUT hooks) ───────────────────────────────────
-  if (loading) return <LoadingScreen />;
+  if (loading) return <Loader />;
 
   if (!client) return (
     <div className="min-h-screen bg-mist grid place-items-center p-6">
@@ -246,10 +277,6 @@ export default function EspaceClientPage() {
               <span className="text-[13px] font-bold text-ink">Total estimé</span>
               <span className="text-xl font-extrabold text-navy">{usd(est.total)}</span>
             </div>
-            <p className="text-[10px] text-mute pt-1">
-              Estimasyon dapre tarif {client.ville?.name ?? "vil ou"} · kont {client.account_type}.
-              Pri final la se sa STANDA COMMERCIAL fikse sou fakti a.
-            </p>
           </div>
         )}
         {!est && !reel && (
@@ -345,8 +372,11 @@ export default function EspaceClientPage() {
           </div>
 
           <button onClick={refresh} disabled={refreshing} aria-label="Actualiser"
-            className="w-9 h-9 rounded-lg grid place-items-center text-white/85 hover:text-white hover:bg-white/10 disabled:opacity-50">
-            <RefreshCw size={19} className={refreshing ? "animate-spin" : ""} />
+            title="Mettre à jour toutes les données"
+            className="w-9 h-9 rounded-lg grid place-items-center text-white/85 hover:text-white hover:bg-white/10 disabled:opacity-60">
+            {refreshing
+              ? <Spinner size={19} />
+              : toast ? <SuccessCheck size={20} /> : <RefreshCw size={19} />}
           </button>
 
           <a href={WA_LINK} target="_blank" rel="noreferrer" aria-label="WhatsApp"
@@ -445,8 +475,9 @@ export default function EspaceClientPage() {
             {disponibles.length === 0 ? <Empty t="Pa gen koli disponib pou kounye a." /> : (
               <>
                 <Totaux list={disponibles} />
-                <p className="text-[11px] text-mute px-1">
-                  Make koli yo epi peze &quot;Notifier mon retrait&quot; pou n prepare yo anvan ou rive.
+                <p className="text-[12px] text-mute px-1 leading-relaxed">
+                  Seleksyone tout koli w ap pran yo epi peze &quot;Notifier mon retrait&quot; pou nou
+                  kapab prepare koli yo pou ou anvan w pase pran yo.
                 </p>
                 <div className="space-y-3">
                   {disponibles.map((p) => <PkgCard key={p.id} p={p} check />)}
@@ -633,7 +664,8 @@ export default function EspaceClientPage() {
                   </div>
                 ))}
               </div>
-              <a href={WA_LINK} target="_blank" rel="noreferrer" className="btn btn-wa w-full justify-center">
+              <a href={waPkgLink(detail, client.customer_code)} target="_blank" rel="noreferrer"
+                className="btn btn-wa w-full justify-center">
                 <MessageCircle size={15} /> Poze yon kesyon sou koli sa a
               </a>
             </div>
@@ -668,6 +700,9 @@ export default function EspaceClientPage() {
           </div>
         </div>
       )}
+
+      {/* ══ ✅ CONFIRMATION (pwen 3) — apre chak anrejistreman reyisi ══ */}
+      {toast && <SavedToast message={toast} onClose={() => setToast(null)} />}
 
       {/* ══ BARE NAVIGASYON ANBA ══ */}
       <nav className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-line">
