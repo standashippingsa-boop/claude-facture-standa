@@ -1,5 +1,5 @@
 import { AccountType, Client, Pkg, Ville } from "./types";
-import { round2, isSmallParcel, SmallParcelConfig } from "./pricing";
+import { round2, isSmallParcel, SmallParcelConfig, TAX_THRESHOLD_LB, TAX_FIXED_USD } from "./pricing";
 
 /**
  * MOTEUR DE FACTURATION — NIVEAU FINANCIER (STANDA COMMERCIAL)
@@ -10,6 +10,20 @@ import { round2, isSmallParcel, SmallParcelConfig } from "./pricing";
  *  - Okenn devinèt. Si yon kontwòl echwe, fakti a PA jenere.
  *  - Prix/LB PA JANM modifye ni awondi. Awondi fèt sèlman sou montan liy/total.
  *  - Total verifye anvan kreyasyon PDF (kalkile == afiche).
+ *
+ * RÈG KONT BUSINESS (V13):
+ *  Pou yon kont Business, nou ADISYONE TOUT PWA yo ANVAN, epi nou miltipliye
+ *  yon sèl fwa pa Prix/LB Business la:
+ *        subtotal = round2( pwa_total × prix_lb )
+ *  Liy yo toujou parèt koli pa koli sou PDF la; montan chak liy kalkile
+ *  pwopòsyonèlman, epi dènye liy lan absòbe rès awondi a pou som liy yo
+ *  egal EGZAKTEMAN subtotal la (verifyTotal rete valab).
+ *  Tarif "ti koli" PA aplike sou Business — se sèlman lòt kont yo.
+ *
+ * TAXE FIKS:
+ *  Motè a PA ajoute okenn taks pou kont li. Se ADMIN ki mete taks yo nan
+ *  fenèt fakti a. Motè a jis SIGNALE lè pwa total la rive nan sèy la
+ *  (fixedTaxSuggested), pou fenèt la ka pwopoze montan an davans.
  */
 
 export interface InvoiceInput {
@@ -49,6 +63,10 @@ export interface InvoiceComputation {
   discount: number;
   totalUsd: number;
   totalHtg: number;
+  /** true si pwa total ≥ sèy la — fenèt fakti a pwopoze taks la (admin deside). */
+  taxThresholdReached: boolean;
+  /** Montan taks ki pwopoze (0 si sèy la pa rive). Se yon SIJESYON, pa yon obligasyon. */
+  fixedTaxSuggested: number;
 }
 
 /** Pri/LB kliyan an SÈLMAN soti nan vil la (Paramètres). */
@@ -103,20 +121,43 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
     return {
       ok: false, errors, ville: ville?.name ?? "", zone: ville?.name ?? "",
       perLb: 0, accountType, lines: [], totalWeight: 0, subtotal: 0,
-      taxeFixe: taxe, fraisDga: dga, discount: disc, totalUsd: 0, totalHtg: 0
+      taxeFixe: taxe, fraisDga: dga, discount: disc, totalUsd: 0, totalHtg: 0,
+      taxThresholdReached: false, fixedTaxSuggested: 0
     };
   }
 
   // ---- KALKIL (§5) — nan lòd egzak, Prix/LB pa touche (§6) ----
-  const lines: InvoiceLine[] = pkgs.map((p) => {
-    const small = mode === "small_control" && isSmallParcel(p.weight, smallCfg);
-    // Ti koli -> pri fiks; sinon pwa × pri/lb (awondi SOU MONTAN an, pa sou pri/lb)
-    const amount = small ? round2(smallCfg.price) : round2(p.weight * perLb);
-    return { pkg: p, weight: p.weight, perLb, isSmall: small, amount };
-  });
-
   const totalWeight = round2(pkgs.reduce((s, p) => s + p.weight, 0));
-  const subtotal = round2(lines.reduce((s, l) => s + l.amount, 0));
+
+  let lines: InvoiceLine[];
+  let subtotal: number;
+
+  if (accountType === "Business") {
+    // BUSINESS: adisyone TOUT pwa yo ANVAN, apre sa miltipliye YON SÈL FWA.
+    subtotal = round2(totalWeight * perLb);
+
+    // Reparti montan an sou liy yo (pwopòsyonèl), dènye liy lan pran rès la
+    // pou som liy yo egal EGZAKTEMAN subtotal la.
+    let cumul = 0;
+    lines = pkgs.map((p, i) => {
+      const last = i === pkgs.length - 1;
+      const amount = last ? round2(subtotal - cumul) : round2(p.weight * perLb);
+      if (!last) cumul = round2(cumul + amount);
+      return { pkg: p, weight: p.weight, perLb, isSmall: false, amount };
+    });
+  } else {
+    // LÒT KONT: chak koli apa — ti koli -> pri fiks; sinon pwa × pri/lb.
+    lines = pkgs.map((p) => {
+      const small = mode === "small_control" && isSmallParcel(p.weight, smallCfg);
+      const amount = small ? round2(smallCfg.price) : round2(p.weight * perLb);
+      return { pkg: p, weight: p.weight, perLb, isSmall: small, amount };
+    });
+    subtotal = round2(lines.reduce((s, l) => s + l.amount, 0));
+  }
+
+  // Siyal taks la — SIJESYON sèlman. Motè a PA ajoute anyen pou kont li.
+  const taxThresholdReached = totalWeight >= TAX_THRESHOLD_LB;
+  const fixedTaxSuggested = taxThresholdReached ? TAX_FIXED_USD : 0;
   const totalUsd = round2(subtotal + taxe + dga - disc);
   const totalHtg = round2(totalUsd * rate);
 
@@ -125,7 +166,7 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
     ville: ville!.name, zone: ville!.name,
     perLb, accountType, lines,
     totalWeight, subtotal, taxeFixe: taxe, fraisDga: dga, discount: disc,
-    totalUsd, totalHtg
+    totalUsd, totalHtg, taxThresholdReached, fixedTaxSuggested
   };
 }
 
