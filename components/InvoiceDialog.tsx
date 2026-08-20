@@ -1,13 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { createInvoiceFromComputation, getSmallParcelConfig, getUsdRate, saveInvoicePdfUrl } from "@/lib/db";
+import { createInvoiceFromComputation, getSmallParcelConfig, getSpecialArticles, getUsdRate, saveInvoicePdfUrl } from "@/lib/db";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
-import { TAX_THRESHOLD_LB } from "@/lib/pricing";
+import { FixedPriceMap, SpecialArticle, TAX_THRESHOLD_LB } from "@/lib/pricing";
 import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Client, Pkg } from "@/lib/types";
 import { htg, usd } from "@/lib/utils";
+import { Package } from "lucide-react";
 
 /**
  * FENÊTRE DE FACTURATION — CONFIGURATION UNIQUE (STANDA COMMERCIAL)
@@ -28,6 +29,11 @@ import { htg, usd } from "@/lib/utils";
  *   Lè pwa total la rive {TAX_THRESHOLD_LB} lb, fenèt la PWOPOZE taks la
  *   otomatikman (kaz la koche, montan an pre-ranpli). Admin an rete mèt:
  *   li ka chanje montan an oswa dekoche l. Motè a pa ajoute anyen an kachèt.
+ *
+ * ARTICLES À PRIX FIXE (V14):
+ *   Kèk koli pa fakti pa liv (telefòn, laptòp, kamera…). Pou chak koli,
+ *   admin ka chwazi yon atik nan katalòg la (Paramètres) — montan an vin
+ *   yon FÒFÈ epi pwa a pa antre nan kalkil la.
  *
  * KONT BUSINESS (V13):
  *   Pwa yo adisyone ANVAN, apre sa miltipliye yon sèl fwa pa Prix/LB Business.
@@ -59,6 +65,10 @@ export default function InvoiceDialog({
   const [calcMode, setCalcMode] = useState<"addition" | "small_control">("addition");
   /** true depi admin an manyen kaz/montan taks la — nou sispann pwopoze. */
   const [taxeTouched, setTaxeTouched] = useState(false);
+  /** Katalòg atik a pri fiks (Paramètres). */
+  const [articles, setArticles] = useState<SpecialArticle[]>([]);
+  /** Chwa admin an pa koli: { [pkg.id]: article.id }. Vid = fakti pa liv. */
+  const [fixedSel, setFixedSel] = useState<Record<string, string>>({});
 
   const [comp, setComp] = useState<InvoiceComputation | null>(null);
   const [busy, setBusy] = useState(false);
@@ -67,22 +77,30 @@ export default function InvoiceDialog({
   // Chaje to + konfigirasyon ti koli (Paramètres)
   useEffect(() => {
     (async () => {
-      const [r, cfg] = await Promise.all([getUsdRate(), getSmallParcelConfig()]);
-      setRate(r); setSmallCfg(cfg); setReady(true);
+      const [r, cfg, arts] = await Promise.all([getUsdRate(), getSmallParcelConfig(), getSpecialArticles()]);
+      setRate(r); setSmallCfg(cfg); setArticles(arts); setReady(true);
     })();
   }, []);
+
+  /** Kat fòfè a: { [pkg.id]: { label, price } } — sèlman koli ki gen yon atik. */
+  const fixedPrices: FixedPriceMap = {};
+  for (const [pkgId, artId] of Object.entries(fixedSel)) {
+    const a = articles.find((x) => x.id === artId);
+    if (a) fixedPrices[pkgId] = { label: a.label, price: a.price };
+  }
+  const fixedKey = JSON.stringify(fixedSel);
 
   // Rekalkile ak MOTEUR FINANCIER chak fwa yon opsyon chanje
   useEffect(() => {
     if (!ready || !pkgs.length) { setComp(null); return; }
     setComp(computeInvoice({
-      client, pkgs, rate, smallCfg, mode: calcMode,
+      client, pkgs, rate, smallCfg, mode: calcMode, fixedPrices,
       taxeFixe: useTaxe ? Number(taxeVal) || 0 : 0,
       fraisDga: useDga ? Number(fraisDga) || 0 : 0,
       discount: useDisc ? Number(discount) || 0 : 0
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, rate, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount]);
+  }, [ready, rate, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount, fixedKey, articles]);
 
   /**
    * PWOPOZISYON TAKS — lè pwa total la rive nan sèy la, nou koche kaz la epi
@@ -109,7 +127,7 @@ export default function InvoiceDialog({
         invoice_id: inv.id, tracking_number: l.pkg.tracking_number,
         tracking_manual: l.pkg.tracking_manual ?? "",
         weight: l.weight, content: l.pkg.content, price: l.amount, tax: 0, total: l.amount,
-        is_small: l.isSmall, per_lb: l.perLb
+        is_small: l.isSmall, per_lb: l.perLb, fixed_label: l.isFixed ? l.fixedLabel : ""
       }));
       const pdf = await generateUploadDownload(inv, items, footer, { download: true });
       if (pdf.url) { await saveInvoicePdfUrl(inv.id, pdf.url); inv.pdf_url = pdf.url; }
@@ -169,6 +187,44 @@ export default function InvoiceDialog({
         </div>
         )}
 
+        {/* ARTICLES À PRIX FIXE — koli ki pa fakti pa liv */}
+        {articles.length > 0 && (
+          <div className="border border-line rounded-lg p-3 mb-3">
+            <p className="text-xs font-bold text-navy uppercase mb-1 flex items-center gap-1.5">
+              <Package size={13} /> Articles à prix fixe
+            </p>
+            <p className="text-[11px] text-slate-500 mb-2 leading-relaxed">
+              Téléphone, laptop, caméra… Choisissez l&apos;article : le poids ne sera pas facturé,
+              c&apos;est le forfait qui s&apos;applique.
+            </p>
+            <div className="max-h-44 overflow-y-auto divide-y divide-line">
+              {pkgs.map((p) => (
+                <div key={p.id} className="flex items-center gap-2 py-1.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-mono text-[11px] font-semibold text-ink truncate">{p.tracking_number}</p>
+                    <p className="text-[10px] text-slate-400 truncate">
+                      {p.content || "—"} · {Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : "—"}
+                    </p>
+                  </div>
+                  <select
+                    className="input !w-44 !py-1 !text-[11px] shrink-0"
+                    value={fixedSel[p.id] ?? ""}
+                    onChange={(e) => setFixedSel((prev) => {
+                      const n = { ...prev };
+                      if (e.target.value) n[p.id] = e.target.value; else delete n[p.id];
+                      return n;
+                    })}>
+                    <option value="">Au poids (normal)</option>
+                    {articles.map((a) => (
+                      <option key={a.id} value={a.id}>{a.label} — {usd(a.price)}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ÉTAPES: Taxe / DGA / Discount */}
         <div className="space-y-2 mb-2">
           <label className="flex items-center gap-2 text-sm">
@@ -218,6 +274,11 @@ export default function InvoiceDialog({
         {/* APERÇU */}
         <div className="bg-mist rounded-lg p-3 space-y-1.5 text-sm">
           <div className="flex justify-between"><span className="text-slate-500">Poids total</span><b>{totalWeight.toFixed(2)} LB</b></div>
+          {comp?.ok && comp.lines.some((l) => l.isFixed) && (
+            <div className="flex justify-between"><span className="text-slate-500">
+              dont forfaits ({comp.lines.filter((l) => l.isFixed).length} colis)</span>
+              <b>{usd(comp.lines.filter((l) => l.isFixed).reduce((s, l) => s + l.amount, 0))}</b></div>
+          )}
           <div className="flex justify-between"><span className="text-slate-500">Sous-total colis</span><b>{usd(comp?.subtotal ?? 0)}</b></div>
           {useTaxe && Number(taxeVal) > 0 && <div className="flex justify-between"><span className="text-slate-500">Taxe Fixe</span><b>{usd(Number(taxeVal))}</b></div>}
           {useDga && Number(fraisDga) > 0 && <div className="flex justify-between"><span className="text-slate-500">Frais DGA</span><b>{usd(Number(fraisDga))}</b></div>}
