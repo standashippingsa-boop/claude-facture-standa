@@ -1,46 +1,59 @@
 "use client";
 /*
- * STANDA COMMERCIAL — CONDUCES · V16
- * ═══════════════════════════════════
- * Yon Conduce se yon manifest Caribe Tours: yon gwoup koli k ap vwayaje ansanm.
- * Single Source of Truth — statut la KALKILE depi koli yo, jamè dwaplike.
+ * STANDA COMMERCIAL — CONDUCES · V17 (CLASSEURS PAR DATE)
+ * ═══════════════════════════════════════════════════════
+ * Yon Conduce se yon manifest Caribe Tours. Men nan travay reyèl la, ou antre
+ * PLIZYÈ conduce menm jou a (lè w fenk rekipere machandiz Dajabon). Donk
+ * inite travay la se JOUNEN an, pa conduce a.
  *
- * DESIGN — sa paj la vle di:
- *   Yon conduce se yon LO k ap avanse nan yon pwosesis. Sa ki enpòtan pou ekip
- *   la se PA yon liy tablo — se KI KOTE lo a rive: konbyen koli fakti, konbyen
- *   verifye, konbyen rete. Donk chak conduce se yon KAT ak yon "rail"
- *   pwogresyon segmante (yon segman pa koli, jiska 40) — se siyati paj la.
- *   Ou wè eta yon lo an yon sèl kout je, san li chif.
+ * STRIKTI:
+ *   CLASSEUR (yon jou)  ->  Conduces jounen an  ->  Koli yo
  *
- *   • Kat espase (pa yon tablo sere) — chak conduce se yon objè, pa yon ranje
- *   • Bò dwat chak kat: yon ba koulè statut (vèt = fakti, ble = an kou, jòn = vid)
- *   • Seleksyon miltip -> bare aksyon flotan ki monte anba ekran an
- *   • Onglè "En cours / Historique": depi TOUT koli fakti, lo a soti nan travay
- *     kounye a epi li ale nan Historique.
+ *   • Chak jou se yon KATAB: dat la, konbyen conduce, konbyen koli, pwa,
+ *     pousantaj fakti, epi BENEFIS ESTIME (pwa × 0.80 USD).
+ *   • Klike sou katab la -> conduces jounen an deplòtye anndan l.
+ *   • Klike sou NIMEWO conduce a -> ou antre nan conduce a.
  *
- * Palèt: mak STANDA sèlman (navy #122B5C + vèt #16A34A). Pa gen koulè enpòte.
+ * PROGRESYON: yon echèl pousantaj (pa yon bouton "Ouvrir"). Ou wè imedyatman
+ * ki lo ki prèt pou fini.
+ *
+ * MOBILE / TABLÈT: tout bagay se kat ki anpile — pa gen tablo ki depase ekran
+ * an. Ou ka travay sou telefòn depi Dajabon san pwoblèm.
  */
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowRight, Boxes, CheckCircle2, ClipboardList, FileDown, Search, X
+  Boxes, CheckCircle2, ChevronDown, ClipboardList, FileDown, FolderOpen,
+  Search, TrendingUp, X
 } from "lucide-react";
 import Loader from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
 import { deriveConduceStatus, getConduces, getConduceStats, setConduceStatus } from "@/lib/db";
-import { dateFr } from "@/lib/utils";
+import { PROFIT_PER_LB, estimateProfit } from "@/lib/pricing";
+import { usd } from "@/lib/utils";
 import type { Conduce } from "@/lib/types";
 
 interface Row extends Conduce {
   count: number; weight: number; facturedCount: number; verifiedCount: number;
 }
+interface Classeur {
+  key: string;        // "2026-08-19"
+  label: string;      // "mercredi 19 août 2026"
+  short: string;      // "19 août"
+  rows: Row[];
+  count: number; weight: number; facturedCount: number;
+}
+
+/** Jou yon conduce: dat conduce a si li la, sinon dat kreyasyon an. */
+const dayKey = (c: Conduce) => String(c.conduce_date || c.created_at).slice(0, 10);
 
 export default function ConducesPage() {
   const router = useRouter();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"actives" | "historique">("actives");
+  const [openDay, setOpenDay] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
 
   const load = async () => {
@@ -48,14 +61,12 @@ export default function ConducesPage() {
       const list = await getConduces();
       const withStats = await Promise.all(list.map(async (c) => {
         const s = await getConduceStats(c.id);
-        // Statut DERIVE depi koli yo — sous verite inik.
         const derived = deriveConduceStatus(s.count, s.facturedCount);
         if (derived !== c.status) {
           try { await setConduceStatus(c.id, derived); } catch { /* pa bloke afichaj la */ }
         }
         return {
-          ...c, status: derived,
-          count: s.count, weight: s.weight,
+          ...c, status: derived, count: s.count, weight: s.weight,
           facturedCount: s.facturedCount, verifiedCount: s.verifiedCount
         };
       }));
@@ -66,43 +77,66 @@ export default function ConducesPage() {
 
   const all = rows ?? [];
   const estArchive = (r: Row) => r.status === "Facturée";
-  const actives = all.filter((r) => !estArchive(r));
-  const historique = all.filter(estArchive);
 
-  const filtered = useMemo(() => {
+  /** Gwoupe conduces yo pa JOU — se katab yo. */
+  const classeurs = useMemo<Classeur[]>(() => {
     const needle = search.trim().toLowerCase();
-    return (tab === "actives" ? actives : historique).filter((r) =>
-      !needle || r.conduce_number.toLowerCase().includes(needle) ||
-      (r.office ?? "").toLowerCase().includes(needle));
+    const pool = all
+      .filter((r) => (tab === "actives" ? !estArchive(r) : estArchive(r)))
+      .filter((r) => !needle
+        || r.conduce_number.toLowerCase().includes(needle)
+        || (r.office ?? "").toLowerCase().includes(needle));
+
+    const map = new Map<string, Row[]>();
+    for (const r of pool) {
+      const k = dayKey(r);
+      map.set(k, [...(map.get(k) ?? []), r]);
+    }
+    return Array.from(map.entries())
+      .map(([key, list]) => {
+        const d = new Date(key + "T12:00:00");
+        const ok = !isNaN(d.getTime());
+        return {
+          key,
+          label: ok ? d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : key,
+          short: ok ? d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : key,
+          rows: list.sort((a, b) => a.conduce_number.localeCompare(b.conduce_number)),
+          count: list.reduce((s, r) => s + r.count, 0),
+          weight: list.reduce((s, r) => s + r.weight, 0),
+          facturedCount: list.reduce((s, r) => s + r.facturedCount, 0)
+        };
+      })
+      .sort((a, b) => b.key.localeCompare(a.key));   // pi resan an anwo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, tab, search]);
 
-  // Rezime lo aktif yo — chif ki gide travay jounen an
-  const enCoursKoli = actives.reduce((s, r) => s + r.count, 0);
-  const enCoursRete = actives.reduce((s, r) => s + (r.count - r.facturedCount), 0);
-  const enCoursPoids = actives.reduce((s, r) => s + r.weight, 0);
+  const actives = all.filter((r) => !estArchive(r));
+  const historique = all.filter(estArchive);
+  const totalKoli = classeurs.reduce((s, c) => s + c.count, 0);
+  const totalPoids = classeurs.reduce((s, c) => s + c.weight, 0);
+  const totalRete = classeurs.reduce((s, c) => s + (c.count - c.facturedCount), 0);
 
-  const toggle = (id: string) =>
-    setSel((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const toggleSel = (id: string) =>
+    setSel((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   if (rows === null) return <Loader inline />;
 
   return (
-    <div className="space-y-5 pb-28">
+    <div className="space-y-4 pb-28">
 
       {/* ══ Antèt ══ */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="h-page flex items-center gap-2"><ClipboardList size={22} /> Conduces</h1>
-          <p className="text-sm text-mute mt-0.5">Manifestes MCPACK — lots de colis en transport</p>
+          <p className="text-sm text-mute mt-0.5">Classées par jour d&apos;arrivée</p>
         </div>
-        <div className="flex gap-2 items-center">
-          <div className="relative">
+        <div className="flex gap-2 items-center w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-none">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input className="input w-64 !pl-9" placeholder="Numéro, office…"
+            <input className="input w-full sm:w-56 !pl-9" placeholder="Numéro, office…"
               value={search} onChange={(e) => setSearch(e.target.value)} />
             {search && (
-              <button onClick={() => setSearch("")}
+              <button onClick={() => setSearch("")} aria-label="Effacer"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-ink">
                 <X size={14} />
               </button>
@@ -112,60 +146,56 @@ export default function ConducesPage() {
         </div>
       </div>
 
-      {/* ══ Rezime lo aktif yo ══ */}
-      {actives.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* ══ Rezime — 2 kolòn sou telefòn, 4 sou desktop ══ */}
+      {classeurs.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
           {([
-            ["Lots en cours", String(actives.length), "text-ink"],
-            ["Colis à facturer", String(enCoursRete), enCoursRete > 0 ? "text-navy" : "text-ink"],
-            ["Colis au total", String(enCoursKoli), "text-ink"],
-            ["Poids", `${enCoursPoids.toFixed(0)} lb`, "text-ink"]
-          ] as const).map(([label, val, cls]) => (
-            <div key={label} className="card px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-mute">{label}</p>
-              <p className={`text-2xl font-extrabold leading-tight mt-0.5 ${cls}`}>{val}</p>
+            ["Journées", String(classeurs.length)],
+            ["Colis à facturer", String(totalRete)],
+            ["Poids total", `${totalPoids.toFixed(0)} lb`],
+            ["Bénéfice estimé", usd(estimateProfit(totalPoids))]
+          ] as const).map(([label, val], i) => (
+            <div key={label} className={`card px-3.5 py-3 ${i === 3 ? "bg-navy text-white" : ""}`}>
+              <p className={`text-[10px] font-bold uppercase tracking-wide ${i === 3 ? "text-white/60" : "text-mute"}`}>{label}</p>
+              <p className={`text-xl sm:text-2xl font-extrabold leading-tight mt-0.5 ${i === 3 ? "text-white" : "text-ink"}`}>{val}</p>
             </div>
           ))}
         </div>
       )}
 
       {/* ══ Onglè ══ */}
-      <div className="flex gap-1 border-b border-line">
+      <div className="flex gap-1 border-b border-line overflow-x-auto">
         {([["actives", "En cours", actives.length], ["historique", "Historique", historique.length]] as const).map(
           ([k, label, n]) => (
-            <button key={k} onClick={() => { setTab(k); setSel(new Set()); }}
-              className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition ${
+            <button key={k} onClick={() => { setTab(k); setSel(new Set()); setOpenDay(null); }}
+              className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition ${
                 tab === k ? "border-navy text-navy" : "border-transparent text-mute hover:text-ink"}`}>
               {label} <span className="text-xs font-normal">({n})</span>
             </button>
           ))}
       </div>
 
-      {tab === "historique" && (
-        <p className="text-xs text-mute">
-          Lots dont <b>tous les colis sont facturés</b>. Consultables, mais retirés de la liste de travail.
-        </p>
-      )}
-
-      {/* ══ Kat conduce yo ══ */}
-      {filtered.length === 0 ? (
-        <div className="card p-12 text-center">
+      {/* ══ KATAB YO ══ */}
+      {classeurs.length === 0 ? (
+        <div className="card p-10 sm:p-12 text-center">
           <Boxes size={32} className="mx-auto text-slate-300" />
           <p className="text-sm text-mute mt-3">
             {search.trim()
-              ? <>Aucun lot ne correspond à «&nbsp;{search.trim()}&nbsp;».</>
+              ? <>Aucune conduce ne correspond à «&nbsp;{search.trim()}&nbsp;».</>
               : tab === "historique"
-                ? "Aucun lot entièrement facturé pour le moment."
-                : <>Aucun lot en cours. Importez-en depuis{" "}
+                ? "Aucune journée entièrement facturée pour le moment."
+                : <>Aucune conduce en cours. Importez-en depuis{" "}
                     <Link href="/sync" className="text-navy underline font-semibold">Synchronisation</Link>.</>}
           </p>
         </div>
       ) : (
         <div className="space-y-2.5">
-          {filtered.map((r) => (
-            <ConduceCard key={r.id} r={r} checked={sel.has(r.id)}
-              onCheck={() => toggle(r.id)}
-              onOpen={() => router.push(`/conduces/${r.id}`)} />
+          {classeurs.map((cl) => (
+            <ClasseurCard key={cl.key} cl={cl}
+              open={openDay === cl.key}
+              onToggle={() => setOpenDay(openDay === cl.key ? null : cl.key)}
+              sel={sel} onSel={toggleSel}
+              onOpenConduce={(id) => router.push(`/conduces/${id}`)} />
           ))}
         </div>
       )}
@@ -173,20 +203,16 @@ export default function ConducesPage() {
       {/* ══ Bare aksyon flotan ══ */}
       {sel.size > 0 && (
         <div className="fixed bottom-0 inset-x-0 z-40 pointer-events-none">
-          <div className="mx-auto max-w-3xl p-4 pointer-events-auto">
+          <div className="mx-auto max-w-3xl p-3 pointer-events-auto">
             <div className="rounded-2xl bg-navy text-white shadow-lift px-4 py-3 flex items-center gap-3 flex-wrap">
-              <span className="font-bold text-sm">{sel.size} lot{sel.size > 1 ? "s" : ""} sélectionné{sel.size > 1 ? "s" : ""}</span>
-              <span className="text-[11px] text-white/60 hidden sm:inline">
-                {filtered.filter((r) => sel.has(r.id)).reduce((s, r) => s + r.count, 0)} colis ·{" "}
-                {filtered.filter((r) => sel.has(r.id)).reduce((s, r) => s + r.weight, 0).toFixed(0)} lb
-              </span>
+              <span className="font-bold text-sm">{sel.size} conduce{sel.size > 1 ? "s" : ""}</span>
               <div className="flex-1" />
               <Link href="/bon-remise"
-                className="rounded-lg bg-white text-navy font-bold text-xs px-3 py-2 inline-flex items-center gap-1.5 hover:bg-white/90">
+                className="rounded-lg bg-white text-navy font-bold text-xs px-3 py-2 inline-flex items-center gap-1.5">
                 <FileDown size={14} /> Bon de Remise
               </Link>
               <button onClick={() => setSel(new Set())}
-                className="rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-2">
+                className="rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold px-3 py-2">
                 Effacer
               </button>
             </div>
@@ -197,84 +223,100 @@ export default function ConducesPage() {
   );
 }
 
-/**
- * KAT CONDUCE — siyati paj la: yon "rail" pwogresyon segmante, yon segman pa
- * koli (jiska 40, apre sa yon ba kontini). Segman vèt = koli fakti.
- * Se pwogresyon reyèl lo a, pa yon dekorasyon.
- */
-function ConduceCard({ r, checked, onCheck, onOpen }: {
-  r: Row; checked: boolean; onCheck: () => void; onOpen: () => void;
-}) {
-  const vide = r.count === 0;
-  const fini = r.facturedCount >= r.count && r.count > 0;
-  const pct = r.count ? Math.round((r.facturedCount / r.count) * 100) : 0;
+/** Echèl pousantaj — montre ki lo prèske fini. */
+function Echelle({ pct, tone = "brand" }: { pct: number; tone?: "brand" | "white" }) {
+  return (
+    <div className={`h-1.5 rounded-full overflow-hidden ${tone === "white" ? "bg-white/20" : "bg-line"}`}>
+      <div className={`h-full rounded-full transition-all ${tone === "white" ? "bg-white" : "bg-brand"}`}
+        style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
+    </div>
+  );
+}
 
-  const accent = vide ? "bg-amber-400" : fini ? "bg-brand" : "bg-navy-light";
-  const segments = Math.min(r.count, 40);
+/** KATAB — yon jounen konplè. Deplòtye pou wè conduces jounen an. */
+function ClasseurCard({ cl, open, onToggle, sel, onSel, onOpenConduce }: {
+  cl: Classeur; open: boolean; onToggle: () => void;
+  sel: Set<string>; onSel: (id: string) => void; onOpenConduce: (id: string) => void;
+}) {
+  const pct = cl.count ? Math.round((cl.facturedCount / cl.count) * 100) : 0;
+  const fini = cl.count > 0 && cl.facturedCount >= cl.count;
 
   return (
-    <div
-      onClick={onOpen}
-      className={`relative card card-hover overflow-hidden cursor-pointer transition
-        ${checked ? "ring-2 ring-navy" : ""}`}>
-
-      {/* Ba statut sou bò dwat la */}
-      <span className={`absolute right-0 inset-y-0 w-1.5 ${accent}`} aria-hidden />
-
-      <div className="flex items-start gap-3 p-4 pr-6">
-        <input type="checkbox" className="mt-1 w-4 h-4 shrink-0" checked={checked}
-          onClick={(e) => e.stopPropagation()} onChange={onCheck}
-          aria-label={`Sélectionner ${r.conduce_number}`} />
-
-        <div className="min-w-0 flex-1">
-          {/* Liy 1: nimewo + statut */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono font-extrabold text-navy text-[15px]">{r.conduce_number}</span>
-            {vide
-              ? <span className="pill pill-amber"><span className="pill-dot" />En attente</span>
-              : fini
-                ? <span className="pill pill-green"><CheckCircle2 size={11} />Facturée</span>
-                : <span className="pill pill-blue"><span className="pill-dot" />En cours</span>}
-          </div>
-
-          {/* Liy 2: kontèks */}
-          <p className="text-[11px] text-mute mt-0.5 truncate">
-            {r.office || "Office —"} · {r.conduce_date ? dateFr(r.conduce_date) : dateFr(r.created_at)}
-          </p>
-
-          {/* Rail pwogresyon — siyati a */}
-          {!vide && (
-            <div className="mt-3">
-              <div className="flex gap-[2px] h-2" aria-hidden>
-                {segments <= 40 ? (
-                  Array.from({ length: segments }).map((_, i) => (
-                    <span key={i}
-                      className={`flex-1 rounded-[1px] ${
-                        i < Math.round((r.facturedCount / r.count) * segments) ? "bg-brand" : "bg-line"}`} />
-                  ))
-                ) : (
-                  <span className="flex-1 rounded-full bg-line overflow-hidden">
-                    <span className="block h-full bg-brand" style={{ width: `${pct}%` }} />
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-3 mt-2 text-[11px] flex-wrap">
-                <span className="text-ink font-semibold">{r.facturedCount}/{r.count} facturés</span>
-                <span className="text-mute">{r.verifiedCount}/{r.count} vérifiés</span>
-                <span className="text-mute">{r.weight.toFixed(1)} lb</span>
-              </div>
+    <div className="card overflow-hidden">
+      {/* Antèt katab la */}
+      <button onClick={onToggle} className="w-full text-left p-4 hover:bg-mist/60 transition">
+        <div className="flex items-start gap-3">
+          <FolderOpen size={20} className={`shrink-0 mt-0.5 ${fini ? "text-brand" : "text-navy"}`} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-extrabold text-ink text-[15px] capitalize">{cl.label}</span>
+              <span className="pill pill-gray">{cl.rows.length} conduce{cl.rows.length > 1 ? "s" : ""}</span>
+              {fini && <span className="pill pill-green"><CheckCircle2 size={11} />Complète</span>}
             </div>
-          )}
-
-          {vide && (
-            <p className="text-[11px] text-amber-700 mt-2">
-              Lot créé, colis pas encore synchronisés depuis MCPACK.
+            <p className="text-[11px] text-mute mt-0.5">
+              {cl.count} colis · {cl.weight.toFixed(1)} lb · bénéfice estimé {usd(estimateProfit(cl.weight))}
             </p>
-          )}
+            <div className="mt-2.5 flex items-center gap-2.5">
+              <div className="flex-1"><Echelle pct={pct} /></div>
+              <span className={`text-xs font-bold tabular-nums shrink-0 ${fini ? "text-brand" : "text-navy"}`}>{pct}%</span>
+            </div>
+          </div>
+          <ChevronDown size={17} className={`text-slate-400 shrink-0 mt-1 transition-transform ${open ? "rotate-180" : ""}`} />
         </div>
+      </button>
 
-        <ArrowRight size={16} className="text-slate-300 shrink-0 mt-1" />
-      </div>
+      {/* Conduces jounen an */}
+      {open && (
+        <div className="border-t border-line bg-mist/40 p-2.5 space-y-2">
+          {cl.rows.map((r) => {
+            const p = r.count ? Math.round((r.facturedCount / r.count) * 100) : 0;
+            const vide = r.count === 0;
+            const done = r.count > 0 && r.facturedCount >= r.count;
+            return (
+              <div key={r.id} className="bg-white rounded-xl border border-line p-3">
+                <div className="flex items-start gap-2.5">
+                  <input type="checkbox" className="mt-1 w-4 h-4 shrink-0"
+                    checked={sel.has(r.id)} onChange={() => onSel(r.id)}
+                    aria-label={`Sélectionner ${r.conduce_number}`} />
+                  <div className="min-w-0 flex-1">
+                    {/* NIMEWO a se lyen an — klike sou li pou antre */}
+                    <button onClick={() => onOpenConduce(r.id)}
+                      className="font-mono font-extrabold text-navy text-[14px] hover:underline">
+                      {r.conduce_number}
+                    </button>
+                    <p className="text-[11px] text-mute mt-0.5 truncate">
+                      {r.office || "Office —"} · {r.count} colis · {r.weight.toFixed(1)} lb
+                    </p>
+                    {vide ? (
+                      <p className="text-[11px] text-amber-700 mt-1.5">
+                        Colis pas encore synchronisés depuis MCPACK.
+                      </p>
+                    ) : (
+                      <div className="mt-2 flex items-center gap-2.5">
+                        <div className="flex-1"><Echelle pct={p} /></div>
+                        <span className={`text-[11px] font-bold tabular-nums shrink-0 ${done ? "text-brand" : "text-mute"}`}>
+                          {r.facturedCount}/{r.count} · {p}%
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Rezime jounen an */}
+          <div className="rounded-xl bg-navy text-white p-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-white/55">Bénéfice estimé — journée</p>
+              <p className="text-[10px] text-white/45 mt-0.5">{cl.weight.toFixed(1)} lb × {usd(PROFIT_PER_LB)}/lb</p>
+            </div>
+            <span className="text-xl font-extrabold inline-flex items-center gap-1.5 shrink-0">
+              <TrendingUp size={16} className="text-brand" />{usd(estimateProfit(cl.weight))}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
