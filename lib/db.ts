@@ -232,6 +232,36 @@ export async function createPendingConduces(
   return out;
 }
 
+/**
+ * KONT SANTRAL BIZNIS — kod kliyan (ex: MC-36191) ki sèvi pou tout kliyan
+ * biznis ki POKO gen pwòp kont yo. Kont sa a:
+ *   • parèt nan NENPÒT Bon de Remise, san blokaj (li pa mare ak yon sèl vil),
+ *   • pran tarif VIL DESTINASYON an lè w ap fakti (Gonaïves, Port-de-Paix…).
+ * Anrejistre nan `app_settings` (kle: central_account_code). Zewo SQL.
+ */
+export async function getCentralAccountCode(): Promise<string> {
+  const s = await getSettings();
+  return String(s.central_account_code ?? "").trim();
+}
+export async function setCentralAccountCode(code: string): Promise<void> {
+  await setSetting("central_account_code", code.trim().toUpperCase());
+}
+
+/** Tout koli ki nan yon oswa plizyè Conduce (pou Bon de Remise). */
+export async function getPackagesByConduceIds(conduceIds: string[]): Promise<Pkg[]> {
+  const ids = Array.from(new Set(conduceIds.filter(Boolean)));
+  if (!ids.length) return [];
+  const out: Pkg[] = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    const { data, error } = await supabase.from("packages").select("*").in("conduce_id", chunk);
+    if (error) throw error;
+    out.push(...(data ?? []).filter((p: Record<string, unknown>) => !p.archived).map((p) =>
+      asNum(p, ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[]);
+  }
+  return out;
+}
+
 /** Ekri statut yon Conduce (En cours | Complète | Facturée). */
 export async function setConduceStatus(conduceId: string, status: string): Promise<void> {
   await supabase.from("conduces").update({ status }).eq("id", conduceId);
