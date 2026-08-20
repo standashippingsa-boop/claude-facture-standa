@@ -12,19 +12,52 @@ const MIST: [number, number, number] = [243, 245, 249];
 /**
  * BON DE REMISE — lis koli w ap voye bay ajan nan lòt vil yo.
  * PDF separe nèt de fakti a: fonksyon sa a pa manyen génération PDF facture a.
+ *
+ * V15:
+ *   • NIMEWO CONDUCE yo parèt nan antèt la EPI nan yon kolòn pa koli.
+ *   • VIL DESTINASYON an ka fòse (ex: "Gonaïves") — koli KONT SANTRAL la
+ *     pran vil destinasyon an otomatikman, li pa bloke ankò.
  */
+export interface BonRemiseOptions {
+  /** Vil destinasyon bon an (ex: "Gonaïves"). Vid = dedwi depi koli yo. */
+  destination?: string;
+  /** Nimewo conduce yo ki nan bon an: { [package.id]: "C-12345" } */
+  conduceOf?: Record<string, string>;
+  /** Kòd kont santral biznis la (ex: "MC-36191") — li pran vil destinasyon an. */
+  centralCode?: string;
+}
+
 export async function generateBonRemise(
   pkgs: Pkg[],
-  tarifMap: Map<string, ClientTarifInfo>
+  tarifMap: Map<string, ClientTarifInfo>,
+  opts: BonRemiseOptions = {}
 ): Promise<void> {
   const logo = await loadLogo();
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const numero = "BR-" + Date.now().toString().slice(-6);
 
-  const villeOf = (code: string) => tarifMap.get(code)?.ville?.name ?? "";
-  const villes = Array.from(new Set(pkgs.map((p) => villeOf(p.customer_code)).filter(Boolean)));
-  const totalWeight = round2(pkgs.reduce((s, p) => s + p.weight, 0));
+  const central = (opts.centralCode ?? "").trim().toUpperCase();
+  const dest = (opts.destination ?? "").trim();
+  const conduceOf = opts.conduceOf ?? {};
+
+  /**
+   * Vil yon koli. Pou KONT SANTRAL la, se vil destinasyon bon an ki konte —
+   * konsa kont lan pa mare ak yon sèl vil epi li pa janm bloke yon bon.
+   */
+  const villeOf = (p: Pkg): string => {
+    if (central && String(p.customer_code ?? "").trim().toUpperCase() === central) {
+      return dest || tarifMap.get(p.customer_code)?.ville?.name || "";
+    }
+    return tarifMap.get(p.customer_code)?.ville?.name ?? "";
+  };
+
+  const villes = dest
+    ? [dest]
+    : Array.from(new Set(pkgs.map(villeOf).filter(Boolean)));
+  const conduces = Array.from(new Set(Object.values(conduceOf).filter(Boolean))).sort();
+  const totalWeight = round2(pkgs.reduce((s, p) => s + (Number(p.weight) || 0), 0));
+  const showConduce = conduces.length > 0;
 
   // ===== Header =====
   doc.setFillColor(...NAVY);
@@ -51,8 +84,9 @@ export async function generateBonRemise(
   doc.text(`Date: ${dateFr(new Date())}`, W - 14, 25, { align: "right" });
 
   // ===== Rezime =====
+  const boxH = showConduce ? 24 : 18;
   doc.setFillColor(...MIST);
-  doc.roundedRect(14, 40, W - 28, 18, 2, 2, "F");
+  doc.roundedRect(14, 40, W - 28, boxH, 2, 2, "F");
   doc.setTextColor(40, 40, 40);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
@@ -60,26 +94,46 @@ export async function generateBonRemise(
   doc.setFont("helvetica", "normal");
   doc.text(`Nombre de colis: ${pkgs.length}`, 20, 54);
   doc.text(`Poids total: ${totalWeight.toFixed(2)} LB`, W / 2 + 4, 54);
+  if (showConduce) {
+    doc.setFont("helvetica", "bold");
+    const label = `Conduce(s): `;
+    doc.text(label, 20, 60);
+    doc.setFont("helvetica", "normal");
+    const txt = doc.splitTextToSize(conduces.join(", "), W - 28 - 30) as string[];
+    doc.text(txt[0] ?? "—", 20 + doc.getTextWidth(label), 60);
+  }
 
   // ===== Tablo koli yo =====
+  const head = showConduce
+    ? ["#", "Conduce", "Tracking ID (Guía)", "Code Client", "Nom Client", "Ville", "Poids (lb)"]
+    : ["#", "Tracking ID (Guía)", "Code Client", "Nom Client", "Ville", "Poids (lb)"];
+
   autoTable(doc, {
-    startY: 64,
-    head: [["#", "Tracking ID (Guía)", "Code Client", "Nom Client", "Ville", "Poids (lb)"]],
-    body: pkgs.map((p, i) => [
-      String(i + 1),
-      p.tracking_number + (p.tracking_manual ? "\n" + p.tracking_manual : ""),
-      p.customer_code,
-      p.customer_name,
-      villeOf(p.customer_code) || "—",
-      p.weight.toFixed(2)
-    ]),
-    foot: [["", "", "", "", "TOTAL", totalWeight.toFixed(2) + " LB"]],
+    startY: 40 + boxH + 6,
+    head: [head],
+    body: pkgs.map((p, i) => {
+      const base = [
+        p.tracking_number + (p.tracking_manual ? "\n" + p.tracking_manual : ""),
+        p.customer_code,
+        p.customer_name,
+        villeOf(p) || "—",
+        (Number(p.weight) || 0).toFixed(2)
+      ];
+      return showConduce
+        ? [String(i + 1), conduceOf[p.id] || "—", ...base]
+        : [String(i + 1), ...base];
+    }),
+    foot: [showConduce
+      ? ["", "", "", "", "", "TOTAL", totalWeight.toFixed(2) + " LB"]
+      : ["", "", "", "", "TOTAL", totalWeight.toFixed(2) + " LB"]],
     theme: "grid",
     headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold", fontSize: 8.5 },
     footStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold", fontSize: 8.5, halign: "right" },
     alternateRowStyles: { fillColor: MIST },
     styles: { fontSize: 8, cellPadding: 2 },
-    columnStyles: { 0: { cellWidth: 8 }, 5: { halign: "right" } },
+    columnStyles: showConduce
+      ? { 0: { cellWidth: 8 }, 1: { cellWidth: 22 }, 6: { halign: "right" } }
+      : { 0: { cellWidth: 8 }, 5: { halign: "right" } },
     margin: { left: 14, right: 14 }
   });
 
@@ -103,5 +157,6 @@ export async function generateBonRemise(
   doc.setTextColor(120, 120, 120);
   doc.text("STANDA COMMERCIAL — Bon de remise " + numero, 14, pageH - 8);
 
-  doc.save(`BonRemise_${numero}.pdf`);
+  const suffix = dest ? `_${dest.replace(/\s+/g, "")}` : "";
+  doc.save(`BonRemise_${numero}${suffix}.pdf`);
 }
