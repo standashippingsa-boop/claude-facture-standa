@@ -53,6 +53,54 @@ export function fixedTaxForWeight(totalWeight: number): number {
   return Number.isFinite(w) && w >= TAX_THRESHOLD_LB ? TAX_FIXED_USD : 0;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ARTICLES À PRIX FIXE (forfait) — telefòn, laptòp, kamera, elatriye
+// ───────────────────────────────────────────────────────────────────────────
+// Kèk koli PA fakti pa liv: yon laptòp 4 lb pa gen menm valè ak 4 lb rad.
+// Pou koli sa yo, admin chwazi yon ATIK nan katalòg la epi pri a se yon
+// FÒFÈ fiks — pwa a pa antre nan kalkil la ditou.
+//
+// Katalòg la anrejistre nan tab `app_settings` (kle: special_articles),
+// donk PA GEN okenn migrasyon SQL pou fè.
+// ═══════════════════════════════════════════════════════════════════════════
+export interface SpecialArticle {
+  id: string;      // idantifyan kout, ex: "laptop"
+  label: string;   // non ki parèt: "Laptop / Ordinateur portable"
+  price: number;   // pri fòfè an USD
+}
+
+/** Katalòg depa — admin ka chanje l nan Paramètres. */
+export const DEFAULT_SPECIAL_ARTICLES: SpecialArticle[] = [
+  { id: "telephone", label: "Téléphone", price: 25 },
+  { id: "laptop",    label: "Laptop / Ordinateur portable", price: 60 },
+  { id: "tablette",  label: "Tablette / iPad", price: 40 },
+  { id: "camera",    label: "Caméra / Appareil photo", price: 45 },
+  { id: "tv",        label: "Téléviseur", price: 90 }
+];
+
+/** Li katalòg la depi tèks JSON ki nan Paramètres. Toujou solid. */
+export function parseSpecialArticles(json: string | null | undefined): SpecialArticle[] {
+  if (!json) return [];
+  try {
+    const raw = JSON.parse(String(json));
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((a: unknown) => {
+        const o = a as Record<string, unknown>;
+        const price = Number(o?.price);
+        return {
+          id: String(o?.id ?? "").trim(),
+          label: String(o?.label ?? "").trim(),
+          price: Number.isFinite(price) && price > 0 ? round2(price) : 0
+        };
+      })
+      .filter((a) => a.id && a.label && a.price > 0);
+  } catch { return []; }
+}
+
+/** Pri fòfè chwazi pou chak koli: { [package.id]: { label, price } } */
+export type FixedPriceMap = Record<string, { label: string; price: number }>;
+
 export interface EstimateResult {
   count: number;        // kantite koli
   totalWeight: number;  // pwa total (lb)
