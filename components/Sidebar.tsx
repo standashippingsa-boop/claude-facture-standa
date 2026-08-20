@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Inbox, LayoutDashboard, LogOut, Users, Package, FileText, History,
-  RefreshCw, Settings, ClipboardList, Truck
+  RefreshCw, Settings, ClipboardList, Truck, FileDown
 } from "lucide-react";
 import Logo from "./Logo";
 import { supabase } from "@/lib/supabase";
@@ -25,6 +25,7 @@ const groups: { title: string; items: { href: string; label: string; icon: typeo
     title: "Facturation",
     items: [
       { href: "/invoices", label: "Factures", icon: FileText },
+      { href: "/bon-remise", label: "Bon de Remise", icon: FileDown },
       { href: "/retraits", label: "Retraits", icon: Inbox }
     ]
   },
