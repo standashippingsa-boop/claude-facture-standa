@@ -7,9 +7,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2, Pencil, MapPin } from "lucide-react";
 import {
   deleteVille, getSettings, getUsdRate,
-  fixTrackingColumns, getVilles, logAction, reapplyTarifDisponible, setSetting, setUsdRate, toggleVille, upsertVille
-} from "@/lib/db";
+  fixTrackingColumns, getVilles, logAction, reapplyTarifDisponible, setSetting, setUsdRate, toggleVille, upsertVille, getSpecialArticles, saveSpecialArticles } from "@/lib/db";
 import { Staff, Ville } from "@/lib/types";
+import { SpecialArticle } from "@/lib/pricing";
 import { validateUpload, storagePath } from "@/lib/upload";
 import { usd } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -39,6 +39,9 @@ export default function SettingsPage() {
   const [spMin, setSpMin] = useState("0.10");
   const [spMax, setSpMax] = useState("0.99");
   const [spPrice, setSpPrice] = useState("3.70");
+  // ── Atik a pri fiks (fòfè): telefòn, laptòp, kamera… ──
+  const [articles, setArticles] = useState<SpecialArticle[]>([]);
+  const [artMsg, setArtMsg] = useState<string | null>(null);
   const [rate, setRate] = useState("0");
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -55,6 +58,7 @@ export default function SettingsPage() {
     setSpMin(s.small_parcel_min ?? "0.10");
     setSpMax(s.small_parcel_max ?? "0.99");
     setSpPrice(s.small_parcel_price ?? "3.70");
+    setArticles(await getSpecialArticles());
     setAutoPricing(s.auto_pricing !== "false");
     setRate(String(r));
   };
@@ -232,6 +236,66 @@ export default function SettingsPage() {
             setNotice(`Taux enregistré: 1 USD = ${r.toFixed(2)} HTG. Tout nouvo facture ap itilize l.`);
           }}>Enregistrer le taux</button>
         </div>
+      </section>
+
+      {/* ===== Articles à prix fixe (forfaits) ===== */}
+      <section className="card p-5 space-y-3">
+        <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Articles à prix fixe</h2>
+        <p className="text-xs text-slate-500 bg-mist rounded-lg px-3 py-2 leading-relaxed">
+          ℹ️ Kèk koli pa fakti pa liv — yon laptòp 4 lb pa gen menm valè ak 4 lb rad.
+          Atik ki nan lis sa a parèt nan fenèt fakti a: admin chwazi atik la pou yon koli,
+          epi se <b>pri fòfè</b> a ki aplike (pwa a pa antre nan kalkil la).
+        </p>
+
+        <div className="divide-y divide-line">
+          {articles.map((a, i) => (
+            <div key={i} className="flex items-center gap-2 py-2">
+              <input className="input !py-1 !text-sm flex-1" placeholder="Nom de l'article"
+                value={a.label}
+                onChange={(e) => setArticles((prev) => prev.map((x, j) =>
+                  j === i ? { ...x, label: e.target.value } : x))} />
+              <div className="relative shrink-0">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                <input className="input !py-1 !text-sm !w-24 !pl-5 text-right" type="number" step="0.01" min="0"
+                  value={a.price || ""}
+                  onChange={(e) => setArticles((prev) => prev.map((x, j) =>
+                    j === i ? { ...x, price: Number(e.target.value) || 0 } : x))} />
+              </div>
+              <button className="text-red-500 hover:text-red-700 text-xs font-semibold px-2 shrink-0"
+                onClick={() => setArticles((prev) => prev.filter((_, j) => j !== i))}>
+                Retirer
+              </button>
+            </div>
+          ))}
+          {articles.length === 0 && (
+            <p className="py-4 text-center text-xs text-slate-400">Aucun article. Ajoutez-en un ci-dessous.</p>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <button className="btn btn-ghost border border-line !text-xs"
+            onClick={() => setArticles((prev) => [...prev,
+              { id: `art_${Date.now().toString(36)}`, label: "", price: 0 }])}>
+            + Ajouter un article
+          </button>
+          <button className="btn !text-xs"
+            onClick={async () => {
+              const clean = articles
+                .map((a) => ({ id: a.id || `art_${Math.random().toString(36).slice(2, 8)}`,
+                               label: a.label.trim(), price: Number(a.price) || 0 }))
+                .filter((a) => a.label && a.price > 0);
+              await saveSpecialArticles(clean);
+              setArticles(clean);
+              setArtMsg(`✅ ${clean.length} article(s) enregistré(s)`);
+              setTimeout(() => setArtMsg(null), 2500);
+            }}>
+            Enregistrer les articles
+          </button>
+          {artMsg && <span className="text-xs text-emerald-700 self-center">{artMsg}</span>}
+        </div>
+        <p className="text-[11px] text-slate-400">
+          Un article sans nom ou sans prix est ignoré à l&apos;enregistrement.
+        </p>
       </section>
 
       {/* ===== Général ===== */}
