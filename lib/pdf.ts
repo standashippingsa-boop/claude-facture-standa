@@ -91,10 +91,13 @@ export function generateInvoicePdf(
     body: items.map((k, i) => {
       const w = Number(k.weight) || 0;
       // Si koli a sèvi ak tarif Petit Colis -> montre sa olye Prix/LB
-      const prixLbCell = k.is_small
-        ? "Tarif Petit Colis"
-        : (k.per_lb && k.per_lb > 0 ? Number(k.per_lb).toFixed(2)
-           : (w > 0 ? (Number(k.price) / w).toFixed(2) : "—"));
+      // Fòfè (atik a pri fiks): per_lb = 0 epi non atik la nan fixed_label
+      const prixLbCell = k.fixed_label
+        ? `Forfait — ${k.fixed_label}`
+        : k.is_small
+          ? "Tarif Petit Colis"
+          : (k.per_lb && k.per_lb > 0 ? Number(k.per_lb).toFixed(2)
+             : (w > 0 ? (Number(k.price) / w).toFixed(2) : "—"));
       return [
         String(i + 1),
         k.tracking_number,
