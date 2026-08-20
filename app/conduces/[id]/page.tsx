@@ -12,7 +12,8 @@ import PackagesEngine from "@/components/PackagesEngine";
 import ConduceSummaryPanel from "@/components/ConduceSummaryPanel";
 import ConduceManualPaste from "@/components/ConduceManualPaste";
 import RefreshButton from "@/components/RefreshButton";
-import { getConduces, getConduceStats } from "@/lib/db";
+import Loader from "@/components/Loader";
+import { getConduceById, getConduceStats } from "@/lib/db";
 import { dateFr, usd } from "@/lib/utils";
 import type { Conduce } from "@/lib/types";
 
@@ -24,24 +25,48 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
     disponibleCount: number; livreCount: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
 
+  /** Chèche conduce a DIRÈKTEMAN pa ID. Vrè erè yo remonte — pa "introuvable" an blan. */
   const load = async () => {
-    // getConduces() puis filtre pa ID — pa gen getConduceById apa (Zero Duplication)
-    const all = await getConduces();
-    const c = all.find((x) => x.id === id) ?? null;
-    setConduce(c);
-    if (c) setStats(await getConduceStats(c.id));
-    setLoading(false);
+    setErr(null);
+    try {
+      const c = await getConduceById(id);
+      setConduce(c);
+      if (c) setStats(await getConduceStats(c.id));
+    } catch (e: unknown) {
+      setErr((e as Error)?.message ?? "Erreur de chargement.");
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
-  if (loading) return <p className="text-mute p-6">Chargement…</p>;
+  if (loading) return <Loader inline />;
   if (!conduce) return (
     <div className="space-y-3">
       <Link href="/conduces" className="text-navy inline-flex items-center gap-1 hover:underline text-sm">
         <ArrowLeft size={14} /> Retour aux Conduces
       </Link>
-      <p className="card p-6 text-mute">Conduce introuvable.</p>
+      <div className="card p-6 space-y-3">
+        {err ? (
+          <>
+            <p className="text-sm font-bold text-red-700">Erreur de chargement</p>
+            <p className="text-xs text-mute break-all">{err}</p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-bold text-ink">Conduce introuvable</p>
+            <p className="text-xs text-mute break-all">
+              Aucune conduce avec l&apos;identifiant <span className="font-mono">{id}</span>.
+              Elle a peut-être été supprimée.
+            </p>
+          </>
+        )}
+        <button className="btn btn-ghost border border-line !text-xs" onClick={() => { setLoading(true); load(); }}>
+          Réessayer
+        </button>
+      </div>
     </div>
   );
 
@@ -81,7 +106,7 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 mb-4">
           {[
             [<Package size={14} />, "Colis", stats?.count ?? 0],
             [<Truck size={14} />, "Poids total", `${(stats?.weight ?? 0).toFixed(1)} lb`],
@@ -100,12 +125,10 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
       {/* ===== Tablo Packages (menm motè) + Summary Panel (Faz 4) ===== */}
       <ConduceManualPaste conduceId={conduce.id} conduceNumber={conduce.conduce_number} onLinked={load} />
 
-      <div className="grid lg:grid-cols-[1fr_260px] gap-4 items-start">
-        <div><PackagesEngine conduceId={conduce.id} hideHeader /></div>
-        <div className="order-first lg:order-last">
-          <ConduceSummaryPanel conduceId={conduce.id} />
-        </div>
-      </div>
+      {/* Rezime — PLEINE LARGEUR, anlè tablo a (li te twò sere nan kwen an) */}
+      <ConduceSummaryPanel conduceId={conduce.id} />
+
+      <PackagesEngine conduceId={conduce.id} hideHeader />
     </div>
   );
 }
