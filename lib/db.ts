@@ -196,6 +196,19 @@ export async function getConduces(): Promise<Conduce[]> {
   return (data ?? []) as Conduce[];
 }
 
+/**
+ * Chèche YON conduce dirèkteman pa ID li. Pi solid pase chaje tout lis la epi
+ * filtre: si gen yon pwoblèm (rezo, dwa aksè), nou remonte VRE erè a olye di
+ * "introuvable" — konsa nou konnen sa k pase vre.
+ */
+export async function getConduceById(id: string): Promise<Conduce | null> {
+  const clean = String(id ?? "").trim();
+  if (!clean) return null;
+  const { data, error } = await supabase.from("conduces").select("*").eq("id", clean).maybeSingle();
+  if (error) throw error;
+  return (data as Conduce) ?? null;
+}
+
 export async function getConduceByNumber(num: string): Promise<Conduce | null> {
   const { data } = await supabase.from("conduces").select("*").eq("conduce_number", num.trim()).maybeSingle();
   return (data as Conduce) ?? null;
