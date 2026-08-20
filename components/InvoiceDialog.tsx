@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { createInvoiceFromComputation, getSmallParcelConfig, getUsdRate, saveInvoicePdfUrl } from "@/lib/db";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
+import { TAX_THRESHOLD_LB } from "@/lib/pricing";
 import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Client, Pkg } from "@/lib/types";
@@ -22,6 +23,15 @@ import { htg, usd } from "@/lib/utils";
  *   4-5) Admin verifye epi konfime
  *   6) Jenere PDF
  *   7) Anrejistre fakti a
+ *
+ * TAXE FIKS (V13) — SE ADMIN KI METE TAKS YO:
+ *   Lè pwa total la rive {TAX_THRESHOLD_LB} lb, fenèt la PWOPOZE taks la
+ *   otomatikman (kaz la koche, montan an pre-ranpli). Admin an rete mèt:
+ *   li ka chanje montan an oswa dekoche l. Motè a pa ajoute anyen an kachèt.
+ *
+ * KONT BUSINESS (V13):
+ *   Pwa yo adisyone ANVAN, apre sa miltipliye yon sèl fwa pa Prix/LB Business.
+ *   Chwa "mode de calcul" la pa aplike sou Business (li kache).
  *
  * Itilizasyon:
  *   <InvoiceDialog client={client} pkgs={selected} footer={footer}
@@ -47,6 +57,8 @@ export default function InvoiceDialog({
   const [useDisc, setUseDisc] = useState(false);
   const [discount, setDiscount] = useState("");
   const [calcMode, setCalcMode] = useState<"addition" | "small_control">("addition");
+  /** true depi admin an manyen kaz/montan taks la — nou sispann pwopoze. */
+  const [taxeTouched, setTaxeTouched] = useState(false);
 
   const [comp, setComp] = useState<InvoiceComputation | null>(null);
   const [busy, setBusy] = useState(false);
@@ -71,6 +83,20 @@ export default function InvoiceDialog({
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, rate, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount]);
+
+  /**
+   * PWOPOZISYON TAKS — lè pwa total la rive nan sèy la, nou koche kaz la epi
+   * nou pre-ranpli montan an YON SÈL FWA. Depi admin an manyen l, nou pa
+   * touche l ankò: se li ki mèt taks yo.
+   */
+  useEffect(() => {
+    if (!comp?.ok || taxeTouched) return;
+    if (comp.taxThresholdReached && comp.fixedTaxSuggested > 0) {
+      setUseTaxe(true);
+      setTaxeVal(String(comp.fixedTaxSuggested));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comp?.taxThresholdReached, comp?.fixedTaxSuggested, comp?.ok, taxeTouched]);
 
   const generer = async () => {
     if (!comp) return;
@@ -115,7 +141,19 @@ export default function InvoiceDialog({
           <b className="text-navy">{client.customer_code}</b> — {clientName} · {pkgs.length} colis
         </p>
 
-        {/* MODE DE CALCUL */}
+        {/* KONT BUSINESS — pwa yo adisyone ANVAN, yon sèl miltiplikasyon */}
+        {client.account_type === "Business" && (
+          <div className="border border-navy/20 bg-blue-50 rounded-lg p-3 mb-3">
+            <p className="text-xs font-bold text-navy uppercase mb-1">Compte Business</p>
+            <p className="text-[12px] text-slate-600 leading-relaxed">
+              Tous les poids sont <b>additionnés d&apos;abord</b>, puis multipliés une seule fois
+              par le Prix/LB Business. Le tarif « petits colis » ne s&apos;applique pas.
+            </p>
+          </div>
+        )}
+
+        {/* MODE DE CALCUL — lòt kont yo sèlman */}
+        {client.account_type !== "Business" && (
         <div className="border border-line rounded-lg p-3 mb-3">
           <p className="text-xs font-bold text-navy uppercase mb-2">Mode de calcul des colis</p>
           <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">
@@ -129,15 +167,24 @@ export default function InvoiceDialog({
             <span><b>Contrôle des petits colis</b> — {smallCfg.min}–{smallCfg.max} lb = tarif fixe {usd(smallCfg.price)} ; les autres = poids × Prix/LB</span>
           </label>
         </div>
+        )}
 
         {/* ÉTAPES: Taxe / DGA / Discount */}
         <div className="space-y-2 mb-2">
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={useTaxe} onChange={(e) => setUseTaxe(e.target.checked)} />
+            <input type="checkbox" checked={useTaxe}
+              onChange={(e) => { setTaxeTouched(true); setUseTaxe(e.target.checked); }} />
             <b>Taxe Fixe</b>
-            {useTaxe && <input type="number" step="0.01" min="0" autoFocus placeholder="0.00"
-              className="input !w-28 !py-1 text-right ml-auto" value={taxeVal} onChange={(e) => setTaxeVal(e.target.value)} />}
+            {useTaxe && <input type="number" step="0.01" min="0" placeholder="0.00"
+              className="input !w-28 !py-1 text-right ml-auto" value={taxeVal}
+              onChange={(e) => { setTaxeTouched(true); setTaxeVal(e.target.value); }} />}
           </label>
+          {comp?.ok && comp.taxThresholdReached && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+              Poids total ≥ {TAX_THRESHOLD_LB} LB — taxe fixe proposée automatiquement.
+              Vous pouvez modifier le montant ou décocher.
+            </p>
+          )}
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={useDga} onChange={(e) => setUseDga(e.target.checked)} />
             <b>Frais DGA</b>
