@@ -1,5 +1,5 @@
 import { AccountType, Client, Pkg, Ville } from "./types";
-import { round2, isSmallParcel, SmallParcelConfig, TAX_THRESHOLD_LB, TAX_FIXED_USD } from "./pricing";
+import { round2, isSmallParcel, SmallParcelConfig, FixedPriceMap, TAX_THRESHOLD_LB, TAX_FIXED_USD } from "./pricing";
 
 /**
  * MOTEUR DE FACTURATION — NIVEAU FINANCIER (STANDA COMMERCIAL)
@@ -20,6 +20,15 @@ import { round2, isSmallParcel, SmallParcelConfig, TAX_THRESHOLD_LB, TAX_FIXED_U
  *  egal EGZAKTEMAN subtotal la (verifyTotal rete valab).
  *  Tarif "ti koli" PA aplike sou Business — se sèlman lòt kont yo.
  *
+ * ARTICLES À PRIX FIXE (V14):
+ *  Kèk koli PA fakti pa liv (telefòn, laptòp, kamera, televizyon…).
+ *  Admin chwazi yon atik nan katalòg la pou koli sa a; montan liy lan vin
+ *  yon FÒFÈ. Pwa koli sa a:
+ *    - PA miltipliye pa Prix/LB
+ *    - PA antre nan adisyon Business la
+ *    - MEN li antre nan Pwa Total la (li reyèl, li parèt sou fakti a)
+ *  Yon koli ak fòfè PA janm sèvi ak tarif "ti koli".
+ *
  * TAXE FIKS:
  *  Motè a PA ajoute okenn taks pou kont li. Se ADMIN ki mete taks yo nan
  *  fenèt fakti a. Motè a jis SIGNALE lè pwa total la rive nan sèy la
@@ -33,6 +42,8 @@ export interface InvoiceInput {
   smallCfg: SmallParcelConfig;               // paramèt ti koli (Paramètres)
   mode: "addition" | "small_control";
   taxeFixe: number;                          // 0 si dezaktive
+  /** Pri fòfè pa koli: { [pkg.id]: { label, price } }. Vid = tout pa liv. */
+  fixedPrices?: FixedPriceMap;
   fraisDga: number;                          // 0 si dezaktive
   discount: number;                          // 0 si dezaktive
 }
@@ -42,6 +53,10 @@ export interface InvoiceLine {
   weight: number;
   perLb: number;                             // Prix/LB EGZAK (Paramètres)
   isSmall: boolean;
+  /** true si liy lan se yon FÒFÈ (atik a pri fiks) — pwa pa antre nan kalkil. */
+  isFixed: boolean;
+  /** Non atik la lè isFixed (ex: "Laptop"). Vid sinon. */
+  fixedLabel: string;
   amount: number;                            // montan liy lan (USD)
 }
 
@@ -82,6 +97,7 @@ function perLbFromSettings(ville: Ville, accountType: AccountType): number {
  */
 export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   const { client, pkgs, rate, smallCfg, mode, taxeFixe, fraisDga, discount } = input;
+  const fixedPrices: FixedPriceMap = input.fixedPrices ?? {};
   const errors: string[] = [];
 
   // ---- DOUBLE VALIDATION (§3) ----
@@ -99,6 +115,14 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   }
   if (!pkgs.length) errors.push("Aucun colis sélectionné.");
   for (const p of pkgs) {
+    // Yon koli a pri fòfè pa bezwen yon pwa valab — pwa a pa antre nan kalkil la.
+    if (fixedPrices[p.id]) {
+      const fp = Number(fixedPrices[p.id].price);
+      if (!Number.isFinite(fp) || fp <= 0) {
+        errors.push(`Prix forfaitaire invalide pour le colis ${p.tracking_number || p.id}.`);
+      }
+      continue;
+    }
     if (!Number.isFinite(p.weight) || p.weight <= 0) {
       errors.push(`Poids invalide pour le colis ${p.tracking_number || p.id}.`);
     }
@@ -127,30 +151,51 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   }
 
   // ---- KALKIL (§5) — nan lòd egzak, Prix/LB pa touche (§6) ----
-  const totalWeight = round2(pkgs.reduce((s, p) => s + p.weight, 0));
+  const w = (p: Pkg) => (Number.isFinite(p.weight) && p.weight > 0 ? p.weight : 0);
+  const totalWeight = round2(pkgs.reduce((s, p) => s + w(p), 0));
+
+  // Koli a FÒFÈ (atik a pri fiks) vs koli ki fakti PA LIV
+  const isFix = (p: Pkg) => !!fixedPrices[p.id];
+  const auPoids = pkgs.filter((p) => !isFix(p));
+  const forfaits = round2(pkgs.filter(isFix).reduce((s, p) => s + round2(fixedPrices[p.id].price), 0));
 
   let lines: InvoiceLine[];
   let subtotal: number;
 
   if (accountType === "Business") {
-    // BUSINESS: adisyone TOUT pwa yo ANVAN, apre sa miltipliye YON SÈL FWA.
-    subtotal = round2(totalWeight * perLb);
+    // BUSINESS: adisyone pwa KOLI AU POIDS yo ANVAN, miltipliye YON SÈL FWA.
+    // Koli fòfè yo rete deyò adisyon an — yo ajoute apre, pri fiks yo.
+    const poidsAuPoids = round2(auPoids.reduce((s, p) => s + w(p), 0));
+    const partPoids = round2(poidsAuPoids * perLb);
+    subtotal = round2(partPoids + forfaits);
 
-    // Reparti montan an sou liy yo (pwopòsyonèl), dènye liy lan pran rès la
-    // pou som liy yo egal EGZAKTEMAN subtotal la.
+    // Reparti `partPoids` sou koli au poids yo; dènye a absòbe rès awondi a,
+    // konsa som liy yo egal EGZAKTEMAN subtotal la (verifyTotal rete valab).
     let cumul = 0;
-    lines = pkgs.map((p, i) => {
-      const last = i === pkgs.length - 1;
-      const amount = last ? round2(subtotal - cumul) : round2(p.weight * perLb);
+    let vus = 0;
+    lines = pkgs.map((p) => {
+      if (isFix(p)) {
+        const f = fixedPrices[p.id];
+        return { pkg: p, weight: w(p), perLb: 0, isSmall: false,
+                 isFixed: true, fixedLabel: f.label, amount: round2(f.price) };
+      }
+      vus++;
+      const last = vus === auPoids.length;
+      const amount = last ? round2(partPoids - cumul) : round2(w(p) * perLb);
       if (!last) cumul = round2(cumul + amount);
-      return { pkg: p, weight: p.weight, perLb, isSmall: false, amount };
+      return { pkg: p, weight: w(p), perLb, isSmall: false, isFixed: false, fixedLabel: "", amount };
     });
   } else {
-    // LÒT KONT: chak koli apa — ti koli -> pri fiks; sinon pwa × pri/lb.
+    // LÒT KONT: chak koli apa — fòfè; sinon ti koli; sinon pwa × pri/lb.
     lines = pkgs.map((p) => {
+      if (isFix(p)) {
+        const f = fixedPrices[p.id];
+        return { pkg: p, weight: w(p), perLb: 0, isSmall: false,
+                 isFixed: true, fixedLabel: f.label, amount: round2(f.price) };
+      }
       const small = mode === "small_control" && isSmallParcel(p.weight, smallCfg);
       const amount = small ? round2(smallCfg.price) : round2(p.weight * perLb);
-      return { pkg: p, weight: p.weight, perLb, isSmall: small, amount };
+      return { pkg: p, weight: w(p), perLb, isSmall: small, isFixed: false, fixedLabel: "", amount };
     });
     subtotal = round2(lines.reduce((s, l) => s + l.amount, 0));
   }
