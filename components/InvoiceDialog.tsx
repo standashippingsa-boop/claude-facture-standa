@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { createInvoiceFromComputation, getSmallParcelConfig, getSpecialArticles, getUsdRate, saveInvoicePdfUrl } from "@/lib/db";
+import { createInvoiceFromComputation, getCentralAccountCode, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, saveInvoicePdfUrl } from "@/lib/db";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { FixedPriceMap, SpecialArticle, TAX_THRESHOLD_LB } from "@/lib/pricing";
+import { Ville } from "@/lib/types";
+import { MapPin } from "lucide-react";
 import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Client, Pkg } from "@/lib/types";
@@ -29,6 +31,13 @@ import { Package } from "lucide-react";
  *   Lè pwa total la rive {TAX_THRESHOLD_LB} lb, fenèt la PWOPOZE taks la
  *   otomatikman (kaz la koche, montan an pre-ranpli). Admin an rete mèt:
  *   li ka chanje montan an oswa dekoche l. Motè a pa ajoute anyen an kachèt.
+ *
+ * COMPTE CENTRAL BUSINESS (V15):
+ *   Kliyan biznis ki poko gen pwòp kont yo pase sou yon kont santral
+ *   (Paramètres → code du compte central, ex: MC-36191). Kont sa a PA mare
+ *   ak yon sèl vil: lè w ap fakti, yon meni parèt pou w chwazi VIL la
+ *   (Gonaïves, Port-de-Paix…) epi TARIF vil sa a aplike. Konsa menm kont lan
+ *   sèvi pou nenpòt destinasyon, san blokaj.
  *
  * ARTICLES À PRIX FIXE (V14):
  *   Kèk koli pa fakti pa liv (telefòn, laptòp, kamera…). Pou chak koli,
@@ -69,6 +78,10 @@ export default function InvoiceDialog({
   const [articles, setArticles] = useState<SpecialArticle[]>([]);
   /** Chwa admin an pa koli: { [pkg.id]: article.id }. Vid = fakti pa liv. */
   const [fixedSel, setFixedSel] = useState<Record<string, string>>({});
+  /** Kont santral: lis vil yo + vil ki chwazi pou fakti sa a. */
+  const [centralCode, setCentralCode] = useState("");
+  const [villes, setVilles] = useState<Ville[]>([]);
+  const [villeId, setVilleId] = useState("");
 
   const [comp, setComp] = useState<InvoiceComputation | null>(null);
   const [busy, setBusy] = useState(false);
@@ -77,10 +90,33 @@ export default function InvoiceDialog({
   // Chaje to + konfigirasyon ti koli (Paramètres)
   useEffect(() => {
     (async () => {
-      const [r, cfg, arts] = await Promise.all([getUsdRate(), getSmallParcelConfig(), getSpecialArticles()]);
-      setRate(r); setSmallCfg(cfg); setArticles(arts); setReady(true);
+      const [r, cfg, arts, cc] = await Promise.all([
+        getUsdRate(), getSmallParcelConfig(), getSpecialArticles(), getCentralAccountCode()
+      ]);
+      setRate(r); setSmallCfg(cfg); setArticles(arts); setCentralCode(cc.toUpperCase());
+      // Kont santral -> chaje vil yo pou admin ka chwazi destinasyon an
+      if (cc && String(client.customer_code ?? "").trim().toUpperCase() === cc.toUpperCase()) {
+        try {
+          const vs = (await getVilles()).filter((v) => v.active);
+          setVilles(vs);
+          setVilleId(client.ville?.id ?? vs[0]?.id ?? "");
+        } catch { /* pa bloke fakti a */ }
+      }
+      setReady(true);
     })();
   }, []);
+
+  /** true si fakti sa a se pou KONT SANTRAL la. */
+  const isCentral = !!centralCode &&
+    String(client.customer_code ?? "").trim().toUpperCase() === centralCode;
+
+  /**
+   * KLIYAN EFEKTIF pou motè a. Pou kont santral, nou ranplase `ville` a pa
+   * vil destinasyon admin an chwazi — konsa tarif la se tarif vil sa a.
+   * Nou PA touche kliyan an nan bazdone a: se yon ranplasman kalkil sèlman.
+   */
+  const villeChoisie = villes.find((v) => v.id === villeId) ?? null;
+  const effClient = isCentral && villeChoisie ? { ...client, ville: villeChoisie } : client;
 
   /** Kat fòfè a: { [pkg.id]: { label, price } } — sèlman koli ki gen yon atik. */
   const fixedPrices: FixedPriceMap = {};
@@ -94,13 +130,13 @@ export default function InvoiceDialog({
   useEffect(() => {
     if (!ready || !pkgs.length) { setComp(null); return; }
     setComp(computeInvoice({
-      client, pkgs, rate, smallCfg, mode: calcMode, fixedPrices,
+      client: effClient, pkgs, rate, smallCfg, mode: calcMode, fixedPrices,
       taxeFixe: useTaxe ? Number(taxeVal) || 0 : 0,
       fraisDga: useDga ? Number(fraisDga) || 0 : 0,
       discount: useDisc ? Number(discount) || 0 : 0
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, rate, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount, fixedKey, articles]);
+  }, [ready, rate, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount, fixedKey, articles, villeId, centralCode]);
 
   /**
    * PWOPOZISYON TAKS — lè pwa total la rive nan sèy la, nou koche kaz la epi
@@ -158,6 +194,28 @@ export default function InvoiceDialog({
         <p className="text-sm text-slate-600 mb-3">
           <b className="text-navy">{client.customer_code}</b> — {clientName} · {pkgs.length} colis
         </p>
+
+        {/* COMPTE CENTRAL — chwazi vil destinasyon an (tarif flexib) */}
+        {isCentral && (
+          <div className="border border-brand/40 bg-brand/5 rounded-lg p-3 mb-3">
+            <p className="text-xs font-bold text-brand-dark uppercase mb-1 flex items-center gap-1.5">
+              <MapPin size={13} /> Compte central — {client.customer_code}
+            </p>
+            <p className="text-[11px] text-slate-600 mb-2 leading-relaxed">
+              Ce compte n&apos;est lié à aucune ville. Choisissez la <b>ville de destination</b> :
+              c&apos;est son tarif qui sera appliqué à cette facture.
+            </p>
+            <select className="input !py-1.5 !text-sm w-full" value={villeId}
+              onChange={(e) => setVilleId(e.target.value)}>
+              {villes.length === 0 && <option value="">Aucune ville active</option>}
+              {villes.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name} — {usd(client.account_type === "Business" ? v.price_business : v.price_personal)}/lb
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* KONT BUSINESS — pwa yo adisyone ANVAN, yon sèl miltiplikasyon */}
         {client.account_type === "Business" && (
