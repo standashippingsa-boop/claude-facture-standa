@@ -6,7 +6,7 @@ import {
 , Retrait, RetraitStatus
 } from "./types";
 import { McpackRow } from "./xlsx";
-import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig } from "./pricing";
+import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "./invoice-engine";
 
@@ -1170,6 +1170,21 @@ export async function getSettings(): Promise<Record<string, string>> {
 }
 export async function setSetting(key: string, value: string): Promise<void> {
   await supabase.from("app_settings").upsert({ key, value });
+}
+
+/**
+ * ARTICLES À PRIX FIXE (forfait) — telefòn, laptòp, kamera…
+ * Katalòg la anrejistre kòm JSON nan `app_settings` (kle: special_articles).
+ * Zewo migrasyon SQL. Si li poko konfigire, nou retounen katalòg depa a.
+ */
+export async function getSpecialArticles(): Promise<SpecialArticle[]> {
+  const s = await getSettings();
+  const list = parseSpecialArticles(s.special_articles);
+  return list.length ? list : DEFAULT_SPECIAL_ARTICLES;
+}
+
+export async function saveSpecialArticles(list: SpecialArticle[]): Promise<void> {
+  await setSetting("special_articles", JSON.stringify(list));
 }
 
 // ================= DASHBOARD =================
