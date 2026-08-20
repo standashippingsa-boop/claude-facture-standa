@@ -15,6 +15,7 @@ export type InstallMethod =
   | "ios-safari"    // iPhone/iPad Safari -> Partager > Sur l'écran d'accueil
   | "ios-other"     // iPhone/iPad men PA Safari -> fòk yo louvri nan Safari
   | "manual-menu"   // Firefox/Samsung/lòt -> menu navigatè a
+  | "in-app"        // WebView WhatsApp/Facebook/Instagram -> fòk yo louvri nan vre navigatè a
   | "unsupported";  // pa gen chemen -> fallback web
 
 export interface DeviceInfo {
@@ -22,6 +23,7 @@ export interface DeviceInfo {
   browser: Browser;
   deviceType: DeviceType;
   isStandalone: boolean;      // deja ap kouri kòm app enstale
+  isInApp: boolean;           // WebView anndan WhatsApp/Facebook/Instagram/etc.
   supportsServiceWorker: boolean;
   installMethod: InstallMethod;
   label: string;              // ex: "iPhone · Safari"
@@ -32,6 +34,16 @@ export interface InstallSteps {
   title: string;
   steps: string[];
   note?: string;
+}
+
+/**
+ * WebView anndan yon lòt app (WhatsApp, Facebook, Instagram, Messenger, TikTok…).
+ * ENPÒTAN pou STANDA: nou voye lyen yo sou WhatsApp — nan WebView sa yo
+ * enstalasyon PWA PA POSIB menm. Fòk kliyan an louvri lyen an nan vre
+ * navigatè a (Chrome / Safari) anvan li ka enstale app la.
+ */
+function detectInApp(ua: string): boolean {
+  return /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|Line\/|MicroMessenger|TikTok|Twitter|WhatsApp|GSA\//i.test(ua);
 }
 
 function detectPlatform(ua: string, maxTouch: number): Platform {
@@ -74,7 +86,7 @@ export function detectDevice(hasNativePrompt: boolean): DeviceInfo {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return {
       platform: "unknown", browser: "other", deviceType: "desktop",
-      isStandalone: false, supportsServiceWorker: false,
+      isStandalone: false, isInApp: false, supportsServiceWorker: false,
       installMethod: "unsupported", label: "—",
     };
   }
@@ -97,8 +109,12 @@ export function detectDevice(hasNativePrompt: boolean): DeviceInfo {
 
   const supportsServiceWorker = "serviceWorker" in nav;
 
+  const isInApp = detectInApp(ua);
+
   let installMethod: InstallMethod;
-  if (hasNativePrompt) {
+  if (isInApp && !hasNativePrompt) {
+    installMethod = "in-app";                            // fòk yo soti nan WebView la
+  } else if (hasNativePrompt) {
     installMethod = "native";                            // pi bon chemen an
   } else if (platform === "ios") {
     installMethod = browser === "safari" ? "ios-safari" : "ios-other";
@@ -124,8 +140,8 @@ export function detectDevice(hasNativePrompt: boolean): DeviceInfo {
   };
 
   return {
-    platform, browser, deviceType, isStandalone, supportsServiceWorker, installMethod,
-    label: `${platLabel[platform]} · ${browLabel[browser]}`,
+    platform, browser, deviceType, isStandalone, isInApp, supportsServiceWorker, installMethod,
+    label: `${platLabel[platform]} · ${isInApp ? "Navigateur intégré" : browLabel[browser]}`,
   };
 }
 
@@ -152,6 +168,18 @@ export function getInstallSteps(d: DeviceInfo): InstallSteps {
           "Collez l'adresse, puis Partager → « Sur l'écran d'accueil »",
         ],
         note: `Sur ${isTablet ? "iPad" : "iPhone"}, seul Safari peut installer une application.`,
+      };
+    case "in-app":
+      return {
+        title: "Ouvrez ce lien dans votre navigateur",
+        steps: [
+          "Appuyez sur le menu ⋮ (ou •••) en haut de cette fenêtre",
+          d.platform === "ios"
+            ? "Choisissez « Ouvrir dans Safari »"
+            : "Choisissez « Ouvrir dans Chrome » ou « Ouvrir dans le navigateur »",
+          "Vous pourrez ensuite installer l'application",
+        ],
+        note: "Une application ne peut pas être installée depuis WhatsApp, Facebook ou Instagram.",
       };
     case "manual-menu": {
       if (d.browser === "samsung") {
