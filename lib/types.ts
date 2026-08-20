@@ -134,6 +134,8 @@ export interface InvoiceItem {
   total: number;
   is_small?: boolean;   // koli sa a te sèvi ak tarif Petit Colis
   per_lb?: number;      // pri/lb ki te itilize (pou detay PDF)
+  /** Non atik a pri fiks (fòfè) — AFICHAJ PDF SÈLMAN, pa yon kolòn bazdone. */
+  fixed_label?: string;
 }
 
 export interface ImportLog {
