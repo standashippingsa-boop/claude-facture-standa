@@ -167,6 +167,25 @@ export async function getPackagesByIds(ids: string[]): Promise<Pkg[]> {
   return out;
 }
 
+/**
+ * Relije koli yo FRE depi Tracking ID (Guía) yo — sèvi pou demann retrait yo:
+ * `retrait_items` sonje tracking la, pa yon lyen sou koli a. Nou pa fè konfyans
+ * ak snapshot la: nou pran vrè eta koli a nan bazdone a kounye a.
+ */
+export async function getPackagesByTrackings(trackings: string[]): Promise<Pkg[]> {
+  const clean = Array.from(new Set(trackings.map((t) => String(t ?? "").trim()).filter(Boolean)));
+  if (!clean.length) return [];
+  const out: Pkg[] = [];
+  for (let i = 0; i < clean.length; i += 200) {
+    const chunk = clean.slice(i, i + 200);
+    const { data, error } = await supabase.from("packages").select("*").in("tracking_number", chunk);
+    if (error) throw error;
+    out.push(...(data ?? []).map((p) =>
+      asNum(p, ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[]);
+  }
+  return out;
+}
+
 // ============ MODIL CONDUCES (Faz 1 — fondasyon) ============
 // Single Source of Truth: AUCUN duplication Package. Yon Conduce se yon gwoup +
 // yon filtè sou packages.conduce_id. Tablo/aksyon yo se MENM Packages engine a.
@@ -211,6 +230,22 @@ export async function createPendingConduces(
     out.push({ number: c.conduce_number, id: c.id, alreadyExisted: !!before });
   }
   return out;
+}
+
+/** Ekri statut yon Conduce (En cours | Complète | Facturée). */
+export async function setConduceStatus(conduceId: string, status: string): Promise<void> {
+  await supabase.from("conduces").update({ status }).eq("id", conduceId);
+}
+
+/**
+ * STATUT DERIVE YON CONDUCE — kalkile depi koli yo, jamè yon chan dwaplike.
+ *   0 koli                       -> "En attente"
+ *   tout koli fakti               -> "Facturée"   (li ale nan Historique)
+ *   sinon                         -> "En cours"
+ */
+export function deriveConduceStatus(count: number, facturedCount: number): string {
+  if (count === 0) return "En attente";
+  return facturedCount >= count ? "Facturée" : "En cours";
 }
 
 /** Estatistik yon Conduce, kalkile depi packages ki gen menm conduce_id — jamè chan dwaplike. */
