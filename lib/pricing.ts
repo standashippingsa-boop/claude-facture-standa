@@ -44,6 +44,22 @@ export function computeLinePrice(
 // Depi pwa TOTAL koli yo rive nan 6.50 lb, yon taxe fiks 10 USD ajoute.
 // Se yon sèl fwa pa fakti (pa pa koli). Chanje valè yo isit la sèlman.
 // ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// ESTIMASYON BENEFIS (Conduce)
+// ───────────────────────────────────────────────────────────────────────────
+// MCPACK fakti STANDA ~3.00 USD/lb. Maj estime a se 0.80 USD sou chak liv.
+// Se yon ESTIMASYON pou pilotaj — li pa yon chif kontabilite.
+// Chanje valè a ISIT LA sèlman si maj la chanje.
+// ═══════════════════════════════════════════════════════════════════════════
+export const MCPACK_COST_PER_LB = 3.00;
+export const PROFIT_PER_LB = 0.80;
+
+/** Benefis estime pou yon pwa total bay (USD). */
+export function estimateProfit(totalWeight: number): number {
+  const w = Number(totalWeight);
+  return Number.isFinite(w) && w > 0 ? round2(w * PROFIT_PER_LB) : 0;
+}
+
 export const TAX_THRESHOLD_LB = 6.5;
 export const TAX_FIXED_USD = 10;
 
