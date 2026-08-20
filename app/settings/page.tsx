@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2, Pencil, MapPin } from "lucide-react";
 import {
   deleteVille, getSettings, getUsdRate,
-  fixTrackingColumns, getVilles, logAction, reapplyTarifDisponible, setSetting, setUsdRate, toggleVille, upsertVille, getSpecialArticles, saveSpecialArticles } from "@/lib/db";
+  fixTrackingColumns, getVilles, logAction, reapplyTarifDisponible, setSetting, setUsdRate, toggleVille, upsertVille, getSpecialArticles, saveSpecialArticles, getCentralAccountCode, setCentralAccountCode } from "@/lib/db";
 import { Staff, Ville } from "@/lib/types";
 import { SpecialArticle } from "@/lib/pricing";
 import { validateUpload, storagePath } from "@/lib/upload";
@@ -42,6 +42,9 @@ export default function SettingsPage() {
   // ── Atik a pri fiks (fòfè): telefòn, laptòp, kamera… ──
   const [articles, setArticles] = useState<SpecialArticle[]>([]);
   const [artMsg, setArtMsg] = useState<string | null>(null);
+  // ── Kont santral biznis (ex: MC-36191) ──
+  const [centralCode, setCentralCode] = useState("");
+  const [centralMsg, setCentralMsg] = useState<string | null>(null);
   const [rate, setRate] = useState("0");
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -59,6 +62,7 @@ export default function SettingsPage() {
     setSpMax(s.small_parcel_max ?? "0.99");
     setSpPrice(s.small_parcel_price ?? "3.70");
     setArticles(await getSpecialArticles());
+    setCentralCode(await getCentralAccountCode());
     setAutoPricing(s.auto_pricing !== "false");
     setRate(String(r));
   };
@@ -236,6 +240,33 @@ export default function SettingsPage() {
             setNotice(`Taux enregistré: 1 USD = ${r.toFixed(2)} HTG. Tout nouvo facture ap itilize l.`);
           }}>Enregistrer le taux</button>
         </div>
+      </section>
+
+      {/* ===== Compte central business ===== */}
+      <section className="card p-5 space-y-3">
+        <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Compte central business</h2>
+        <p className="text-xs text-slate-500 bg-mist rounded-lg px-3 py-2 leading-relaxed">
+          ℹ️ Kliyan biznis ki <b>poko gen pwòp kont yo</b> pase sou kont sa a. Li pa mare ak yon
+          sèl vil: li parèt nan <b>nenpòt Bon de Remise</b>, epi lè w ap fakti, ou chwazi vil
+          destinasyon an — se tarif vil sa a ki aplike.
+        </p>
+        <label className="block">
+          <span className="text-xs font-medium text-slate-500">Code du compte central</span>
+          <div className="flex gap-2 mt-1">
+            <input className="input font-mono uppercase" placeholder="MC-36191"
+              value={centralCode} onChange={(e) => setCentralCode(e.target.value.toUpperCase())} />
+            <button className="btn !text-xs whitespace-nowrap"
+              onClick={async () => {
+                await setCentralAccountCode(centralCode);
+                setCentralMsg("✅ Enregistré");
+                setTimeout(() => setCentralMsg(null), 2500);
+              }}>Enregistrer</button>
+          </div>
+          <span className="text-[11px] text-mute">
+            Laissez vide pour désactiver. Le code doit correspondre exactement à un client existant.
+          </span>
+        </label>
+        {centralMsg && <p className="text-xs text-emerald-700">{centralMsg}</p>}
       </section>
 
       {/* ===== Articles à prix fixe (forfaits) ===== */}
