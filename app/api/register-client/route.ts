@@ -52,36 +52,70 @@ export async function POST(req: Request) {
     const email = clean(p.email, 120).toLowerCase();
     const phone = clean(p.phone, 30);
     if (fullname.length < 2) return NextResponse.json({ ok: false, reason: "Nom invalide." }, { status: 400 });
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
       return NextResponse.json({ ok: false, reason: "Email invalide." }, { status: 400 });
     }
-    if (phone && digits(phone).length < 7) {
+    if (digits(phone).length < 7) {
       return NextResponse.json({ ok: false, reason: "Téléphone invalide." }, { status: 400 });
     }
 
     // Chan otorize SÈLMAN (pa gen customer_code, account_status, auth_user_id soti deyò)
     const ALLOWED = ["fullname", "surname", "email", "phone", "whatsapp", "country",
-      "city", "city2", "address", "id_type", "id_number", "ville_id", "account_type"] as const;
+      "city", "address", "id_type", "id_number", "ville_id", "account_type"] as const;
     const profile: Record<string, unknown> = {};
     for (const k of ALLOWED) if (p[k] !== undefined && p[k] !== null) profile[k] = clean(p[k], 200);
     profile.fullname = fullname;
     if (email) profile.email = email;
 
-    // ---- Dedoublonaj (kote sèvè — pa gen done lòt kliyan ki soti) ----
+    // ═══════════════════════════════════════════════════════════════════
+    // DEDOUBLONAJ (V18) — YON KLIYAN KA GEN PLIZYÈ KONT SHIPPING.
+    // ───────────────────────────────────────────────────────────────────
+    // Sèl DE bagay ki PA ka menm ant de kont:
+    //     • Adrès imèl
+    //     • Nimewo telefòn
+    // Tout rès la ka menm — enkli NIMEWO IDANTIFIKASYON an: se nòmal yon
+    // sèl moun louvri yon dezyèm kont (pèsonèl + biznis) ak menm paspò a.
+    // Men chak kont dwe gen pwòp imèl ak pwòp telefòn li, paske se pa la
+    // nou voye notifikasyon, fakti ak modpas — de kont ki pataje yo ta
+    // resevwa enfòmasyon lòt la.
+    // ═══════════════════════════════════════════════════════════════════
+    const tail = digits(phone).slice(-8);
+
     const { data: all } = await svc.from("clients")
       .select("id, auth_user_id, email, phone, customer_code, account_status");
-    const tail = digits(phone).slice(-8);
-    const found = (all ?? []).find((c: any) =>
-      (email && String(c.email ?? "").toLowerCase() === email) ||
-      (tail && digits(c.phone ?? "").length >= 7 && digits(c.phone ?? "").endsWith(tail)));
 
+    const memMail = email
+      ? (all ?? []).find((c: { email?: string | null }) =>
+          String(c.email ?? "").trim().toLowerCase() === email)
+      : null;
+    const memTel = tail
+      ? (all ?? []).find((c: { phone?: string | null }) =>
+          digits(c.phone ?? "").length >= 7 && digits(c.phone ?? "").endsWith(tail))
+      : null;
+
+    // Menm moun ki reprann pwòp pwofil li (aktivasyon) -> nou mete l ajou.
+    const propre = !!authUserId
+      && ((!!memMail && (memMail as { auth_user_id?: string | null }).auth_user_id === authUserId)
+       || (!!memTel && (memTel as { auth_user_id?: string | null }).auth_user_id === authUserId));
+
+    if ((memMail || memTel) && !propre) {
+      const quoi = memMail && memTel
+        ? "L'adresse e-mail et le numéro de téléphone sont"
+        : memMail ? "Cette adresse e-mail est" : "Ce numéro de téléphone est";
+      return NextResponse.json({
+        ok: false,
+        reason: `${quoi} déjà utilisé par un compte existant. Pour ouvrir un deuxième compte, `
+              + `utilisez une autre adresse e-mail et un autre numéro de téléphone — c'est par là `
+              + `que nous envoyons vos notifications, factures et mots de passe. `
+              + `Sinon, connectez-vous à votre compte ou contactez STANDA COMMERCIAL.`
+      }, { status: 409 });
+    }
+
+    const found = propre ? ((memMail ?? memTel) as { id: string; customer_code?: string | null; account_status?: string | null }) : null;
     if (found) {
-      if (found.auth_user_id && authUserId && found.auth_user_id !== authUserId) {
-        return NextResponse.json({ ok: false, reason: "Un compte existe déjà. Connectez-vous ou contactez STANDA COMMERCIAL." }, { status: 409 });
-      }
       const { error } = await svc.from("clients").update({
         ...profile,
-        ...(authUserId ? { auth_user_id: authUserId } : {}),
+        auth_user_id: authUserId,
         account_status: found.customer_code ? (found.account_status ?? "Actif") : "En attente d'activation",
       }).eq("id", found.id);
       if (error) return NextResponse.json({ ok: false, reason: "Enregistrement impossible." }, { status: 500 });
