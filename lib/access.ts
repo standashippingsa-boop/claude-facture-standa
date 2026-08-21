@@ -20,7 +20,9 @@ export type AppRole = StaffRole | "client";
 
 /** Paj piblik (pa mande koneksyon) */
 export const PUBLIC_PREFIXES = [
-  "/login", "/admin-login", "/inscription", "/setup",
+  // 3 LYEN OFISYÈL YO: /admin-login (admin) · /login (kliyan) · /employe (anplwaye)
+  "/login", "/admin-login", "/employe", "/setup",
+  "/inscription",                       // ansyen lyen -> redirije sou /login?tab=signup
   "/reset-password", "/nouveau-mot-de-passe", "/confidentialite"
 ];
 
