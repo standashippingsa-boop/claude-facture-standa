@@ -1,91 +1,160 @@
 "use client";
-import { useState } from "react";
+/*
+ * STANDA COMMERCIAL — ESPACE CLIENT (KONEKTE + KREYE KONT)
+ * ════════════════════════════════════════════════════════
+ * YON SÈL LYEN pou kliyan yo: /login
+ *   Onglè 1 — Se connecter    (kòd MC + modpas)
+ *   Onglè 2 — Créer un compte (menm fòm enskripsyon an, anndan)
+ *
+ * POUKISA KLIYAN YO PA T KA KONEKTE — twa kòz reyèl, tout twa korije:
+ *   1) Fòma kòd la: yo tape "36191", "mc36191", "MC 36191" -> nou nòmalize.
+ *   2) ESPAS nan modpas la: lè yo kopye modpas tanporè a sou WhatsApp, yon
+ *      espas envizib kole nan bout la. Nou koupe espas devan/dèyè yo.
+ *   3) Yo pa wè sa yo tape -> TI JE 👁️ sou chan modpas la.
+ *
+ * ANREJISTRE MODPAS SOU TELEFÒN:
+ *   Vrè <form> + name + autoComplete = Chrome/Safari pwopoze anrejistre
+ *   modpas la. San sa, telefòn nan pa janm pwopoze anyen.
+ *
+ * Si tout echwe: yon bouton WhatsApp dirèk nan mesaj erè a — kliyan an pa
+ * janm rete bloke san solisyon.
+ */
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { MessageCircle, User } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { clientEmail } from "@/lib/authx";
 import { normalizeMcCode } from "@/lib/utils";
+import { SUPPORT_PHONE } from "@/lib/branding";
+import PasswordInput from "@/components/PasswordInput";
+import SignupForm from "@/components/SignupForm";
+
+const WA = `https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`;
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+function LoginInner() {
   const router = useRouter();
+  const params = useSearchParams();
+  const [tab, setTab] = useState<"login" | "signup">(
+    params.get("tab") === "signup" ? "signup" : "login"
+  );
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
-    setErr(null); setBusy(true);
+    if (busy) return;
+    setErr(null);
+
+    const raw = username.trim();
+    const norm = normalizeMcCode(raw);
+    // Modpas tanporè yo se lèt/chif — koupe espas ki kole lè yo kopye sou WhatsApp.
+    const pass = password.trim();
+
+    if (!raw) { setErr("Antre kòd MC ou (egzanp: MC-36191)."); return; }
+    if (!pass) { setErr("Antre modpas ou."); return; }
+
+    setBusy(true);
     try {
-      // KÒZ RASIN #1 korije: kont yo kreye ak kòd NÒMALIZE ("MC-36191"), men
-      // kliyan an ka tape "36191", "mc36191", "MC 36191"... Nou nòmalize anvan.
-      const raw = username.trim();
-      const norm = normalizeMcCode(raw);
-      let data: any = null, error: any = null;
-
-      ({ data, error } = await supabase.auth.signInWithPassword({
-        email: clientEmail(norm), password
-      }));
-      // Konpatibilite: ansyen kont ki ta kreye san nòmalizasyon
-      if (error && raw && norm.toLowerCase() !== raw.toLowerCase()) {
-        const retry = await supabase.auth.signInWithPassword({
-          email: clientEmail(raw), password
-        });
-        if (!retry.error) { data = retry.data; error = null; }
+      // Eseye kòd nòmalize a, apre sa kòd la jan li tape a (ansyen kont yo)
+      const essais = Array.from(new Set([norm, raw.toUpperCase(), raw]));
+      let ok = false, last: unknown = null;
+      for (const code of essais) {
+        const r = await supabase.auth.signInWithPassword({ email: clientEmail(code), password: pass });
+        if (!r.error) { ok = true; break; }
+        last = r.error;
       }
-      if (error) throw error;
-
-      // V8.5: pa gen fòs chanjman modpas ankò — kliyan an ka itilize modpas admin ba li a
+      if (!ok) throw last;
       router.push("/espace-client");
-    } catch {
-      setErr("Nom d'utilisateur (MC-XXXXX) oswa mot de passe pa kòrèk.");
+    } catch (e: unknown) {
+      const m = String((e as Error)?.message ?? "").toLowerCase();
+      if (m.includes("not confirmed")) {
+        setErr("Kont ou poko aktive. Kontakte STANDA COMMERCIAL sou WhatsApp.");
+      } else {
+        setErr(`Kòd ${norm || "MC-XXXXX"} oswa modpas la pa kòrèk. Peze ti je a pou verifye modpas ou tape a.`);
+      }
     } finally { setBusy(false); }
   };
 
   return (
-    <div className="min-h-screen bg-[#081226] flex items-center justify-center p-6"
+    <div className="min-h-screen bg-[#081226] py-8 px-4"
       style={{ background: "radial-gradient(ellipse at top, #0E2145 0%, #081226 55%, #060D1C 100%)" }}>
-      <div className="w-full max-w-md rounded-3xl bg-[#0D1F3F]/90 border border-white/10 shadow-2xl p-8 space-y-5">
-        <div className="w-20 h-20 mx-auto rounded-2xl bg-white grid place-items-center shadow-lg">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-16 object-contain" />
+      <div className={`mx-auto ${tab === "signup" ? "max-w-2xl" : "max-w-md"}`}>
+
+        <div className="text-center mb-5">
+          <div className="w-20 h-20 mx-auto rounded-2xl bg-white grid place-items-center shadow-lg">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-16 object-contain" />
+          </div>
+          <h1 className="text-xl font-extrabold text-white mt-3">Espace Client</h1>
         </div>
-        <h1 className="text-2xl font-extrabold text-white text-center">Koneksyon</h1>
 
-        <label className="block">
-          <span className="text-xs font-semibold text-slate-300">Nom d&apos;utilisateur</span>
-          <div className="mt-1 flex items-center gap-2 rounded-xl bg-[#122A52] border border-white/10 px-3 focus-within:border-blue-400">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9DB4DC" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
-            <input className="w-full bg-transparent py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none uppercase"
-              name="username" autoComplete="username"
-              value={username} onChange={(e) => setUsername(e.target.value)} placeholder="MC-XXXXX" />
+        {/* Onglè */}
+        <div className="flex rounded-xl bg-white/5 border border-white/10 p-1 mb-4">
+          {([["login", "Se connecter"], ["signup", "Créer un compte"]] as const).map(([k, l]) => (
+            <button key={k} onClick={() => { setTab(k); setErr(null); }}
+              className={`flex-1 rounded-lg py-2.5 text-sm font-bold transition ${
+                tab === k ? "bg-white text-navy" : "text-slate-300 hover:text-white"}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {tab === "login" ? (
+          <form
+            onSubmit={(e) => { e.preventDefault(); submit(); }}
+            className="rounded-3xl bg-[#0D1F3F]/90 border border-white/10 shadow-2xl p-6 sm:p-8 space-y-5">
+
+            <label className="block">
+              <span className="text-xs font-semibold text-slate-300">Nom d&apos;utilisateur (kòd MC)</span>
+              <div className="mt-1 flex items-center gap-2 rounded-xl bg-[#122A52] border border-white/10 px-3 focus-within:border-blue-400">
+                <User size={16} className="text-[#9DB4DC] shrink-0" />
+                <input
+                  name="username" autoComplete="username" inputMode="text" autoCapitalize="characters"
+                  className="w-full bg-transparent py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none uppercase"
+                  value={username} onChange={(e) => setUsername(e.target.value)} placeholder="MC-XXXXX" />
+              </div>
+            </label>
+
+            <PasswordInput dark label="Modpas" value={password} onChange={setPassword} onEnter={submit} />
+
+            {err && (
+              <div className="rounded-xl bg-red-500/10 border border-red-400/30 px-4 py-3 space-y-2.5">
+                <p className="text-sm text-red-200">{err}</p>
+                <a href={WA} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg px-3 py-2">
+                  <MessageCircle size={14} /> Mande èd sou WhatsApp
+                </a>
+              </div>
+            )}
+
+            <button type="submit" disabled={busy}
+              className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm shadow-lg shadow-blue-900/40 transition-colors disabled:opacity-50">
+              {busy ? "Ap konekte..." : "Konekte"}
+            </button>
+
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Ou bliye modpas ou? Kontakte STANDA COMMERCIAL sou WhatsApp — n ap voye yon
+              nouvo modpas tanporè ba ou.
+            </p>
+          </form>
+        ) : (
+          <div className="rounded-3xl bg-white/5 border border-white/10 p-3 sm:p-4">
+            <SignupForm onGoLogin={() => { setTab("login"); setErr(null); }} />
           </div>
-        </label>
+        )}
 
-        <label className="block">
-          <span className="text-xs font-semibold text-slate-300">Modpas</span>
-          <div className="mt-1 flex items-center gap-2 rounded-xl bg-[#122A52] border border-white/10 px-3 focus-within:border-blue-400">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9DB4DC" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-            <input type="password" className="w-full bg-transparent py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none"
-              value={password} onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()} />
-          </div>
-        </label>
-
-        <p className="text-[11px] text-slate-500 -mt-2">
-          Ou bliye modpas ou? Kontakte STANDA COMMERCIAL sou WhatsApp — n ap voye yon nouvo modpas tanporè ba ou.
-        </p>
-
-        {err && <p className="text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl px-4 py-3">{err}</p>}
-
-        <button className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm shadow-lg shadow-blue-900/40 transition-colors disabled:opacity-50"
-          onClick={submit} disabled={busy}>
-          {busy ? "Ap konekte..." : "Konekte"}
-        </button>
-
-        <p className="text-center text-xs text-slate-400">
-          Ou poko gen kont? <Link href="/inscription" className="text-blue-300 font-semibold hover:underline">Enskri la a</Link>
-        </p>
-        <p className="text-center text-[11px] text-slate-500">
+        <p className="text-center text-[11px] text-slate-500 mt-5">
           <Link href="/confidentialite" className="hover:underline">Politique de confidentialité</Link>
         </p>
       </div>
