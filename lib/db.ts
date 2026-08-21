@@ -3,8 +3,7 @@ import { cleanTracking, isGuia, normalizeMcCode } from "./utils";
 import { validateUpload, storagePath } from "./upload";
 import {
   AccountType, Client, Conduce, DashboardStats, ImportLog, Invoice, InvoiceItem, Pkg, Ville
-, Retrait, RetraitStatus
-} from "./types";
+, Retrait, RetraitStatus, CONDUCE_ARRIVAL_STATUS, shouldPromoteOnConduce } from "./types";
 import { McpackRow } from "./xlsx";
 import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
@@ -428,16 +427,19 @@ export async function linkPackagesToConduce(
   conduceId: string, conduceNumber: string, matches: ConduceMatch[], who = ""
 ): Promise<{ linked: number; alreadyElsewhere: number }> {
   const cibles = matches.filter((m) => m.matched && m.pkgId && m.currentConduceId !== conduceId);
-  let linked = 0, alreadyElsewhere = 0;
+  let linked = 0, alreadyElsewhere = 0, promus = 0;
   for (const m of cibles) {
     if (m.currentConduceId) { alreadyElsewhere++; continue; }   // deja nan yon lòt conduce — pa touche
-    await supabase.from("packages").update({ conduce_id: conduceId }).eq("id", m.pkgId!);
+    // STATUT OTOMATIK: nimewo conduce nan men nou = lo a rive an Ayiti.
+    const patch: Record<string, unknown> = { conduce_id: conduceId };
+    if (shouldPromoteOnConduce(m.status)) { patch.status = CONDUCE_ARRIVAL_STATUS; promus++; }
+    await supabase.from("packages").update(patch).eq("id", m.pkgId!);
     linked++;
   }
   if (linked > 0) {
     await supabase.from("conduces").update({ updated_at: new Date().toISOString() }).eq("id", conduceId);
     await logAction("Import Conduce",
-      `Conduce ${conduceNumber} : ${linked} colis liés`, "", "");
+      `Conduce ${conduceNumber} : ${linked} colis liés, ${promus} passés en "${CONDUCE_ARRIVAL_STATUS}"`, "", "");
   }
   return { linked, alreadyElsewhere };
 }
@@ -464,11 +466,15 @@ export async function importConduceExcelRows(
     if (r.office && !officeSeen) officeSeen = r.office;
 
     const { data: existing } = await supabase.from("packages")
-      .select("id, conduce_id, tracking_manual").eq("tracking_number", r.guia).maybeSingle();
+      .select("id, conduce_id, tracking_manual, status, invoice_id").eq("tracking_number", r.guia).maybeSingle();
 
     if (existing) {
       const patch: Record<string, unknown> = {};
       if (existing.conduce_id !== conduceId) { patch.conduce_id = conduceId; linked++; }
+      // STATUT OTOMATIK -> "Arrivé en Haïti" (jamè an aryè)
+      if (shouldPromoteOnConduce(existing.status, existing.invoice_id)) {
+        patch.status = CONDUCE_ARRIVAL_STATUS;
+      }
       if (r.tracking_number && !existing.tracking_manual) patch.tracking_manual = r.tracking_number;
       if (r.weight) patch.weight = r.weight;
       if (r.content) patch.content = r.content;
@@ -479,7 +485,7 @@ export async function importConduceExcelRows(
         tracking_number: r.guia, tracking_manual: r.tracking_number || "",
         customer_code: r.customer_code, customer_name: r.customer_name || r.customer_code,
         weight: r.weight || 0, content: r.content || "", quantity: r.quantity || 1,
-        status: "Reçu à Miami", conduce_id: conduceId,
+        status: CONDUCE_ARRIVAL_STATUS, conduce_id: conduceId,
         received_at: now, received_method: "Import Conduce Excel", src_extension: true
       });
       created++; linked++;
