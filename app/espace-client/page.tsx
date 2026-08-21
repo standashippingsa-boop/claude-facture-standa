@@ -24,8 +24,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Bell, Box, Calculator, ChevronDown, ChevronLeft, ChevronRight, Clock, FileText,
-  History, KeyRound, LogOut, MapPin, MessageCircle, Package, RefreshCw, User, X
+  AlertTriangle, Ban, Bell, BookOpen, Box, Calculator, Check, ChevronDown, ChevronLeft,
+  ChevronRight, Clock, FileText, History, HelpCircle, KeyRound, LogOut, MapPin,
+  MessageCircle, Package, RefreshCw, Truck, User, X
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";
@@ -45,7 +46,7 @@ import Loader, { SavedToast, Spinner, SuccessCheck } from "@/components/Loader";
 import StatusBadge from "@/components/StatusBadge";
 import { StatusTimeline } from "@/components/StatusFlow";
 
-type View = "home" | "disponibles" | "receptions" | "factures" | "historique" | "adresse" | "calc";
+type View = "home" | "disponibles" | "receptions" | "factures" | "historique" | "adresse" | "calc" | "infos";
 
 const WA_NUM = SUPPORT_PHONE.replace(/\D/g, "");
 const WA_LINK = `https://wa.me/${WA_NUM}`;
@@ -67,6 +68,63 @@ function waPkgLink(p: Pkg, code: string): string {
 
 /** Yon koli "fini" (fakti oswa livre) -> li ale nan Historique. */
 const isDone = (p: Pkg) => p.status === "Facturé" || p.status === "Livré" || !!p.invoice_id;
+
+/**
+ * SUIVI VÈTIKAL — chak etap sou liy pa li, ak dat lè nou konnen l.
+ * Kliyan an wè EGZAKTEMAN kote koli l rive epi sa k ap vini apre.
+ * Etap ki pase = vèt ak ✓ · etap kounye a = ble k ap bat · rès la = gri.
+ */
+function SuiviVertical({ p }: { p: Pkg }) {
+  const ETAPES: { nom: string; desc: string; date?: string | null }[] = [
+    { nom: "Reçu à Miami", desc: "Koli ou rive nan depo nou Ozetazini", date: p.received_at ?? p.created_date },
+    { nom: "En préparation", desc: "N ap prepare l pou vwayaj la" },
+    { nom: "En transit", desc: "Koli a sou wout pou Ayiti" },
+    { nom: "Arrivé en Haïti", desc: "Li rive nan peyi a, l ap pase ladwàn" },
+    { nom: "En route vers agence", desc: "L ap desann nan agans vil ou" },
+    { nom: "Disponible", desc: "Ou ka vin pran li", date: p.verified_at },
+    { nom: "Facturé", desc: "Fakti a pare", date: p.invoiced_at }
+  ];
+
+  const ORDRE = ["Reçu à Miami", "En préparation", "En transit", "Arrivé en Haïti",
+                 "En route vers agence", "Disponible", "Livré"];
+  let actuel = ORDRE.indexOf(p.status);
+  if (p.status === "Facturé" || p.invoice_id) actuel = ETAPES.length - 1;
+  if (actuel < 0) actuel = 0;
+
+  return (
+    <ol className="space-y-0">
+      {ETAPES.map((e, i) => {
+        const fini = i < actuel;
+        const ici = i === actuel;
+        const dernye = i === ETAPES.length - 1;
+        return (
+          <li key={e.nom} className="flex gap-3">
+            <div className="flex flex-col items-center shrink-0">
+              <span className={`w-6 h-6 rounded-full grid place-items-center shrink-0 ${
+                fini ? "bg-brand text-white" : ici ? "bg-navy text-white" : "bg-line text-slate-400"}`}>
+                {fini ? <Check size={13} strokeWidth={3} />
+                      : ici ? <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                            : <span className="w-1.5 h-1.5 rounded-full bg-current" />}
+              </span>
+              {!dernye && <span className={`w-0.5 flex-1 min-h-[26px] ${fini ? "bg-brand" : "bg-line"}`} />}
+            </div>
+            <div className={`min-w-0 flex-1 ${dernye ? "pb-0" : "pb-4"}`}>
+              <p className={`text-[13px] font-bold leading-tight ${
+                ici ? "text-navy" : fini ? "text-ink" : "text-slate-400"}`}>{e.nom}</p>
+              <p className={`text-[11px] leading-snug mt-0.5 ${ici || fini ? "text-mute" : "text-slate-300"}`}>
+                {e.desc}
+              </p>
+              {e.date && (fini || ici) && (
+                <p className="text-[11px] font-semibold text-brand-dark mt-0.5">{dateFr(e.date)}</p>
+              )}
+              {ici && <span className="pill pill-blue mt-1.5"><span className="pill-dot" />Kote li ye kounye a</span>}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 export default function EspaceClientPage() {
   // ── HOOKS (tout ansanm, anvan tout return) ──────────────────────────────
@@ -379,6 +437,11 @@ export default function EspaceClientPage() {
               : toast ? <SuccessCheck size={20} /> : <RefreshCw size={19} />}
           </button>
 
+          <button onClick={() => setView("infos")} aria-label="Guide et aide" title="Guide & Aide"
+            className="w-9 h-9 rounded-lg grid place-items-center text-white/85 hover:text-white hover:bg-white/10">
+            <HelpCircle size={19} />
+          </button>
+
           <a href={WA_LINK} target="_blank" rel="noreferrer" aria-label="WhatsApp"
             className="w-9 h-9 rounded-lg grid place-items-center text-white/85 hover:text-white hover:bg-white/10">
             <MessageCircle size={19} />
@@ -418,6 +481,13 @@ export default function EspaceClientPage() {
             <MenuRow icon={Box} label="Réceptions" count={receptionsAll.length} to="receptions" />
             <MenuRow icon={FileText} label="Factures" count={invs.length} to="factures" />
             <MenuRow icon={History} label="Historique" count={historique.length} to="historique" />
+
+            <button onClick={() => setView("infos")}
+              className="w-full card card-hover px-4 py-4 flex items-center gap-3 text-left">
+              <BookOpen size={20} className="text-navy shrink-0" />
+              <span className="flex-1 text-[15px] font-semibold text-ink">Guide &amp; Aide</span>
+              <ChevronRight size={16} className="text-slate-300 shrink-0" />
+            </button>
 
             {retraits.length > 0 && (
               <section className="space-y-2 pt-1">
@@ -561,6 +631,146 @@ export default function EspaceClientPage() {
           </>
         )}
 
+        {/* ═══════════ GUIDE & AIDE ═══════════ */}
+        {view === "infos" && (
+          <>
+            <SubHeader title="Guide & Aide" sub="Tout sa w bezwen konnen sou shipping ou" />
+
+            {/* Kijan sa mache */}
+            <div className="card p-5">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+                <Truck size={15} /> Kijan shipping la mache
+              </h2>
+              <ol className="mt-3 space-y-3">
+                {([
+                  ["Achte sou entènèt", `Sou Amazon, SHEIN, eBay… Mete adrès depo nou Miami an, epi mete kòd ${client.customer_code} la sou liy "Address 2".`],
+                  ["Nou resevwa koli a Miami", "Depo nou an anrejistre l epi peze l. W ap resevwa yon imèl ak yon mesaj WhatsApp."],
+                  ["Koli a vwayaje", "Li pati Miami pou Ayiti, li pase ladwàn, epi li desann nan agans vil ou."],
+                  ["Ou vin pran li", "Lè statut la vin Disponib, peze \"Notifier mon retrait\" pou n prepare l anvan w rive."]
+                ] as const).map(([t, d], i) => (
+                  <li key={t} className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-navy text-white text-[11px] font-bold grid place-items-center shrink-0">
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-bold text-ink leading-tight">{t}</p>
+                      <p className="text-[12px] text-mute leading-relaxed mt-0.5">{d}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            {/* Adrès la — jan pou w ekri l */}
+            <div className="card p-5">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+                <MapPin size={15} /> Jan pou w ekri adrès la
+              </h2>
+              <p className="text-[12px] text-mute mt-2 leading-relaxed">
+                Kopye chan sa yo <b>egzakteman</b> lè w ap achte. Se kòd la ki fè nou konnen koli a se pou ou.
+              </p>
+              <div className="mt-3 rounded-xl border border-line divide-y divide-line">
+                {([["Full Name", `${client.customer_code} ${non || ""}`.trim()],
+                   ["Address 1", DEPOT.address1],
+                   ["Address 2", client.customer_code],
+                   ["City", DEPOT.city],
+                   ["State", DEPOT.state],
+                   ["ZIP Code", DEPOT.zip],
+                   ["Phone", DEPOT.phone]] as const).map(([k, v]) => (
+                  <div key={k} className="flex justify-between gap-3 px-3 py-2">
+                    <span className="text-[12px] text-mute shrink-0">{k}</span>
+                    <span className={`text-[12px] font-semibold text-right break-all ${k.startsWith("Address 2") || k === "Full Name" ? "text-navy" : "text-ink"}`}>{v}</span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setView("adresse")} className="btn btn-ghost border border-line w-full justify-center mt-3 !text-xs">
+                Wè adrès konplè m
+              </button>
+            </div>
+
+            {/* Tarif */}
+            <div className="card p-5">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+                <Calculator size={15} /> Kijan pri a kalkile
+              </h2>
+              <ul className="mt-3 space-y-2 text-[12px] text-mute leading-relaxed">
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span>Pri a se <b>pwa koli a × tarif vil ou</b>{client.ville?.name ? <> ({client.ville.name})</> : null}.</span></li>
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span>Ti koli ant <b>{smallCfg.min} ak {smallCfg.max} lb</b>: pri fiks <b>{usd(smallCfg.price)}</b>.</span></li>
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span>Depi pwa total la rive <b>{TAX_THRESHOLD_LB} lb</b>, gen yon taks fiks <b>{usd(TAX_FIXED_USD)}</b>.</span></li>
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span>Kèk atik (telefòn, laptòp, kamera…) gen yon <b>pri fòfè</b> — pwa a pa konte.</span></li>
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span>Pri sou app la se yon <b>estimasyon</b>. Pri final la fikse lè koli a peze nan depo a.</span></li>
+              </ul>
+              <button onClick={() => setView("calc")} className="btn btn-ghost border border-line w-full justify-center mt-3 !text-xs">
+                <Calculator size={14} /> Louvri kalkilatris la
+              </button>
+            </div>
+
+            {/* Atik entèdi */}
+            <div className="card p-5 border-red-200">
+              <h2 className="text-sm font-bold text-red-700 uppercase tracking-wide flex items-center gap-2">
+                <Ban size={15} /> Atik entèdi
+              </h2>
+              <p className="text-[12px] text-mute mt-2 leading-relaxed">
+                Konpayi avyon yo ak ladwàn entèdi atik sa yo. Yo p ap ka vwayaje:
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
+                {["Zam ak minisyon", "Pwodwi ki pran dife", "Eksplozif", "Pwodwi korozif",
+                  "Batri litium separe", "Dwòg ak narkotik", "Bagay pònografik", "Bèt vivan",
+                  "Lajan kach", "Pwodwi ki gate vit"].map((a) => (
+                  <p key={a} className="text-[12px] text-ink flex gap-1.5">
+                    <span className="text-red-500 shrink-0">✕</span>{a}
+                  </p>
+                ))}
+              </div>
+              <p className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 mt-3 leading-relaxed">
+                <AlertTriangle size={12} className="inline mr-1" />
+                Ou responsab sa w voye. Yon koli entèdi ka sezi pa ladwàn san remèd.
+                Si w gen dout sou yon atik, mande nou sou WhatsApp anvan w achte.
+              </p>
+            </div>
+
+            {/* Kesyon */}
+            <div className="card p-5">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+                <HelpCircle size={15} /> Kesyon moun poze souvan
+              </h2>
+              <div className="mt-3 divide-y divide-line">
+                {([
+                  ["Konbyen tan koli m ap pran?",
+                   "Sa depann de lè li rive Miami ak vwayaj la. W ap wè chak etap nan app la — klike sou koli a pou w wè kote li ye."],
+                  ["Poukisa koli m poko parèt?",
+                   "Yon koli parèt sèlman lè depo nou an Miami resevwa l epi anrejistre l. Si transpòtè a (Amazon, FedEx…) di li livre men li poko nan app la, tann kèk èdtan epi peze bouton Actualiser a."],
+                  ["Èske m ka voye plizyè koli ansanm?",
+                   "Wi. Tout koli ki gen kòd ou a rasanble anba kont ou, epi ou ka fakti yo ansanm."],
+                  ["Kisa \"Notifier mon retrait\" vle di?",
+                   "Se pou di nou ki koli w ap vin pran. N ap prepare yo davans pou w pa tann lè w rive nan agans lan."],
+                  ["Mwen bliye modpas mwen.",
+                   "Kontakte nou sou WhatsApp. N ap voye yon nouvo modpas tanporè ba ou, epi w ap chanje l lè w konekte."],
+                  ["Èske pri a ka chanje?",
+                   "Pri sou app la se yon estimasyon dapre pwa MCPACK bay la. Pri final la se sa ki sou fakti a, lè koli a peze nan depo a."]
+                ] as const).map(([q, a]) => (
+                  <details key={q} className="py-2.5 group">
+                    <summary className="text-[13px] font-semibold text-ink cursor-pointer list-none flex items-start gap-2">
+                      <ChevronRight size={14} className="text-slate-400 shrink-0 mt-0.5 transition-transform group-open:rotate-90" />
+                      <span>{q}</span>
+                    </summary>
+                    <p className="text-[12px] text-mute leading-relaxed mt-1.5 pl-6">{a}</p>
+                  </details>
+                ))}
+              </div>
+            </div>
+
+            <a href={WA_LINK} target="_blank" rel="noreferrer" className="btn btn-wa w-full justify-center">
+              <MessageCircle size={15} /> Kesyon ou pa jwenn? Ekri nou sou WhatsApp
+            </a>
+          </>
+        )}
+
         {/* ═══════════ MON ADRESSE ═══════════ */}
         {view === "adresse" && (
           <>
@@ -641,7 +851,12 @@ export default function EspaceClientPage() {
               <button onClick={() => setDetail(null)} className="text-slate-400 hover:text-navy"><X size={19} /></button>
             </div>
             <div className="p-4 space-y-3">
-              <StatusTimeline status={detail.status} lastStepLabel="Facturé" />
+              {/* SUIVI — kote koli a ye, etap pa etap */}
+              <div className="rounded-xl bg-mist p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-mute mb-3">Suivi du colis</p>
+                <SuiviVertical p={detail} />
+              </div>
+
               <div className="divide-y divide-line">
                 {([
                   ["Tracking ID", detail.tracking_number],
