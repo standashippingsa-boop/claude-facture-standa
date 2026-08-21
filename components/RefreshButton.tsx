@@ -32,8 +32,13 @@ export default function RefreshButton({
   const run = async () => {
     if (busy) return;
     setBusy(true); setOk(false);
+    const t0 = Date.now();
     try {
       await onRefresh();
+      // Si done yo desann twò vit, ilustrasyon an ta klere yon frap je epi
+      // ou pa ta wè anyen. Nou kenbe l vizib omwen 600 ms.
+      const reste = 600 - (Date.now() - t0);
+      if (reste > 0) await new Promise((r) => setTimeout(r, reste));
       setOk(true);
       setTimeout(() => setOk(false), 1800);
     } catch { /* paj la jere pwòp erè li */ } finally { setBusy(false); }
