@@ -22,7 +22,6 @@ const schema = z.object({
   whatsapp: z.string().min(6, "Nimewo WhatsApp obligatwa"),
   country: z.string().min(1, "Peyi obligatwa"),
   city: z.string().min(1, "Chwazi vil ou nan lis la"),
-  city2: z.string().default(""),
   address: z.string().min(1, "Adrès obligatwa"),
   id_type: z.enum(["Kat Idantite Nasyonal", "Paspò"], { errorMap: () => ({ message: "Chwazi kalite idantifikasyon an" }) }),
   id_number: z.string().min(1, "Nimewo idantifikasyon obligatwa")
@@ -55,7 +54,6 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
         whatsapp: f.whatsapp.trim(),
         country: f.country.trim(),
         city: f.city,
-        city2: f.city2,
         address: f.address.trim(),
         id_type: f.id_type,
         id_number: f.id_number.trim(),
@@ -116,13 +114,6 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
                 {villes.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
               </select>
               {errors.city && <span className="block text-xs text-red-600">{errors.city.message}</span>}
-            </label>
-            <label className="block">
-              <span className="text-xs font-semibold text-slate-600">2yèm vil (opsyonèl)</span>
-              <select className="input mt-1" {...register("city2")}>
-                <option value="">— Okenn —</option>
-                {villes.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
-              </select>
             </label>
           </div>
 
