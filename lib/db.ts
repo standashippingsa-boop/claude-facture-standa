@@ -275,6 +275,42 @@ export async function getPackagesByConduceIds(conduceIds: string[]): Promise<Pkg
   return out;
 }
 
+/**
+ * EFASE YON CONDUCE (lè li te mal kreye).
+ * ═══════════════════════════════════════
+ * GAD SEKIRITE — nou pa janm efase done fakti:
+ *   • Si conduce a gen KOLI DEJA FAKTI -> nou REFIZE. Efase l ta kase lyen
+ *     ant fakti a ak lo transpò a.
+ *   • Si li gen koli ki poko fakti -> koli yo PA efase. Nou jis DETACHE yo
+ *     (conduce_id = null). Yo rete nan sistèm nan, prè pou yon lòt conduce.
+ * Retounen konbyen koli ki te detache.
+ */
+export async function deleteConduce(conduceId: string): Promise<{ detached: number }> {
+  const id = String(conduceId ?? "").trim();
+  if (!id) throw new Error("Conduce invalide.");
+
+  const { data: pkgs, error: e1 } = await supabase.from("packages")
+    .select("id, invoice_id, status").eq("conduce_id", id);
+  if (e1) throw e1;
+
+  const fakti = (pkgs ?? []).filter((p: { invoice_id?: string | null; status?: string }) =>
+    !!p.invoice_id || p.status === "Facturé");
+  if (fakti.length) {
+    throw new Error(
+      `Suppression impossible : ${fakti.length} colis de cette conduce sont déjà facturés. ` +
+      `Supprimer la conduce casserait le lien avec les factures.`);
+  }
+
+  const detached = (pkgs ?? []).length;
+  if (detached) {
+    const { error } = await supabase.from("packages").update({ conduce_id: null }).eq("conduce_id", id);
+    if (error) throw error;
+  }
+  const { error } = await supabase.from("conduces").delete().eq("id", id);
+  if (error) throw error;
+  return { detached };
+}
+
 /** Ekri statut yon Conduce (En cours | Complète | Facturée). */
 export async function setConduceStatus(conduceId: string, status: string): Promise<void> {
   await supabase.from("conduces").update({ status }).eq("id", conduceId);
@@ -1294,7 +1330,7 @@ export async function getImports(): Promise<ImportLog[]> {
 /** Kliyan an fin kreye kont Auth li — nou anrejistre pwofil li (En attente d'activation) */
 export async function registerClientProfile(p: {
   auth_user_id?: string | null; fullname: string; surname: string; email: string;
-  phone: string; whatsapp: string; country: string; city: string; city2: string;
+  phone: string; whatsapp: string; country: string; city: string;
   address: string; id_type: string; id_number: string;
   ville_id?: string | null;   // lyen otomatik ak tarification (vil kliyan an chwazi a)
 }): Promise<void> {
