@@ -24,12 +24,12 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, Boxes, ClipboardList, FileDown, Folder, FolderOpen,
+  ArrowLeft, Boxes, ClipboardList, FileDown, Folder, FolderOpen, Trash2,
   Search, TrendingUp, X
 } from "lucide-react";
 import Loader from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
-import { deriveConduceStatus, getConduces, getConduceStats, setConduceStatus } from "@/lib/db";
+import { deleteConduce, deriveConduceStatus, getConduces, getConduceStats, setConduceStatus } from "@/lib/db";
 import { PROFIT_PER_LB, estimateProfit } from "@/lib/pricing";
 import { usd } from "@/lib/utils";
 import type { Conduce } from "@/lib/types";
@@ -57,6 +57,7 @@ export default function ConducesPage() {
   /** Jounen ki louvri a. null = gri katab yo (vi dosye). */
   const [openDay, setOpenDay] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -121,6 +122,37 @@ export default function ConducesPage() {
 
   /** Jounen ki louvri a (si genyen). */
   const jour = openDay ? classeurs.find((c) => c.key === openDay) ?? null : null;
+
+  /** Efase yon conduce ki te mal kreye (koli ki poko fakti yo detache, pa efase). */
+  const supprimer = async (r: Row) => {
+    if (!confirm(
+      `Supprimer la conduce ${r.conduce_number} ?\n\n` +
+      `${r.count} colis seront DÉTACHÉS (ils ne sont pas supprimés) et pourront être rattachés ailleurs.\n\n` +
+      `Cette action est irréversible.`)) return;
+    try {
+      const { detached } = await deleteConduce(r.id);
+      setNotice(`Conduce ${r.conduce_number} supprimée${detached ? ` — ${detached} colis détachés` : ""}.`);
+      await load();
+    } catch (e: unknown) { setNotice((e as Error).message); }
+  };
+
+  /** Efase TOUT conduces yon jounen (katab la) — youn pa youn, ak menm gad la. */
+  const supprimerJour = async (cl: Classeur) => {
+    if (!confirm(
+      `Supprimer les ${cl.rows.length} conduce(s) du ${cl.label} ?\n\n` +
+      `${cl.count} colis seront DÉTACHÉS (pas supprimés).\n\n` +
+      `Une conduce contenant des colis déjà facturés sera conservée.\n\nCette action est irréversible.`)) return;
+    let ok = 0; const echecs: string[] = [];
+    for (const r of cl.rows) {
+      try { await deleteConduce(r.id); ok++; }
+      catch { echecs.push(r.conduce_number); }
+    }
+    setNotice(echecs.length
+      ? `${ok} conduce(s) supprimée(s). Conservée(s) car déjà facturée(s) : ${echecs.join(", ")}.`
+      : `${ok} conduce(s) supprimée(s).`);
+    setOpenDay(null);
+    await load();
+  };
 
   const toggleSel = (id: string) =>
     setSel((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -198,7 +230,8 @@ export default function ConducesPage() {
       {/* ══ KATAB YO ══ */}
       {jour ? (
         <JourOuvert cl={jour} sel={sel} onSel={toggleSel}
-          onOpenConduce={(id) => router.push(`/conduces/${id}`)} />
+          onOpenConduce={(id) => router.push(`/conduces/${id}`)}
+          onDelete={supprimer} onDeleteDay={() => supprimerJour(jour)} />
       ) : classeurs.length === 0 ? (
         <div className="card p-10 sm:p-12 text-center">
           <Boxes size={32} className="mx-auto text-slate-300" />
@@ -218,6 +251,13 @@ export default function ConducesPage() {
           {classeurs.map((cl) => (
             <ClasseurTile key={cl.key} cl={cl} onOpen={() => setOpenDay(cl.key)} />
           ))}
+        </div>
+      )}
+
+      {notice && (
+        <div className="card px-4 py-3 flex items-start gap-2">
+          <p className="text-sm text-navy flex-1">{notice}</p>
+          <button onClick={() => setNotice(null)} className="text-slate-400 hover:text-ink shrink-0">✕</button>
         </div>
       )}
 
@@ -288,8 +328,9 @@ function ClasseurTile({ cl, onOpen }: { cl: Classeur; onOpen: () => void }) {
 }
 
 /** JOUNEN LOUVRI — conduces jounen an, youn anba lòt, ak rezime jounen an. */
-function JourOuvert({ cl, sel, onSel, onOpenConduce }: {
+function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay }: {
   cl: Classeur; sel: Set<string>; onSel: (id: string) => void; onOpenConduce: (id: string) => void;
+  onDelete: (r: Row) => void; onDeleteDay: () => void;
 }) {
   const pct = cl.count ? Math.round((cl.facturedCount / cl.count) * 100) : 0;
 
@@ -309,6 +350,10 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce }: {
               <span className="text-xs font-bold text-navy tabular-nums shrink-0">{pct}%</span>
             </div>
           </div>
+          <button onClick={onDeleteDay} title="Supprimer toutes les conduces de cette journée"
+            className="shrink-0 text-slate-300 hover:text-red-600 p-1.5">
+            <Trash2 size={16} />
+          </button>
         </div>
       </div>
 
@@ -344,6 +389,10 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce }: {
                   </div>
                 )}
               </div>
+              <button onClick={() => onDelete(r)} title={`Supprimer ${r.conduce_number}`}
+                className="shrink-0 text-slate-300 hover:text-red-600 p-1.5">
+                <Trash2 size={15} />
+              </button>
             </div>
           </div>
         );
