@@ -49,6 +49,37 @@ export const INTERNAL_STATUSES = [
   "En route vers agence", "Disponible", "Livré"
 ] as const;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CONDUCE -> STATUT OTOMATIK
+// ───────────────────────────────────────────────────────────────────────────
+// RÈG BIZNIS: yon nimewo Conduce se yon manifest Caribe Tours. Depi nou gen
+// nimewo a nan men nou, lo a DEJA RIVE AN AYITI (Ouanaminthe). Donk chak koli
+// ki antre nan yon conduce pase otomatikman nan "Arrivé en Haïti".
+//
+// GAD KRITIK — YON KOLI PA JANM RECULE:
+//   Si yon koli deja pi lwen ("En route vers agence", "Disponible", "Livré",
+//   "Facturé"), nou PA touche l. Fè yon koli disponib retounen "Arrivé en
+//   Haïti" ta twonpe kliyan an epi kase travay agans lan.
+//
+// Statut la viv nan YON SÈL kote: colonn `packages.status`. Chanje l isit la
+// epi li chanje PATOU otomatikman — admin, employé, app kliyan, imèl, PDF.
+// ═══════════════════════════════════════════════════════════════════════════
+export const CONDUCE_ARRIVAL_STATUS = "Arrivé en Haïti";
+
+/**
+ * Èske nou dwe monte koli sa a nan "Arrivé en Haïti"?
+ * true sèlman si statut aktyèl la pi ba pase "Arrivé en Haïti".
+ */
+export function shouldPromoteOnConduce(current?: string | null, invoiceId?: string | null): boolean {
+  if (invoiceId) return false;                       // deja fakti — pa touche
+  const st = String(current ?? "").trim();
+  if (st === "Facturé") return false;
+  const cible = INTERNAL_STATUSES.indexOf(CONDUCE_ARRIVAL_STATUS as never);
+  const actuel = INTERNAL_STATUSES.indexOf(st as never);
+  if (actuel < 0) return true;                       // statut vid/enkoni -> nou fikse l
+  return actuel < cible;                             // sèlman si l ap AVANSE
+}
+
 export interface Conduce {
   id: string;
   conduce_number: string;
