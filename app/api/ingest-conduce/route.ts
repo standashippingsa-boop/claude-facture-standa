@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { CONDUCE_ARRIVAL_STATUS, shouldPromoteOnConduce } from "@/lib/types";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { createClient } from "@supabase/supabase-js";
 
@@ -86,10 +87,12 @@ export async function POST(req: Request) {
     // 4) Anti-doublon pa GUÍA — menm modèl ak /api/ingest
     const guias = items.map((p) => cleanTk(p.guia)).filter(isGuia);
     const { data: exist } = await db.from("packages")
-      .select("tracking_number, conduce_id").in("tracking_number", guias);
-    const existMap = new Map((exist ?? []).map((e: any) => [e.tracking_number, e.conduce_id]));
+      .select("tracking_number, conduce_id, status, invoice_id").in("tracking_number", guias);
+    const existMap = new Map((exist ?? []).map(
+      (e: { tracking_number: string; conduce_id?: string | null; status?: string; invoice_id?: string | null }) =>
+        [e.tracking_number, e]));
 
-    let created = 0, updated = 0, linked = 0, ignored = 0;
+    let created = 0, updated = 0, linked = 0, ignored = 0, promus = 0;
     const seen = new Set<string>();
 
     for (const p of items) {
@@ -101,12 +104,17 @@ export async function POST(req: Request) {
 
       if (existMap.has(guia)) {
         // Package egziste deja — mete ajou + lye ak Conduce a (si li poko lye yon lòt kote)
-        const currentConduceId = existMap.get(guia);
+        const prev = existMap.get(guia)!;
+        const currentConduceId = prev.conduce_id;
         const patch: Record<string, unknown> = { received_at: now, received_method: "Extension Chrome", src_extension: true };
         if (p.status_raw?.trim()) patch.status_mcpack = p.status_raw.trim();
         if (p.weight != null) patch.weight = p.weight;
         if (p.content) patch.content = p.content;
         if (!currentConduceId) { patch.conduce_id = conduce.id; linked++; }
+        // STATUT OTOMATIK: nimewo conduce = lo a rive an Ayiti. Jamè an aryè.
+        if (shouldPromoteOnConduce(prev.status, prev.invoice_id)) {
+          patch.status = CONDUCE_ARRIVAL_STATUS; promus++;
+        }
         await db.from("packages").update(patch).eq("tracking_number", guia);
         updated++;
       } else {
@@ -116,7 +124,7 @@ export async function POST(req: Request) {
           customer_code: code, customer_name: p.customer_name ?? code,
           weight: p.weight ?? 0, content: p.content ?? "",
           created_date: p.created_date ?? "",
-          status: "Reçu à Miami", status_mcpack: p.status_raw?.trim() ?? "",
+          status: CONDUCE_ARRIVAL_STATUS, status_mcpack: p.status_raw?.trim() ?? "",
           received_at: now, received_method: "Extension Chrome", src_extension: true,
           conduce_id: conduce.id,
           mcpack_data: { Guia: guia, TrackingNumber: tnum }
@@ -129,11 +137,12 @@ export async function POST(req: Request) {
 
     await db.from("journal").insert({
       user_name: "Extension Chrome", action: "Import Conduce (Extension)",
-      details: `Conduce ${conduceNumber} : ${created} créés, ${updated} mis à jour, ${linked} liés, ${ignored} ignorés`,
+      details: `Conduce ${conduceNumber} : ${created} créés, ${updated} mis à jour, ${linked} liés, `
+             + `${promus} passés en "${CONDUCE_ARRIVAL_STATUS}", ${ignored} ignorés`,
       package_ref: "", customer_code: ""
     });
 
-    return NextResponse.json({ ok: true, conduce_id: conduce.id, created, updated, linked, ignored, total: items.length });
+    return NextResponse.json({ ok: true, conduce_id: conduce.id, created, updated, linked, promus, ignored, total: items.length });
   } catch (e: unknown) {
     return NextResponse.json({ ok: false, reason: (e as Error)?.message ?? "Erreur serveur." }, { status: 500 });
   }
