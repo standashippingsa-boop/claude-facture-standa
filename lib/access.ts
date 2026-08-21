@@ -18,12 +18,28 @@ import { StaffRole } from "./types";
 
 export type AppRole = StaffRole | "client";
 
-/** Paj piblik (pa mande koneksyon) */
+/**
+ * Paj piblik (pa mande koneksyon)
+ *
+ * ⚠️ RÈG SEKIRITE ABSOLI — PA JANM AJOUTE "/" NAN LIS SA A.
+ *    isPublicPath() sèvi ak startsWith(). Kòm TOUT chemen kòmanse ak "/",
+ *    ajoute "/" ta rann sit la NÈT piblik: /clients, /invoices, /settings,
+ *    /packages... tout ta louvri san koneksyon. Se yon katastwòf sekirite.
+ *    Lè n ap mete Accueil la sou adrès prensipal la, n ap sèvi ak yon
+ *    match EGZAK (path === "/"), pa ak yon prefiks.
+ */
 export const PUBLIC_PREFIXES = [
   // 3 LYEN OFISYÈL YO: /admin-login (admin) · /login (kliyan) · /employe (anplwaye)
   "/login", "/admin-login", "/employe", "/setup",
   "/inscription",                       // ansyen lyen -> redirije sou /login?tab=signup
-  "/reset-password", "/nouveau-mot-de-passe", "/confidentialite"
+  "/reset-password", "/nouveau-mot-de-passe", "/confidentialite",
+
+  // ── SIT WÈB PIBLIK STANDA COMMERCIAL ──
+  // Vizitè yo (moun ki poko kliyan) dwe ka wè paj sa yo san konekte.
+  // Yo pa li okenn done kliyan: tracking piblik la pase pa /api/track.
+  "/accueil",                           // paj akèy piblik la
+  "/contact",                           // fòm kontak + WhatsApp
+  "/agences"                            // lis ajans yo an Ayiti
 ];
 
 /** Paj kliyan (wòl "client" sèlman) */
