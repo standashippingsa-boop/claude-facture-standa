@@ -28,12 +28,15 @@ import { detectDevice, getInstallSteps, DeviceInfo } from "@/lib/device";
 /** Wout kliyan yo SÈLMAN. "/" pa ladan: se dashboard admin an. */
 const CLIENT_ROUTES = ["/login", "/espace-client", "/inscription", "/reset-password", "/nouveau-mot-de-passe"];
 
+/** Siyal natif Chrome la (beforeinstallprompt). */
+interface NativePrompt { prompt: () => void; userChoice: Promise<{ outcome: string }> }
+
 const KEY = "standa_install_dismissed_v19";
 const REPOS_JOURS = 3;
 
 export default function InstallGateway() {
   const pathname = usePathname();
-  const [installEvt, setInstallEvt] = useState<{ prompt: () => void; userChoice: Promise<{ outcome: string }> } | null>(null);
+  const [installEvt, setInstallEvt] = useState<NativePrompt | null>(null);
   const [device, setDevice] = useState<DeviceInfo | null>(null);
   const [checked, setChecked] = useState(false);
   const [installed, setInstalled] = useState(false);
@@ -42,13 +45,28 @@ export default function InstallGateway() {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Kapte prompt natif la (Android/Chrome/Edge/Desktop)
+  /**
+   * PRAN SIYAL ENSTALASYON AN.
+   * Ti script nan <head> la (layout.tsx) deja kapte l epi mete l sou
+   * window.__standaBIP — paske Chrome voye l AVAN React monte. Isit la nou
+   * jis li sa ki deja kenbe a, epi nou koute pou ka li rive pita.
+   */
   useEffect(() => {
-    const onBip = (e: Event) => { e.preventDefault(); setInstallEvt(e as never); };
+    const w = window as unknown as { __standaBIP?: NativePrompt | null };
+    if (w.__standaBIP) setInstallEvt(w.__standaBIP);
+
+    const onReady = () => setInstallEvt(w.__standaBIP ?? null);
     const onInstalled = () => setInstalled(true);
+    // Fallback: si script la pa t kouri (kach, bloke), nou koute dirèk tou.
+    const onBip = (e: Event) => { e.preventDefault(); setInstallEvt(e as unknown as NativePrompt); };
+
+    window.addEventListener("standa:installready", onReady);
+    window.addEventListener("standa:installed", onInstalled);
     window.addEventListener("beforeinstallprompt", onBip);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
+      window.removeEventListener("standa:installready", onReady);
+      window.removeEventListener("standa:installed", onInstalled);
       window.removeEventListener("beforeinstallprompt", onBip);
       window.removeEventListener("appinstalled", onInstalled);
     };
@@ -80,7 +98,10 @@ export default function InstallGateway() {
       installEvt.prompt();
       const res = await installEvt.userChoice;
       if (res?.outcome === "accepted") setInstalled(true);
-    } catch { /* noop */ } finally { setBusy(false); setInstallEvt(null); }
+    } catch { /* noop */ } finally {
+      setBusy(false); setInstallEvt(null);
+      (window as unknown as { __standaBIP?: unknown }).__standaBIP = null;
+    }
   };
 
   const copierLien = async () => {
@@ -118,7 +139,11 @@ export default function InstallGateway() {
             <p className="text-[12px] leading-tight flex-1 min-w-0">
               <b className="block">Installez l&apos;application</b>
               <span className="text-white/60">
-                {isInApp ? "Ouvrez ce lien dans Chrome" : "Accès rapide depuis votre écran d'accueil"}
+                {isInApp
+                ? "Ouvrez ce lien dans Chrome"
+                : device.platform === "ios"
+                  ? "3 étapes avec le bouton Partager"
+                  : "Accès rapide depuis votre écran d'accueil"}
               </span>
             </p>
 
