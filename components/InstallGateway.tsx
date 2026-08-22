@@ -40,6 +40,8 @@ export default function InstallGateway() {
   const [device, setDevice] = useState<DeviceInfo | null>(null);
   const [checked, setChecked] = useState(false);
   const [installed, setInstalled] = useState(false);
+  /** true = nou fin tann siyal Chrome la; anvan sa nou pa montre anyen. */
+  const [settled, setSettled] = useState(false);
   const [hidden, setHidden] = useState(true);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -72,16 +74,49 @@ export default function InstallGateway() {
     };
   }, []);
 
+  /**
+   * ÈSKE APP LA DEJA ENSTALE?
+   * Chrome PA voye siyal enstalasyon an lè app la deja enstale sou aparèy la
+   * — menm si w ap gade sit la nan yon onglè navigatè. Se sa ki t ap fè
+   * bando a montre "Comment" olye "Installer": nou t ap mande yon moun
+   * enstale yon bagay li deja genyen.
+   */
+  useEffect(() => {
+    const nav = navigator as Navigator & {
+      getInstalledRelatedApps?: () => Promise<unknown[]>;
+    };
+    if (typeof nav.getInstalledRelatedApps === "function") {
+      nav.getInstalledRelatedApps()
+        .then((apps) => { if (apps && apps.length) setInstalled(true); })
+        .catch(() => { /* pa sipòte — nou kontinye */ });
+    }
+    // Lanse depi ekran akèy la (Android) oswa ak paramèt manifest la
+    if (document.referrer.startsWith("android-app://")) setInstalled(true);
+    try {
+      if (new URLSearchParams(window.location.search).get("source") === "pwa") setInstalled(true);
+    } catch { /* noop */ }
+  }, []);
+
   // Detekte aparèy la + li si kliyan an te fèmen bando a
   useEffect(() => {
-    const t = setTimeout(() => {
-      setDevice(detectDevice(!!installEvt));
-      try {
-        const v = Number(localStorage.getItem(KEY) ?? 0);
-        setHidden(!!v && Date.now() - v < REPOS_JOURS * 864e5);
-      } catch { setHidden(false); }
-      setChecked(true);
-    }, 900);
+    try {
+      const v = Number(localStorage.getItem(KEY) ?? 0);
+      setHidden(!!v && Date.now() - v < REPOS_JOURS * 864e5);
+    } catch { setHidden(false); }
+    setDevice(detectDevice(!!installEvt));
+    setChecked(true);
+  }, [installEvt]);
+
+  /**
+   * TANN SIYAL LA ANVAN NOU DESIDE.
+   * Chrome ka voye `beforeinstallprompt` jiska 2-3 segond apre chajman an.
+   * Si nou deside twò vit, nou montre enstriksyon manyèl yo pou granmesi
+   * epi bouton "Installer" la pa janm parèt. Nou tann 2.5 s — oswa mwens
+   * si siyal la rive anvan.
+   */
+  useEffect(() => {
+    if (installEvt) { setSettled(true); return; }
+    const t = setTimeout(() => setSettled(true), 2500);
     return () => clearTimeout(t);
   }, [installEvt]);
 
@@ -112,7 +147,7 @@ export default function InstallGateway() {
   };
 
   // ── Kondisyon afichaj ───────────────────────────────────────────────────
-  if (!checked || !device) return null;
+  if (!checked || !device || !settled) return null;
   if (device.isStandalone || installed) return null;                    // deja enstale
   if (!CLIENT_ROUTES.includes(pathname ?? "")) return null;             // staff -> pa deranje
   if (device.installMethod === "unsupported") return null;              // pa ka enstale ditou
@@ -141,9 +176,11 @@ export default function InstallGateway() {
               <span className="text-white/60">
                 {isInApp
                 ? "Ouvrez ce lien dans Chrome"
-                : device.platform === "ios"
-                  ? "3 étapes avec le bouton Partager"
-                  : "Accès rapide depuis votre écran d'accueil"}
+                : canNative
+                  ? "Un seul appui — nous faisons le reste"
+                  : device.platform === "ios"
+                    ? "3 étapes avec le bouton Partager"
+                    : "Accès rapide depuis votre écran d'accueil"}
               </span>
             </p>
 
