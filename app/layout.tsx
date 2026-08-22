@@ -46,6 +46,36 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ht" translate="no" className="notranslate">
+      <head>
+        {/*
+          KAPTE SIYAL ENSTALASYON AN TRÈ BONÈ.
+          ─────────────────────────────────────
+          Chrome (Android/Desktop) voye `beforeinstallprompt` DEZÈ paj la
+          kòmanse chaje — souvan AVAN React fin monte. Si nou tann yon
+          useEffect, nou rate siyal la epi bouton "Installer" la pa janm
+          parèt: kliyan an tonbe sou enstriksyon manyèl san rezon.
+
+          Ti script sa a kouri anvan tout rès la, li kenbe siyal la sou
+          window, epi li previni React lè li rive. Se sa ki fè enstalasyon
+          an vin YON SÈL TAP sou Android.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){
+              window.__standaBIP = window.__standaBIP || null;
+              window.addEventListener('beforeinstallprompt', function(e){
+                e.preventDefault();
+                window.__standaBIP = e;
+                window.dispatchEvent(new Event('standa:installready'));
+              });
+              window.addEventListener('appinstalled', function(){
+                window.__standaBIP = null;
+                window.dispatchEvent(new Event('standa:installed'));
+              });
+            })();`
+          }}
+        />
+      </head>
       <body>
         <InstallGateway />
         <SelectionProvider>
