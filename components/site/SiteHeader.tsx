@@ -190,7 +190,7 @@ export default function SiteHeader() {
 
         {/* ── Anba: imèl · telefòn · Instagram ── */}
         <div className="shrink-0 border-t border-white/10 px-4 py-4 space-y-1">
-          
+          <a
             href={`mailto:${SITE.email}`}
             className="flex items-center gap-3 px-2 py-2.5 rounded-lg text-white/75
                        hover:text-white hover:bg-white/10 transition text-[13px] break-all"
@@ -203,7 +203,7 @@ export default function SiteHeader() {
             {SITE.email}
           </a>
 
-          
+          <a
             href={`tel:${SITE.whatsapp}`}
             className="flex items-center gap-3 px-2 py-2.5 rounded-lg text-white/75
                        hover:text-white hover:bg-white/10 transition text-[13px]"
@@ -215,7 +215,7 @@ export default function SiteHeader() {
             {SITE.phone}
           </a>
 
-          
+          <a
             href={`https://instagram.com/${SITE.instagram}`}
             target="_blank"
             rel="noopener noreferrer"
