@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
 import ContactForm from "@/components/site/ContactForm";
-import { SITE } from "@/components/site/SiteHeader";
+import { SITE } from "@/lib/site";
 import { DEPOT } from "@/lib/depot";
 
 /**
@@ -96,12 +96,15 @@ export default function ContactPage() {
           }}
         />
         <div className="relative mx-auto max-w-6xl px-4 pt-12 pb-10 sm:pt-16 sm:pb-14">
-          <span className="inline-flex items-center gap-2 rounded-full bg-brand/15 ring-1 ring-brand/30 px-3 py-1.5 text-[12px] font-bold text-brand">
+          <span className="inline-flex items-center gap-2 rounded-full
+                           bg-brand/15 ring-1 ring-brand/30 px-3 py-1.5
+                           text-[12px] font-bold text-brand">
             <span className="w-1.5 h-1.5 rounded-full bg-brand" />
             Nous sommes là pour vous aider
           </span>
 
-          <h1 className="mt-4 text-[30px] leading-[1.15] sm:text-[42px] sm:leading-[1.1] font-black text-white tracking-tight">
+          <h1 className="mt-4 text-[30px] leading-[1.15] sm:text-[42px] sm:leading-[1.1]
+                         font-black text-white tracking-tight">
             Contactez-nous
           </h1>
           <p className="mt-3 text-[15px] sm:text-[17px] leading-relaxed text-white/75 max-w-lg">
@@ -111,13 +114,24 @@ export default function ContactPage() {
 
           {/* Aksyon rapid — pi gwo bouton pou telefòn */}
           <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <a href={`tel:${SITE.whatsapp}`} className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-white/10 hover:bg-white/20 ring-1 ring-white/25 text-white font-bold text-[15px] transition">
+            <a
+              href={`tel:${SITE.whatsapp}`}
+              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl
+                         bg-white/10 hover:bg-white/20 ring-1 ring-white/25
+                         text-white font-bold text-[15px] transition"
+            >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" />
               </svg>
               {SITE.phone}
             </a>
-            <a href={`https://wa.me/${SITE.whatsapp}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-[#25D366] hover:bg-[#1fb857] text-white font-bold text-[15px] transition shadow-lift">
+            <a
+              href={`https://wa.me/${SITE.whatsapp}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl
+                         bg-[#25D366] hover:bg-[#1fb857] text-white font-bold text-[15px] transition shadow-lift"
+            >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2Zm5.8 14.3c-.25.7-1.4 1.3-2 1.4-.5.1-1.1.1-1.8-.1-.4-.1-1-.3-1.7-.6-3-1.3-5-4.3-5.1-4.5-.15-.2-1.2-1.6-1.2-3.1 0-1.5.8-2.2 1.1-2.5.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5.25.6.8 2 .9 2.2.1.2.15.4 0 .6-.1.2-.2.3-.4.5-.2.2-.4.5-.5.6-.2.2-.4.4-.2.8.2.4.9 1.5 1.9 2.4 1.3 1.2 2.4 1.5 2.8 1.7.4.2.6.15.8-.1.2-.25.9-1 1.1-1.4.2-.4.4-.3.7-.2.3.1 1.9.9 2.2 1 .3.15.5.2.6.35.1.15.1.85-.15 1.55Z" />
               </svg>
@@ -177,7 +191,13 @@ export default function ContactPage() {
               <ul className="mt-4 space-y-1">
                 {SOCIALS.map((s) => (
                   <li key={s.label}>
-                    <a href={s.href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-ink hover:bg-white hover:text-brand-dark transition">
+                    <a
+                      href={s.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-ink
+                                 hover:bg-white hover:text-brand-dark transition"
+                    >
                       <span className="grid place-items-center w-9 h-9 rounded-full bg-white ring-1 ring-line shrink-0">
                         {s.icon}
                       </span>
@@ -220,7 +240,12 @@ export default function ContactPage() {
                 <Row label="Téléphone" value={DEPOT.phone} />
               </dl>
               <div className="px-5 py-4 border-t border-line">
-                <a href={`https://www.google.com/maps/search/?api=1&query=${MAP_QUERY}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[13.5px] font-bold text-navy hover:text-brand-dark transition">
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${MAP_QUERY}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-[13.5px] font-bold text-navy hover:text-brand-dark transition"
+                >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 1 1 18 0Z" />
                     <circle cx="12" cy="10" r="3" />
