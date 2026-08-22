@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import Logo from "@/components/Logo";
+import { SITE } from "@/lib/site";
 
 /**
  * STANDA COMMERCIAL — MENI SIT PIBLIK LA
@@ -14,22 +15,14 @@ import Logo from "@/components/Logo";
  * ⚠️ Konpozan sa a se pou SIT PIBLIK la sèlman.
  *    Li pa gen okenn rapò ak Shell.tsx / Sidebar.tsx (zouti admin yo).
  *    Pa mele yo — se de sistèm apa.
+ *
+ * ⚠️ SITE a (imèl/telefòn/WhatsApp/Instagram) vinn nan lib/site.ts kounye a
+ *    (PA defini isit ankò) — paske yon paj SÈVÈ (app/contact/page.tsx) pa
+ *    ka li yon valè ki soti nan yon fichye "use client" san danje.
+ *    Nou re-ekspòte SITE isit la pou ansyen enpòtasyon yo (ContactForm,
+ *    SiteFooter) kontinye mache san chanjman.
  */
-
-/* ══════════════════════════════════════════════════════════════════
-   ENFÒMASYON KONTAK — YON SÈL SOUS VERITE
-   Header la, Footer la ak paj Contact la tout rale nan blòk sa a.
-   Pou chanje yon nimewo oswa yon imèl: se ISIT sèlman.
-   ══════════════════════════════════════════════════════════════════ */
-export const SITE = {
-  name: "STANDA COMMERCIAL",
-  email: "standacommercialsa@gmail.com",
-  phone: "+509 4673 8117",
-  /** Nimewo san espas ni + — se fòma wa.me la mande */
-  whatsapp: "50946738117",
-  /** ⚠️ VERIFYE: non itilizatè Instagram lan (sa ki gen @ devan l) */
-  instagram: "standa_commercial_sa"
-};
+export { SITE };
 
 /* Lyen meni an — 5 antre, nan lòd yo parèt */
 const NAV = [
@@ -190,7 +183,7 @@ export default function SiteHeader() {
 
         {/* ── Anba: imèl · telefòn · Instagram ── */}
         <div className="shrink-0 border-t border-white/10 px-4 py-4 space-y-1">
-          <a
+          
             href={`mailto:${SITE.email}`}
             className="flex items-center gap-3 px-2 py-2.5 rounded-lg text-white/75
                        hover:text-white hover:bg-white/10 transition text-[13px] break-all"
@@ -203,7 +196,7 @@ export default function SiteHeader() {
             {SITE.email}
           </a>
 
-          <a
+          
             href={`tel:${SITE.whatsapp}`}
             className="flex items-center gap-3 px-2 py-2.5 rounded-lg text-white/75
                        hover:text-white hover:bg-white/10 transition text-[13px]"
@@ -215,7 +208,7 @@ export default function SiteHeader() {
             {SITE.phone}
           </a>
 
-          <a
+          
             href={`https://instagram.com/${SITE.instagram}`}
             target="_blank"
             rel="noopener noreferrer"
