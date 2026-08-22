@@ -47,12 +47,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ht" translate="no" className="notranslate">
       <body>
+        <InstallGateway />
         <SelectionProvider>
           <Shell>{children}</Shell>
           <SelectionBar />
         </SelectionProvider>
         <PwaManager />
-        <InstallGateway />
       </body>
     </html>
   );
