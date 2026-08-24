@@ -7,8 +7,15 @@ const config: Config = {
       colors: {
         // Mak STANDA
         navy: { DEFAULT: "#122B5C", dark: "#0C1F44", light: "#1E4A8F" },
-        // Aksan (estil Flup — vèt lojistik)
+        // ⚠️ "brand" (vèt) rete la EKSPRE — li itilize toupatou nan dashboard
+        // admin ak zouti entèn yo (bouton, badge estati, elatriye). PA efase l,
+        // PA chanje valè l — sa ta chanje koulè nan TOUT sistèm nan, pa sèlman
+        // sit piblik la.
         brand: { DEFAULT: "#16A34A", light: "#DCFCE7", dark: "#15803D" },
+        // Aksan mak SIT PIBLIK la (orange — echantiyon pran nan flyer ofisyèl
+        // la). Itilize SÈLMAN nan app/accueil, app/contact, app/agences ak
+        // components/site/*. Pa gen okenn lòt fichye ki itilize "accent".
+        accent: { DEFAULT: "#E4650A", light: "#FBE8DA", dark: "#B65108" },
         // Neutre pwòp
         ink: "#0F172A",
         mute: "#64748B",
