@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "node scripts/check-public-isolation.mjs && next build",
+    "start": "next start",
+    "check:isolation": "node scripts/check-public-isolation.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
