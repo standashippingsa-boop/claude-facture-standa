@@ -50,11 +50,11 @@ export default function SiteFooter() {
               Navigation
             </h3>
             <ul className="space-y-2.5 text-[14px]">
-              <li><Link href="/accueil" className="text-white/80 hover:text-brand transition">Accueil</Link></li>
-              <li><Link href="/contact" className="text-white/80 hover:text-brand transition">Contact</Link></li>
-              <li><Link href="/agences" className="text-white/80 hover:text-brand transition">Nos agences</Link></li>
-              <li><Link href="/login" className="text-white/80 hover:text-brand transition">Mon compte</Link></li>
-              <li><Link href="/login?tab=signup" className="text-brand font-semibold hover:text-white transition">S&apos;inscrire</Link></li>
+              <li><Link href="/accueil" className="text-white/80 hover:text-accent transition">Accueil</Link></li>
+              <li><Link href="/contact" className="text-white/80 hover:text-accent transition">Contact</Link></li>
+              <li><Link href="/agences" className="text-white/80 hover:text-accent transition">Nos agences</Link></li>
+              <li><Link href="/login" className="text-white/80 hover:text-accent transition">Mon compte</Link></li>
+              <li><Link href="/login?tab=signup" className="text-accent font-semibold hover:text-white transition">S&apos;inscrire</Link></li>
             </ul>
           </div>
 
@@ -66,27 +66,27 @@ export default function SiteFooter() {
             <ul className="space-y-2.5 text-[14px]">
               <li>
                 <a href={`mailto:${SITE.email}`}
-                  className="text-white/80 hover:text-brand transition break-all">
+                  className="text-white/80 hover:text-accent transition break-all">
                   {SITE.email}
                 </a>
               </li>
               <li>
                 <a href={`tel:${SITE.whatsapp}`}
-                  className="text-white/80 hover:text-brand transition">
+                  className="text-white/80 hover:text-accent transition">
                   {SITE.phone}
                 </a>
               </li>
               <li>
                 <a href={`https://wa.me/${SITE.whatsapp}`}
                   target="_blank" rel="noopener noreferrer"
-                  className="text-white/80 hover:text-brand transition">
+                  className="text-white/80 hover:text-accent transition">
                   WhatsApp
                 </a>
               </li>
               <li>
                 <a href={`https://instagram.com/${SITE.instagram}`}
                   target="_blank" rel="noopener noreferrer"
-                  className="text-white/80 hover:text-brand transition">
+                  className="text-white/80 hover:text-accent transition">
                   @{SITE.instagram}
                 </a>
               </li>
@@ -103,11 +103,11 @@ export default function SiteFooter() {
               {DEPOT.city}, {DEPOT.state}<br />
               {DEPOT.zip}<br />
               <a href={`tel:${DEPOT.phone.replace(/[^\d+]/g, "")}`}
-                className="hover:text-brand transition">
+                className="hover:text-accent transition">
                 {DEPOT.phone}
               </a>
             </address>
-            <p className="mt-3 text-[12px] leading-relaxed text-brand/90 font-semibold">
+            <p className="mt-3 text-[12px] leading-relaxed text-accent/90 font-semibold">
               N&apos;oubliez jamais votre code MC sur chaque colis.
             </p>
           </div>
