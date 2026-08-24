@@ -67,13 +67,27 @@ export default function AccueilPage() {
 
       {/* ══════════════ BANYÈ AKÈY ══════════════ */}
       <section className="relative bg-navy overflow-hidden">
-        {/* Fon dekoratif — vèt mak la, tou dousman */}
+        {/* Foto fon — achte anliy, deja flou pou pa jennen lekti tèks la */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-40"
+          style={{ backgroundImage: "url(/hero-shopping.jpg)" }}
+        />
+
+        {/* Vwal navy pa anlè foto a — kenbe tèks blan an fasil li */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-b
+                     from-navy/95 via-navy/85 to-navy/75"
+        />
+
+        {/* Fon dekoratif — koulè aksan mak la, tou dousman */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 opacity-[0.16]"
           style={{
             background:
-              "radial-gradient(70% 55% at 78% 8%, #16A34A 0%, transparent 62%)"
+              "radial-gradient(70% 55% at 78% 8%, #E4650A 0%, transparent 62%)"
           }}
         />
 
@@ -83,16 +97,16 @@ export default function AccueilPage() {
             {/* Tèks banyè a */}
             <div>
               <span className="inline-flex items-center gap-2 rounded-full
-                               bg-brand/15 ring-1 ring-brand/30 px-3 py-1.5
-                               text-[12px] font-bold text-brand">
-                <span className="w-1.5 h-1.5 rounded-full bg-brand" />
+                               bg-accent/15 ring-1 ring-accent/30 px-3 py-1.5
+                               text-[12px] font-bold text-accent">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent" />
                 Miami → Haïti
               </span>
 
               <h1 className="mt-4 text-[30px] leading-[1.15] sm:text-[42px] sm:leading-[1.1]
                              font-black text-white tracking-tight">
                 Vos achats en ligne,{" "}
-                <span className="text-brand">livrés en Haïti.</span>
+                <span className="text-accent">livrés en Haïti.</span>
               </h1>
 
               <p className="mt-4 text-[15px] sm:text-[17px] leading-relaxed text-white/75 max-w-lg">
@@ -105,7 +119,7 @@ export default function AccueilPage() {
                 <Link
                   href="/login?tab=signup"
                   className="inline-flex items-center justify-center h-12 px-6 rounded-xl
-                             bg-brand hover:bg-brand-dark text-white font-bold text-[15px]
+                             bg-accent hover:bg-accent-dark text-white font-bold text-[15px]
                              transition shadow-lift"
                 >
                   Ouvrir un compte gratuit
@@ -132,7 +146,7 @@ export default function AccueilPage() {
       {/* ══════════════ ADRÈS DEPO A ══════════════ */}
       <section className="mx-auto max-w-6xl px-4 py-14 sm:py-20">
         <div className="max-w-2xl">
-          <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-brand">
+          <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-accent">
             Comment ça marche
           </p>
           <h2 className="mt-2 text-[24px] sm:text-[32px] font-black text-navy tracking-tight leading-tight">
@@ -196,7 +210,7 @@ export default function AccueilPage() {
         <div className="mx-auto max-w-6xl px-4 py-14 sm:py-20">
           <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
             <div>
-              <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-brand">
+              <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-accent">
                 Qui sommes-nous
               </p>
               <h2 className="mt-2 text-[24px] sm:text-[32px] font-black text-navy tracking-tight leading-tight">
@@ -287,7 +301,7 @@ export default function AccueilPage() {
           <Link
             href="/contact"
             className="inline-flex items-center justify-center h-11 px-6 rounded-xl
-                       bg-brand hover:bg-brand-dark text-white font-bold text-[14px]
+                       bg-accent hover:bg-accent-dark text-white font-bold text-[14px]
                        transition shrink-0"
           >
             Nous contacter
@@ -308,7 +322,7 @@ function AddrRow({
     <div className="px-5 py-3.5 flex items-start justify-between gap-4">
       <dt className="text-[13px] text-mute shrink-0">{label}</dt>
       <dd className={`text-right break-all text-[14px] font-semibold
-        ${highlight ? "font-mono text-brand-dark" : hint ? "text-mute italic font-normal" : "text-ink"}`}>
+        ${highlight ? "font-mono text-accent-dark" : hint ? "text-mute italic font-normal" : "text-ink"}`}>
         {value}
       </dd>
     </div>
@@ -319,10 +333,10 @@ function AddrRow({
 function Feature({ title, text }: { title: string; text: string }) {
   return (
     <div className="rounded-2xl bg-white ring-1 ring-line p-5 shadow-card">
-      <div className="w-8 h-8 rounded-lg bg-brand-light grid place-items-center">
+      <div className="w-8 h-8 rounded-lg bg-accent-light grid place-items-center">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="3" strokeLinecap="round"
-          strokeLinejoin="round" className="text-brand-dark">
+          strokeLinejoin="round" className="text-accent-dark">
           <polyline points="20 6 9 17 4 12" />
         </svg>
       </div>
