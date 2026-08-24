@@ -13,6 +13,15 @@ import { supabase } from "./supabase";
  * /settings/agences (PA touche kòd la).
  */
 
+/**
+ * ⚠️ LIS BLANCH KOLÒN — paj PIBLIK /agences sèvi ak fonksyon sa yo.
+ * Nou pa janm fè select("*") sou yon chemen piblik: si demen yon moun
+ * ajoute yon kolòn (yon nòt entèn, yon kontak prive), li ta soti sou sit
+ * la pa aksidan. Ajoute yon kolòn isit la SÈLMAN si li dwe piblik.
+ */
+const AGENCE_COLS =
+  "id, nom, adresse, telephone, whatsapp, horaire_1, horaire_2, note, ordre, active, created_at";
+
 export interface Agence {
   id?: string;
   nom: string;         // Ex: "Ouanaminthe"
@@ -39,7 +48,7 @@ export function blankAgence(): Agence {
 export async function getAgences(): Promise<Agence[]> {
   const { data, error } = await supabase
     .from("agences")
-    .select("*")
+    .select(AGENCE_COLS)
     .eq("active", true)
     .order("ordre", { ascending: true })
     .order("nom", { ascending: true });
@@ -51,7 +60,7 @@ export async function getAgences(): Promise<Agence[]> {
 export async function getAllAgences(): Promise<Agence[]> {
   const { data, error } = await supabase
     .from("agences")
-    .select("*")
+    .select(AGENCE_COLS)
     .order("ordre", { ascending: true })
     .order("nom", { ascending: true });
   if (error) throw error;
