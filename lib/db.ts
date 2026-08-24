@@ -5,7 +5,7 @@ import {
   AccountType, Client, Conduce, DashboardStats, ImportLog, Invoice, InvoiceItem, Pkg, Ville
 , Retrait, RetraitStatus, CONDUCE_ARRIVAL_STATUS, shouldPromoteOnConduce } from "./types";
 import { McpackRow } from "./xlsx";
-import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES } from "./pricing";
+import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "./invoice-engine";
 
@@ -936,7 +936,15 @@ export async function createInvoiceFromComputation(
     package_count: comp.lines.length,
     total_weight: comp.totalWeight,
     calc_mode: mode,
-    per_lb_used: comp.perLb
+    per_lb_used: comp.perLb,
+    // ── SERVICE ORDER (V15) ──
+    // Sou yon fakti shipping klasik, motè a bay 0 pou tout chan sa yo epi
+    // balance_due == total_usd — donk anrejistreman an rete menm jan ak anvan.
+    invoice_kind: comp.kind ?? "shipping",
+    order_purchase: comp.orderPurchase ?? 0,
+    order_service_fee: comp.orderServiceFee ?? 0,
+    order_deposit: comp.orderDeposit ?? 0,
+    balance_due: comp.balanceDue ?? comp.totalUsd
   }).select().single();
   if (error) throw error;
 
@@ -979,14 +987,20 @@ export async function createInvoiceFromComputation(
   }
 
   // JOURNAL FINANCIER (§9) + tras ARCHIVAGE
+  const journalOrder = (comp.kind === "service_order")
+    ? `Commande:${comp.orderPurchase} | FraisService:${comp.orderServiceFee} (${comp.orderFeeLabel}) | ` +
+      `Acompte:${comp.orderDeposit} | BALANCE:${comp.balanceDue} USD | `
+    : "";
   await logAction("Facturation",
     `${invoice_number} | Ville:${comp.ville} | Zone:${comp.zone} | Prix/LB:${comp.perLb} | ` +
     `Poids:${comp.totalWeight} | Sous-total:${comp.subtotal} | Taxe:${comp.taxeFixe} | ` +
-    `DGA:${comp.fraisDga} | Discount:${comp.discount} | Mode:${mode} | TOTAL:${comp.totalUsd} USD | ` +
+    `DGA:${comp.fraisDga} | Discount:${comp.discount} | Mode:${mode} | ` + journalOrder +
+    `TOTAL:${comp.totalUsd} USD | ` +
     `${comp.lines.length} colis "Disponible" → "Facturé" (archivés) | Réf:${inv.id}`,
     invoice_number, client.customer_code);
 
-  return asNum(inv, ["subtotal", "tax", "grand_total", "exchange_rate_used", "total_usd", "total_htg", "total_weight"]) as Invoice;
+  return asNum(inv, ["subtotal", "tax", "grand_total", "exchange_rate_used", "total_usd", "total_htg", "total_weight",
+                     "order_purchase", "order_service_fee", "order_deposit", "balance_due"]) as Invoice;
 }
 
 /**
@@ -1171,7 +1185,8 @@ export async function getInvoices(): Promise<Invoice[]> {  const { data, error }
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((i) =>
-    asNum(i, ["subtotal", "tax", "grand_total", "exchange_rate_used", "total_usd", "total_htg", "total_weight"])) as Invoice[];
+    asNum(i, ["subtotal", "tax", "grand_total", "exchange_rate_used", "total_usd", "total_htg", "total_weight",
+              "order_purchase", "order_service_fee", "order_deposit", "balance_due"])) as Invoice[];
 }
 export async function getInvoiceItems(invoiceId: string): Promise<InvoiceItem[]> {
   const { data, error } = await supabase.from("invoice_items").select("*")
@@ -1305,6 +1320,23 @@ export async function getSpecialArticles(): Promise<SpecialArticle[]> {
 
 export async function saveSpecialArticles(list: SpecialArticle[]): Promise<void> {
   await setSetting("special_articles", JSON.stringify(list));
+}
+
+/**
+ * TABLO FRÈ SÈVIS ACHA (Service Order) — tranch pri kòmand.
+ * Anrejistre kòm JSON nan `app_settings` (kle: order_fee_tiers).
+ * Zewo migrasyon SQL. Si li poko konfigire OSWA si JSON an kraze, nou
+ * retounen tablo depa a — nou PA JANM retounen yon lis vid, paske sa ta
+ * fè STANDA fakti $0 frè sèvis san moun pa wè l.
+ */
+export async function getOrderFeeTiers(): Promise<OrderFeeTier[]> {
+  const s = await getSettings();
+  const list = parseOrderFeeTiers(s.order_fee_tiers);
+  return list.length ? list : DEFAULT_ORDER_FEE_TIERS;
+}
+
+export async function saveOrderFeeTiers(list: OrderFeeTier[]): Promise<void> {
+  await setSetting("order_fee_tiers", serializeOrderFeeTiers(list));
 }
 
 // ================= DASHBOARD =================
