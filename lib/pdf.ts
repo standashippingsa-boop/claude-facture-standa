@@ -69,6 +69,17 @@ export function generateInvoicePdf(
   doc.text(`No: ${inv.invoice_number}`, W - 14, 21, { align: "right" });
   doc.text(`Date: ${dateFr(inv.created_at || new Date())}`, W - 14, 26, { align: "right" });
 
+  // ===== SERVICE ORDER — li valè yo, tou dousman (fakti shipping -> 0) =====
+  const purchase = Number(inv.order_purchase) || 0;
+  const svcFee = Number(inv.order_service_fee) || 0;
+  const deposit = Number(inv.order_deposit) || 0;
+  const isOrder = inv.invoice_kind === "service_order" || purchase > 0 || svcFee > 0;
+  if (isOrder) {
+    doc.setFontSize(8);
+    doc.text("Service Order", W - 14, 31, { align: "right" });
+    doc.setFontSize(9);
+  }
+
   // ===== Client =====
   doc.setFillColor(...MIST);
   doc.roundedRect(14, 42, W - 28, 32, 2, 2, "F");
@@ -135,21 +146,31 @@ export function generateInvoicePdf(
   const boxW = 82;
   const x = W - 14 - boxW;
   const rate = Number(inv.exchange_rate_used) || 0;
-  const totalHtg = Number(inv.total_htg) || Number(inv.grand_total) * rate;
+  const grand = Number(inv.grand_total) || 0;
+  // Balans: sa kliyan an rete dwe. Sou yon fakti shipping, acompte = 0
+  // donk balans == total, epi tout sa ki anba a rete EGZAKteman menm jan.
+  const balance = Number.isFinite(Number(inv.balance_due)) && inv.balance_due !== null && inv.balance_due !== undefined
+    ? Number(inv.balance_due)
+    : Math.round((grand - deposit) * 100) / 100;
+  const totalHtg = Number(inv.total_htg) || balance * rate;
 
   // ===== ESTRIKTI FAKTI (liy yo parèt SÈLMAN si yo gen yon valè) =====
   const dga = Number(inv.frais_dga) || 0;
   const taxFix = Number(inv.tax) || 0;
   const disc = Number(inv.discount) || 0;
 
-  const lines: { label: string; value: number; bold?: boolean }[] = [
-    { label: "Sous-total colis:", value: Number(inv.subtotal) || 0 }
-  ];
+  const lines: { label: string; value: number; bold?: boolean }[] = [];
+  // Pati KÒMAND lan vin an premye — se li ki pi gwo montan an.
+  if (purchase > 0) lines.push({ label: "Prix d'achat commande:", value: purchase });
+  if (svcFee > 0) lines.push({ label: "Frais de service:", value: svcFee });
+  lines.push({ label: "Sous-total colis:", value: Number(inv.subtotal) || 0 });
   if (taxFix > 0) lines.push({ label: "Taxe Fixe:", value: taxFix });
   if (dga > 0) lines.push({ label: "Frais DGA:", value: dga });
   if (disc > 0) lines.push({ label: "Discount:", value: -disc });
 
-  const boxH = 10 + lines.length * 7 + 8;
+  // De liy anplis (Acompte + BALANCE) SÈLMAN si gen yon acompte reyèl.
+  const extraRows = deposit > 0 ? 2 : 0;
+  const boxH = 10 + lines.length * 7 + 8 + extraRows * 7;
   doc.setFillColor(...MIST);
   doc.roundedRect(x, y, boxW, boxH, 2, 2, "F");
   doc.setFontSize(10);
@@ -166,18 +187,34 @@ export function generateInvoicePdf(
   doc.line(x + 5, ly - 3.5, x + boxW - 5, ly - 3.5);
   doc.setFont("helvetica", "bold");
   doc.text("TOTAL USD:", x + 5, ly + 1);
-  doc.text(usd(Number(inv.grand_total) || 0), x + boxW - 5, ly + 1, { align: "right" });
+  doc.text(usd(grand), x + boxW - 5, ly + 1, { align: "right" });
+
+  // ===== ACOMPTE + BALANCE (Service Order sèlman) =====
+  let ry = ly + 1;
+  if (deposit > 0) {
+    doc.setFont("helvetica", "normal");
+    ry += 7;
+    doc.text("Acompte versé:", x + 5, ry);
+    doc.text("-" + usd(deposit), x + boxW - 5, ry, { align: "right" });
+    ry += 7;
+    doc.setDrawColor(180, 180, 180);
+    doc.line(x + 5, ry - 3.5, x + boxW - 5, ry - 3.5);
+    doc.setFont("helvetica", "bold");
+    doc.text("BALANCE À PAYER:", x + 5, ry);
+    doc.text(usd(balance), x + boxW - 5, ry, { align: "right" });
+  }
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(90, 90, 90);
-  doc.text(`Taux: 1 USD = ${rate.toFixed(2)} HTG`, x + 5, ly + 6.5);
+  doc.text(`Taux: 1 USD = ${rate.toFixed(2)} HTG`, x + 5, ry + 5.5);
 
   doc.setFillColor(...NAVY);
   doc.roundedRect(x, y + boxH, boxW, 11, 2, 2, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text("TOTAL HTG:", x + 5, y + boxH + 7);
+  doc.text(deposit > 0 ? "BALANCE HTG:" : "TOTAL HTG:", x + 5, y + boxH + 7);
   doc.text(htg(totalHtg), x + boxW - 5, y + boxH + 7, { align: "right" });
 
   doc.setFont("helvetica", "normal");
