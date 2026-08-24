@@ -20,15 +20,16 @@ import { dateFr } from "@/lib/utils";
  * Rate limit la (10 rechèch / 5 min) jere sou sèvè a — pa isit.
  */
 
-/* Menm koulè statut ak dashboard admin nan — konsa "Disponible"
-   se menm vèt la toupatou nan tout sistèm nan. */
+/* ⚠️ "Disponible" itilize koulè AKSAN sit piblik la (orange), PA menm vèt
+   ak dashboard admin lan ankò — desizyon itilizatè a, 2026-08-24. Si yon jou
+   yo vle re-senkwonize de koulè yo, gade lib/branding.ts ak dashboard la. */
 const STATUS_STYLES: Record<string, string> = {
   "Reçu à Miami": "bg-sky-50 text-sky-700 ring-sky-200",
   "En préparation": "bg-amber-50 text-amber-700 ring-amber-200",
   "En transit": "bg-indigo-50 text-indigo-700 ring-indigo-200",
   "Arrivé en Haïti": "bg-teal-50 text-teal-700 ring-teal-200",
   "En route vers agence": "bg-violet-50 text-violet-700 ring-violet-200",
-  "Disponible": "bg-brand-light text-brand-dark ring-brand/30",
+  "Disponible": "bg-accent-light text-accent-dark ring-accent/30",
   "Facturé": "bg-blue-50 text-blue-700 ring-blue-200",
   "Livré": "bg-slate-100 text-slate-600 ring-slate-300"
 };
@@ -111,14 +112,14 @@ export default function TrackBox() {
             placeholder="Entrez votre numéro de tracking"
             className="flex-1 h-12 px-4 rounded-xl border border-line bg-mist
                        text-[15px] text-ink placeholder:text-mute
-                       focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand
+                       focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent
                        focus:bg-white transition"
           />
           <button
             type="button"
             onClick={search}
             disabled={busy || !value.trim()}
-            className="h-12 px-6 rounded-xl bg-brand hover:bg-brand-dark
+            className="h-12 px-6 rounded-xl bg-accent hover:bg-accent-dark
                        disabled:bg-slate-300 disabled:cursor-not-allowed
                        text-white font-bold text-[15px] transition
                        inline-flex items-center justify-center gap-2 shrink-0"
