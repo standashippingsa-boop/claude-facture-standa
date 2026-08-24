@@ -129,6 +129,14 @@ export interface Pkg {
   selected?: boolean; // UI sèlman
 }
 
+/**
+ * Kalite fakti a.
+ *  - "shipping"      : fakti transpò klasik (defo — konpòtman istorik la).
+ *  - "service_order" : fakti ki gen ANPLIS pri acha yon kòmand + frè sèvis.
+ * Yon fakti "service_order" gen TOUDE: pati kòmand lan AK pati transpò a.
+ */
+export type InvoiceKind = "shipping" | "service_order";
+
 export interface Invoice {
   id: string;
   invoice_number: string;
@@ -149,6 +157,21 @@ export interface Invoice {
   total_htg: number;
   package_count: number;
   total_weight: number;
+
+  // ── SERVICE ORDER (acha pou kliyan) ────────────────────────────────────
+  // Tout chan sa yo OPSYONÈL epi yo vo 0 sou fakti shipping òdinè.
+  // Yon fakti shipping klasik kontinye mache egzakteman menm jan.
+  /** "shipping" (defo) oswa "service_order". */
+  invoice_kind?: InvoiceKind;
+  /** Pri acha TOTAL kòmand yo (USD) — sa STANDA te peye pou kliyan an. */
+  order_purchase?: number;
+  /** Frè sèvis acha, kalkile ak tablo tranch nan Paramètres (USD). */
+  order_service_fee?: number;
+  /** Acompte kliyan an te deja bay (USD). */
+  order_deposit?: number;
+  /** Sa kliyan an rete dwe: total_usd − order_deposit. */
+  balance_due?: number;
+
   pdf_url?: string | null;
   created_at: string;
 }
