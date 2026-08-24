@@ -1,16 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { createInvoiceFromComputation, getCentralAccountCode, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, saveInvoicePdfUrl } from "@/lib/db";
+import { createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, saveInvoicePdfUrl } from "@/lib/db";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
-import { FixedPriceMap, SpecialArticle, TAX_THRESHOLD_LB } from "@/lib/pricing";
-import { Ville } from "@/lib/types";
+import { FixedPriceMap, OrderFeeTier, SpecialArticle, TAX_THRESHOLD_LB } from "@/lib/pricing";
+import { InvoiceKind, Ville } from "@/lib/types";
 import { MapPin } from "lucide-react";
 import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Client, Pkg } from "@/lib/types";
 import { htg, usd } from "@/lib/utils";
 import { Package } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 
 /**
  * FENÊTRE DE FACTURATION — CONFIGURATION UNIQUE (STANDA COMMERCIAL)
@@ -48,6 +49,16 @@ import { Package } from "lucide-react";
  *   Pwa yo adisyone ANVAN, apre sa miltipliye yon sèl fwa pa Prix/LB Business.
  *   Chwa "mode de calcul" la pa aplike sou Business (li kache).
  *
+ * SERVICE ORDER — ACHA POU KLIYAN (V15):
+ *   Anlè fenèt la, admin chwazi kalite fakti a:
+ *     • Shipping seulement  -> egzakteman konpòtman istorik la
+ *     • Service Order       -> ANPLIS transpò a, fakti a gen pri acha kòmand
+ *                              lan + yon frè sèvis otomatik (tablo tranch nan
+ *                              Paramètres) mwens acompte kliyan an te bay.
+ *   Frè sèvis la kalkile sou TOTAL pri acha a. Admin PA ka tape l alamen —
+ *   se tablo a ki deside, konsa pa gen erè manyèl sou lajan.
+ *   Total HTG a vin BALANCE HTG (sa kliyan an bay nan men w).
+ *
  * Itilizasyon:
  *   <InvoiceDialog client={client} pkgs={selected} footer={footer}
  *     onClose={() => ...} onDone={(msg) => ...} />
@@ -83,6 +94,13 @@ export default function InvoiceDialog({
   const [villes, setVilles] = useState<Ville[]>([]);
   const [villeId, setVilleId] = useState("");
 
+  /** SERVICE ORDER: kalite fakti a + montan admin an antre. */
+  const [kind, setKind] = useState<InvoiceKind>("shipping");
+  const [orderPurchase, setOrderPurchase] = useState("");
+  const [orderDeposit, setOrderDeposit] = useState("");
+  /** Tablo tranch frè sèvis la (Paramètres). */
+  const [feeTiers, setFeeTiers] = useState<OrderFeeTier[]>([]);
+
   const [comp, setComp] = useState<InvoiceComputation | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -90,10 +108,12 @@ export default function InvoiceDialog({
   // Chaje to + konfigirasyon ti koli (Paramètres)
   useEffect(() => {
     (async () => {
-      const [r, cfg, arts, cc] = await Promise.all([
-        getUsdRate(), getSmallParcelConfig(), getSpecialArticles(), getCentralAccountCode()
+      const [r, cfg, arts, cc, tiers] = await Promise.all([
+        getUsdRate(), getSmallParcelConfig(), getSpecialArticles(), getCentralAccountCode(),
+        getOrderFeeTiers()
       ]);
       setRate(r); setSmallCfg(cfg); setArticles(arts); setCentralCode(cc.toUpperCase());
+      setFeeTiers(tiers);
       // Kont santral -> chaje vil yo pou admin ka chwazi destinasyon an
       if (cc && String(client.customer_code ?? "").trim().toUpperCase() === cc.toUpperCase()) {
         try {
@@ -133,10 +153,16 @@ export default function InvoiceDialog({
       client: effClient, pkgs, rate, smallCfg, mode: calcMode, fixedPrices,
       taxeFixe: useTaxe ? Number(taxeVal) || 0 : 0,
       fraisDga: useDga ? Number(fraisDga) || 0 : 0,
-      discount: useDisc ? Number(discount) || 0 : 0
+      discount: useDisc ? Number(discount) || 0 : 0,
+      // Service Order — sou "shipping" motè a inyore twa chan sa yo nèt.
+      kind,
+      orderPurchase: kind === "service_order" ? Number(orderPurchase) : undefined,
+      orderDeposit: kind === "service_order" ? Number(orderDeposit) || 0 : 0,
+      orderFeeTiers: feeTiers
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, rate, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount, fixedKey, articles, villeId, centralCode]);
+  }, [ready, rate, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount, fixedKey, articles, villeId, centralCode,
+      kind, orderPurchase, orderDeposit, feeTiers]);
 
   /**
    * PWOPOZISYON TAKS — lè pwa total la rive nan sèy la, nou koche kaz la epi
@@ -194,6 +220,61 @@ export default function InvoiceDialog({
         <p className="text-sm text-slate-600 mb-3">
           <b className="text-navy">{client.customer_code}</b> — {clientName} · {pkgs.length} colis
         </p>
+
+        {/* TYPE DE FACTURE — Shipping seulement ou Service Order */}
+        <div className="border border-line rounded-lg p-3 mb-3">
+          <p className="text-xs font-bold text-navy uppercase mb-2 flex items-center gap-1.5">
+            <ShoppingBag size={13} /> Type de facture
+          </p>
+          <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">
+            <input type="radio" name="ikind" className="mt-1" checked={kind === "shipping"}
+              onChange={() => setKind("shipping")} />
+            <span><b>Shipping seulement</b> — transport des colis</span>
+          </label>
+          <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">
+            <input type="radio" name="ikind" className="mt-1" checked={kind === "service_order"}
+              onChange={() => setKind("service_order")} />
+            <span><b>Service Order</b> — commande achetée par STANDA + frais de service,
+              <span className="text-slate-500"> en plus du transport</span></span>
+          </label>
+
+          {kind === "service_order" && (
+            <div className="mt-2 border-t border-line pt-2.5 space-y-2">
+              <label className="flex items-center gap-2 text-sm">
+                <span className="flex-1">Prix d&apos;achat de la commande
+                  <span className="block text-[10px] text-slate-400 leading-tight">
+                    Total de toutes les commandes de cette facture
+                  </span>
+                </span>
+                <input type="number" step="0.01" min="0" placeholder="0.00" autoFocus
+                  className="input !w-32 !py-1 text-right shrink-0" value={orderPurchase}
+                  onChange={(e) => setOrderPurchase(e.target.value)} />
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <span className="flex-1">Acompte déjà versé
+                  <span className="block text-[10px] text-slate-400 leading-tight">
+                    Laisser vide si le client n&apos;a rien payé
+                  </span>
+                </span>
+                <input type="number" step="0.01" min="0" placeholder="0.00"
+                  className="input !w-32 !py-1 text-right shrink-0" value={orderDeposit}
+                  onChange={(e) => setOrderDeposit(e.target.value)} />
+              </label>
+              {comp?.ok && comp.orderServiceFee > 0 ? (
+                <p className="text-[11px] text-brand-dark bg-brand/5 border border-brand/30 rounded-lg px-2.5 py-1.5">
+                  Frais de service calculé automatiquement :{" "}
+                  <b className="font-mono">{usd(comp.orderServiceFee)}</b>
+                  {comp.orderFeeLabel && <> — tranche <b>{comp.orderFeeLabel}</b></>}
+                </p>
+              ) : (
+                <p className="text-[11px] text-slate-500 bg-mist rounded-lg px-2.5 py-1.5">
+                  Les frais de service sont calculés automatiquement d&apos;après le tableau
+                  des tranches (Paramètres). Ils ne se saisissent pas à la main.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* COMPTE CENTRAL — chwazi vil destinasyon an (tarif flexib) */}
         {isCentral && (
@@ -337,13 +418,25 @@ export default function InvoiceDialog({
               dont forfaits ({comp.lines.filter((l) => l.isFixed).length} colis)</span>
               <b>{usd(comp.lines.filter((l) => l.isFixed).reduce((s, l) => s + l.amount, 0))}</b></div>
           )}
+          {comp?.ok && comp.orderPurchase > 0 && (
+            <div className="flex justify-between"><span className="text-slate-500">Prix d&apos;achat commande</span><b>{usd(comp.orderPurchase)}</b></div>
+          )}
+          {comp?.ok && comp.orderServiceFee > 0 && (
+            <div className="flex justify-between"><span className="text-slate-500">Frais de service</span><b>{usd(comp.orderServiceFee)}</b></div>
+          )}
           <div className="flex justify-between"><span className="text-slate-500">Sous-total colis</span><b>{usd(comp?.subtotal ?? 0)}</b></div>
           {useTaxe && Number(taxeVal) > 0 && <div className="flex justify-between"><span className="text-slate-500">Taxe Fixe</span><b>{usd(Number(taxeVal))}</b></div>}
           {useDga && Number(fraisDga) > 0 && <div className="flex justify-between"><span className="text-slate-500">Frais DGA</span><b>{usd(Number(fraisDga))}</b></div>}
           {useDisc && Number(discount) > 0 && <div className="flex justify-between"><span className="text-slate-500">Discount</span><b>−{usd(Number(discount))}</b></div>}
           <div className="flex justify-between border-t border-line pt-1.5 text-navy"><span className="font-bold">TOTAL USD</span><b>{usd(comp?.totalUsd ?? 0)}</b></div>
+          {comp?.ok && comp.orderDeposit > 0 && (
+            <>
+              <div className="flex justify-between"><span className="text-slate-500">Acompte versé</span><b>−{usd(comp.orderDeposit)}</b></div>
+              <div className="flex justify-between border-t border-line pt-1.5 text-navy"><span className="font-bold">BALANCE À PAYER</span><b>{usd(comp.balanceDue)}</b></div>
+            </>
+          )}
           <div className="flex justify-between items-center bg-navy text-white rounded-lg px-3 py-2 mt-1">
-            <span className="font-semibold">TOTAL HTG</span><b className="text-lg">{htg(comp?.totalHtg ?? 0)}</b>
+            <span className="font-semibold">{comp?.ok && comp.orderDeposit > 0 ? "BALANCE HTG" : "TOTAL HTG"}</span><b className="text-lg">{htg(comp?.totalHtg ?? 0)}</b>
           </div>
           <p className="text-[11px] text-slate-400 text-right">Taux: 1 USD = {rate.toFixed(2)} HTG · Prix/LB non modifié</p>
         </div>
