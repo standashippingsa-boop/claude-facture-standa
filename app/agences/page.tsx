@@ -52,14 +52,14 @@ export default async function AgencesPage() {
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 opacity-[0.16]"
           style={{
-            background: "radial-gradient(70% 55% at 78% 8%, #16A34A 0%, transparent 62%)"
+            background: "radial-gradient(70% 55% at 78% 8%, #E4650A 0%, transparent 62%)"
           }}
         />
         <div className="relative mx-auto max-w-6xl px-4 pt-12 pb-10 sm:pt-16 sm:pb-14">
           <span className="inline-flex items-center gap-2 rounded-full
-                           bg-brand/15 ring-1 ring-brand/30 px-3 py-1.5
-                           text-[12px] font-bold text-brand">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand" />
+                           bg-accent/15 ring-1 ring-accent/30 px-3 py-1.5
+                           text-[12px] font-bold text-accent">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
             {agences.length > 0 ? `${agences.length} agences en Haïti` : "Nos points de retrait"}
           </span>
 
