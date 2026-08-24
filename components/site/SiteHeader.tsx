@@ -85,7 +85,7 @@ export default function SiteHeader() {
                   href={l.href}
                   className={`px-3 py-2 rounded-lg text-sm font-semibold transition
                     ${isActive(l.href)
-                      ? "text-brand bg-white/10"
+                      ? "text-accent bg-white/10"
                       : "text-white/85 hover:text-white hover:bg-white/10"}`}
                 >
                   {l.label}
@@ -93,8 +93,8 @@ export default function SiteHeader() {
               ))}
               <Link
                 href={SIGNUP.href}
-                className="ml-2 px-4 py-2 rounded-lg text-sm font-bold bg-brand
-                           hover:bg-brand-dark text-white transition shadow-card"
+                className="ml-2 px-4 py-2 rounded-lg text-sm font-bold bg-accent
+                           hover:bg-accent-dark text-white transition shadow-card"
               >
                 {SIGNUP.label}
               </Link>
@@ -165,7 +165,7 @@ export default function SiteHeader() {
               href={l.href}
               className={`flex items-center px-4 py-3.5 rounded-xl mb-1 text-[15px] font-semibold transition
                 ${isActive(l.href)
-                  ? "bg-brand/15 text-brand"
+                  ? "bg-accent/15 text-accent"
                   : "text-white/85 hover:bg-white/10 hover:text-white"}`}
             >
               {l.label}
@@ -175,7 +175,7 @@ export default function SiteHeader() {
           <Link
             href={SIGNUP.href}
             className="mt-3 flex items-center justify-center px-4 py-3.5 rounded-xl
-                       bg-brand hover:bg-brand-dark text-white text-[15px] font-bold transition"
+                       bg-accent hover:bg-accent-dark text-white text-[15px] font-bold transition"
           >
             {SIGNUP.label}
           </Link>
