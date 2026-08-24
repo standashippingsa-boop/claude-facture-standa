@@ -27,7 +27,7 @@ const SUBJECTS = [
 ];
 
 const FLD =
-  "w-full rounded-xl border border-line bg-mist px-3.5 text-[14.5px] text-ink placeholder:text-mute focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand focus:bg-white transition";
+  "w-full rounded-xl border border-line bg-mist px-3.5 text-[14.5px] text-ink placeholder:text-mute focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent focus:bg-white transition";
 
 type Status = "idle" | "sending" | "sent" | "error" | "skipped";
 
@@ -160,7 +160,7 @@ export default function ContactForm() {
         )}
 
         {status === "sent" && (
-          <p className="text-[13.5px] font-semibold text-brand-dark bg-brand-light rounded-xl px-4 py-3">
+          <p className="text-[13.5px] font-semibold text-accent-dark bg-accent-light rounded-xl px-4 py-3">
             Message envoyé. Merci, nous vous répondrons rapidement.
           </p>
         )}
@@ -172,7 +172,7 @@ export default function ContactForm() {
         )}
 
         <div className="flex flex-col sm:flex-row gap-3 pt-1">
-          <button type="button" onClick={sendByEmail} disabled={status === "sending"} className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-[15px] transition">
+          <button type="button" onClick={sendByEmail} disabled={status === "sending"} className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-accent hover:bg-accent-dark disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-[15px] transition">
             {status === "sending" ? (
               <>
                 <span className="inline-block h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
