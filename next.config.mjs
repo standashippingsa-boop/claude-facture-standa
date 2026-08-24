@@ -21,6 +21,9 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), interest-cohort=()" },
   { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+  // Isole navigatè a: yon lòt sit pa ka gade nan fenèt nou an
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "X-DNS-Prefetch-Control", value: "off" },
 ];
 
 export default {
@@ -39,6 +42,31 @@ export default {
         source: "/(espace-client|clients|invoices|packages|conduces|journal|settings)/:path*",
         headers: [
           { key: "Cache-Control", value: "no-store, max-age=0, must-revalidate" }
+        ]
+      },
+      {
+        /*
+         * WOUT PIBLIK YO (/api/public/*) — done ki soti san koneksyon.
+         *  no-store    : repons yon vizitè pa janm sèvi yon lòt vizitè
+         *  noindex     : Google pa endekse repons tracking yo
+         *  frame-ancestors 'none' : okenn sit pa ka anbake wout la
+         */
+        source: "/api/public/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store, max-age=0, must-revalidate" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" }
+        ]
+      },
+      {
+        /*
+         * TOUT LÒT WOUT API — yo pale ak done kliyan. Yo pa dwe kache
+         * ni endekse. (Wout piblik yo deja kouvri anwo a.)
+         */
+        source: "/api/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store, max-age=0, must-revalidate" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" }
         ]
       },
       {
