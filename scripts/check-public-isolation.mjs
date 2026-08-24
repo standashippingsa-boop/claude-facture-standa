@@ -1,40 +1,53 @@
 #!/usr/bin/env node
 /*
- * STANDA COMMERCIAL — GAD ISOLASYON SIT PIBLIK
- * ════════════════════════════════════════════
- * POUKISA SA EGZISTE
- * ──────────────────
+ * STANDA COMMERCIAL — GAD ISOLASYON SIT PIBLIK  (v3)
+ * ══════════════════════════════════════════════════
  * Yon règ ki ekri nan yon dokiman ap kase yon jou. Yon règ ki KRAZE BUILD
- * la pa ka kase. Script sa a kouri anvan chak deplwaman: si yon paj piblik
- * eseye pale ak bazdone a, Vercel refize deplwaye.
+ * la pa ka kase. Script sa a kouri anvan chak deplwaman.
  *
- * RÈG LA
- * ──────
- * Tout bagay anndan app/(site)/ se SIT PIBLIK la. Li PA GEN DWA enpòte:
- *    @/lib/supabase   -> kle Supabase la nan navigatè chak vizitè
- *    @supabase/...    -> menm bagay
- *    @/lib/db         -> aksè dirèk sou tab yo
- *    @/lib/authx      -> lojik kont
- *    @/lib/access     -> règ wòl entèn
+ * DE BUG NOU KORIJE
+ * ─────────────────
+ * v1: li t ap gade app/(site)/ — men sit la bati nan app/accueil,
+ *     app/contact, app/agences. Gad la t ap gade yon dosye vid epi li
+ *     t ap di "pwòp" chak fwa. Yon gad ki pa gade bay FO KONFYANS.
  *
- * Sit piblik la gen YON SÈL pòt: fetch("/api/public/track").
- * Kle a rete sou sèvè a. Vizitè a resevwa JSON, pa yon kle.
+ * v2: li t ap gade bon dosye yo, men SÈLMAN enpòtasyon DIRÈK.
+ *     app/agences/page.tsx enpòte @/lib/agences, ki li menm enpòte
+ *     @/lib/supabase. Gad la pa t wè l. v3 SWIV CHÈN NAN jouk nan bout.
  *
- * Si yon jou ou VLE louvri yon lòt pòt piblik, ajoute yon wout anba
- * app/api/public/ — pa yon enpòtasyon dirèk nan yon paj.
+ * SA GAD LA VERIFYE
+ * ─────────────────
+ *  A) Zòn obligatwa yo egziste (yon dosye ki chanje non pa ka fè gad la
+ *     vin inèt an silans).
+ *  B) Kle SÈVIS la (SUPABASE_SERVICE_ROLE) pa janm nan zòn piblik la.
+ *     Yon paj piblik pa janm gen dwa manyen l — se pou wout API yo.
+ *  C) Yon konpozan "use client" nan zòn piblik la pa janm rive sou yon
+ *     modil bazdone, ni dirèk ni endirèk. Se KA KI PI GRAV la: kòd
+ *     "use client" ale nan navigatè chak vizitè ak kle a ladan l.
+ *  D) Yon konpozan SÈVÈ ka li bazdone a SÈLMAN atravè yon modil deklare
+ *     nan MODIL_SÈVÈ_OTORIZE. Kòd sèvè pa ale nan navigatè a, men chak
+ *     modil dwe pase yon revizyon (lis blanch kolòn) anvan.
+ *
+ * POU AJOUTE YON PAJ PIBLIK: mete chemen an nan ZONES.
+ * POU AJOUTE YON LEKTI SÈVÈ: mete modil la nan MODIL_SÈVÈ_OTORIZE
+ *                            APRE ou fin verifye li gen yon lis blanch.
  */
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname, resolve } from "node:path";
 
-const ZONE = "app/(site)";
-const INTERDI = [
-  { motif: "@/lib/supabase",   pou: "kle Supabase la ta ale nan navigatè chak vizitè" },
-  { motif: "@supabase/",       pou: "kliyan Supabase dirèk nan yon paj piblik" },
-  { motif: "@/lib/db",         pou: "aksè dirèk sou tab bazdone yo" },
-  { motif: "@/lib/authx",      pou: "lojik kont/otantifikasyon" },
-  { motif: "@/lib/access",     pou: "règ wòl entèn yo" },
-  { motif: "SUPABASE_SERVICE_ROLE", pou: "kle sèvis la pa janm ale nan kliyan an" }
-];
+const ZONES = ["app/accueil", "app/contact", "app/agences", "app/(site)", "components/site"];
+const ZONES_OBLIGATWA = ["app/accueil", "components/site"];
+
+/** Modil ki pale ak bazdone a. */
+const MODIL_BAZDONE = ["@/lib/supabase", "@/lib/db", "@/lib/authx", "@/lib/access"];
+
+/**
+ * Modil bazdone yon paj SÈVÈ piblik gen dwa itilize.
+ * Chak youn revize: li fè yon SELECT ak lis blanch kolòn, pa select("*").
+ */
+const MODIL_SÈVÈ_OTORIZE = ["@/lib/agences"];
+
+const EXT = [".ts", ".tsx", ".js", ".jsx", ".mjs"];
 
 function fichyeYo(dir) {
   const out = [];
@@ -46,35 +59,118 @@ function fichyeYo(dir) {
   return out;
 }
 
-if (!existsSync(ZONE)) {
-  console.log(`[isolation] ${ZONE} poko egziste — gad la pare pou lè sit la rive.`);
-  process.exit(0);
+/** Rezoud yon spesifikatè "@/..." oswa "./..." an yon vre chemen fichye. */
+function rezoud(spec, depiFichye) {
+  let baz;
+  if (spec.startsWith("@/")) baz = spec.slice(2);
+  else if (spec.startsWith(".")) baz = resolve(dirname(depiFichye), spec).replace(process.cwd() + "/", "");
+  else return null;                                  // pakè npm — pa nou
+  for (const e of EXT) if (existsSync(baz + e)) return baz + e;
+  for (const e of EXT) if (existsSync(join(baz, "index" + e))) return join(baz, "index" + e);
+  return null;
 }
 
-const pwoblem = [];
-for (const f of fichyeYo(ZONE)) {
-  const src = readFileSync(f, "utf8");
-  src.split("\n").forEach((liy, i) => {
-    for (const { motif, pou } of INTERDI) {
-      if (liy.includes(motif)) pwoblem.push({ f, n: i + 1, motif, pou, liy: liy.trim() });
+const IMPORT_RE = /(?:import|export)[\s\S]*?from\s+["']([^"']+)["']/g;
+
+function enpòtasyonYo(src) {
+  const out = [];
+  for (const m of src.matchAll(IMPORT_RE)) out.push(m[1]);
+  return out;
+}
+
+/**
+ * Swiv chèn enpòtasyon yo. Retounen premye chemen ki mennen sou yon
+ * modil bazdone, oswa null.
+ */
+function chèneVèBazdone(fichye, vizite = new Set(), chemen = []) {
+  if (vizite.has(fichye)) return null;
+  vizite.add(fichye);
+  const src = readFileSync(fichye, "utf8");
+
+  for (const spec of enpòtasyonYo(src)) {
+    if (spec.startsWith("@supabase/")) return [...chemen, fichye, spec];
+    if (MODIL_BAZDONE.includes(spec)) return [...chemen, fichye, spec];
+    const swivan = rezoud(spec, fichye);
+    if (swivan && existsSync(swivan)) {
+      const r = chèneVèBazdone(swivan, vizite, [...chemen, fichye]);
+      if (r) return r;
     }
-  });
+  }
+  return null;
 }
 
-if (pwoblem.length) {
-  console.error("\n╔══════════════════════════════════════════════════════════════╗");
-  console.error("║  DEPLWAMAN BLOKE — SIT PIBLIK LA TOUCHE BAZDONE A            ║");
-  console.error("╚══════════════════════════════════════════════════════════════╝\n");
-  for (const p of pwoblem) {
-    console.error(`  ${p.f}:${p.n}`);
-    console.error(`    ${p.liy}`);
-    console.error(`    ✖ "${p.motif}" entèdi isit la — ${p.pou}\n`);
+/** Premye modil otorize ki nan chèn nan (si genyen). */
+function modilOtorizeNanChèn(fichye) {
+  const src = readFileSync(fichye, "utf8");
+  return enpòtasyonYo(src).find((s) => MODIL_SÈVÈ_OTORIZE.includes(s)) ?? null;
+}
+
+const erè = [];
+
+// ── A. Zòn yo dwe egziste ────────────────────────────────────────────────
+for (const z of ZONES_OBLIGATWA) {
+  if (!existsSync(z)) {
+    erè.push({ titre: "GAD LA PA JWENN SIT PIBLIK LA",
+      detay: [`${z} pa egziste`,
+              "Yon dosye chanje non? Mete nouvo chemen an nan ZONES."] });
   }
-  console.error("  SOLISYON: yon paj piblik pale ak sistèm nan YON SÈL fason:");
-  console.error("      fetch(\"/api/public/track\", { method: \"POST\", ... })\n");
-  console.error("  Si w bezwen yon lòt done piblik, kreye yon nouvo wout anba");
-  console.error("  app/api/public/ — pa yon enpòtasyon dirèk nan yon paj.\n");
+}
+
+// ── B/C/D. Analize chak fichye ───────────────────────────────────────────
+let konte = 0, sèvè = 0;
+for (const zone of ZONES) {
+  if (!existsSync(zone)) continue;
+  for (const f of fichyeYo(zone)) {
+    konte++;
+    const src = readFileSync(f, "utf8");
+    const estClient = /^\s*["']use client["']/m.test(src);
+
+    // B. Kle sèvis la pa janm nan zòn piblik la
+    src.split("\n").forEach((liy, i) => {
+      if (liy.trim().startsWith("*") || liy.trim().startsWith("//")) return;
+      if (liy.includes("SUPABASE_SERVICE_ROLE")) {
+        erè.push({ titre: "KLE SÈVIS LA NAN YON PAJ PIBLIK",
+          detay: [`${f}:${i + 1}`, liy.trim(),
+                  "Kle sèvis la se pou wout API sèlman, jamè yon paj."] });
+      }
+    });
+
+    const chèn = chèneVèBazdone(f);
+    if (!chèn) continue;
+
+    if (estClient) {
+      // C. KA KI PI GRAV: kòd sa a ale nan navigatè chak vizitè
+      erè.push({ titre: "KONPOZAN NAVIGATÈ TOUCHE BAZDONE A",
+        detay: [`${f}  ("use client")`,
+                "Chèn: " + chèn.join("  ->  "),
+                "Kòd \"use client\" ale nan navigatè chak vizitè.",
+                "Sèvi ak fetch(\"/api/track\") olye sa."] });
+    } else {
+      const otorize = modilOtorizeNanChèn(f);
+      if (!otorize) {
+        // D. Paj sèvè ki li bazdone a atravè yon modil ki pa revize
+        erè.push({ titre: "PAJ SÈVÈ PIBLIK LI BAZDONE A SAN OTORIZASYON",
+          detay: [`${f}`,
+                  "Chèn: " + chèn.join("  ->  "),
+                  "Si lekti sa a nesesè epi li gen yon LIS BLANCH kolòn,",
+                  "ajoute modil la nan MODIL_SÈVÈ_OTORIZE."] });
+      } else sèvè++;
+    }
+  }
+}
+
+if (erè.length) {
+  console.error("\n╔══════════════════════════════════════════════════════════════╗");
+  console.error("║  DEPLWAMAN BLOKE — ISOLASYON SIT PIBLIK VYOLE                ║");
+  console.error("╚══════════════════════════════════════════════════════════════╝\n");
+  for (const e of erè) {
+    console.error(`  ✖ ${e.titre}`);
+    for (const d of e.detay) console.error(`      ${d}`);
+    console.error("");
+  }
   process.exit(1);
 }
 
-console.log(`[isolation] ✅ ${ZONE} pwòp — okenn aksè bazdone dirèk.`);
+console.log(`[isolation] ✅ ${konte} fichye piblik analize (chèn enpòtasyon konplè)`
+  + (sèvè ? ` · ${sèvè} lekti sèvè otorize` : "")
+  + " — okenn fwit.");
