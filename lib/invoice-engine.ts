@@ -1,5 +1,6 @@
-import { AccountType, Client, Pkg, Ville } from "./types";
-import { round2, isSmallParcel, SmallParcelConfig, FixedPriceMap, TAX_THRESHOLD_LB, TAX_FIXED_USD } from "./pricing";
+import { AccountType, Client, Pkg, Ville, InvoiceKind } from "./types";
+import { round2, isSmallParcel, SmallParcelConfig, FixedPriceMap, TAX_THRESHOLD_LB, TAX_FIXED_USD,
+         OrderFeeTier, orderServiceFee, orderFeeLabel } from "./pricing";
 
 /**
  * MOTEUR DE FACTURATION — NIVEAU FINANCIER (STANDA COMMERCIAL)
@@ -33,6 +34,17 @@ import { round2, isSmallParcel, SmallParcelConfig, FixedPriceMap, TAX_THRESHOLD_
  *  Motè a PA ajoute okenn taks pou kont li. Se ADMIN ki mete taks yo nan
  *  fenèt fakti a. Motè a jis SIGNALE lè pwa total la rive nan sèy la
  *  (fixedTaxSuggested), pou fenèt la ka pwopoze montan an davans.
+ *
+ * SERVICE ORDER — ACHA POU KLIYAN (V15):
+ *  Lè `kind === "service_order"`, fakti a gen DE pati:
+ *    1. KÒMAND  : pri acha a + frè sèvis (tablo tranch nan Paramètres)
+ *    2. TRANSPÒ : egzakteman menm kalkil la ki toujou te la — PA TOUCHE
+ *  Frè sèvis la kalkile sou TOTAL pri acha a (yon sèl chif), pa pa kòmand.
+ *  Acompte kliyan an te bay SOUSTRÈ nan total la pou bay BALANCE la.
+ *  Total HTG a kalkile sou BALANCE la — se sa kliyan an bay nan men w.
+ *
+ *  Lè `kind === "shipping"` (defo), TOUT chan sa yo vo 0 epi rezilta a se
+ *  EGZAKTEMAN sa ansyen motè a te bay, santim pa santim. Balans = total.
  */
 
 export interface InvoiceInput {
@@ -46,6 +58,17 @@ export interface InvoiceInput {
   fixedPrices?: FixedPriceMap;
   fraisDga: number;                          // 0 si dezaktive
   discount: number;                          // 0 si dezaktive
+
+  // ── SERVICE ORDER — tout OPSYONÈL. Si w pa mete yo, konpòtman an
+  //    rete EGZAKTEMAN sa li te ye anvan (fakti shipping klasik).
+  /** "shipping" (defo) oswa "service_order". */
+  kind?: InvoiceKind;
+  /** Pri acha TOTAL tout kòmand yo (USD). Obligatwa si kind = service_order. */
+  orderPurchase?: number;
+  /** Acompte kliyan an te deja bay (USD). 0 si li pa peye anyen. */
+  orderDeposit?: number;
+  /** Tablo tranch frè sèvis la (Paramètres). Vid/absan = tablo defo a. */
+  orderFeeTiers?: OrderFeeTier[];
 }
 
 export interface InvoiceLine {
@@ -82,6 +105,20 @@ export interface InvoiceComputation {
   taxThresholdReached: boolean;
   /** Montan taks ki pwopoze (0 si sèy la pa rive). Se yon SIJESYON, pa yon obligasyon. */
   fixedTaxSuggested: number;
+
+  // ── SERVICE ORDER ─────────────────────────────────────────────────────
+  /** Kalite fakti a. "shipping" = konpòtman istorik la. */
+  kind: InvoiceKind;
+  /** Pri acha total (USD). 0 sou yon fakti shipping. */
+  orderPurchase: number;
+  /** Frè sèvis kalkile (USD). 0 sou yon fakti shipping. */
+  orderServiceFee: number;
+  /** Etikèt tranch la pou PDF: "$451–$550", "5%". Vid sou shipping. */
+  orderFeeLabel: string;
+  /** Acompte kliyan an te bay (USD). 0 sou yon fakti shipping. */
+  orderDeposit: number;
+  /** Sa kliyan an rete dwe: totalUsd − orderDeposit. Sou shipping = totalUsd. */
+  balanceDue: number;
 }
 
 /** Pri/LB kliyan an SÈLMAN soti nan vil la (Paramètres). */
@@ -134,6 +171,27 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   if (Number(taxeFixe) < 0) errors.push("Taxe Fixe invalide (négative).");
   if (Number(fraisDga) < 0) errors.push("Frais DGA invalide (négatif).");
   if (Number(discount) < 0) errors.push("Discount invalide (négatif).");
+
+  // ---- SERVICE ORDER (V15) — li + valide ----
+  const kind: InvoiceKind = input.kind === "service_order" ? "service_order" : "shipping";
+  const isOrder = kind === "service_order";
+  const rawPurchase = Number(input.orderPurchase);
+  const rawDeposit = Number(input.orderDeposit);
+  const purchase = isOrder ? round2(Math.max(0, Number.isFinite(rawPurchase) ? rawPurchase : 0)) : 0;
+  const deposit = isOrder ? round2(Math.max(0, Number.isFinite(rawDeposit) ? rawDeposit : 0)) : 0;
+  const serviceFee = isOrder ? round2(orderServiceFee(purchase, input.orderFeeTiers)) : 0;
+  const feeLabel = isOrder ? orderFeeLabel(purchase, input.orderFeeTiers) : "";
+  if (isOrder) {
+    if (!Number.isFinite(rawPurchase) || rawPurchase <= 0) {
+      errors.push("Prix d'achat de la commande requis (doit être supérieur à 0).");
+    }
+    if (Number.isFinite(rawDeposit) && rawDeposit < 0) {
+      errors.push("Acompte invalide (négatif).");
+    }
+    if (purchase > 0 && serviceFee <= 0) {
+      errors.push("Frais de service introuvables — vérifiez le tableau des tranches dans Paramètres.");
+    }
+  }
   if (!Number.isFinite(rate) || rate <= 0) errors.push("Taux USD→HTG invalide (Paramètres).");
   if (mode === "small_control") {
     if (!(smallCfg.min >= 0) || !(smallCfg.max > 0) || !(smallCfg.price > 0)) {
@@ -146,7 +204,9 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
       ok: false, errors, ville: ville?.name ?? "", zone: ville?.name ?? "",
       perLb: 0, accountType, lines: [], totalWeight: 0, subtotal: 0,
       taxeFixe: taxe, fraisDga: dga, discount: disc, totalUsd: 0, totalHtg: 0,
-      taxThresholdReached: false, fixedTaxSuggested: 0
+      taxThresholdReached: false, fixedTaxSuggested: 0,
+      kind, orderPurchase: purchase, orderServiceFee: serviceFee,
+      orderFeeLabel: feeLabel, orderDeposit: deposit, balanceDue: 0
     };
   }
 
@@ -203,26 +263,66 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   // Siyal taks la — SIJESYON sèlman. Motè a PA ajoute anyen pou kont li.
   const taxThresholdReached = totalWeight >= TAX_THRESHOLD_LB;
   const fixedTaxSuggested = taxThresholdReached ? TAX_FIXED_USD : 0;
-  const totalUsd = round2(subtotal + taxe + dga - disc);
-  const totalHtg = round2(totalUsd * rate);
+
+  // TOTAL. Sou yon fakti shipping, `purchase` ak `serviceFee` vo 0 —
+  // fòmil la bay EGZAKTEMAN menm rezilta ak anvan.
+  const totalUsd = round2(subtotal + purchase + serviceFee + taxe + dga - disc);
+  const balanceDue = round2(totalUsd - deposit);
+  // HTG kalkile sou BALANS la (se sa kliyan an bay nan men w).
+  // Sou shipping, deposit = 0 donk balanceDue === totalUsd : idantik ak anvan.
+  const totalHtg = round2(balanceDue * rate);
+
+  // GAD: yon acompte pi gwo pase total la bay yon balans negatif.
+  // Kontwòl sa a aplike SÈLMAN sou Service Order ak yon acompte reyèl,
+  // konsa li pa ka janm bloke yon fakti shipping ki t ap mache anvan.
+  if (isOrder && deposit > 0 && balanceDue < 0) {
+    return {
+      ok: false,
+      errors: [`Acompte ($${deposit.toFixed(2)}) supérieur au total de la facture ($${totalUsd.toFixed(2)}).`],
+      ville: ville!.name, zone: ville!.name, perLb, accountType, lines: [],
+      totalWeight, subtotal, taxeFixe: taxe, fraisDga: dga, discount: disc,
+      totalUsd: 0, totalHtg: 0, taxThresholdReached, fixedTaxSuggested,
+      kind, orderPurchase: purchase, orderServiceFee: serviceFee,
+      orderFeeLabel: feeLabel, orderDeposit: deposit, balanceDue: 0
+    };
+  }
 
   return {
     ok: true, errors: [],
     ville: ville!.name, zone: ville!.name,
     perLb, accountType, lines,
     totalWeight, subtotal, taxeFixe: taxe, fraisDga: dga, discount: disc,
-    totalUsd, totalHtg, taxThresholdReached, fixedTaxSuggested
+    totalUsd, totalHtg, taxThresholdReached, fixedTaxSuggested,
+    kind, orderPurchase: purchase, orderServiceFee: serviceFee,
+    orderFeeLabel: feeLabel, orderDeposit: deposit, balanceDue
   };
 }
 
 /**
  * VALIDATION FINALE (§8) — rekalkile total la depi liy yo epi konpare ak
  * total afiche a. Retounen true si yo idantik (tolerans 0.01 pou awondi).
+ *
+ * V15: kontwòl la kouvri KÒMAND lan tou (pri acha + frè sèvis), epi li
+ * verifye balans lan an plis. Sou yon fakti shipping, `orderPurchase` ak
+ * `orderServiceFee` vo 0 epi `balanceDue === totalUsd` — donk rezilta a se
+ * EGZAKTEMAN menm bagay ak anvan.
  */
 export function verifyTotal(comp: InvoiceComputation): boolean {
+  const purchase = Number(comp.orderPurchase) || 0;
+  const fee = Number(comp.orderServiceFee) || 0;
+  const deposit = Number(comp.orderDeposit) || 0;
+
+  // 1) Som liy yo + kòmand + frè == total afiche a
   const recomputed = round2(
     round2(comp.lines.reduce((s, l) => s + l.amount, 0))
+    + purchase + fee
     + comp.taxeFixe + comp.fraisDga - comp.discount
   );
-  return Math.abs(recomputed - comp.totalUsd) < 0.011;
+  if (!(Math.abs(recomputed - comp.totalUsd) < 0.011)) return false;
+
+  // 2) Balans lan == total − acompte
+  const expected = round2(comp.totalUsd - deposit);
+  const declared = Number.isFinite(Number(comp.balanceDue))
+    ? Number(comp.balanceDue) : expected;
+  return Math.abs(declared - expected) < 0.011;
 }
