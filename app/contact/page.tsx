@@ -92,14 +92,14 @@ export default function ContactPage() {
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 opacity-[0.16]"
           style={{
-            background: "radial-gradient(70% 55% at 78% 8%, #16A34A 0%, transparent 62%)"
+            background: "radial-gradient(70% 55% at 78% 8%, #E4650A 0%, transparent 62%)"
           }}
         />
         <div className="relative mx-auto max-w-6xl px-4 pt-12 pb-10 sm:pt-16 sm:pb-14">
           <span className="inline-flex items-center gap-2 rounded-full
-                           bg-brand/15 ring-1 ring-brand/30 px-3 py-1.5
-                           text-[12px] font-bold text-brand">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand" />
+                           bg-accent/15 ring-1 ring-accent/30 px-3 py-1.5
+                           text-[12px] font-bold text-accent">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
             Nous sommes là pour vous aider
           </span>
 
@@ -159,13 +159,13 @@ export default function ContactPage() {
               <ul className="mt-4 space-y-3.5 text-[14.5px]">
                 <li>
                   <span className="block text-[12px] text-mute">Téléphone / WhatsApp</span>
-                  <a href={`tel:${SITE.whatsapp}`} className="font-bold text-ink hover:text-brand-dark transition">
+                  <a href={`tel:${SITE.whatsapp}`} className="font-bold text-ink hover:text-accent-dark transition">
                     {SITE.phone}
                   </a>
                 </li>
                 <li>
                   <span className="block text-[12px] text-mute">Email</span>
-                  <a href={`mailto:${SITE.email}`} className="font-bold text-ink hover:text-brand-dark transition break-all">
+                  <a href={`mailto:${SITE.email}`} className="font-bold text-ink hover:text-accent-dark transition break-all">
                     {SITE.email}
                   </a>
                 </li>
@@ -196,7 +196,7 @@ export default function ContactPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-ink
-                                 hover:bg-white hover:text-brand-dark transition"
+                                 hover:bg-white hover:text-accent-dark transition"
                     >
                       <span className="grid place-items-center w-9 h-9 rounded-full bg-white ring-1 ring-line shrink-0">
                         {s.icon}
@@ -218,7 +218,7 @@ export default function ContactPage() {
       <section className="bg-mist border-y border-line">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:py-20">
           <div className="max-w-2xl">
-            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-brand">
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-accent">
               Notre dépôt
             </p>
             <h2 className="mt-2 text-[24px] sm:text-[32px] font-black text-navy tracking-tight leading-tight">
@@ -244,7 +244,7 @@ export default function ContactPage() {
                   href={`https://www.google.com/maps/search/?api=1&query=${MAP_QUERY}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-[13.5px] font-bold text-navy hover:text-brand-dark transition"
+                  className="inline-flex items-center gap-2 text-[13.5px] font-bold text-navy hover:text-accent-dark transition"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 1 1 18 0Z" />
