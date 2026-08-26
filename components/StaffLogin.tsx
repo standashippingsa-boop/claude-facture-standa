@@ -31,7 +31,7 @@ export default function StaffLogin({ title, subtitle }: { title: string; subtitl
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: staffEmail(u), password: p });
       if (error) throw error;
-      router.replace("/");
+      router.replace("/dashboard");
     } catch {
       setErr("Non itilizatè oswa modpas pa kòrèk. Peze ti je a pou verifye modpas la.");
     } finally { setBusy(false); }
