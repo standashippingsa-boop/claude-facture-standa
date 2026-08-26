@@ -89,12 +89,12 @@ export function resolveAccess(path: string, role: AppRole | null): {
   }
 
   // Staff (admin/employe) pa gen dwa nan espas kliyan an
-  if (isClientPath(path)) return { allowed: false, redirect: "/" };
+  if (isClientPath(path)) return { allowed: false, redirect: "/dashboard" };
 
   // Admin: tout paj staff
   if (role === "admin") return { allowed: true, redirect: null };
 
   // Employé: tout paj staff SÒF admin-only yo
-  if (isAdminOnlyPath(path)) return { allowed: false, redirect: "/" };
+  if (isAdminOnlyPath(path)) return { allowed: false, redirect: "/dashboard" };
   return { allowed: true, redirect: null };
 }
