@@ -13,7 +13,15 @@ import type { NextRequest } from "next/server";
  *  • Chemen + paramèt yo konsève (deep link pa pèdi)
  *  • /api/ EKSKLI: ekstansyon Chrome ak entegrasyon yo ka toujou rele
  *    endpoint yo dirèkteman san redireksyon kase otantifikasyon an.
+ *  • robots.txt ak sitemap.xml EKSKLI (gade anba).
  *  • Devlopman lokal pa afekte.
+ *
+ * POUKISA robots.txt AK sitemap.xml PA REDIRIJE
+ * ────────────────────────────────────────────
+ * Google chèche de fichye sa yo sou CHAK host yon domèn genyen — ak www
+ * epi san www. Si nou redirije yo, Google konsidere sitemap la "pa
+ * aksesib" epi li refize l ("Invalid URL"). Se de fichye piblik ki pa gen
+ * okenn done sansib ladan yo, donk yo ka reponn dirèkteman sou toude host.
  */
 const CANONICAL_HOST = "www.standacommercialsa.com";
 
@@ -38,5 +46,5 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   // Pa kouri sou resous estatik (pèfòmans)
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|manifest.webmanifest|sw.js|apple-touch-icon.png|logo.png).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|manifest.webmanifest|sw.js|apple-touch-icon.png|logo.png|robots.txt|sitemap.xml).*)"],
 };
