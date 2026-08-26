@@ -1,0 +1,45 @@
+STANDA COMMERCIAL — Rasin domèn -> Sit piblik
+═════════════════════════════════════════════
+
+⚠️ TRÈ ENPÒTAN — ERÈ KI TE FÈT PREMYE FWA A
+────────────────────────────────────────────
+Lè w dezipe, PA trennen dosye zip la nèt sou GitHub.
+Sa kreye yon dosye anplis epi build la kraze.
+
+Trennen SÈLMAN 5 bagay ki ANNDAN an:
+     app        (dosye)
+     components (dosye)
+     lib        (dosye)
+     middleware.ts
+     next.config.mjs
+
+Louvri dosye a dezipe a, seleksyone 5 bagay sa yo,
+epi trennen YO — pa dosye ki kenbe yo a.
+
+
+ETAP YO
+───────
+1. Dezipe sou òdinatè w
+2. LOUVRI dosye a dezipe a
+3. GitHub -> paj prensipal depo a (pa anndan yon dosye)
+4. Add file -> Upload files
+5. Seleksyone 5 bagay yo ANNDAN dosye a, trennen yo
+6. Verifye lis la montre:
+        app/dashboard/page.tsx
+        app/page.tsx
+        app/robots.tsx
+        components/Sidebar.tsx
+        components/StaffLogin.tsx
+        lib/access.ts
+        middleware.ts
+        next.config.mjs
+   Si w wè yon lòt non devan yo, EFASE tout epi rekòmanse.
+7. Commit changes
+
+
+TÈS APRE VERCEL VÈT
+───────────────────
+1. standacommercialsa.com tou kout  -> sit piblik la
+2. /admin-login, konekte            -> tablo de bò a
+3. Meni gòch -> Dashboard           -> li mache
+4. Konekte kòm kliyan               -> espas kliyan an
