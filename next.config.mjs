@@ -39,7 +39,7 @@ export default {
       },
       {
         // Paj sansib: pa kache nan navigatè a
-        source: "/(espace-client|clients|invoices|packages|conduces|journal|settings)/:path*",
+        source: "/(dashboard|espace-client|clients|invoices|packages|conduces|journal|settings|retraits|bon-remise|sync|historique)/:path*",
         headers: [
           { key: "Cache-Control", value: "no-store, max-age=0, must-revalidate" }
         ]
