@@ -31,6 +31,27 @@ export function middleware(req: NextRequest) {
   // Devlopman lokal: pa touche
   if (host.startsWith("localhost") || host.startsWith("127.0.0.1")) return NextResponse.next();
 
+  /*
+   * RASIN DOMÈN NAN -> SIT PIBLIK LA
+   * ────────────────────────────────
+   * standacommercialsa.com dwe montre sit wèb la, pa tablo de bò admin an.
+   * Nou fè redireksyon an ISIT, anvan React monte: pa gen flash, pa gen
+   * chajman initil, epi règ aksè yo (lib/access.ts) pa bezwen konnen
+   * anyen sou rasin lan.
+   *
+   * Tablo de bò admin an sou /dashboard.
+   * 307 (tanporè) espre: si yon jou ou vle chanje sa, navigatè yo ak
+   * Google p ap gen ansyen redireksyon an kole nan memwa yo.
+   */
+  if (req.nextUrl.pathname === "/") {
+    const home = req.nextUrl.clone();
+    home.protocol = "https:";
+    home.host = CANONICAL_HOST;
+    home.port = "";
+    home.pathname = "/accueil";
+    return NextResponse.redirect(home, 307);
+  }
+
   // Deja sou domèn kanonik la
   if (host === CANONICAL_HOST) return NextResponse.next();
 
