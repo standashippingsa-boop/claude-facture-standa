@@ -19,6 +19,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: ["/accueil", "/contact", "/agences", "/confidentialite"],
         disallow: [
           "/api/",
+          "/dashboard",                       // tablo de bò admin (te sou "/")
           "/admin-login", "/employe", "/login", "/inscription",
           "/espace-client", "/clients", "/packages", "/invoices",
           "/conduces", "/bon-remise", "/retraits", "/journal",
