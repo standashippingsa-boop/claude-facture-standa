@@ -11,11 +11,54 @@ export const metadata: Metadata = {
   // Domèn kanonik: tout lyen/aperçu rezoud sou domèn ofisyèl la,
   // JANM sou URL deplwaman an.
   metadataBase: new URL(SITE_URL),
-  alternates: { canonical: "/" },
-  robots: { index: false, follow: false },   // zouti entèn: pa endekse pa Google
+  /*
+   * TIT LA — poukisa li chanje
+   * ──────────────────────────
+   * Ansyen tit la te "Gestion de colis & facturation": se non ZOUTI ENTÈN
+   * nan. Lè yon kliyan te pataje yon lyen sou WhatsApp, se sa ki te parèt —
+   * yon non ki pa di anyen bay yon moun k ap chèche shipping.
+   *
+   * `template` fè chak paj mete pwòp tit li devan mak la:
+   *     Contact | STANDA COMMERCIAL
+   * epi `default` sèvi lè yon paj pa gen tit pa l.
+   */
+  title: {
+    default: "STANDA COMMERCIAL — Expédition de colis USA → Haïti",
+    template: "%s | STANDA COMMERCIAL"
+  },
+  description:
+    "Recevez vos achats en ligne des États-Unis en Haïti. Adresse de dépôt "
+    + "gratuite à Miami, suivi de colis en temps réel et livraison en agence.",
   applicationName: "STANDA COMMERCIAL",
-  title: "STANDA COMMERCIAL — Gestion de colis & facturation",
-  description: "Système professionnel de gestion de colis.",
+
+  /*
+   * ENDEKSAJ — PA DEFO NON.
+   * Zouti entèn nan (dashboard, koli, fakti, kliyan) pa gen anyen pou fè nan
+   * Google. Sèlman paj piblik yo di `index: true` nan pwòp metadata yo.
+   */
+  robots: { index: false, follow: false },
+  alternates: { canonical: "/accueil" },
+
+  /*
+   * APÈSI LYEN (WhatsApp / Facebook / Messenger)
+   * Lè yon moun pataje yon lyen, se sa ki parèt. Nou mete akèy PIBLIK la
+   * kòm referans — pa yon paj entèn, pa paj enskripsyon an.
+   */
+  openGraph: {
+    type: "website",
+    siteName: "STANDA COMMERCIAL",
+    locale: "fr_HT",
+    url: "/accueil",
+    title: "STANDA COMMERCIAL — Expédition de colis USA → Haïti",
+    description:
+      "Adresse de dépôt gratuite à Miami, suivi de colis en temps réel "
+      + "et livraison dans nos agences en Haïti."
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "STANDA COMMERCIAL — Expédition de colis USA → Haïti",
+    description: "Vos achats en ligne, des USA jusqu'en Haïti."
+  },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
