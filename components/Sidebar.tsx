@@ -15,7 +15,7 @@ const groups: { title: string; items: { href: string; label: string; icon: typeo
   {
     title: "Général",
     items: [
-      { href: "/", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/clients", label: "Clients", icon: Users },
       { href: "/packages", label: "Packages", icon: Package },
       { href: "/conduces", label: "Conduces", icon: Truck }
