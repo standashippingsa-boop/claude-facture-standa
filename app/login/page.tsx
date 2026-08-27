@@ -19,7 +19,7 @@
  * Si tout echwe: yon bouton WhatsApp dirèk nan mesaj erè a — kliyan an pa
  * janm rete bloke san solisyon.
  */
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MessageCircle, User } from "lucide-react";
@@ -28,7 +28,6 @@ import { clientEmail } from "@/lib/authx";
 import { normalizeMcCode } from "@/lib/utils";
 import { SUPPORT_PHONE } from "@/lib/branding";
 import PasswordInput from "@/components/PasswordInput";
-import SignupForm from "@/components/SignupForm";
 
 const WA = `https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`;
 
@@ -43,9 +42,13 @@ export default function LoginPage() {
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const [tab, setTab] = useState<"login" | "signup">(
-    params.get("tab") === "signup" ? "signup" : "login"
-  );
+  /*
+   * Ansyen lyen ?tab=signup (WhatsApp deja voye yo) dwe kontinye mache.
+   * Enskripsyon gen YON SÈL kote kounye a: /inscription.
+   */
+  useEffect(() => {
+    if (params.get("tab") === "signup") router.replace("/inscription");
+  }, [params, router]);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -89,7 +92,7 @@ function LoginInner() {
   return (
     <div className="min-h-screen bg-[#081226] py-8 px-4"
       style={{ background: "radial-gradient(ellipse at top, #0E2145 0%, #081226 55%, #060D1C 100%)" }}>
-      <div className={`mx-auto ${tab === "signup" ? "max-w-2xl" : "max-w-md"}`}>
+      <div className="mx-auto max-w-md">
 
         <div className="text-center mb-5">
           <div className="w-20 h-20 mx-auto rounded-2xl bg-white grid place-items-center shadow-lg">
@@ -99,18 +102,9 @@ function LoginInner() {
           <h1 className="text-xl font-extrabold text-white mt-3">Espace Client</h1>
         </div>
 
-        {/* Onglè */}
-        <div className="flex rounded-xl bg-white/5 border border-white/10 p-1 mb-4">
-          {([["login", "Se connecter"], ["signup", "Créer un compte"]] as const).map(([k, l]) => (
-            <button key={k} onClick={() => { setTab(k); setErr(null); }}
-              className={`flex-1 rounded-lg py-2.5 text-sm font-bold transition ${
-                tab === k ? "bg-white text-navy" : "text-slate-300 hover:text-white"}`}>
-              {l}
-            </button>
-          ))}
-        </div>
 
-        {tab === "login" ? (
+
+        {(
           <form
             onSubmit={(e) => { e.preventDefault(); submit(); }}
             className="rounded-3xl bg-[#0D1F3F]/90 border border-white/10 shadow-2xl p-6 sm:p-8 space-y-5">
@@ -148,11 +142,14 @@ function LoginInner() {
               nouvo modpas tanporè ba ou.
             </p>
           </form>
-        ) : (
-          <div className="rounded-3xl bg-white/5 border border-white/10 p-3 sm:p-4">
-            <SignupForm onGoLogin={() => { setTab("login"); setErr(null); }} />
-          </div>
         )}
+
+        {/* Enskripsyon fèt SOU YON SÈL KOTE: paj /inscription */}
+        <Link href="/inscription"
+          className="mt-4 flex items-center justify-center gap-2 w-full rounded-xl border border-white/20
+                     bg-white/5 hover:bg-white/10 text-white font-bold py-3.5 text-sm transition">
+          Poko gen kont? Kreye youn
+        </Link>
 
         <p className="text-center text-[11px] text-slate-500 mt-5">
           <Link href="/confidentialite" className="hover:underline">Politique de confidentialité</Link>
