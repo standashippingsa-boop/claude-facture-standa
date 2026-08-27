@@ -26,7 +26,14 @@ import { Check, ChevronDown, Copy, Download, Share, X } from "lucide-react";
 import { detectDevice, getInstallSteps, DeviceInfo } from "@/lib/device";
 
 /** Wout kliyan yo SÈLMAN. "/" pa ladan: se dashboard admin an. */
-const CLIENT_ROUTES = ["/login", "/espace-client", "/inscription", "/reset-password", "/nouveau-mot-de-passe"];
+/*
+ * Kote bando enstalasyon an gen dwa parèt.
+ * ⚠️ PA mete paj sit wèb la (/accueil, /contact, /agences): sit la se yon
+ * pwodwi apa. Yon vizitè ki vin li enfòmasyon pa dwe resevwa yon envitasyon
+ * enstale yon aplikasyon kliyan.
+ */
+const CLIENT_ROUTES = ["/login", "/espace-client", "/espace-client/connexion",
+                       "/inscription", "/reset-password", "/nouveau-mot-de-passe"];
 
 /** Siyal natif Chrome la (beforeinstallprompt). */
 interface NativePrompt { prompt: () => void; userChoice: Promise<{ outcome: string }> }
