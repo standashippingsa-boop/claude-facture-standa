@@ -48,3 +48,55 @@ body { @apply bg-mist text-slate-700 antialiased; }
   .h-page { @apply text-xl font-extrabold text-ink; }
   .h-sec { @apply text-sm font-bold text-ink; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ANIMASYON — PAJ KONEKSYON AK ENSKRIPSYON
+   ───────────────────────────────────────────────────────────────────────
+   Yo fèt AK CSS SÈLMAN: zewo imaj, zewo bibliyotèk. Kliyan yo sou koneksyon
+   fèb — yon animasyon ki koute 0 byte se yon animasyon ki toujou mache.
+
+   `prefers-reduced-motion` respekte: yon moun ki mande mwens mouvman
+   (paramèt telefòn) resevwa yon paj kalm.
+   ═══════════════════════════════════════════════════════════════════════ */
+@keyframes sd-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50%      { transform: translate3d(0, -22px, 0) rotate(6deg); }
+}
+@keyframes sd-drift {
+  0%   { transform: translate3d(-8%, 0, 0) scale(1); }
+  50%  { transform: translate3d(8%, -4%, 0) scale(1.08); }
+  100% { transform: translate3d(-8%, 0, 0) scale(1); }
+}
+@keyframes sd-rise {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes sd-sheen {
+  from { background-position: -180% 0; }
+  to   { background-position: 180% 0; }
+}
+
+.sd-float  { animation: sd-float 7s ease-in-out infinite; }
+.sd-drift  { animation: sd-drift 22s ease-in-out infinite; }
+.sd-rise   { animation: sd-rise .55s cubic-bezier(.22,1,.36,1) both; }
+.sd-sheen  {
+  background-size: 180% 100%;
+  animation: sd-sheen 2.6s linear infinite;
+}
+
+/* Ti reta an kaskad — chak chan monte youn apre lòt */
+.sd-d1 { animation-delay: .06s } .sd-d2 { animation-delay: .12s }
+.sd-d3 { animation-delay: .18s } .sd-d4 { animation-delay: .24s }
+.sd-d5 { animation-delay: .30s } .sd-d6 { animation-delay: .36s }
+
+@media (prefers-reduced-motion: reduce) {
+  .sd-float, .sd-drift, .sd-rise, .sd-sheen { animation: none !important; }
+}
+
+/* Chan fòm sou fon fonse — vè depoli */
+.sd-field {
+  @apply w-full rounded-2xl bg-white/10 border border-white/15 text-white
+         placeholder:text-white/35 px-4 py-3.5 text-[15px]
+         focus:outline-none focus:border-white/50 focus:bg-white/15 transition;
+}
+.sd-label { @apply block text-[12px] font-semibold text-white/70 mb-1.5; }
