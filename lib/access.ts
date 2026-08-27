@@ -33,6 +33,7 @@ export const PUBLIC_PREFIXES = [
   "/login", "/admin-login", "/employe", "/setup",
   "/inscription",                       // ansyen lyen -> redirije sou /login?tab=signup
   "/reset-password", "/nouveau-mot-de-passe", "/confidentialite",
+  "/espace-client/connexion",            // koneksyon APLIKASYON an (anndan scope PWA)
 
   // ── SIT WÈB PIBLIK STANDA COMMERCIAL ──
   // Vizitè yo (moun ki poko kliyan) dwe ka wè paj sa yo san konekte.
