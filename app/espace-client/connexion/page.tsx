@@ -77,7 +77,7 @@ export default function AppConnexionPage() {
         {/* Logo + akèy */}
         <div className="text-center mb-8 sd-rise">
           <div className="w-24 h-24 mx-auto rounded-[28px] bg-white grid place-items-center
-                          shadow-[0_18px_50px_-12px_rgba(0,0,0,.6)] sd-float">
+                          shadow-[0_18px_50px_-12px_rgba(0,0,0,.6)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-16 object-contain" />
           </div>
@@ -128,7 +128,7 @@ export default function AppConnexionPage() {
               <p className="text-[13px] text-red-100 leading-relaxed">{err}</p>
               <a href={WA} target="_blank" rel="noreferrer"
                 className="inline-flex items-center gap-1.5 text-[12px] font-bold text-white
-                           bg-emerald-600 hover:bg-emerald-500 rounded-lg px-3 py-2 transition">
+                           bg-indigo-600 hover:bg-indigo-500 rounded-lg px-3 py-2 transition">
                 <MessageCircle size={14} /> Mande èd sou WhatsApp
               </a>
             </div>
