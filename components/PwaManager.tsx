@@ -3,14 +3,35 @@ import { useEffect, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
 
 /**
- * PWA Manager — STANDA COMMERCIAL
- * ════════════════════════════════
- *  - Anrejistre service worker la (/sw.js)
- *  - "Nouvelle version disponible" lè yon SW ap tann -> Mettre à jour / Plus tard
+ * PWA Manager — STANDA COMMERCIAL (v3)
+ * ════════════════════════════════════
+ * Anrejistre service worker la epi asire kliyan an TOUJOU wè dènye vèsyon an.
  *
- * NÒT: ENSTALASYON app la jere pa <InstallGateway /> (deteksyon inivèsèl:
- * Android, iPhone/iPad, Windows, Mac, Chromebook, fallback web). Nou pa
- * dwaplike lojik enstalasyon isit la.
+ * ⚠️ TWA TWOU KI TE FÈ KLIYAN YO RETE SOU ANSYEN VÈSYON
+ * ─────────────────────────────────────────────────────
+ *  1) NOU PA T JANM MANDE NAVIGATÈ A TCHEKE.
+ *     `reg.update()` pa t janm rele. Yon navigatè tcheke pou kont li sèlman
+ *     lè yon moun navige — men nan yon app enstale, moun rete sou menm paj
+ *     la pandan jou. Yo pa t janm konnen yon nouvo vèsyon egziste.
+ *     -> Kounye a nou tcheke: nan chajman, lè app la retounen an premye
+ *        plan, epi chak 5 minit.
+ *
+ *  2) SCRIPT SW LA MENM TE KA SOTI NAN CACHE.
+ *     San `updateViaCache: "none"`, navigatè a ka sèvi ak yon ansyen kopi
+ *     /sw.js — donk li pa t menm wè gen yon nouvo vèsyon.
+ *
+ *  3) YON NOUVO VÈSYON TE KA RETE AP TANN SAN LIMIT.
+ *     Li te bezwen yon tap sou yon bouton. Kounye a: si yon nouvo vèsyon
+ *     DEJA ap tann lè paj la fèk chaje, nou aplike l TOU SWIT — yon moun
+ *     ki fèk rafrechi pa gen travay an kou, donk pa gen risk.
+ *
+ * POUKISA NOU PA FÒSE MIZAJOU A NENPÒT LÈ
+ * ───────────────────────────────────────
+ * Si yon nouvo vèsyon rive PANDAN yon moun ap travay (yon fakti ouvè, yon
+ * fòm ranpli), yon rechajman otomatik ta pèdi travay li. Nan ka sa a nou
+ * montre yon bando epi se li ki chwazi lè.
+ *
+ * NÒT: ENSTALASYON app la jere pa <InstallGateway />.
  */
 export default function PwaManager() {
   const [waitingSW, setWaitingSW] = useState<ServiceWorker | null>(null);
@@ -18,29 +39,53 @@ export default function PwaManager() {
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
-    // Anrejistre SW
-    const onLoad = () => {
-      navigator.serviceWorker.register("/sw.js").then((reg) => {
-        // Detekte yon nouvo vèsyon k ap tann
-        if (reg.waiting) setWaitingSW(reg.waiting);
+    let reg: ServiceWorkerRegistration | null = null;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const register = async () => {
+      try {
+        // updateViaCache "none": script SW la pa janm soti nan cache HTTP
+        reg = await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
+
+        // Yon vèsyon DEJA ap tann lè paj la fèk chaje -> aplike l tou swit.
+        // Moun nan fèk rafrechi: pa gen travay an kou pou pèdi.
+        if (reg.waiting) { reg.waiting.postMessage("SKIP_WAITING"); return; }
+
+        // Yon vèsyon ki rive PANDAN li ap travay -> mande l anvan.
         reg.addEventListener("updatefound", () => {
-          const nw = reg.installing;
+          const nw = reg?.installing;
           if (!nw) return;
           nw.addEventListener("statechange", () => {
             if (nw.state === "installed" && navigator.serviceWorker.controller) setWaitingSW(nw);
           });
         });
-      }).catch(() => {});
-    };
-    window.addEventListener("load", onLoad);
 
-    // Rechaje paj la lè nouvo SW pran kontwòl
+        check();
+      } catch { /* SW pa disponib — app la travay kanmenm */ }
+    };
+
+    /** Mande navigatè a: èske gen yon nouvo vèsyon? */
+    const check = () => { reg?.update().catch(() => { /* san rezo */ }); };
+
+    const onVisible = () => { if (document.visibilityState === "visible") check(); };
+
+    if (document.readyState === "complete") register();
+    else window.addEventListener("load", register);
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    timer = setInterval(check, 5 * 60 * 1000);   // chak 5 minit
+
+    // Lè nouvo SW la pran kontwòl -> rechaje yon SÈL fwa
     let refreshing = false;
     const onCtrl = () => { if (!refreshing) { refreshing = true; window.location.reload(); } };
     navigator.serviceWorker.addEventListener("controllerchange", onCtrl);
 
     return () => {
-      window.removeEventListener("load", onLoad);
+      window.removeEventListener("load", register);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      if (timer) clearInterval(timer);
       navigator.serviceWorker.removeEventListener("controllerchange", onCtrl);
     };
   }, []);
@@ -52,7 +97,6 @@ export default function PwaManager() {
 
   return (
     <>
-      {/* Bandeau mizajou */}
       {waitingSW && (
         <div className="fixed bottom-4 inset-x-4 z-[60] mx-auto max-w-sm">
           <div className="bg-navy text-white rounded-2xl shadow-lift p-4 flex items-center gap-3">
