@@ -45,7 +45,7 @@ export default function InscriptionPage() {
         {/* Antèt */}
         <div className="text-center mt-6 mb-9">
           <div className="w-20 h-20 mx-auto rounded-[24px] bg-white grid place-items-center
-                          shadow-[0_18px_50px_-14px_rgba(0,0,0,.6)] sd-float">
+                          shadow-[0_18px_50px_-14px_rgba(0,0,0,.6)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-14 object-contain" />
           </div>
@@ -66,7 +66,7 @@ export default function InscriptionPage() {
               <div key={a.t}
                 className={`sd-rise sd-d${i + 2} rounded-2xl bg-white/[0.06] backdrop-blur-xl
                             border border-white/12 p-4 flex gap-3.5`}>
-                <span className="w-10 h-10 rounded-xl bg-white/10 grid place-items-center shrink-0 text-emerald-300">
+                <span className="w-10 h-10 rounded-xl bg-white/10 grid place-items-center shrink-0 text-indigo-200">
                   <a.icon size={18} />
                 </span>
                 <div className="min-w-0">
@@ -76,8 +76,8 @@ export default function InscriptionPage() {
               </div>
             ))}
 
-            <div className="sd-rise sd-d6 rounded-2xl bg-emerald-500/10 border border-emerald-400/25 p-4">
-              <p className="text-[12.5px] text-emerald-100/85 leading-relaxed">
+            <div className="sd-rise sd-d6 rounded-2xl bg-white/[0.06] border border-white/15 p-4">
+              <p className="text-[12.5px] text-white/60 leading-relaxed">
                 Gen yon kesyon anvan w kòmanse? Ekri nou sou WhatsApp
                 {" "}<a href={`https://wa.me/${SITE.whatsapp}`} target="_blank" rel="noreferrer"
                   className="font-bold underline underline-offset-2">{SITE.phone}</a>.
