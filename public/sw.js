@@ -1,17 +1,29 @@
 /*
- * STANDA COMMERCIAL — Service Worker (v2)
+ * STANDA COMMERCIAL — Service Worker (v3)
  * ══════════════════════════════════════════════════════════
- * KORÈKSYON v2: navigasyon paj yo TOUJOU pase dirèk sou rezo.
- * Nou PA entèsepte navigasyon ankò — konsa aplikasyon an pa janm
- * ka bloke sou yon fo paj "hors ligne" lè gen entènèt.
- *
  * Estrateji:
  *  - Paj (navigasyon): rezo dirèk, san entèsepsyon (browser jere l).
  *  - Resous statik (JS/CSS/ikòn): cache pou vitès + mizajou background.
  *  - Done metye (API/Supabase): JAMÈ kache — toujou rezo.
  *  - Netwayaj ansyen cache sou aktivasyon.
+ *
+ * ⚠️ KORÈKSYON v3 — POUKISA KLIYAN YO PA T WÈ MIZAJOU YO
+ * ──────────────────────────────────────────────────────
+ * Ansyen vèsyon an te kenbe fichye ki PA gen anprent nan non yo
+ * (/logo.png, /icons/…, /manifest.webmanifest) POU TOUJOU: yon fwa nan
+ * cache la, li pa t janm chanje ankò. Fichye Next.js yo (_next/static)
+ * gen yon anprent nan non yo — chak deplwaman bay yon nouvo non — donk
+ * yo pa t gen pwoblèm nan. Men logo, icòn ak manifest la te bloke.
+ *
+ * v3 separe de kalite fichye yo:
+ *   • Ki gen anprent (_next/static) -> cache-first, pi rapid ki genyen
+ *   • Ki PA gen anprent (logo, icòn)-> rezo an premye, cache kòm sekou
+ *
+ * Nimewo vèsyon an chanje (v2 -> v3), donk TOUT ansyen cache yo efase
+ * otomatikman lè nouvo service worker la aktive. Kliyan yo pa gen anyen
+ * pou fè: yon senp rafrechi ase.
  */
-const CACHE_VERSION = "standa-v2";
+const CACHE_VERSION = "standa-v3";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 
 const PRECACHE = [
@@ -30,11 +42,25 @@ function isNeverCache(url) {
   );
 }
 
-function isStaticAsset(url) {
+/**
+ * Fichye ki gen yon ANPRENT nan non yo (Next.js mete yon kòd inik nan chak
+ * non fichye). Yon nouvo deplwaman = yon nouvo non = pa gen ansyen vèsyon
+ * posib. Nou ka kache yo pou toujou san okenn risk.
+ */
+function isFingerprinted(url) {
+  return url.pathname.startsWith("/_next/static/");
+}
+
+/**
+ * Fichye ki GEN MENM NON chak deplwaman (logo, icòn, manifest). Se yo ki
+ * t ap bloke: yon fwa nan cache la, kliyan an pa t janm wè nouvo vèsyon an.
+ * Nou mande rezo a an premye; cache la sèvi sèlman si rezo a tonbe.
+ */
+function isMutableAsset(url) {
   return (
-    url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
-    /\.(?:js|css|woff2?|ttf|otf|png|jpg|jpeg|svg|webp|ico)$/.test(url.pathname)
+    url.pathname === "/manifest.webmanifest" ||
+    /\.(?:woff2?|ttf|otf|png|jpg|jpeg|svg|webp|ico)$/.test(url.pathname)
   );
 }
 
@@ -69,18 +95,36 @@ self.addEventListener("fetch", (event) => {
 
   if (isNeverCache(url)) return;              // done metye -> toujou rezo
 
-  // Resous statik: cache-first + mizajou background (stale-while-revalidate)
-  if (isStaticAsset(url)) {
+  // Fichye ak anprent: cache-first (zewo risk ansyen vèsyon)
+  if (isFingerprinted(url)) {
     event.respondWith(
       caches.open(SHELL_CACHE).then(async (cache) => {
         const cached = await cache.match(req);
-        const network = fetch(req).then((res) => {
-          if (res && res.status === 200) cache.put(req, res.clone());
-          return res;
-        }).catch(() => cached);
-        return cached || network;
+        if (cached) return cached;
+        const res = await fetch(req);
+        if (res && res.status === 200) cache.put(req, res.clone());
+        return res;
       })
     );
+    return;
+  }
+
+  // Fichye san anprent: REZO AN PREMYE — cache se sekou lè koneksyon tonbe
+  if (isMutableAsset(url)) {
+    event.respondWith(
+      caches.open(SHELL_CACHE).then(async (cache) => {
+        try {
+          const res = await fetch(req);
+          if (res && res.status === 200) cache.put(req, res.clone());
+          return res;
+        } catch {
+          const cached = await cache.match(req);
+          if (cached) return cached;
+          throw new Error("offline");
+        }
+      })
+    );
+    return;
   }
   // Rès la: navigatè a jere nòmalman
 });
