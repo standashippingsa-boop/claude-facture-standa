@@ -25,16 +25,60 @@ import { RefreshCw, X } from "lucide-react";
  *     DEJA ap tann lè paj la fèk chaje, nou aplike l TOU SWIT — yon moun
  *     ki fèk rafrechi pa gen travay an kou, donk pa gen risk.
  *
- * POUKISA NOU PA FÒSE MIZAJOU A NENPÒT LÈ
- * ───────────────────────────────────────
- * Si yon nouvo vèsyon rive PANDAN yon moun ap travay (yon fakti ouvè, yon
- * fòm ranpli), yon rechajman otomatik ta pèdi travay li. Nan ka sa a nou
- * montre yon bando epi se li ki chwazi lè.
+ * MIZAJOU OTOMATIK — SAN KLIYAN AN PEZE ANYEN (v3)
+ * ────────────────────────────────────────────────
+ * Lè yon nouvo vèsyon rive pandan app la louvri, nou PA tann yon tap ankò.
+ * Nou aplike l poukont nou depi moman an SAN DANJE — sa vle di:
+ *   • okenn fenèt modal ouvè (fakti, detay koli)
+ *   • pèsonn pa ap tape nan yon chan
+ *   • paj la vizib
+ * Nou eseye chak 10 segond epi chak fwa moun nan retounen sou app la.
+ *
+ * Si apre 2 minit li poko janm san danje (yon fakti rete ouvè), nou montre
+ * yon bando: se li ki chwazi lè. Nou pa janm efase travay yon moun.
  *
  * NÒT: ENSTALASYON app la jere pa <InstallGateway />.
  */
 export default function PwaManager() {
   const [waitingSW, setWaitingSW] = useState<ServiceWorker | null>(null);
+
+  /**
+   * Èske li san danje pou nou aplike mizajou a kounye a?
+   * Aplike yon mizajou = rechaje paj la. Si yon moun ap ranpli yon fakti,
+   * sa ta efase travay li.
+   */
+  const safeToApply = () => {
+    if (document.visibilityState !== "visible") return false;
+    if (document.querySelector(".fixed.inset-0")) return false;   // fenèt ouvè
+    const el = document.activeElement as HTMLElement | null;
+    const tag = el?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return false;
+    return true;
+  };
+
+  /** Eseye aplike yon vèsyon k ap tann — an silans, depi li san danje. */
+  useEffect(() => {
+    if (!waitingSW) return;
+    const apply = () => {
+      if (!safeToApply()) return false;
+      waitingSW.postMessage("SKIP_WAITING");
+      return true;
+    };
+    if (apply()) return;
+
+    const timer = setInterval(() => { if (apply()) clearInterval(timer); }, 10000);
+    const onVisible = () => { if (apply()) clearInterval(timer); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    // Apre 2 minit san okazyon, nou sispann eseye epi bando a rete vizib.
+    const stop = setTimeout(() => clearInterval(timer), 120000);
+    return () => {
+      clearInterval(timer); clearTimeout(stop);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [waitingSW]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
