@@ -1,179 +1,941 @@
 "use client";
 /*
- * STANDA COMMERCIAL — KONEKSYON APLIKASYON AN
- * ═══════════════════════════════════════════
- * ⚠️ PAJ SA A SE POU APLIKASYON AN SÈLMAN.
+ * STANDA COMMERCIAL — ESPACE CLIENT (V12)
+ * ═══════════════════════════════════════
+ * ACCUEIL : 4 liy klikab (Disponibles · Réceptions · Factures · Historique)
+ *           + Demandes de retrait ak detay koli yo.
  *
- * RÈG BIZNIS — KREYE KONT SE SOU SIT WÈB LA SÈLMAN
- * ────────────────────────────────────────────────
- * App la PA gen fòm enskripsyon. Bouton "Créer un compte" la louvri sit
- * wèb la NAN NAVIGATÈ A (target="_blank" + adrès absoli). Adrès sa a deyò
- * `scope` PWA a ("/espace-client"), donk Android sòti nan app la epi li
- * louvri Chrome — egzakteman jan BoxPaq fè l.
+ * LOJIK KOLI
+ *   RÉCEPTIONS  = tout koli ki rive epi ki POKO fakti (Disponibles anlè).
+ *   DISPONIBLES = sou-ansanm Réceptions.
+ *   Fakti/Livre -> soti nan toude -> ale nan HISTORIQUE.
  *
- * Konsa app la ak sit la rete DE PWODWI apa, menm si yo pataje MENM MOTÈ a
- * (menm kont, menm modpas, menm bazdone). Anyen nan motè a pa chanje isit:
- * se sèlman abiman an.
+ * PRI (V12) — règ STANDA:
+ *   • Koli ki DEJA fakti  -> pri REYÈL admin nan fikse a (total_usd). Pa gen devinèt.
+ *   • Koli ki poko fakti  -> ESTIMASYON GLOBAL sèlman, montre yon sèl fwa anlè lis la:
+ *       Business : tout pwa yo adisyone ANVAN × pri/lb Business
+ *       Lòt kont: ti koli 0.10–0.99 lb -> pri fiks (Paramètres) ; sinon pwa × pri/lb
+ *       Nan toude ka: pwa total ≥ 6.50 lb -> + 10 USD taxe fiks (yon sèl fwa)
+ *     Nou PA mete yon pri sou chak kat koli ankò — sa te bay chif fo
+ *     (li t ap ajoute frè fiks vil la sou CHAK koli).
  *
- * KOULÈ: paj sa a PA swiv koulè biznis la (desizyon konfime) — gradyan
- * endigo/sarsèl ak yon dekò anime. Rès aplikasyon an rete sou mak la.
+ * ⚠️ TOUT hooks yo deklare ANVAN nenpòt `return` kondisyonèl (règ React).
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Eye, EyeOff, Lock, MessageCircle, User } from "lucide-react";
+import {
+  AlertTriangle, Ban, Bell, BookOpen, Box, Calculator, Check, ChevronDown, ChevronLeft,
+  ChevronRight, Clock, FileText, History, HelpCircle, KeyRound, LogOut, MapPin,
+  MessageCircle, Package, RefreshCw, Truck, User, X
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { clientEmail } from "@/lib/authx";
-import { normalizeMcCode } from "@/lib/utils";
-import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
-import AuthBackdrop from "@/components/AuthBackdrop";
+import { safeMessage } from "@/lib/safeerror";
+import {
+  createRetrait, getClientByAuthId, getClientPackagesAndInvoices,
+  getClientRetraits, getSmallParcelConfig
+} from "@/lib/db";
+import { Client, Invoice, Pkg, Retrait } from "@/lib/types";
+import { DEPOT } from "@/lib/depot";
+import { SUPPORT_PHONE } from "@/lib/branding";
+import {
+  DEFAULT_SMALL_PARCEL, SmallParcelConfig, TAX_FIXED_USD, TAX_THRESHOLD_LB,
+  estimateForPackages, round2
+} from "@/lib/pricing";
+import { dateFr, usd } from "@/lib/utils";
+import Loader, { SavedToast, Spinner, SuccessCheck } from "@/components/Loader";
+import StatusBadge from "@/components/StatusBadge";
+import { StatusTimeline } from "@/components/StatusFlow";
 
-const WA = `https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`;
-/** Adrès ABSOLI: fòse sòti nan app la epi louvri navigatè a. */
-const SITE_INSCRIPTION = `${SITE_URL}/inscription`;
+type View = "home" | "disponibles" | "receptions" | "factures" | "historique" | "adresse" | "calc" | "infos";
 
-export default function AppConnexionPage() {
+const WA_NUM = SUPPORT_PHONE.replace(/\D/g, "");
+const WA_LINK = `https://wa.me/${WA_NUM}`;
+
+/**
+ * Lyen WhatsApp pou yon koli — Tracking Number ak Tracking ID nan TÈT mesaj la,
+ * konsa ekip la wè imedyatman de ki koli kliyan an ap pale.
+ */
+function waPkgLink(p: Pkg, code: string): string {
+  const tn = String(p.tracking_manual ?? "").trim() || "—";
+  const id = String(p.tracking_number ?? "").trim() || "—";
+  const msg =
+    `Tracking Number: ${tn}\n` +
+    `Tracking ID: ${id}\n` +
+    `Client: ${code}\n\n` +
+    `Bonjou STANDA COMMERCIAL, mwen gen yon kesyon sou koli sa a.`;
+  return `https://wa.me/${WA_NUM}?text=${encodeURIComponent(msg)}`;
+}
+
+/** Yon koli "fini" (fakti oswa livre) -> li ale nan Historique. */
+const isDone = (p: Pkg) => p.status === "Facturé" || p.status === "Livré" || !!p.invoice_id;
+
+/**
+ * SUIVI VÈTIKAL — chak etap sou liy pa li, ak dat lè nou konnen l.
+ * Kliyan an wè EGZAKTEMAN kote koli l rive epi sa k ap vini apre.
+ * Etap ki pase = vèt ak ✓ · etap kounye a = ble k ap bat · rès la = gri.
+ */
+function SuiviVertical({ p }: { p: Pkg }) {
+  const ETAPES: { nom: string; desc: string; date?: string | null }[] = [
+    { nom: "Reçu à Miami", desc: "Koli ou rive nan depo nou Ozetazini", date: p.received_at ?? p.created_date },
+    { nom: "En préparation", desc: "N ap prepare l pou vwayaj la" },
+    { nom: "En transit", desc: "Koli a sou wout pou Ayiti" },
+    { nom: "Arrivé en Haïti", desc: "Li rive nan peyi a, l ap pase ladwàn" },
+    { nom: "En route vers agence", desc: "L ap desann nan agans vil ou" },
+    { nom: "Disponible", desc: "Ou ka vin pran li", date: p.verified_at },
+    { nom: "Facturé", desc: "Fakti a pare", date: p.invoiced_at }
+  ];
+
+  const ORDRE = ["Reçu à Miami", "En préparation", "En transit", "Arrivé en Haïti",
+                 "En route vers agence", "Disponible", "Livré"];
+  let actuel = ORDRE.indexOf(p.status);
+  if (p.status === "Facturé" || p.invoice_id) actuel = ETAPES.length - 1;
+  if (actuel < 0) actuel = 0;
+
+  return (
+    <ol className="space-y-0">
+      {ETAPES.map((e, i) => {
+        const fini = i < actuel;
+        const ici = i === actuel;
+        const dernye = i === ETAPES.length - 1;
+        return (
+          <li key={e.nom} className="flex gap-3">
+            <div className="flex flex-col items-center shrink-0">
+              <span className={`w-6 h-6 rounded-full grid place-items-center shrink-0 ${
+                fini ? "bg-brand text-white" : ici ? "bg-navy text-white" : "bg-line text-slate-400"}`}>
+                {fini ? <Check size={13} strokeWidth={3} />
+                      : ici ? <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                            : <span className="w-1.5 h-1.5 rounded-full bg-current" />}
+              </span>
+              {!dernye && <span className={`w-0.5 flex-1 min-h-[26px] ${fini ? "bg-brand" : "bg-line"}`} />}
+            </div>
+            <div className={`min-w-0 flex-1 ${dernye ? "pb-0" : "pb-4"}`}>
+              <p className={`text-[13px] font-bold leading-tight ${
+                ici ? "text-navy" : fini ? "text-ink" : "text-slate-400"}`}>{e.nom}</p>
+              <p className={`text-[11px] leading-snug mt-0.5 ${ici || fini ? "text-mute" : "text-slate-300"}`}>
+                {e.desc}
+              </p>
+              {e.date && (fini || ici) && (
+                <p className="text-[11px] font-semibold text-brand-dark mt-0.5">{dateFr(e.date)}</p>
+              )}
+              {ici && <span className="pill pill-blue mt-1.5"><span className="pill-dot" />Kote li ye kounye a</span>}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+export default function EspaceClientPage() {
+  // ── HOOKS (tout ansanm, anvan tout return) ──────────────────────────────
   const router = useRouter();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [show, setShow] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [client, setClient] = useState<Client | null>(null);
+  const [pkgs, setPkgs] = useState<Pkg[]>([]);
+  const [invs, setInvs] = useState<Invoice[]>([]);
+  const [retraits, setRetraits] = useState<Retrait[]>([]);
+  const [smallCfg, setSmallCfg] = useState<SmallParcelConfig>(DEFAULT_SMALL_PARCEL);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [view, setView] = useState<View>("home");
+  const [detail, setDetail] = useState<Pkg | null>(null);
+  const [openRetrait, setOpenRetrait] = useState<string | null>(null);
+  const [sel, setSel] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
-  const submit = async () => {
-    if (busy) return;
-    setErr(null);
-    const raw = username.trim();
-    const norm = normalizeMcCode(raw);
-    // Modpas tanporè yo kopye sou WhatsApp — yon espas envizib kole souvan.
-    const pass = password.trim();
-    if (!raw) { setErr("Antre kòd MC ou (egzanp: MC-36191)."); return; }
-    if (!pass) { setErr("Antre modpas ou."); return; }
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
+  const [pwd1, setPwd1] = useState("");
+  const [pwd2, setPwd2] = useState("");
+  const [pwdMsg, setPwdMsg] = useState<string | null>(null);
+  const [pwdBusy, setPwdBusy] = useState(false);
 
+  const [calcW, setCalcW] = useState("");
+
+  const load = async () => {
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) { router.replace("/espace-client/connexion"); return; }
+    const [c, cfg] = await Promise.all([getClientByAuthId(data.user.id), getSmallParcelConfig()]);
+    setClient(c); setSmallCfg(cfg);
+    if (c?.customer_code) {
+      const [{ pkgs: p, invs: i }, rs] = await Promise.all([
+        getClientPackagesAndInvoices(c.customer_code),
+        getClientRetraits(c.customer_code)
+      ]);
+      setPkgs(p); setInvs(i); setRetraits(rs);
+    }
+    setLoading(false);
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [router]);
+
+  /**
+   * MIZAJOU OTOMATIK (pwen 4) — chanjman admin fè nan Paramètres (tarif, ti koli,
+   * statut koli) desann pou kont yo: lè kliyan an retounen sou onglè a, epi chak
+   * 60 segond pandan app la louvri. Silansye: pa gen spinner, pa gen toast.
+   */
+  useEffect(() => {
+    const silent = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", silent);
+    window.addEventListener("focus", silent);
+    const timer = setInterval(silent, 60000);
+    return () => {
+      document.removeEventListener("visibilitychange", silent);
+      window.removeEventListener("focus", silent);
+      clearInterval(timer);
+    };
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
+
+  // ── Aksyon ──────────────────────────────────────────────────────────────
+  /**
+   * ACTUALISER (pwen 6) — remonte TOUT done yo: pwofil, tarif (Paramètres),
+   * koli, fakti, demann retrait. Ansyen done yo rete sou ekran an pandan tan
+   * an (koli yo pa disparèt), yo ranplase sèlman lè nouvo yo fin desann.
+   * Ilustrasyon an ap vire jiskaske li fini, epi ✅ vèt la parèt.
+   */
+  const refresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try { await load(); setToast("Mizajou fèt"); }
+    finally { setRefreshing(false); }
+  };
+  const logout = async () => { await supabase.auth.signOut(); router.replace("/espace-client/connexion"); };
+
+  const changePassword = async () => {
+    setPwdMsg(null);
+    if (pwd1.length < 6) { setPwdMsg("Modpas la dwe gen omwen 6 karaktè."); return; }
+    if (pwd1 !== pwd2) { setPwdMsg("De modpas yo pa menm."); return; }
+    setPwdBusy(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pwd1 });
+      if (error) throw error;
+      setPwd1(""); setPwd2("");
+      setShowPwd(false); setPwdMsg(null);
+      setToast("Modpas ou chanje");
+    } catch (e: unknown) { setPwdMsg(safeMessage(e)); }
+    finally { setPwdBusy(false); }
+  };
+
+  const toggleSel = (id: string) =>
+    setSel((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+  const notifierRetrait = async () => {
+    if (!client || !sel.size) return;
+    // GAD: sèlman koli "Disponible" ka antre nan yon demann retrait.
+    const chosen = pkgs.filter((p) => sel.has(p.id) && p.status === "Disponible");
+    if (!chosen.length) { setMsg("Sèlman koli ki Disponib ka antre nan yon demann retrait."); return; }
     setBusy(true);
     try {
-      const essais = Array.from(new Set([norm, raw.toUpperCase(), raw]));
-      let ok = false, last: unknown = null;
-      for (const code of essais) {
-        const r = await supabase.auth.signInWithPassword({ email: clientEmail(code), password: pass });
-        if (!r.error) { ok = true; break; }
-        last = r.error;
-      }
-      if (!ok) throw last;
-      router.replace("/espace-client");
-    } catch (e: unknown) {
-      const m = String((e as Error)?.message ?? "").toLowerCase();
-      setErr(m.includes("not confirmed")
-        ? "Kont ou poko aktive. Kontakte STANDA COMMERCIAL sou WhatsApp."
-        : `Kòd ${norm || "MC-XXXXX"} oswa modpas la pa kòrèk. Peze ti je a pou verifye.`);
-    } finally { setBusy(false); }
+      await createRetrait(client, chosen);
+      setRetraits(await getClientRetraits(client.customer_code));
+      setSel(new Set());
+      setMsg(null);
+      setToast(`Demann retrait voye — ${chosen.length} koli`);
+    } catch (e: unknown) { setMsg(safeMessage(e)); }
+    finally { setBusy(false); }
+  };
+
+  // ── Gad kondisyonèl (apre TOUT hooks) ───────────────────────────────────
+  if (loading) return <Loader />;
+
+  if (!client) return (
+    <div className="min-h-screen bg-mist grid place-items-center p-6">
+      <div className="card p-8 max-w-md text-center space-y-4">
+        <p className="text-sm text-slate-600">Nou pa jwenn pwofil ou. Kontakte STANDA COMMERCIAL.</p>
+        <button className="btn justify-center w-full" onClick={logout}>Dekonekte</button>
+      </div>
+    </div>
+  );
+
+  const non = [client.fullname, client.surname].filter(Boolean).join(" ").trim();
+
+  if (client.account_status !== "Actif" || !client.customer_code) {
+    return (
+      <div className="min-h-screen bg-mist grid place-items-center p-6">
+        <div className="card p-8 max-w-md w-full text-center space-y-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="" className="mx-auto h-14 object-contain" />
+          <Clock className="mx-auto text-amber-500" size={44} />
+          <h1 className="text-lg font-extrabold text-navy">Kont ou an attente d&apos;activation</h1>
+          <p className="text-sm text-slate-600">
+            {non} — ekip STANDA COMMERCIAL ap verifye enfòmasyon ou yo. Lè kont ou aktive,
+            w ap resevwa adrès depo ou Ozetazini epi w ap ka itilize tout sèvis shipping yo.
+          </p>
+          <a className="btn btn-wa justify-center w-full" href={WA_LINK} target="_blank" rel="noreferrer">
+            <MessageCircle size={15} /> Kontakte nou sou WhatsApp
+          </a>
+          <button className="btn btn-ghost justify-center w-full" onClick={logout}>
+            <LogOut size={15} /> Dekonekte
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Klasman koli yo ─────────────────────────────────────────────────────
+  const historique = pkgs.filter(isDone);
+  const receptionsAll = pkgs.filter((p) => !isDone(p));
+  const disponibles = receptionsAll.filter((p) => p.status === "Disponible");
+  const autres = receptionsAll.filter((p) => p.status !== "Disponible");
+
+  const poidsDe = (list: Pkg[]) => round2(list.reduce((s, p) => s + (Number(p.weight) || 0), 0));
+  const estimation = (list: Pkg[]) =>
+    estimateForPackages(list.map((p) => Number(p.weight) || 0), client.account_type, client.ville, smallCfg);
+
+  // ── Ti konpozan ─────────────────────────────────────────────────────────
+  const MenuRow = ({ icon: Icon, label, count, to, accent }: {
+    icon: typeof Package; label: string; count: number; to: View; accent?: boolean;
+  }) => (
+    <button onClick={() => setView(to)}
+      className="w-full card card-hover px-4 py-4 flex items-center gap-3 text-left">
+      <Icon size={20} className={accent ? "text-brand-dark shrink-0" : "text-navy shrink-0"} />
+      <span className="flex-1 text-[15px] font-semibold text-ink">{label}</span>
+      <span className={`w-8 h-8 rounded-full grid place-items-center text-sm font-bold text-white shrink-0
+        ${accent ? "bg-brand" : "bg-navy"}`}>{count}</span>
+      <ChevronRight size={16} className="text-slate-300 shrink-0" />
+    </button>
+  );
+
+  /** Rezime yon lis koli: kantite, pwa total, epi pri (reyèl oswa estimasyon). */
+  const Totaux = ({ list, reel }: { list: Pkg[]; reel?: boolean }) => {
+    const w = poidsDe(list);
+    const est = reel ? null : estimation(list);
+    const totalReel = reel ? round2(list.reduce((s, p) => s + (Number(p.total_usd) || 0), 0)) : 0;
+    return (
+      <div className="card p-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-mute">Total colis</p>
+            <p className="text-2xl font-extrabold text-ink leading-tight">{list.length}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-mute">Poids total</p>
+            <p className="text-2xl font-extrabold text-ink leading-tight">{w.toFixed(2)} <span className="text-sm">lb</span></p>
+          </div>
+        </div>
+        {reel && totalReel > 0 && (
+          <div className="mt-3 pt-3 border-t border-line flex items-center justify-between">
+            <span className="text-[12px] text-mute">Total facturé</span>
+            <span className="text-xl font-extrabold text-navy">{usd(totalReel)}</span>
+          </div>
+        )}
+        {est && (
+          <div className="mt-3 pt-3 border-t border-line space-y-1.5">
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="text-mute">Transport estimé</span>
+              <span className="font-semibold text-ink">{usd(est.subtotal)}</span>
+            </div>
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="text-mute">Taxe fixe {est.fixedTax > 0 ? `(≥ ${TAX_THRESHOLD_LB} lb)` : ""}</span>
+              <span className="font-semibold text-ink">{est.fixedTax > 0 ? usd(est.fixedTax) : "—"}</span>
+            </div>
+            <div className="flex items-center justify-between pt-1.5 border-t border-line">
+              <span className="text-[13px] font-bold text-ink">Total estimé</span>
+              <span className="text-xl font-extrabold text-navy">{usd(est.total)}</span>
+            </div>
+          </div>
+        )}
+        {!est && !reel && (
+          <p className="mt-3 pt-3 border-t border-line text-[11px] text-amber-700">
+            Tarif vil ou a poko konfigire. Kontakte nou sou WhatsApp.
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  const PkgCard = ({ p, check }: { p: Pkg; check?: boolean }) => {
+    const facture = Number(p.total_usd) > 0 && isDone(p);
+    return (
+      <div className="relative">
+        {check && (
+          <input type="checkbox" aria-label="Chwazi koli a"
+            className="absolute top-4 right-4 z-10 w-4 h-4"
+            checked={sel.has(p.id)} onChange={() => toggleSel(p.id)} />
+        )}
+        <button onClick={() => setDetail(p)} className="w-full card card-hover p-4 text-left">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="font-mono text-[13px] font-bold text-ink truncate">{p.tracking_number || "—"}</p>
+              {p.tracking_manual && <p className="font-mono text-[11px] text-mute truncate mt-0.5">{p.tracking_manual}</p>}
+            </div>
+            {!check && <StatusBadge status={p.status} />}
+          </div>
+          <div className="mt-2.5"><StatusTimeline status={p.status} compact lastStepLabel="Facturé" /></div>
+          <div className="flex items-center justify-between gap-2 mt-2.5">
+            <span className="text-xs text-mute truncate">{p.content || "—"}</span>
+            <span className="text-xs font-semibold text-ink shrink-0">
+              {Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : "—"}
+            </span>
+          </div>
+          {facture && (
+            <div className="mt-2.5 pt-2.5 border-t border-line flex items-center justify-between">
+              <span className="text-[11px] text-mute">Prix facturé</span>
+              <span className="text-base font-extrabold text-navy">{usd(p.total_usd)}</span>
+            </div>
+          )}
+        </button>
+      </div>
+    );
+  };
+
+  const Empty = ({ t }: { t: string }) => (
+    <div className="card p-10 text-center text-mute text-sm">{t}</div>
+  );
+
+  const SubHeader = ({ title, sub }: { title: string; sub?: string }) => (
+    <div className="flex items-center gap-2 mb-4">
+      <button onClick={() => setView("home")} className="w-9 h-9 rounded-xl border border-line bg-white grid place-items-center text-navy shrink-0">
+        <ChevronLeft size={18} />
+      </button>
+      <div className="min-w-0">
+        <h1 className="text-lg font-extrabold text-ink leading-tight truncate">{title}</h1>
+        {sub && <p className="text-xs text-mute truncate">{sub}</p>}
+      </div>
+    </div>
+  );
+
+  // ── Kalkilatris ─────────────────────────────────────────────────────────
+  const w = Number(calcW.replace(",", "."));
+  const calcOk = Number.isFinite(w) && w > 0;
+  const calcRes = calcOk ? estimateForPackages([w], client.account_type, client.ville, smallCfg) : null;
+
+  // ── Bare navigasyon anba ────────────────────────────────────────────────
+  const NavBtn = ({ icon: Icon, label, to, href }: {
+    icon: typeof Package; label: string; to?: View; href?: string;
+  }) => {
+    const active = to && view === to;
+    const cls = `flex-1 flex flex-col items-center gap-0.5 py-2 ${active ? "text-navy" : "text-slate-400"}`;
+    const inner = <><Icon size={20} /><span className="text-[10px] font-semibold">{label}</span></>;
+    return href
+      ? <a href={href} target="_blank" rel="noreferrer" className={cls}>{inner}</a>
+      : <button className={cls} onClick={() => to && setView(to)}>{inner}</button>;
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col overflow-hidden">
-      <AuthBackdrop />
+    <div className="min-h-screen bg-mist pb-24">
 
-      <div className="relative flex-1 flex flex-col justify-center px-5 py-10 w-full max-w-sm mx-auto">
-
-        {/* Logo + akèy */}
-        <div className="text-center mb-8 sd-rise">
-          <div className="w-24 h-24 mx-auto rounded-[28px] bg-white grid place-items-center
-                          shadow-[0_18px_50px_-12px_rgba(0,0,0,.6)] sd-float">
+      {/* ══ HEADER: KÒD KLIYAN sèlman + non anba ══ */}
+      <header className="bg-navy text-white sticky top-0 z-30">
+        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white grid place-items-center overflow-hidden shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-16 object-contain" />
+            <img src="/logo.png" alt="" className="h-8 object-contain" />
           </div>
-          <h1 className="text-[28px] font-extrabold text-white mt-6 tracking-tight">Byenvini</h1>
-          <p className="text-sm text-white/55 mt-1.5">Konekte pou w wè koli ou yo</p>
-        </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-extrabold text-lg leading-tight truncate">{client.customer_code}</p>
+            <p className="text-[12px] text-white/65 truncate">{non || "—"}</p>
+          </div>
 
-        {/* Kat vè depoli */}
-        <form onSubmit={(e) => { e.preventDefault(); submit(); }}
-          className="rounded-[26px] bg-white/[0.07] backdrop-blur-xl border border-white/15
-                     shadow-[0_24px_70px_-20px_rgba(0,0,0,.7)] p-6 space-y-4 sd-rise sd-d2">
-
-          <label className="block">
-            <span className="sd-label">Kòd kliyan</span>
-            <div className="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/15 px-4
-                            focus-within:border-white/50 focus-within:bg-white/15 transition">
-              <User size={18} className="text-white/40 shrink-0" />
-              <input
-                name="username" autoComplete="username" autoCapitalize="characters"
-                placeholder="MC-XXXXX"
-                className="w-full bg-transparent py-3.5 text-[15px] text-white placeholder:text-white/30
-                           focus:outline-none uppercase tracking-wide"
-                value={username} onChange={(e) => setUsername(e.target.value)} />
-            </div>
-          </label>
-
-          <label className="block">
-            <span className="sd-label">Modpas</span>
-            <div className="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/15 px-4
-                            focus-within:border-white/50 focus-within:bg-white/15 transition">
-              <Lock size={18} className="text-white/40 shrink-0" />
-              <input
-                type={show ? "text" : "password"} name="password" autoComplete="current-password"
-                placeholder="••••••••"
-                className="w-full bg-transparent py-3.5 text-[15px] text-white placeholder:text-white/30 focus:outline-none"
-                value={password} onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && submit()} />
-              <button type="button" onClick={() => setShow((v) => !v)}
-                aria-label={show ? "Kache modpas la" : "Montre modpas la"}
-                className="text-white/40 hover:text-white shrink-0 p-1">
-                {show ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </label>
-
-          {err && (
-            <div className="rounded-2xl bg-red-500/15 border border-red-400/30 px-4 py-3 space-y-2.5 sd-rise">
-              <p className="text-[13px] text-red-100 leading-relaxed">{err}</p>
-              <a href={WA} target="_blank" rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-[12px] font-bold text-white
-                           bg-emerald-600 hover:bg-emerald-500 rounded-lg px-3 py-2 transition">
-                <MessageCircle size={14} /> Mande èd sou WhatsApp
-              </a>
-            </div>
-          )}
-
-          <button type="submit" disabled={busy}
-            className={`w-full rounded-2xl py-4 text-[15px] font-bold text-white transition
-                        shadow-[0_14px_34px_-10px_rgba(99,102,241,.9)] disabled:opacity-60
-                        ${busy ? "sd-sheen" : ""}`}
-            style={{
-              backgroundImage: busy
-                ? "linear-gradient(90deg,#4F46E5,#7C6CF7,#4F46E5)"
-                : "linear-gradient(135deg,#4F46E5 0%,#6D5BF5 50%,#0E9488 100%)"
-            }}>
-            {busy ? "Ap konekte…" : "Konekte"}
+          <button onClick={refresh} disabled={refreshing} aria-label="Actualiser"
+            title="Mettre à jour toutes les données"
+            className="w-9 h-9 rounded-lg grid place-items-center text-white/85 hover:text-white hover:bg-white/10 disabled:opacity-60">
+            {refreshing
+              ? <Spinner size={19} />
+              : toast ? <SuccessCheck size={20} /> : <RefreshCw size={19} />}
           </button>
 
-          <a href={WA} target="_blank" rel="noreferrer"
-            className="block text-center text-[12px] text-white/45 hover:text-white/75 transition pt-1">
-            Ou bliye modpas ou? Ekri nou sou WhatsApp
-          </a>
-        </form>
+          <button onClick={() => setView("infos")} aria-label="Guide et aide" title="Guide & Aide"
+            className="w-9 h-9 rounded-lg grid place-items-center text-white/85 hover:text-white hover:bg-white/10">
+            <HelpCircle size={19} />
+          </button>
 
-        {/* KREYE KONT — sou SIT WÈB la sèlman */}
-        <div className="mt-7 text-center sd-rise sd-d4">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="h-px flex-1 bg-white/15" />
-            <span className="text-[11px] text-white/35 tracking-wider">POKO GEN KONT?</span>
-            <span className="h-px flex-1 bg-white/15" />
-          </div>
-          <a href={SITE_INSCRIPTION} target="_blank" rel="noreferrer"
-            className="inline-flex items-center justify-center gap-2 w-full rounded-2xl
-                       border border-white/25 bg-white/[0.06] hover:bg-white/[0.12]
-                       text-white font-bold py-3.5 text-[14px] transition">
-            Kreye yon kont <ArrowRight size={16} />
+          <a href={WA_LINK} target="_blank" rel="noreferrer" aria-label="WhatsApp"
+            className="w-9 h-9 rounded-lg grid place-items-center text-white/85 hover:text-white hover:bg-white/10">
+            <MessageCircle size={19} />
           </a>
-          <p className="text-[11px] text-white/30 mt-2.5 leading-relaxed">
-            Enskripsyon fèt sou sit standacommercialsa.com
-          </p>
+
+          <div className="relative">
+            <button aria-label="Mon compte" onClick={() => setMenuOpen((v) => !v)}
+              className="flex items-center gap-1 text-white/85 hover:text-white rounded-lg px-1.5 py-1.5 hover:bg-white/10">
+              <div className="w-7 h-7 rounded-full bg-white/15 grid place-items-center"><User size={15} /></div>
+              <ChevronDown size={14} />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 mt-1 w-56 bg-white rounded-xl shadow-lift border border-line py-1 z-20 text-ink">
+                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-mist text-left"
+                    onClick={() => { setMenuOpen(false); setShowPwd(true); }}>
+                    <KeyRound size={15} className="text-mute" /> Changer mon mot de passe
+                  </button>
+                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-mist text-left text-red-600"
+                    onClick={logout}>
+                    <LogOut size={15} /> Dekonekte
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
+      </header>
+
+      <div className="max-w-3xl mx-auto p-4 space-y-4">
+
+        {/* ═══════════ ACCUEIL ═══════════ */}
+        {view === "home" && (
+          <>
+            <MenuRow icon={Bell} label="Disponibles" count={disponibles.length} to="disponibles" accent />
+            <MenuRow icon={Box} label="Réceptions" count={receptionsAll.length} to="receptions" />
+            <MenuRow icon={FileText} label="Factures" count={invs.length} to="factures" />
+            <MenuRow icon={History} label="Historique" count={historique.length} to="historique" />
+
+            <button onClick={() => setView("infos")}
+              className="w-full card card-hover px-4 py-4 flex items-center gap-3 text-left">
+              <BookOpen size={20} className="text-navy shrink-0" />
+              <span className="flex-1 text-[15px] font-semibold text-ink">Guide &amp; Aide</span>
+              <ChevronRight size={16} className="text-slate-300 shrink-0" />
+            </button>
+
+            {retraits.length > 0 && (
+              <section className="space-y-2 pt-1">
+                <h2 className="h-sec">Demandes de retrait</h2>
+                {retraits.map((r) => {
+                  const open = openRetrait === r.id;
+                  return (
+                    <div key={r.id} className="card overflow-hidden">
+                      <button className="w-full p-4 flex items-center justify-between gap-3 text-left"
+                        onClick={() => setOpenRetrait(open ? null : r.id)}>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-ink">
+                            {r.package_count} colis · {Number(r.total_weight).toFixed(2)} lb
+                          </p>
+                          <p className="text-xs text-mute mt-0.5">{dateFr(r.created_at)}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`pill ${r.status === "Remis" ? "pill-green" : r.status === "Préparé" ? "pill-blue" : "pill-amber"}`}>
+                            <span className="pill-dot" /> {r.status}
+                          </span>
+                          <ChevronDown size={15} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                        </div>
+                      </button>
+                      {open && (
+                        <div className="border-t border-line divide-y divide-line">
+                          {(r.items ?? []).length === 0
+                            ? <p className="px-4 py-3 text-xs text-mute">Detay koli yo pa disponib.</p>
+                            : (r.items ?? []).map((it, i) => (
+                              <div key={it.id ?? i} className="px-4 py-2.5">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="font-mono text-[12px] font-bold text-ink truncate">{it.tracking_number || "—"}</p>
+                                  <span className="text-[12px] font-semibold text-ink shrink-0">
+                                    {Number(it.weight) > 0 ? `${Number(it.weight).toFixed(2)} lb` : "—"}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-mute truncate mt-0.5">
+                                  {it.tracking_manual || "—"} · {it.content || "—"}
+                                </p>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </section>
+            )}
+          </>
+        )}
+
+        {/* ═══════════ DISPONIBLES ═══════════ */}
+        {view === "disponibles" && (
+          <>
+            <SubHeader title="Disponibles" sub="Koli pare pou w vin pran" />
+            {disponibles.length === 0 ? <Empty t="Pa gen koli disponib pou kounye a." /> : (
+              <>
+                <Totaux list={disponibles} />
+                <p className="text-[12px] text-mute px-1 leading-relaxed">
+                  Seleksyone tout koli w ap pran yo epi peze &quot;Notifier mon retrait&quot; pou nou
+                  kapab prepare koli yo pou ou anvan w pase pran yo.
+                </p>
+                <div className="space-y-3">
+                  {disponibles.map((p) => <PkgCard key={p.id} p={p} check />)}
+                </div>
+              </>
+            )}
+            {sel.size > 0 && (
+              <div className="sticky bottom-24 z-20">
+                <button className="btn btn-brand w-full justify-center shadow-lift" onClick={notifierRetrait} disabled={busy}>
+                  <Bell size={15} /> Notifier mon retrait ({sel.size})
+                </button>
+              </div>
+            )}
+            {msg && <p className="card px-4 py-3 text-sm text-navy">{msg}</p>}
+          </>
+        )}
+
+        {/* ═══════════ RÉCEPTIONS ═══════════ */}
+        {view === "receptions" && (
+          <>
+            <SubHeader title="Réceptions" sub="Koli rive pou ou · poko fakti" />
+            {receptionsAll.length === 0 ? <Empty t="Poko gen koli ki rive." /> : (
+              <>
+                <Totaux list={receptionsAll} />
+                <div className="space-y-3">
+                  {disponibles.length > 0 && (
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-brand-dark pt-1">
+                      Disponibles ({disponibles.length})
+                    </p>
+                  )}
+                  {disponibles.map((p) => <PkgCard key={p.id} p={p} />)}
+                  {autres.length > 0 && (
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-mute pt-2">
+                      En cours ({autres.length})
+                    </p>
+                  )}
+                  {autres.map((p) => <PkgCard key={p.id} p={p} />)}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ═══════════ HISTORIQUE ═══════════ */}
+        {view === "historique" && (
+          <>
+            <SubHeader title="Historique" sub="Koli ki fin fakti" />
+            {historique.length === 0 ? <Empty t="Poko gen koli nan istorik la." /> : (
+              <>
+                <Totaux list={historique} reel />
+                <div className="space-y-3">{historique.map((p) => <PkgCard key={p.id} p={p} />)}</div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ═══════════ FACTURES ═══════════ */}
+        {view === "factures" && (
+          <>
+            <SubHeader title="Factures" sub={`${invs.length} fakti`} />
+            {invs.length === 0 ? <Empty t="Poko gen fakti." /> : (
+              <div className="card divide-y divide-line">
+                {invs.map((f) => (
+                  <div key={f.id} className="flex items-center justify-between gap-3 p-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-navy">{f.invoice_number}</p>
+                      <p className="text-xs text-mute mt-0.5">
+                        {dateFr(f.created_at)} · {f.package_count} koli · {Number(f.total_weight).toFixed(2)} lb
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-extrabold text-ink">{usd(f.grand_total)}</p>
+                      {f.pdf_url
+                        ? <a href={f.pdf_url} target="_blank" rel="noreferrer" className="text-xs text-navy underline font-semibold">Telechaje PDF</a>
+                        : <span className="text-xs text-slate-400">—</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ═══════════ GUIDE & AIDE ═══════════ */}
+        {view === "infos" && (
+          <>
+            <SubHeader title="Guide & Aide" sub="Tout sa w bezwen konnen sou shipping ou" />
+
+            {/* Kijan sa mache */}
+            <div className="card p-5">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+                <Truck size={15} /> Kijan shipping la mache
+              </h2>
+              <ol className="mt-3 space-y-3">
+                {([
+                  ["Achte sou entènèt", `Sou Amazon, SHEIN, eBay… Mete adrès depo nou Miami an, epi mete kòd ${client.customer_code} la sou liy "Address 2".`],
+                  ["Nou resevwa koli a Miami", "Depo nou an anrejistre l epi peze l. W ap resevwa yon imèl ak yon mesaj WhatsApp."],
+                  ["Koli a vwayaje", "Li pati Miami pou Ayiti, li pase ladwàn, epi li desann nan agans vil ou."],
+                  ["Ou vin pran li", "Lè statut la vin Disponib, peze \"Notifier mon retrait\" pou n prepare l anvan w rive."]
+                ] as const).map(([t, d], i) => (
+                  <li key={t} className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-navy text-white text-[11px] font-bold grid place-items-center shrink-0">
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-bold text-ink leading-tight">{t}</p>
+                      <p className="text-[12px] text-mute leading-relaxed mt-0.5">{d}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            {/* Adrès la — jan pou w ekri l */}
+            <div className="card p-5">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+                <MapPin size={15} /> Jan pou w ekri adrès la
+              </h2>
+              <p className="text-[12px] text-mute mt-2 leading-relaxed">
+                Kopye chan sa yo <b>egzakteman</b> lè w ap achte. Se kòd la ki fè nou konnen koli a se pou ou.
+              </p>
+              <div className="mt-3 rounded-xl border border-line divide-y divide-line">
+                {([["Full Name", `${client.customer_code} ${non || ""}`.trim()],
+                   ["Address 1", DEPOT.address1],
+                   ["Address 2", client.customer_code],
+                   ["City", DEPOT.city],
+                   ["State", DEPOT.state],
+                   ["ZIP Code", DEPOT.zip],
+                   ["Phone", DEPOT.phone]] as const).map(([k, v]) => (
+                  <div key={k} className="flex justify-between gap-3 px-3 py-2">
+                    <span className="text-[12px] text-mute shrink-0">{k}</span>
+                    <span className={`text-[12px] font-semibold text-right break-all ${k.startsWith("Address 2") || k === "Full Name" ? "text-navy" : "text-ink"}`}>{v}</span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setView("adresse")} className="btn btn-ghost border border-line w-full justify-center mt-3 !text-xs">
+                Wè adrès konplè m
+              </button>
+            </div>
+
+            {/* Tarif */}
+            <div className="card p-5">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+                <Calculator size={15} /> Kijan pri a kalkile
+              </h2>
+              <ul className="mt-3 space-y-2 text-[12px] text-mute leading-relaxed">
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span>Pri a se <b>pwa koli a × tarif vil ou</b>{client.ville?.name ? <> ({client.ville.name})</> : null}.</span></li>
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span>Ti koli ant <b>{smallCfg.min} ak {smallCfg.max} lb</b>: pri fiks <b>{usd(smallCfg.price)}</b>.</span></li>
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span>Depi pwa total la rive <b>{TAX_THRESHOLD_LB} lb</b>, gen yon taks fiks <b>{usd(TAX_FIXED_USD)}</b>.</span></li>
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span>Kèk atik (telefòn, laptòp, kamera…) gen yon <b>pri fòfè</b> — pwa a pa konte.</span></li>
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span>Pri sou app la se yon <b>estimasyon</b>. Pri final la fikse lè koli a peze nan depo a.</span></li>
+              </ul>
+              <button onClick={() => setView("calc")} className="btn btn-ghost border border-line w-full justify-center mt-3 !text-xs">
+                <Calculator size={14} /> Louvri kalkilatris la
+              </button>
+            </div>
+
+            {/* Atik entèdi */}
+            <div className="card p-5 border-red-200">
+              <h2 className="text-sm font-bold text-red-700 uppercase tracking-wide flex items-center gap-2">
+                <Ban size={15} /> Atik entèdi
+              </h2>
+              <p className="text-[12px] text-mute mt-2 leading-relaxed">
+                Konpayi avyon yo ak ladwàn entèdi atik sa yo. Yo p ap ka vwayaje:
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
+                {["Zam ak minisyon", "Pwodwi ki pran dife", "Eksplozif", "Pwodwi korozif",
+                  "Batri litium separe", "Dwòg ak narkotik", "Bagay pònografik", "Bèt vivan",
+                  "Lajan kach", "Pwodwi ki gate vit"].map((a) => (
+                  <p key={a} className="text-[12px] text-ink flex gap-1.5">
+                    <span className="text-red-500 shrink-0">✕</span>{a}
+                  </p>
+                ))}
+              </div>
+              <p className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 mt-3 leading-relaxed">
+                <AlertTriangle size={12} className="inline mr-1" />
+                Ou responsab sa w voye. Yon koli entèdi ka sezi pa ladwàn san remèd.
+                Si w gen dout sou yon atik, mande nou sou WhatsApp anvan w achte.
+              </p>
+            </div>
+
+            {/* Kesyon */}
+            <div className="card p-5">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+                <HelpCircle size={15} /> Kesyon moun poze souvan
+              </h2>
+              <div className="mt-3 divide-y divide-line">
+                {([
+                  ["Konbyen tan koli m ap pran?",
+                   "Sa depann de lè li rive Miami ak vwayaj la. W ap wè chak etap nan app la — klike sou koli a pou w wè kote li ye."],
+                  ["Poukisa koli m poko parèt?",
+                   "Yon koli parèt sèlman lè depo nou an Miami resevwa l epi anrejistre l. Si transpòtè a (Amazon, FedEx…) di li livre men li poko nan app la, tann kèk èdtan epi peze bouton Actualiser a."],
+                  ["Èske m ka voye plizyè koli ansanm?",
+                   "Wi. Tout koli ki gen kòd ou a rasanble anba kont ou, epi ou ka fakti yo ansanm."],
+                  ["Kisa \"Notifier mon retrait\" vle di?",
+                   "Se pou di nou ki koli w ap vin pran. N ap prepare yo davans pou w pa tann lè w rive nan agans lan."],
+                  ["Mwen bliye modpas mwen.",
+                   "Kontakte nou sou WhatsApp. N ap voye yon nouvo modpas tanporè ba ou, epi w ap chanje l lè w konekte."],
+                  ["Èske pri a ka chanje?",
+                   "Pri sou app la se yon estimasyon dapre pwa MCPACK bay la. Pri final la se sa ki sou fakti a, lè koli a peze nan depo a."]
+                ] as const).map(([q, a]) => (
+                  <details key={q} className="py-2.5 group">
+                    <summary className="text-[13px] font-semibold text-ink cursor-pointer list-none flex items-start gap-2">
+                      <ChevronRight size={14} className="text-slate-400 shrink-0 mt-0.5 transition-transform group-open:rotate-90" />
+                      <span>{q}</span>
+                    </summary>
+                    <p className="text-[12px] text-mute leading-relaxed mt-1.5 pl-6">{a}</p>
+                  </details>
+                ))}
+              </div>
+            </div>
+
+            <a href={WA_LINK} target="_blank" rel="noreferrer" className="btn btn-wa w-full justify-center">
+              <MessageCircle size={15} /> Kesyon ou pa jwenn? Ekri nou sou WhatsApp
+            </a>
+          </>
+        )}
+
+        {/* ═══════════ MON ADRESSE ═══════════ */}
+        {view === "adresse" && (
+          <>
+            <SubHeader title="Mon adresse" sub="Adrès depo ou Ozetazini" />
+            <div className="card p-5">
+              {([["Full Name / Nombre completo", non || "—"],
+                 ["Address 1", DEPOT.address1],
+                 ["Address 2", client.customer_code],
+                 ["City", DEPOT.city],
+                 ["State", DEPOT.state],
+                 ["ZIP Code", DEPOT.zip],
+                 ["Phone", DEPOT.phone]] as const).map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4 border-b border-line py-2.5 last:border-0">
+                  <span className="text-mute text-sm">{k}</span>
+                  <span className={`font-semibold text-sm text-right ${k === "Address 2" ? "text-navy" : "text-ink"}`}>{v}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ═══════════ CALCULATRICE ═══════════ */}
+        {view === "calc" && (
+          <>
+            <SubHeader title="Calculatrice" sub="Estime konbyen shipping ou ap koute" />
+            <div className="card p-5 space-y-4">
+              <label className="block">
+                <span className="text-xs font-semibold text-mute">Pwa koli a (LB)</span>
+                <input className="input mt-1.5 text-lg font-semibold" inputMode="decimal" placeholder="Ex: 4.5"
+                  value={calcW} onChange={(e) => setCalcW(e.target.value)} />
+              </label>
+
+              {calcOk && !calcRes && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+                  Tarif vil ou a poko konfigire nan sistèm nan. Kontakte nou sou WhatsApp.
+                </p>
+              )}
+
+              {calcRes && (
+                <div className="rounded-xl border border-line divide-y divide-line">
+                  <div className="flex justify-between px-4 py-2.5 text-sm">
+                    <span className="text-mute">
+                      Transport {calcRes.smallCount > 0 ? "(petit colis)" : `(${calcRes.totalWeight.toFixed(2)} lb)`}
+                    </span>
+                    <span className="font-semibold text-ink">{usd(calcRes.subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5 text-sm">
+                    <span className="text-mute">Taxe fixe</span>
+                    <span className="font-semibold text-ink">
+                      {calcRes.fixedTax > 0 ? usd(calcRes.fixedTax) : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between px-4 py-3 bg-mist rounded-b-xl">
+                    <span className="font-bold text-ink text-sm">Total estimé</span>
+                    <span className="font-extrabold text-navy text-lg">{usd(calcRes.total)}</span>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[11px] text-mute">
+                Taxe fiks {usd(TAX_FIXED_USD)} ajoute depi pwa total la rive {TAX_THRESHOLD_LB} lb.
+                Ti koli {smallCfg.min}–{smallCfg.max} lb: {usd(smallCfg.price)}.
+                Sa se yon <b>estimasyon</b> — pri final la fikse lè koli a peze nan depo a.
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
-      <p className="relative text-center text-[10px] text-white/20 pb-6 tracking-[.2em]">
-        STANDA COMMERCIAL
-      </p>
+      {/* ══ DETAY KOLI ══ */}
+      {detail && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4"
+          onClick={() => setDetail(null)}>
+          <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[88vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-line px-4 py-3 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-ink">Détails du colis</h2>
+              <button onClick={() => setDetail(null)} className="text-slate-400 hover:text-navy"><X size={19} /></button>
+            </div>
+            <div className="p-4 space-y-3">
+              {/* SUIVI — kote koli a ye, etap pa etap */}
+              <div className="rounded-xl bg-mist p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-mute mb-3">Suivi du colis</p>
+                <SuiviVertical p={detail} />
+              </div>
+
+              <div className="divide-y divide-line">
+                {([
+                  ["Tracking ID", detail.tracking_number],
+                  ["Tracking Number", detail.tracking_manual],
+                  ["Contenu", detail.content],
+                  ["Poids", Number(detail.weight) > 0 ? `${Number(detail.weight).toFixed(2)} lb` : ""],
+                  ["Quantité", detail.quantity ? String(detail.quantity) : ""],
+                  ["Statut", detail.status],
+                  ["Date réception", detail.received_at ? dateFr(detail.received_at) : ""],
+                  ["Prix", Number(detail.price_usd) > 0 ? usd(detail.price_usd) : ""],
+                  ["Taxes", Number(detail.tax_usd) > 0 ? usd(detail.tax_usd) : ""],
+                  ["Total", Number(detail.total_usd) > 0 ? usd(detail.total_usd) : ""],
+                  ["Facturé", isDone(detail) ? "Oui" : "Non"]
+                ] as const).map(([k, v]) => (
+                  <div key={k} className="flex justify-between gap-4 py-2.5">
+                    <span className="text-mute text-[13px] shrink-0">{k}</span>
+                    <span className="font-semibold text-[13px] text-ink text-right break-all">
+                      {String(v ?? "").trim() || "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <a href={waPkgLink(detail, client.customer_code)} target="_blank" rel="noreferrer"
+                className="btn btn-wa w-full justify-center">
+                <MessageCircle size={15} /> Poze yon kesyon sou koli sa a
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ Modal: chanje modpas ══ */}
+      {showPwd && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowPwd(false)}>
+          <div className="card p-6 max-w-sm w-full space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="h-sec">Changer mon mot de passe</h2>
+              <button className="text-slate-400 hover:text-navy" onClick={() => setShowPwd(false)}><X size={18} /></button>
+            </div>
+            <label className="block">
+              <span className="text-xs font-semibold text-mute">Nouveau mot de passe</span>
+              <input type="password" className="input mt-1" value={pwd1} onChange={(e) => setPwd1(e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold text-mute">Confirmer le mot de passe</span>
+              <input type="password" className="input mt-1" value={pwd2}
+                onChange={(e) => setPwd2(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && changePassword()} />
+            </label>
+            {pwdMsg && <p className={`text-sm rounded-lg px-3 py-2 ${pwdMsg.startsWith("✅")
+              ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
+              : "text-red-600 bg-red-50 border border-red-200"}`}>{pwdMsg}</p>}
+            <button className="btn w-full justify-center" onClick={changePassword} disabled={pwdBusy}>
+              {pwdBusy ? "Ap chanje..." : "Enregistrer"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ══ ✅ CONFIRMATION (pwen 3) — apre chak anrejistreman reyisi ══ */}
+      {toast && <SavedToast message={toast} onClose={() => setToast(null)} />}
+
+      {/* ══ BARE NAVIGASYON ANBA ══ */}
+      <nav className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-line">
+        <div className="max-w-3xl mx-auto flex items-stretch px-2 pb-[env(safe-area-inset-bottom)]">
+          <NavBtn icon={FileText} label="Factures" to="factures" />
+          <NavBtn icon={MapPin} label="Adresse" to="adresse" />
+          <button onClick={() => setView("home")} aria-label="Accueil"
+            className="flex-1 flex flex-col items-center -mt-5">
+            <span className={`w-14 h-14 rounded-full grid place-items-center border-4 border-white shadow-lift
+              ${view === "home" ? "bg-navy text-white" : "bg-navy-light text-white"}`}>
+              <Package size={24} />
+            </span>
+            <span className="text-[10px] font-semibold text-navy mt-0.5">Accueil</span>
+          </button>
+          <NavBtn icon={Calculator} label="Calcul" to="calc" />
+          <NavBtn icon={MessageCircle} label="WhatsApp" href={WA_LINK} />
+        </div>
+      </nav>
     </div>
   );
 }
