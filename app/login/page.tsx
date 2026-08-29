@@ -1,33 +1,38 @@
 "use client";
 /*
- * STANDA COMMERCIAL — ESPACE CLIENT (KONEKTE + KREYE KONT)
- * ════════════════════════════════════════════════════════
- * YON SÈL LYEN pou kliyan yo: /login
- *   Onglè 1 — Se connecter    (kòd MC + modpas)
- *   Onglè 2 — Créer un compte (menm fòm enskripsyon an, anndan)
+ * STANDA COMMERCIAL — MON COMPTE (koneksyon sou SIT WÈB la)
+ * ═════════════════════════════════════════════════════════
+ * Menm dekò ak paj /inscription: gradyan anime, kat vè depoli, chan ki
+ * monte youn apre lòt. De paj yo mache ansanm — yon moun ki pase de "Mon
+ * compte" a "S'inscrire" pa dwe santi li chanje sit.
  *
- * POUKISA KLIYAN YO PA T KA KONEKTE — twa kòz reyèl, tout twa korije:
- *   1) Fòma kòd la: yo tape "36191", "mc36191", "MC 36191" -> nou nòmalize.
+ * DE PAJ KONEKSYON, DE PWODWI
+ * ───────────────────────────
+ *   /login                     -> paj sa a, sou SIT WÈB la
+ *   /espace-client/connexion   -> nan APLIKASYON an
+ * Menm motè (menm kont, menm bazdone), abiman diferan.
+ *
+ * ENSKRIPSYON GEN YON SÈL KOTE: /inscription. Paj sa a pa gen fòm
+ * enskripsyon — li jis gen yon lyen. Ansyen lyen ?tab=signup redirije.
+ *
+ * POUKISA KLIYAN YO PA T KA KONEKTE — twa kòz, tout twa korije:
+ *   1) Fòma kòd la: "36191", "mc36191", "MC 36191" -> nou nòmalize.
  *   2) ESPAS nan modpas la: lè yo kopye modpas tanporè a sou WhatsApp, yon
  *      espas envizib kole nan bout la. Nou koupe espas devan/dèyè yo.
- *   3) Yo pa wè sa yo tape -> TI JE 👁️ sou chan modpas la.
+ *   3) Yo pa wè sa yo tape -> TI JE 👁️.
  *
- * ANREJISTRE MODPAS SOU TELEFÒN:
- *   Vrè <form> + name + autoComplete = Chrome/Safari pwopoze anrejistre
- *   modpas la. San sa, telefòn nan pa janm pwopoze anyen.
- *
- * Si tout echwe: yon bouton WhatsApp dirèk nan mesaj erè a — kliyan an pa
- * janm rete bloke san solisyon.
+ * ANREJISTRE MODPAS SOU TELEFÒN: vrè <form> + name + autoComplete. San yo,
+ * Chrome/Safari pa janm pwopoze anrejistre modpas la.
  */
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MessageCircle, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Lock, MessageCircle, User } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { clientEmail } from "@/lib/authx";
 import { normalizeMcCode } from "@/lib/utils";
 import { SUPPORT_PHONE } from "@/lib/branding";
-import PasswordInput from "@/components/PasswordInput";
+import AuthBackdrop from "@/components/AuthBackdrop";
 
 const WA = `https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`;
 
@@ -42,34 +47,29 @@ export default function LoginPage() {
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
-  /*
-   * Ansyen lyen ?tab=signup (WhatsApp deja voye yo) dwe kontinye mache.
-   * Enskripsyon gen YON SÈL kote kounye a: /inscription.
-   */
+
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [show, setShow] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  /* Ansyen lyen ?tab=signup (deja voye sou WhatsApp) dwe kontinye mache. */
   useEffect(() => {
     if (params.get("tab") === "signup") router.replace("/inscription");
   }, [params, router]);
 
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
   const submit = async () => {
     if (busy) return;
     setErr(null);
-
     const raw = username.trim();
     const norm = normalizeMcCode(raw);
-    // Modpas tanporè yo se lèt/chif — koupe espas ki kole lè yo kopye sou WhatsApp.
     const pass = password.trim();
-
     if (!raw) { setErr("Antre kòd MC ou (egzanp: MC-36191)."); return; }
     if (!pass) { setErr("Antre modpas ou."); return; }
 
     setBusy(true);
     try {
-      // Eseye kòd nòmalize a, apre sa kòd la jan li tape a (ansyen kont yo)
       const essais = Array.from(new Set([norm, raw.toUpperCase(), raw]));
       let ok = false, last: unknown = null;
       for (const code of essais) {
@@ -81,78 +81,123 @@ function LoginInner() {
       router.push("/espace-client");
     } catch (e: unknown) {
       const m = String((e as Error)?.message ?? "").toLowerCase();
-      if (m.includes("not confirmed")) {
-        setErr("Kont ou poko aktive. Kontakte STANDA COMMERCIAL sou WhatsApp.");
-      } else {
-        setErr(`Kòd ${norm || "MC-XXXXX"} oswa modpas la pa kòrèk. Peze ti je a pou verifye modpas ou tape a.`);
-      }
+      setErr(m.includes("not confirmed")
+        ? "Kont ou poko aktive. Kontakte STANDA COMMERCIAL sou WhatsApp."
+        : `Kòd ${norm || "MC-XXXXX"} oswa modpas la pa kòrèk. Peze ti je a pou verifye modpas ou tape a.`);
     } finally { setBusy(false); }
   };
 
   return (
-    <div className="min-h-screen bg-[#081226] py-8 px-4"
-      style={{ background: "radial-gradient(ellipse at top, #0E2145 0%, #081226 55%, #060D1C 100%)" }}>
-      <div className="mx-auto max-w-md">
+    <div className="relative min-h-screen overflow-hidden">
+      <AuthBackdrop />
 
-        <div className="text-center mb-5">
-          <div className="w-20 h-20 mx-auto rounded-2xl bg-white grid place-items-center shadow-lg">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-16 object-contain" />
-          </div>
-          <h1 className="text-xl font-extrabold text-white mt-3">Espace Client</h1>
-        </div>
+      <div className="relative max-w-md mx-auto px-5 py-8 sm:py-12">
 
-
-
-        {(
-          <form
-            onSubmit={(e) => { e.preventDefault(); submit(); }}
-            className="rounded-3xl bg-[#0D1F3F]/90 border border-white/10 shadow-2xl p-6 sm:p-8 space-y-5">
-
-            <label className="block">
-              <span className="text-xs font-semibold text-slate-300">Nom d&apos;utilisateur (kòd MC)</span>
-              <div className="mt-1 flex items-center gap-2 rounded-xl bg-[#122A52] border border-white/10 px-3 focus-within:border-blue-400">
-                <User size={16} className="text-[#9DB4DC] shrink-0" />
-                <input
-                  name="username" autoComplete="username" inputMode="text" autoCapitalize="characters"
-                  className="w-full bg-transparent py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none uppercase"
-                  value={username} onChange={(e) => setUsername(e.target.value)} placeholder="MC-XXXXX" />
-              </div>
-            </label>
-
-            <PasswordInput dark label="Modpas" value={password} onChange={setPassword} onEnter={submit} />
-
-            {err && (
-              <div className="rounded-xl bg-red-500/10 border border-red-400/30 px-4 py-3 space-y-2.5">
-                <p className="text-sm text-red-200">{err}</p>
-                <a href={WA} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg px-3 py-2">
-                  <MessageCircle size={14} /> Mande èd sou WhatsApp
-                </a>
-              </div>
-            )}
-
-            <button type="submit" disabled={busy}
-              className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm shadow-lg shadow-blue-900/40 transition-colors disabled:opacity-50">
-              {busy ? "Ap konekte..." : "Konekte"}
-            </button>
-
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Ou bliye modpas ou? Kontakte STANDA COMMERCIAL sou WhatsApp — n ap voye yon
-              nouvo modpas tanporè ba ou.
-            </p>
-          </form>
-        )}
-
-        {/* Enskripsyon fèt SOU YON SÈL KOTE: paj /inscription */}
-        <Link href="/inscription"
-          className="mt-4 flex items-center justify-center gap-2 w-full rounded-xl border border-white/20
-                     bg-white/5 hover:bg-white/10 text-white font-bold py-3.5 text-sm transition">
-          Poko gen kont? Kreye youn
+        <Link href="/accueil"
+          className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-white/60
+                     hover:text-white transition sd-rise">
+          <ArrowLeft size={15} /> Retour au site
         </Link>
 
-        <p className="text-center text-[11px] text-slate-500 mt-5">
-          <Link href="/confidentialite" className="hover:underline">Politique de confidentialité</Link>
+        <div className="text-center mt-6 mb-8">
+          <div className="w-20 h-20 mx-auto rounded-[24px] bg-white grid place-items-center
+                          shadow-[0_18px_50px_-14px_rgba(0,0,0,.6)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-14 object-contain" />
+          </div>
+          <h1 className="text-[28px] font-extrabold text-white mt-5 tracking-tight sd-rise sd-d1">
+            Mon compte
+          </h1>
+          <p className="text-sm text-white/55 mt-1.5 sd-rise sd-d2">
+            Konekte pou w wè koli ou yo
+          </p>
+        </div>
+
+        <form onSubmit={(e) => { e.preventDefault(); submit(); }}
+          className="rounded-[26px] bg-white/[0.07] backdrop-blur-xl border border-white/15
+                     shadow-[0_24px_70px_-20px_rgba(0,0,0,.7)] p-6 space-y-4 sd-rise sd-d3">
+
+          <label className="block">
+            <span className="sd-label">Nom d&apos;utilisateur (kòd MC)</span>
+            <div className="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/15 px-4
+                            focus-within:border-white/50 focus-within:bg-white/15 transition">
+              <User size={18} className="text-white/40 shrink-0" />
+              <input
+                name="username" autoComplete="username" autoCapitalize="characters"
+                placeholder="MC-XXXXX"
+                className="w-full bg-transparent py-3.5 text-[15px] text-white placeholder:text-white/30
+                           focus:outline-none uppercase tracking-wide"
+                value={username} onChange={(e) => setUsername(e.target.value)} />
+            </div>
+          </label>
+
+          <label className="block">
+            <span className="sd-label">Modpas</span>
+            <div className="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/15 px-4
+                            focus-within:border-white/50 focus-within:bg-white/15 transition">
+              <Lock size={18} className="text-white/40 shrink-0" />
+              <input
+                type={show ? "text" : "password"} name="password" autoComplete="current-password"
+                placeholder="••••••••"
+                className="w-full bg-transparent py-3.5 text-[15px] text-white placeholder:text-white/30 focus:outline-none"
+                value={password} onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submit()} />
+              <button type="button" onClick={() => setShow((v) => !v)}
+                aria-label={show ? "Kache modpas la" : "Montre modpas la"}
+                className="text-white/40 hover:text-white shrink-0 p-1">
+                {show ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </label>
+
+          {err && (
+            <div className="rounded-2xl bg-red-500/15 border border-red-400/30 px-4 py-3 space-y-2.5 sd-rise">
+              <p className="text-[13px] text-red-100 leading-relaxed">{err}</p>
+              <a href={WA} target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-[12px] font-bold text-white
+                           bg-indigo-600 hover:bg-indigo-500 rounded-lg px-3 py-2 transition">
+                <MessageCircle size={14} /> Mande èd sou WhatsApp
+              </a>
+            </div>
+          )}
+
+          <button type="submit" disabled={busy}
+            className={`w-full rounded-2xl py-4 text-[15px] font-bold text-white transition
+                        shadow-[0_14px_34px_-10px_rgba(99,102,241,.9)] disabled:opacity-60
+                        ${busy ? "sd-sheen" : ""}`}
+            style={{
+              backgroundImage: busy
+                ? "linear-gradient(90deg,#4F46E5,#7C6CF7,#4F46E5)"
+                : "linear-gradient(135deg,#4F46E5 0%,#6D5BF5 50%,#0E9488 100%)"
+            }}>
+            {busy ? "Ap konekte…" : "Konekte"}
+          </button>
+
+          <a href={WA} target="_blank" rel="noreferrer"
+            className="block text-center text-[12px] text-white/45 hover:text-white/75 transition pt-1">
+            Ou bliye modpas ou? Ekri nou sou WhatsApp
+          </a>
+        </form>
+
+        {/* Enskripsyon gen YON SÈL kote: /inscription */}
+        <div className="mt-7 text-center sd-rise sd-d5">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="h-px flex-1 bg-white/15" />
+            <span className="text-[11px] text-white/35 tracking-wider">POKO GEN KONT?</span>
+            <span className="h-px flex-1 bg-white/15" />
+          </div>
+          <Link href="/inscription"
+            className="inline-flex items-center justify-center gap-2 w-full rounded-2xl
+                       border border-white/25 bg-white/[0.06] hover:bg-white/[0.12]
+                       text-white font-bold py-3.5 text-[14px] transition">
+            Kreye yon kont <ArrowRight size={16} />
+          </Link>
+        </div>
+
+        <p className="text-center text-[11px] text-white/30 mt-8">
+          <Link href="/confidentialite" className="hover:text-white/60 transition">
+            Politique de confidentialité
+          </Link>
         </p>
       </div>
     </div>
