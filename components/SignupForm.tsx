@@ -10,6 +10,8 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2 } from "lucide-react";
 import { getVilles, registerClientProfile, getClientByAuthId } from "@/lib/db";
+import { MessageCircle } from "lucide-react";
+import { SUPPORT_PHONE } from "@/lib/branding";
 import { safeMessage } from "@/lib/safeerror";
 import { SITE_URL } from "@/lib/branding";
 import { Ville } from "@/lib/types";
@@ -61,8 +63,15 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
       });
       setDone(true);
     } catch (e: any) {
-      setErr(e.message?.includes("already registered")
-        ? "Imèl sa a gen yon kont deja. Eseye konekte pito."
+      /*
+       * Kliyan an pa dwe janm rete devan yon mesaj wouj san wout sòti.
+       * Nou di l KI SA ki pa bon, epi nou ba l de bouton: konekte, oswa
+       * ekri nou sou WhatsApp. Se konsa yon enskripsyon ki echwe pa vin
+       * yon kliyan ki pèdi.
+       */
+      const m = String(e?.message ?? "");
+      setErr(m.includes("already registered")
+        ? "Imèl sa a gen yon kont deja. Konekte sou kont ou pito."
         : safeMessage(e));
     }
   };
@@ -133,7 +142,28 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
             <F name="id_number" label="Nimewo idantifikasyon *" placeholder="Nimewo paspò a oswa nimewo kat la" />
           </div>
 
-          {err && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{err}</p>}
+          {/*
+            * Kliyan an pa dwe janm rete devan yon mesaj wouj san wout sòti.
+            * Nou di l sa ki pa bon, epi nou ba l de bouton: konekte sou kont
+            * li, oswa ekri nou. Yon enskripsyon ki echwe pa dwe vin yon
+            * kliyan ki pèdi.
+            */}
+          {err && (
+            <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 space-y-3">
+              <p className="text-sm text-red-700 leading-relaxed">{err}</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={onGoLogin}
+                  className="text-xs font-bold text-white bg-navy hover:bg-navy-dark rounded-lg px-3 py-2 transition">
+                  Konekte sou kont mwen
+                </button>
+                <a href={`https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-white
+                             bg-emerald-600 hover:bg-emerald-500 rounded-lg px-3 py-2 transition">
+                  <MessageCircle size={14} /> Mande èd sou WhatsApp
+                </a>
+              </div>
+            </div>
+          )}
 
           <button type="submit" className="btn w-full justify-center py-3" disabled={isSubmitting}>
             {isSubmitting ? "Ap kreye kont lan..." : "Créer mon compte"}
