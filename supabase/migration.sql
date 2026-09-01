@@ -324,6 +324,42 @@ update clients c set customer_code = 'MC-' || c.customer_code,
     and not exists (select 1 from clients c2
                     where c2.customer_code = 'MC-' || c.customer_code);
 
+-- ============================================================
+-- v11 — Ajans / Pwen retrait (annuaire public /agences)
+-- ============================================================
+-- Tab sa a te manke nan ansyen migrasyon yo: aplikasyon an (lib/agences.ts,
+-- /agences piblik la ak /settings/agences admin lan) atann li, men okenn
+-- fichye SQL pa t kreye l -> paj Ajans yo te toujou "endisponib".
+-- Politik RLS yo nan security-hardening.sql (section 13B) :
+--   • anon + authenticated ka LI ajans ki "active = true"
+--   • staff ka li tout, admin ka efase.
+create table if not exists agences (
+  id uuid primary key default gen_random_uuid(),
+  nom text unique not null,                 -- Ex: "Ouanaminthe" (inik -> pa 2 fwa menm vil)
+  adresse text not null default '',
+  telephone text not null default '',       -- fòma afichaj, Ex: "+509 4673 8117"
+  whatsapp text not null default '',        -- chif sèlman pou wa.me, Ex: "50946738117"
+  horaire_1 text not null default '',
+  horaire_2 text not null default '',
+  note text not null default '',
+  ordre int not null default 0,             -- lòd afichaj (pi piti a anvan)
+  active boolean not null default true,     -- false = kache sou /agences san efase
+  created_at timestamptz not null default now()
+);
+-- Baz ki te gen yon ansyen vèsyon tab la: konplete kolòn ki manke yo.
+alter table agences add column if not exists whatsapp text not null default '';
+alter table agences add column if not exists horaire_1 text not null default '';
+alter table agences add column if not exists horaire_2 text not null default '';
+alter table agences add column if not exists note text not null default '';
+alter table agences add column if not exists ordre int not null default 0;
+alter table agences add column if not exists active boolean not null default true;
+alter table agences add column if not exists created_at timestamptz not null default now();
+create index if not exists agences_ordre_idx on agences (ordre, nom);
+
+-- RLS deny-by-default (politik reyèl yo nan security-hardening.sql section 13B)
+alter table agences enable row level security;
+drop policy if exists "anon all agences" on agences;
+
 -- ════════════════════════════════════════════════════════════════════
 -- ✅ SCHÉMA OK.  ÉTAPE SUIVANTE OBLIGATOIRE — SÉCURITÉ :
 --
