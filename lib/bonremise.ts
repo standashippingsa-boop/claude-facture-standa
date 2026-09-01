@@ -58,6 +58,24 @@ export async function generateBonRemise(
   const conduces = Array.from(new Set(Object.values(conduceOf).filter(Boolean))).sort();
   const totalWeight = round2(pkgs.reduce((s, p) => s + (Number(p.weight) || 0), 0));
   const showConduce = conduces.length > 0;
+  /**
+   * Résumé destiné à l'agence qui reçoit les colis : elle voit immédiatement
+   * quels clients sont attendus et combien de colis chacun doit récupérer.
+   * Le code client est la clé principale, car il reste stable même si le nom
+   * a été corrigé entre deux synchronisations.
+   */
+  const clients = Array.from(pkgs.reduce((byCode, p) => {
+    const code = String(p.customer_code || "—").trim() || "—";
+    const current = byCode.get(code) ?? {
+      code,
+      name: String(p.customer_name || "Client non renseigné").trim() || "Client non renseigné",
+      count: 0
+    };
+    current.count += 1;
+    byCode.set(code, current);
+    return byCode;
+  }, new Map<string, { code: string; name: string; count: number }>()).values())
+    .sort((a, b) => a.code.localeCompare(b.code, "fr"));
 
   // ===== Header =====
   doc.setFillColor(...NAVY);
@@ -103,13 +121,33 @@ export async function generateBonRemise(
     doc.text(txt[0] ?? "—", 20 + doc.getTextWidth(label), 60);
   }
 
+  // ===== Résumé des destinataires =====
+  const clientsStartY = 40 + boxH + 7;
+  doc.setTextColor(...NAVY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("Résumé des destinataires", 14, clientsStartY);
+  doc.setFont("helvetica", "normal");
+
+  autoTable(doc, {
+    startY: clientsStartY + 3,
+    head: [["Code client", "Nom du client", "Total de colis"]],
+    body: clients.map((client) => [client.code, client.name, String(client.count)]),
+    theme: "grid",
+    headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold", fontSize: 8.5 },
+    alternateRowStyles: { fillColor: MIST },
+    styles: { fontSize: 8.5, cellPadding: 2 },
+    columnStyles: { 0: { cellWidth: 38, fontStyle: "bold" }, 2: { cellWidth: 30, halign: "center" } },
+    margin: { left: 14, right: 14 }
+  });
+
   // ===== Tablo koli yo =====
   const head = showConduce
     ? ["#", "Conduce", "Tracking ID (Guía)", "Code Client", "Nom Client", "Ville", "Poids (lb)"]
     : ["#", "Tracking ID (Guía)", "Code Client", "Nom Client", "Ville", "Poids (lb)"];
 
   autoTable(doc, {
-    startY: 40 + boxH + 6,
+    startY: (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8,
     head: [head],
     body: pkgs.map((p, i) => {
       const base = [

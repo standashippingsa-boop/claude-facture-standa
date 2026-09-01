@@ -24,9 +24,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle, Ban, Bell, BookOpen, Box, Calculator, Check, ChevronDown, ChevronLeft,
-  ChevronRight, Clock, FileText, History, HelpCircle, KeyRound, LogOut, MapPin,
-  MessageCircle, Package, RefreshCw, Truck, User, X
+  AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, Check, ChevronDown, ChevronLeft,
+  ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
+  Package, PackageCheck, ReceiptText, RefreshCw, Route, ScanLine, Truck, User, X
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";
@@ -45,8 +45,18 @@ import { dateFr, usd } from "@/lib/utils";
 import Loader, { SavedToast, Spinner, SuccessCheck } from "@/components/Loader";
 import StatusBadge from "@/components/StatusBadge";
 import { StatusTimeline } from "@/components/StatusFlow";
+import { WhatsAppIcon } from "@/components/site/BrandIcons";
 
-type View = "home" | "disponibles" | "receptions" | "factures" | "historique" | "adresse" | "calc" | "infos";
+type View = "home" | "disponibles" | "receptions" | "factures" | "historique" | "notifications" | "adresse" | "calc" | "infos";
+type NoticeKind = "available" | "invoice" | "pickup" | "shipment";
+type ClientNotice = {
+  id: string;
+  title: string;
+  description: string;
+  stamp: string;
+  to: View;
+  kind: NoticeKind;
+};
 
 const WA_NUM = SUPPORT_PHONE.replace(/\D/g, "");
 const WA_LINK = `https://wa.me/${WA_NUM}`;
@@ -70,19 +80,18 @@ function waPkgLink(p: Pkg, code: string): string {
 const isDone = (p: Pkg) => p.status === "Facturé" || p.status === "Livré" || !!p.invoice_id;
 
 /**
- * SUIVI VÈTIKAL — chak etap sou liy pa li, ak dat lè nou konnen l.
- * Kliyan an wè EGZAKTEMAN kote koli l rive epi sa k ap vini apre.
- * Etap ki pase = vèt ak ✓ · etap kounye a = ble k ap bat · rès la = gri.
+ * SUIVI VERTICAL — chaque étape affiche clairement la position du colis.
+ * Étape terminée = vert avec ✓ · étape active = bleu animé · le reste = gris.
  */
 function SuiviVertical({ p }: { p: Pkg }) {
   const ETAPES: { nom: string; desc: string; date?: string | null }[] = [
-    { nom: "Reçu à Miami", desc: "Koli ou rive nan depo nou Ozetazini", date: p.received_at ?? p.created_date },
-    { nom: "En préparation", desc: "N ap prepare l pou vwayaj la" },
-    { nom: "En transit", desc: "Koli a sou wout pou Ayiti" },
-    { nom: "Arrivé en Haïti", desc: "Li rive nan peyi a, l ap pase ladwàn" },
-    { nom: "En route vers agence", desc: "L ap desann nan agans vil ou" },
-    { nom: "Disponible", desc: "Ou ka vin pran li", date: p.verified_at },
-    { nom: "Facturé", desc: "Fakti a pare", date: p.invoiced_at }
+    { nom: "Reçu à Miami", desc: "Votre colis a été réceptionné dans notre entrepôt américain", date: p.received_at ?? p.created_date },
+    { nom: "En préparation", desc: "Votre colis est préparé pour le départ" },
+    { nom: "En transit", desc: "Votre colis voyage vers Haïti" },
+    { nom: "Arrivé en Haïti", desc: "Votre colis est arrivé dans le pays" },
+    { nom: "En route vers l'agence", desc: "Votre colis est en route vers votre agence" },
+    { nom: "Disponible", desc: "Vous pouvez venir le retirer", date: p.verified_at },
+    { nom: "Facturé", desc: "Votre facture est disponible", date: p.invoiced_at }
   ];
 
   const ORDRE = ["Reçu à Miami", "En préparation", "En transit", "Arrivé en Haïti",
@@ -117,7 +126,7 @@ function SuiviVertical({ p }: { p: Pkg }) {
               {e.date && (fini || ici) && (
                 <p className="text-[11px] font-semibold text-brand-dark mt-0.5">{dateFr(e.date)}</p>
               )}
-              {ici && <span className="pill pill-blue mt-1.5"><span className="pill-dot" />Kote li ye kounye a</span>}
+              {ici && <span className="pill pill-blue mt-1.5"><span className="pill-dot" />Étape en cours</span>}
             </div>
           </li>
         );
@@ -198,22 +207,22 @@ export default function EspaceClientPage() {
   const refresh = async () => {
     if (refreshing) return;
     setRefreshing(true);
-    try { await load(); setToast("Mizajou fèt"); }
+    try { await load(); setToast("Mise à jour effectuée"); }
     finally { setRefreshing(false); }
   };
   const logout = async () => { await supabase.auth.signOut(); router.replace("/espace-client/connexion"); };
 
   const changePassword = async () => {
     setPwdMsg(null);
-    if (pwd1.length < 6) { setPwdMsg("Modpas la dwe gen omwen 6 karaktè."); return; }
-    if (pwd1 !== pwd2) { setPwdMsg("De modpas yo pa menm."); return; }
+    if (pwd1.length < 6) { setPwdMsg("Le mot de passe doit contenir au moins 6 caractères."); return; }
+    if (pwd1 !== pwd2) { setPwdMsg("Les deux mots de passe ne correspondent pas."); return; }
     setPwdBusy(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: pwd1 });
       if (error) throw error;
       setPwd1(""); setPwd2("");
       setShowPwd(false); setPwdMsg(null);
-      setToast("Modpas ou chanje");
+      setToast("Votre mot de passe a été modifié");
     } catch (e: unknown) { setPwdMsg(safeMessage(e)); }
     finally { setPwdBusy(false); }
   };
@@ -225,14 +234,14 @@ export default function EspaceClientPage() {
     if (!client || !sel.size) return;
     // GAD: sèlman koli "Disponible" ka antre nan yon demann retrait.
     const chosen = pkgs.filter((p) => sel.has(p.id) && p.status === "Disponible");
-    if (!chosen.length) { setMsg("Sèlman koli ki Disponib ka antre nan yon demann retrait."); return; }
+    if (!chosen.length) { setMsg("Seuls les colis disponibles peuvent être ajoutés à une demande de retrait."); return; }
     setBusy(true);
     try {
       await createRetrait(client, chosen);
       setRetraits(await getClientRetraits(client.customer_code));
       setSel(new Set());
       setMsg(null);
-      setToast(`Demann retrait voye — ${chosen.length} koli`);
+      setToast(`Demande de retrait envoyée — ${chosen.length} colis`);
     } catch (e: unknown) { setMsg(safeMessage(e)); }
     finally { setBusy(false); }
   };
@@ -243,8 +252,8 @@ export default function EspaceClientPage() {
   if (!client) return (
     <div className="min-h-screen bg-mist grid place-items-center p-6">
       <div className="card p-8 max-w-md text-center space-y-4">
-        <p className="text-sm text-slate-600">Nou pa jwenn pwofil ou. Kontakte STANDA COMMERCIAL.</p>
-        <button className="btn justify-center w-full" onClick={logout}>Dekonekte</button>
+        <p className="text-sm text-slate-600">Votre profil est introuvable. Contactez STANDA COMMERCIAL.</p>
+        <button className="btn justify-center w-full" onClick={logout}>Se déconnecter</button>
       </div>
     </div>
   );
@@ -258,16 +267,16 @@ export default function EspaceClientPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" className="mx-auto h-14 object-contain" />
           <Clock className="mx-auto text-amber-500" size={44} />
-          <h1 className="text-lg font-extrabold text-navy">Kont ou an attente d&apos;activation</h1>
+          <h1 className="text-lg font-extrabold text-navy">Votre compte est en attente d&apos;activation</h1>
           <p className="text-sm text-slate-600">
-            {non} — ekip STANDA COMMERCIAL ap verifye enfòmasyon ou yo. Lè kont ou aktive,
-            w ap resevwa adrès depo ou Ozetazini epi w ap ka itilize tout sèvis shipping yo.
+            {non} — l&apos;équipe STANDA COMMERCIAL vérifie vos informations. Dès que votre compte sera activé,
+            vous recevrez votre adresse de dépôt aux États-Unis et pourrez utiliser tous nos services.
           </p>
           <a className="btn btn-wa justify-center w-full" href={WA_LINK} target="_blank" rel="noreferrer">
-            <MessageCircle size={15} /> Kontakte nou sou WhatsApp
+            <WhatsAppIcon size={15} /> Contactez-nous sur WhatsApp
           </a>
           <button className="btn btn-ghost justify-center w-full" onClick={logout}>
-            <LogOut size={15} /> Dekonekte
+            <LogOut size={15} /> Se déconnecter
           </button>
         </div>
       </div>
@@ -284,19 +293,85 @@ export default function EspaceClientPage() {
   const estimation = (list: Pkg[]) =>
     estimateForPackages(list.map((p) => Number(p.weight) || 0), client.account_type, client.ville, smallCfg);
 
+  const greetingName = non.split(/\s+/)[0] || client.customer_code;
+  const activePackage = autres.find((p) => ["En transit", "Arrivé en Haïti", "En route vers agence"].includes(p.status))
+    ?? autres[0]
+    ?? disponibles[0]
+    ?? null;
+  const clientNotifications: ClientNotice[] = [];
+
+  if (disponibles.length > 0) {
+    clientNotifications.push({
+      id: "available",
+      title: disponibles.length === 1 ? "Votre colis est disponible" : `${disponibles.length} colis sont disponibles`,
+      description: "Présentez-vous à votre agence avec une pièce d'identité.",
+      stamp: "À l'instant",
+      to: "disponibles",
+      kind: "available"
+    });
+  }
+  if (invs.length > 0) {
+    const latestInvoice = invs[0];
+    clientNotifications.push({
+      id: "invoice",
+      title: "Votre facture est prête",
+      description: latestInvoice?.invoice_number ? `Facture ${latestInvoice.invoice_number} disponible dans votre espace.` : "Votre facture est disponible dans votre espace.",
+      stamp: latestInvoice?.created_at ? dateFr(latestInvoice.created_at) : "Récemment",
+      to: "factures",
+      kind: "invoice"
+    });
+  }
+  if (retraits.length > 0) {
+    const latestRetrait = retraits[0];
+    clientNotifications.push({
+      id: "pickup",
+      title: "Suivi de votre retrait",
+      description: latestRetrait?.status === "Préparé" ? "Votre demande est préparée à l'agence." : "Votre demande de retrait est en cours de préparation.",
+      stamp: latestRetrait?.created_at ? dateFr(latestRetrait.created_at) : "Récemment",
+      to: "disponibles",
+      kind: "pickup"
+    });
+  }
+  if (!clientNotifications.length && activePackage) {
+    clientNotifications.push({
+      id: "shipment",
+      title: "Votre colis est en cours d'acheminement",
+      description: `${activePackage.tracking_number || "Votre colis"} · ${activePackage.status || "Statut en cours"}`,
+      stamp: "Actualisé",
+      to: "receptions",
+      kind: "shipment"
+    });
+  }
+
+  const journeyStage = activePackage?.status === "Disponible" || (activePackage ? isDone(activePackage) : false)
+    ? 2
+    : activePackage?.status === "En transit" || activePackage?.status === "Arrivé en Haïti" || activePackage?.status === "En route vers agence"
+      ? 1
+      : 0;
+
   // ── Ti konpozan ─────────────────────────────────────────────────────────
-  const MenuRow = ({ icon: Icon, label, count, to, accent }: {
-    icon: typeof Package; label: string; count: number; to: View; accent?: boolean;
+  const MenuRow = ({ icon: Icon, label, count, to, tone, description }: {
+    icon: typeof Package; label: string; count: number; to: View;
+    tone: "available" | "receive" | "invoice" | "history"; description: string;
   }) => (
     <button onClick={() => setView(to)}
-      className="w-full card card-hover px-4 py-4 flex items-center gap-3 text-left">
-      <Icon size={20} className={accent ? "text-brand-dark shrink-0" : "text-navy shrink-0"} />
-      <span className="flex-1 text-[15px] font-semibold text-ink">{label}</span>
-      <span className={`w-8 h-8 rounded-full grid place-items-center text-sm font-bold text-white shrink-0
-        ${accent ? "bg-brand" : "bg-navy"}`}>{count}</span>
+      className="client-stat-card text-left">
+      <span className={`client-stat-icon client-stat-icon-${tone}`}><Icon size={22} /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-bold text-ink leading-tight">{label}</span>
+        <span className="block text-[11px] text-mute mt-1 truncate">{description}</span>
+      </span>
+      <span className={`client-stat-count client-stat-count-${tone}`}>{count}</span>
       <ChevronRight size={16} className="text-slate-300 shrink-0" />
     </button>
   );
+
+  const NotificationIcon = ({ kind, size = 18 }: { kind: NoticeKind; size?: number }) => {
+    if (kind === "available") return <PackageCheck size={size} />;
+    if (kind === "invoice") return <ReceiptText size={size} />;
+    if (kind === "pickup") return <BellRing size={size} />;
+    return <Route size={size} />;
+  };
 
   /** Rezime yon lis koli: kantite, pwa total, epi pri (reyèl oswa estimasyon). */
   const Totaux = ({ list, reel }: { list: Pkg[]; reel?: boolean }) => {
@@ -307,7 +382,7 @@ export default function EspaceClientPage() {
       <div className="card p-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-mute">Total colis</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-mute">Total des colis</p>
             <p className="text-2xl font-extrabold text-ink leading-tight">{list.length}</p>
           </div>
           <div className="text-right">
@@ -339,7 +414,7 @@ export default function EspaceClientPage() {
         )}
         {!est && !reel && (
           <p className="mt-3 pt-3 border-t border-line text-[11px] text-amber-700">
-            Tarif vil ou a poko konfigire. Kontakte nou sou WhatsApp.
+            Le tarif de votre ville n&apos;est pas encore configuré. Contactez-nous sur WhatsApp.
           </p>
         )}
       </div>
@@ -407,7 +482,7 @@ export default function EspaceClientPage() {
     icon: typeof Package; label: string; to?: View; href?: string;
   }) => {
     const active = to && view === to;
-    const cls = `flex-1 flex flex-col items-center gap-0.5 py-2 ${active ? "text-navy" : "text-slate-400"}`;
+    const cls = `client-nav-item flex-1 flex flex-col items-center gap-0.5 py-2 ${active ? "text-navy" : "text-slate-400"}`;
     const inner = <><Icon size={20} /><span className="text-[10px] font-semibold">{label}</span></>;
     return href
       ? <a href={href} target="_blank" rel="noreferrer" className={cls}>{inner}</a>
@@ -415,18 +490,18 @@ export default function EspaceClientPage() {
   };
 
   return (
-    <div className="min-h-screen bg-mist pb-24">
+    <div className="client-app min-h-screen pb-24">
 
-      {/* ══ HEADER: KÒD KLIYAN sèlman + non anba ══ */}
-      <header className="bg-navy text-white sticky top-0 z-30">
-        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white grid place-items-center overflow-hidden shrink-0">
+      {/* ══ EN-TÊTE CLIENT ══ */}
+      <header className="client-app-header sticky top-0 z-30">
+        <div className="max-w-3xl mx-auto px-4 h-[68px] flex items-center gap-3">
+          <div className="client-logo-tile shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="" className="h-8 object-contain" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-extrabold text-lg leading-tight truncate">{client.customer_code}</p>
-            <p className="text-[12px] text-white/65 truncate">{non || "—"}</p>
+            <p className="font-extrabold text-[17px] leading-tight truncate">{client.customer_code}</p>
+            <p className="text-[11px] text-white/65 truncate">{non || "—"}</p>
           </div>
 
           <button onClick={refresh} disabled={refreshing} aria-label="Actualiser"
@@ -437,19 +512,25 @@ export default function EspaceClientPage() {
               : toast ? <SuccessCheck size={20} /> : <RefreshCw size={19} />}
           </button>
 
+          <button onClick={() => setView("notifications")} aria-label="Notifications" title="Notifications"
+            className="client-header-icon relative">
+            <BellRing size={19} />
+            {clientNotifications.length > 0 && <span className="client-notification-count">{Math.min(clientNotifications.length, 9)}</span>}
+          </button>
+
           <button onClick={() => setView("infos")} aria-label="Guide et aide" title="Guide & Aide"
-            className="w-9 h-9 rounded-lg grid place-items-center text-white/85 hover:text-white hover:bg-white/10">
+            className="client-header-icon hidden sm:grid">
             <HelpCircle size={19} />
           </button>
 
           <a href={WA_LINK} target="_blank" rel="noreferrer" aria-label="WhatsApp"
-            className="w-9 h-9 rounded-lg grid place-items-center text-white/85 hover:text-white hover:bg-white/10">
-            <MessageCircle size={19} />
+            className="client-header-icon">
+            <WhatsAppIcon size={19} />
           </a>
 
           <div className="relative">
             <button aria-label="Mon compte" onClick={() => setMenuOpen((v) => !v)}
-              className="flex items-center gap-1 text-white/85 hover:text-white rounded-lg px-1.5 py-1.5 hover:bg-white/10">
+              className="flex items-center gap-1 text-white/85 hover:text-white rounded-xl px-1.5 py-1.5 hover:bg-white/10">
               <div className="w-7 h-7 rounded-full bg-white/15 grid place-items-center"><User size={15} /></div>
               <ChevronDown size={14} />
             </button>
@@ -472,26 +553,84 @@ export default function EspaceClientPage() {
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto p-4 space-y-4">
+      <div className="client-app-content max-w-3xl mx-auto p-4 space-y-4">
 
         {/* ═══════════ ACCUEIL ═══════════ */}
         {view === "home" && (
           <>
-            <MenuRow icon={Bell} label="Disponibles" count={disponibles.length} to="disponibles" accent />
-            <MenuRow icon={Box} label="Réceptions" count={receptionsAll.length} to="receptions" />
-            <MenuRow icon={FileText} label="Factures" count={invs.length} to="factures" />
-            <MenuRow icon={History} label="Historique" count={historique.length} to="historique" />
+            <section className="client-welcome client-enter" aria-label="Résumé du compte">
+              <div>
+                <p className="client-eyebrow">ESPACE CLIENT</p>
+                <h1>Bonjour, {greetingName}</h1>
+                <p>Suivez vos colis et vos demandes depuis un seul espace.</p>
+              </div>
+              <button onClick={() => setView("notifications")} className="client-welcome-bell" aria-label="Ouvrir les notifications">
+                <BellRing size={20} />
+                {clientNotifications.length > 0 && <span>{Math.min(clientNotifications.length, 9)}</span>}
+              </button>
+            </section>
 
-            <button onClick={() => setView("infos")}
-              className="w-full card card-hover px-4 py-4 flex items-center gap-3 text-left">
-              <BookOpen size={20} className="text-navy shrink-0" />
-              <span className="flex-1 text-[15px] font-semibold text-ink">Guide &amp; Aide</span>
-              <ChevronRight size={16} className="text-slate-300 shrink-0" />
+            {clientNotifications[0] && (
+              <button onClick={() => setView(clientNotifications[0].to)} className="client-main-notice client-enter client-enter-d1">
+                <span className={`client-notice-icon client-notice-icon-${clientNotifications[0].kind}`}>
+                  <NotificationIcon kind={clientNotifications[0].kind} size={21} />
+                </span>
+                <span className="min-w-0 flex-1 text-left">
+                  <strong>{clientNotifications[0].title}</strong>
+                  <small>{clientNotifications[0].description}</small>
+                </span>
+                <ChevronRight size={18} className="text-slate-400 shrink-0" />
+              </button>
+            )}
+
+            <section className="client-stat-grid client-enter client-enter-d2" aria-label="Accès rapides">
+              <MenuRow icon={PackageCheck} label="Disponibles" count={disponibles.length} to="disponibles" tone="available" description="Colis prêts au retrait" />
+              <MenuRow icon={ScanLine} label="Réceptions" count={receptionsAll.length} to="receptions" tone="receive" description="Colis enregistrés" />
+              <MenuRow icon={ReceiptText} label="Factures" count={invs.length} to="factures" tone="invoice" description="Documents disponibles" />
+              <MenuRow icon={Route} label="Historique" count={historique.length} to="historique" tone="history" description="Vos derniers envois" />
+            </section>
+
+            {activePackage && (
+              <section className="client-shipment-card client-enter client-enter-d3">
+                <div className="client-shipment-heading">
+                  <div>
+                    <span className="client-status-label">{activePackage.status || "En cours"}</span>
+                    <h2>{activePackage.tracking_number || activePackage.tracking_manual || "Colis en cours"}</h2>
+                    <p>{activePackage.content || "Votre colis est pris en charge par STANDA."}</p>
+                  </div>
+                  <span className="client-map-mark"><MapPin size={19} /></span>
+                </div>
+                <div className={`client-route-progress client-route-stage-${journeyStage}`} aria-label="Avancement de votre colis">
+                  <span className="client-route-stop client-route-stop-start"><b><Package size={15} /></b><small>Miami</small></span>
+                  <span className="client-route-stop client-route-stop-middle"><b><Truck size={15} /></b><small>Haïti</small></span>
+                  <span className="client-route-stop client-route-stop-end"><b><MapPin size={15} /></b><small>Agence</small></span>
+                </div>
+                <button onClick={() => { setDetail(activePackage); setView("receptions"); }} className="client-follow-button">
+                  Voir le suivi <ChevronRight size={18} />
+                </button>
+              </section>
+            )}
+
+            <section className="client-notifications-preview client-enter client-enter-d4">
+              <div className="client-section-title"><h2>Notifications</h2><button onClick={() => setView("notifications")}>Voir tout</button></div>
+              {clientNotifications.length === 0 ? (
+                <div className="client-empty-notice"><Bell size={18} /> Aucune notification pour le moment.</div>
+              ) : clientNotifications.slice(0, 2).map((notice) => (
+                <button key={notice.id} onClick={() => setView(notice.to)} className="client-notification-row">
+                  <span className={`client-notice-icon client-notice-icon-${notice.kind}`}><NotificationIcon kind={notice.kind} /></span>
+                  <span className="min-w-0 flex-1 text-left"><strong>{notice.title}</strong><small>{notice.description}</small></span>
+                  <span className="client-notice-time">{notice.stamp}</span>
+                </button>
+              ))}
+            </section>
+
+            <button onClick={() => setView("infos")} className="client-help-link client-enter client-enter-d4">
+              <span><BookOpen size={19} /> Guide &amp; aide</span><ChevronRight size={17} />
             </button>
 
             {retraits.length > 0 && (
-              <section className="space-y-2 pt-1">
-                <h2 className="h-sec">Demandes de retrait</h2>
+              <section className="space-y-2 pt-1 client-enter client-enter-d4">
+                <h2 className="h-sec">Vos demandes de retrait</h2>
                 {retraits.map((r) => {
                   const open = openRetrait === r.id;
                   return (
@@ -514,7 +653,7 @@ export default function EspaceClientPage() {
                       {open && (
                         <div className="border-t border-line divide-y divide-line">
                           {(r.items ?? []).length === 0
-                            ? <p className="px-4 py-3 text-xs text-mute">Detay koli yo pa disponib.</p>
+                            ? <p className="px-4 py-3 text-xs text-mute">Le détail des colis n&apos;est pas disponible.</p>
                             : (r.items ?? []).map((it, i) => (
                               <div key={it.id ?? i} className="px-4 py-2.5">
                                 <div className="flex items-center justify-between gap-3">
@@ -541,13 +680,13 @@ export default function EspaceClientPage() {
         {/* ═══════════ DISPONIBLES ═══════════ */}
         {view === "disponibles" && (
           <>
-            <SubHeader title="Disponibles" sub="Koli pare pou w vin pran" />
-            {disponibles.length === 0 ? <Empty t="Pa gen koli disponib pou kounye a." /> : (
+            <SubHeader title="Disponibles" sub="Colis prêts à être retirés" />
+            {disponibles.length === 0 ? <Empty t="Aucun colis disponible pour le moment." /> : (
               <>
                 <Totaux list={disponibles} />
                 <p className="text-[12px] text-mute px-1 leading-relaxed">
-                  Seleksyone tout koli w ap pran yo epi peze &quot;Notifier mon retrait&quot; pou nou
-                  kapab prepare koli yo pou ou anvan w pase pran yo.
+                  Sélectionnez les colis que vous souhaitez retirer, puis cliquez sur « Préparer mon retrait »
+                  afin que notre équipe les prépare avant votre arrivée.
                 </p>
                 <div className="space-y-3">
                   {disponibles.map((p) => <PkgCard key={p.id} p={p} check />)}
@@ -557,7 +696,7 @@ export default function EspaceClientPage() {
             {sel.size > 0 && (
               <div className="sticky bottom-24 z-20">
                 <button className="btn btn-brand w-full justify-center shadow-lift" onClick={notifierRetrait} disabled={busy}>
-                  <Bell size={15} /> Notifier mon retrait ({sel.size})
+                  <Bell size={15} /> Préparer mon retrait ({sel.size})
                 </button>
               </div>
             )}
@@ -568,8 +707,8 @@ export default function EspaceClientPage() {
         {/* ═══════════ RÉCEPTIONS ═══════════ */}
         {view === "receptions" && (
           <>
-            <SubHeader title="Réceptions" sub="Koli rive pou ou · poko fakti" />
-            {receptionsAll.length === 0 ? <Empty t="Poko gen koli ki rive." /> : (
+            <SubHeader title="Réceptions" sub="Colis reçus · en attente de facturation" />
+            {receptionsAll.length === 0 ? <Empty t="Aucun colis reçu pour le moment." /> : (
               <>
                 <Totaux list={receptionsAll} />
                 <div className="space-y-3">
@@ -594,8 +733,8 @@ export default function EspaceClientPage() {
         {/* ═══════════ HISTORIQUE ═══════════ */}
         {view === "historique" && (
           <>
-            <SubHeader title="Historique" sub="Koli ki fin fakti" />
-            {historique.length === 0 ? <Empty t="Poko gen koli nan istorik la." /> : (
+            <SubHeader title="Historique" sub="Colis déjà facturés ou livrés" />
+            {historique.length === 0 ? <Empty t="Aucun colis dans votre historique." /> : (
               <>
                 <Totaux list={historique} reel />
                 <div className="space-y-3">{historique.map((p) => <PkgCard key={p.id} p={p} />)}</div>
@@ -607,8 +746,8 @@ export default function EspaceClientPage() {
         {/* ═══════════ FACTURES ═══════════ */}
         {view === "factures" && (
           <>
-            <SubHeader title="Factures" sub={`${invs.length} fakti`} />
-            {invs.length === 0 ? <Empty t="Poko gen fakti." /> : (
+            <SubHeader title="Factures" sub={`${invs.length} facture${invs.length > 1 ? "s" : ""}`} />
+            {invs.length === 0 ? <Empty t="Aucune facture pour le moment." /> : (
               <div className="card divide-y divide-line">
                 {invs.map((f) => (
                   <div key={f.id} className="flex items-center justify-between gap-3 p-4">
@@ -621,7 +760,7 @@ export default function EspaceClientPage() {
                     <div className="text-right shrink-0">
                       <p className="text-sm font-extrabold text-ink">{usd(f.grand_total)}</p>
                       {f.pdf_url
-                        ? <a href={f.pdf_url} target="_blank" rel="noreferrer" className="text-xs text-navy underline font-semibold">Telechaje PDF</a>
+                        ? <a href={f.pdf_url} target="_blank" rel="noreferrer" className="text-xs text-navy underline font-semibold">Télécharger le PDF</a>
                         : <span className="text-xs text-slate-400">—</span>}
                     </div>
                   </div>
@@ -631,22 +770,46 @@ export default function EspaceClientPage() {
           </>
         )}
 
+        {/* ═══════════ NOTIFICATIONS ═══════════ */}
+        {view === "notifications" && (
+          <>
+            <SubHeader title="Notifications" sub="Les informations importantes de votre compte" />
+            {clientNotifications.length === 0 ? (
+              <Empty t="Aucune notification pour le moment." />
+            ) : (
+              <div className="client-notification-list">
+                {clientNotifications.map((notice) => (
+                  <button key={notice.id} onClick={() => setView(notice.to)} className="client-notification-row client-notification-row-full">
+                    <span className={`client-notice-icon client-notice-icon-${notice.kind}`}><NotificationIcon kind={notice.kind} size={20} /></span>
+                    <span className="min-w-0 flex-1 text-left">
+                      <strong>{notice.title}</strong>
+                      <small>{notice.description}</small>
+                    </span>
+                    <span className="client-notice-time">{notice.stamp}</span>
+                    <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
         {/* ═══════════ GUIDE & AIDE ═══════════ */}
         {view === "infos" && (
           <>
-            <SubHeader title="Guide & Aide" sub="Tout sa w bezwen konnen sou shipping ou" />
+            <SubHeader title="Guide & Aide" sub="Tout ce qu&apos;il faut savoir sur vos expéditions" />
 
             {/* Kijan sa mache */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
-                <Truck size={15} /> Kijan shipping la mache
+                <Truck size={15} /> Comment fonctionne votre expédition
               </h2>
               <ol className="mt-3 space-y-3">
                 {([
-                  ["Achte sou entènèt", `Sou Amazon, SHEIN, eBay… Mete adrès depo nou Miami an, epi mete kòd ${client.customer_code} la sou liy "Address 2".`],
-                  ["Nou resevwa koli a Miami", "Depo nou an anrejistre l epi peze l. W ap resevwa yon imèl ak yon mesaj WhatsApp."],
-                  ["Koli a vwayaje", "Li pati Miami pou Ayiti, li pase ladwàn, epi li desann nan agans vil ou."],
-                  ["Ou vin pran li", "Lè statut la vin Disponib, peze \"Notifier mon retrait\" pou n prepare l anvan w rive."]
+                  ["Achetez en ligne", `Sur Amazon, SHEIN, eBay… utilisez l'adresse de notre dépôt à Miami et ajoutez le code ${client.customer_code} dans le champ « Address 2 ».`],
+                  ["Réception à Miami", "Notre entrepôt enregistre et pèse votre colis. Vous recevez ensuite une notification par e-mail ou WhatsApp."],
+                  ["Acheminement du colis", "Votre colis part de Miami vers Haïti, passe les formalités puis rejoint votre agence."],
+                  ["Retrait en agence", "Lorsque le statut devient « Disponible », cliquez sur « Préparer mon retrait » afin que votre colis soit prêt à votre arrivée."]
                 ] as const).map(([t, d], i) => (
                   <li key={t} className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-navy text-white text-[11px] font-bold grid place-items-center shrink-0">
@@ -664,10 +827,10 @@ export default function EspaceClientPage() {
             {/* Adrès la — jan pou w ekri l */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
-                <MapPin size={15} /> Jan pou w ekri adrès la
+                <MapPin size={15} /> Comment renseigner votre adresse
               </h2>
               <p className="text-[12px] text-mute mt-2 leading-relaxed">
-                Kopye chan sa yo <b>egzakteman</b> lè w ap achte. Se kòd la ki fè nou konnen koli a se pou ou.
+                Copiez ces informations <b>exactement</b> lors de vos achats. Votre code client permet d&apos;associer le colis à votre compte.
               </p>
               <div className="mt-3 rounded-xl border border-line divide-y divide-line">
                 {([["Full Name", `${client.customer_code} ${non || ""}`.trim()],
@@ -684,44 +847,44 @@ export default function EspaceClientPage() {
                 ))}
               </div>
               <button onClick={() => setView("adresse")} className="btn btn-ghost border border-line w-full justify-center mt-3 !text-xs">
-                Wè adrès konplè m
+                Voir mon adresse complète
               </button>
             </div>
 
             {/* Tarif */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
-                <Calculator size={15} /> Kijan pri a kalkile
+                <Calculator size={15} /> Comment le prix est calculé
               </h2>
               <ul className="mt-3 space-y-2 text-[12px] text-mute leading-relaxed">
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span>Pri a se <b>pwa koli a × tarif vil ou</b>{client.ville?.name ? <> ({client.ville.name})</> : null}.</span></li>
+                  <span>Le prix correspond au <b>poids du colis × tarif de votre ville</b>{client.ville?.name ? <> ({client.ville.name})</> : null}.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span>Ti koli ant <b>{smallCfg.min} ak {smallCfg.max} lb</b>: pri fiks <b>{usd(smallCfg.price)}</b>.</span></li>
+                  <span>Petit colis entre <b>{smallCfg.min} et {smallCfg.max} lb</b> : prix fixe de <b>{usd(smallCfg.price)}</b>.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span>Depi pwa total la rive <b>{TAX_THRESHOLD_LB} lb</b>, gen yon taks fiks <b>{usd(TAX_FIXED_USD)}</b>.</span></li>
+                  <span>À partir de <b>{TAX_THRESHOLD_LB} lb</b> au total, une taxe fixe de <b>{usd(TAX_FIXED_USD)}</b> s&apos;applique.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span>Kèk atik (telefòn, laptòp, kamera…) gen yon <b>pri fòfè</b> — pwa a pa konte.</span></li>
+                  <span>Certains articles (téléphones, ordinateurs portables, appareils photo…) ont un <b>prix forfaitaire</b> — le poids ne s&apos;applique pas.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span>Pri sou app la se yon <b>estimasyon</b>. Pri final la fikse lè koli a peze nan depo a.</span></li>
+                  <span>Le prix affiché dans l&apos;application est une <b>estimation</b>. Le prix final est fixé après la pesée du colis à l&apos;entrepôt.</span></li>
               </ul>
               <button onClick={() => setView("calc")} className="btn btn-ghost border border-line w-full justify-center mt-3 !text-xs">
-                <Calculator size={14} /> Louvri kalkilatris la
+                <Calculator size={14} /> Ouvrir le calculateur
               </button>
             </div>
 
             {/* Atik entèdi */}
             <div className="card p-5 border-red-200">
               <h2 className="text-sm font-bold text-red-700 uppercase tracking-wide flex items-center gap-2">
-                <Ban size={15} /> Atik entèdi
+                <Ban size={15} /> Articles interdits
               </h2>
               <p className="text-[12px] text-mute mt-2 leading-relaxed">
-                Konpayi avyon yo ak ladwàn entèdi atik sa yo. Yo p ap ka vwayaje:
+                Les compagnies aériennes et la douane interdisent les articles suivants. Ils ne peuvent pas être expédiés :
               </p>
               <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
-                {["Zam ak minisyon", "Pwodwi ki pran dife", "Eksplozif", "Pwodwi korozif",
-                  "Batri litium separe", "Dwòg ak narkotik", "Bagay pònografik", "Bèt vivan",
-                  "Lajan kach", "Pwodwi ki gate vit"].map((a) => (
+                {["Armes et munitions", "Produits inflammables", "Explosifs", "Produits corrosifs",
+                  "Batteries au lithium séparées", "Drogues et stupéfiants", "Contenu pornographique", "Animaux vivants",
+                  "Espèces", "Produits périssables"].map((a) => (
                   <p key={a} className="text-[12px] text-ink flex gap-1.5">
                     <span className="text-red-500 shrink-0">✕</span>{a}
                   </p>
@@ -729,30 +892,30 @@ export default function EspaceClientPage() {
               </div>
               <p className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 mt-3 leading-relaxed">
                 <AlertTriangle size={12} className="inline mr-1" />
-                Ou responsab sa w voye. Yon koli entèdi ka sezi pa ladwàn san remèd.
-                Si w gen dout sou yon atik, mande nou sou WhatsApp anvan w achte.
+                Vous êtes responsable du contenu de votre colis. Un article interdit peut être saisi par la douane sans recours.
+                En cas de doute, contactez-nous sur WhatsApp avant votre achat.
               </p>
             </div>
 
             {/* Kesyon */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
-                <HelpCircle size={15} /> Kesyon moun poze souvan
+                <HelpCircle size={15} /> Questions fréquentes
               </h2>
               <div className="mt-3 divide-y divide-line">
                 {([
-                  ["Konbyen tan koli m ap pran?",
-                   "Sa depann de lè li rive Miami ak vwayaj la. W ap wè chak etap nan app la — klike sou koli a pou w wè kote li ye."],
-                  ["Poukisa koli m poko parèt?",
-                   "Yon koli parèt sèlman lè depo nou an Miami resevwa l epi anrejistre l. Si transpòtè a (Amazon, FedEx…) di li livre men li poko nan app la, tann kèk èdtan epi peze bouton Actualiser a."],
-                  ["Èske m ka voye plizyè koli ansanm?",
-                   "Wi. Tout koli ki gen kòd ou a rasanble anba kont ou, epi ou ka fakti yo ansanm."],
-                  ["Kisa \"Notifier mon retrait\" vle di?",
-                   "Se pou di nou ki koli w ap vin pran. N ap prepare yo davans pou w pa tann lè w rive nan agans lan."],
-                  ["Mwen bliye modpas mwen.",
-                   "Kontakte nou sou WhatsApp. N ap voye yon nouvo modpas tanporè ba ou, epi w ap chanje l lè w konekte."],
-                  ["Èske pri a ka chanje?",
-                   "Pri sou app la se yon estimasyon dapre pwa MCPACK bay la. Pri final la se sa ki sou fakti a, lè koli a peze nan depo a."]
+                  ["Combien de temps prend mon colis ?",
+                   "Le délai dépend de son arrivée à Miami et du transport. Consultez chaque étape dans l'application en ouvrant le colis concerné."],
+                  ["Pourquoi mon colis n'apparaît-il pas encore ?",
+                   "Un colis apparaît lorsque notre dépôt de Miami l'a reçu et enregistré. Si le transporteur indique qu'il est livré, attendez quelques heures puis cliquez sur Actualiser."],
+                  ["Puis-je envoyer plusieurs colis ensemble ?",
+                   "Oui. Tous les colis associés à votre code client sont regroupés dans votre compte et peuvent être facturés ensemble."],
+                  ["Que signifie « Préparer mon retrait » ?",
+                   "Cette action indique les colis que vous viendrez chercher afin que notre équipe les prépare avant votre arrivée à l'agence."],
+                  ["J'ai oublié mon mot de passe.",
+                   "Contactez-nous sur WhatsApp. Nous vous enverrons un mot de passe temporaire que vous pourrez ensuite modifier."],
+                  ["Le prix peut-il changer ?",
+                   "Le prix indiqué dans l'application est une estimation basée sur le poids. Le prix final est celui de la facture, après la pesée du colis à l'entrepôt."]
                 ] as const).map(([q, a]) => (
                   <details key={q} className="py-2.5 group">
                     <summary className="text-[13px] font-semibold text-ink cursor-pointer list-none flex items-start gap-2">
@@ -766,7 +929,7 @@ export default function EspaceClientPage() {
             </div>
 
             <a href={WA_LINK} target="_blank" rel="noreferrer" className="btn btn-wa w-full justify-center">
-              <MessageCircle size={15} /> Kesyon ou pa jwenn? Ekri nou sou WhatsApp
+              <WhatsAppIcon size={15} /> Une question ? Écrivez-nous sur WhatsApp
             </a>
           </>
         )}
@@ -774,7 +937,7 @@ export default function EspaceClientPage() {
         {/* ═══════════ MON ADRESSE ═══════════ */}
         {view === "adresse" && (
           <>
-            <SubHeader title="Mon adresse" sub="Adrès depo ou Ozetazini" />
+            <SubHeader title="Mon adresse" sub="Votre adresse de dépôt aux États-Unis" />
             <div className="card p-5">
               {([["Full Name / Nombre completo", non || "—"],
                  ["Address 1", DEPOT.address1],
@@ -795,17 +958,17 @@ export default function EspaceClientPage() {
         {/* ═══════════ CALCULATRICE ═══════════ */}
         {view === "calc" && (
           <>
-            <SubHeader title="Calculatrice" sub="Estime konbyen shipping ou ap koute" />
+            <SubHeader title="Calculateur" sub="Estimez le coût de votre expédition" />
             <div className="card p-5 space-y-4">
               <label className="block">
-                <span className="text-xs font-semibold text-mute">Pwa koli a (LB)</span>
+                <span className="text-xs font-semibold text-mute">Poids du colis (lb)</span>
                 <input className="input mt-1.5 text-lg font-semibold" inputMode="decimal" placeholder="Ex: 4.5"
                   value={calcW} onChange={(e) => setCalcW(e.target.value)} />
               </label>
 
               {calcOk && !calcRes && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-                  Tarif vil ou a poko konfigire nan sistèm nan. Kontakte nou sou WhatsApp.
+                  Le tarif de votre ville n&apos;est pas encore configuré. Contactez-nous sur WhatsApp.
                 </p>
               )}
 
@@ -831,9 +994,9 @@ export default function EspaceClientPage() {
               )}
 
               <p className="text-[11px] text-mute">
-                Taxe fiks {usd(TAX_FIXED_USD)} ajoute depi pwa total la rive {TAX_THRESHOLD_LB} lb.
-                Ti koli {smallCfg.min}–{smallCfg.max} lb: {usd(smallCfg.price)}.
-                Sa se yon <b>estimasyon</b> — pri final la fikse lè koli a peze nan depo a.
+                Une taxe fixe de {usd(TAX_FIXED_USD)} s&apos;applique à partir de {TAX_THRESHOLD_LB} lb au total.
+                Petit colis {smallCfg.min}–{smallCfg.max} lb : {usd(smallCfg.price)}.
+                Il s&apos;agit d&apos;une <b>estimation</b> — le prix final est fixé après la pesée à l&apos;entrepôt.
               </p>
             </div>
           </>
@@ -865,7 +1028,7 @@ export default function EspaceClientPage() {
                   ["Poids", Number(detail.weight) > 0 ? `${Number(detail.weight).toFixed(2)} lb` : ""],
                   ["Quantité", detail.quantity ? String(detail.quantity) : ""],
                   ["Statut", detail.status],
-                  ["Date réception", detail.received_at ? dateFr(detail.received_at) : ""],
+                  ["Date de réception", detail.received_at ? dateFr(detail.received_at) : ""],
                   ["Prix", Number(detail.price_usd) > 0 ? usd(detail.price_usd) : ""],
                   ["Taxes", Number(detail.tax_usd) > 0 ? usd(detail.tax_usd) : ""],
                   ["Total", Number(detail.total_usd) > 0 ? usd(detail.total_usd) : ""],
@@ -881,7 +1044,7 @@ export default function EspaceClientPage() {
               </div>
               <a href={waPkgLink(detail, client.customer_code)} target="_blank" rel="noreferrer"
                 className="btn btn-wa w-full justify-center">
-                <MessageCircle size={15} /> Poze yon kesyon sou koli sa a
+                <WhatsAppIcon size={15} /> Poser une question sur ce colis
               </a>
             </div>
           </div>
@@ -910,7 +1073,7 @@ export default function EspaceClientPage() {
               ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
               : "text-red-600 bg-red-50 border border-red-200"}`}>{pwdMsg}</p>}
             <button className="btn w-full justify-center" onClick={changePassword} disabled={pwdBusy}>
-              {pwdBusy ? "Ap chanje..." : "Enregistrer"}
+              {pwdBusy ? "Modification en cours…" : "Enregistrer"}
             </button>
           </div>
         </div>
@@ -920,20 +1083,22 @@ export default function EspaceClientPage() {
       {toast && <SavedToast message={toast} onClose={() => setToast(null)} />}
 
       {/* ══ BARE NAVIGASYON ANBA ══ */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-line">
+      <nav className="client-bottom-nav fixed bottom-0 inset-x-0 z-40 border-t">
         <div className="max-w-3xl mx-auto flex items-stretch px-2 pb-[env(safe-area-inset-bottom)]">
           <NavBtn icon={FileText} label="Factures" to="factures" />
           <NavBtn icon={MapPin} label="Adresse" to="adresse" />
           <button onClick={() => setView("home")} aria-label="Accueil"
             className="flex-1 flex flex-col items-center -mt-5">
-            <span className={`w-14 h-14 rounded-full grid place-items-center border-4 border-white shadow-lift
+            <span className={`client-bottom-home w-14 h-14 rounded-full grid place-items-center
               ${view === "home" ? "bg-navy text-white" : "bg-navy-light text-white"}`}>
               <Package size={24} />
             </span>
             <span className="text-[10px] font-semibold text-navy mt-0.5">Accueil</span>
           </button>
           <NavBtn icon={Calculator} label="Calcul" to="calc" />
-          <NavBtn icon={MessageCircle} label="WhatsApp" href={WA_LINK} />
+          <a href={WA_LINK} target="_blank" rel="noreferrer" className="client-nav-item flex-1 flex flex-col items-center gap-0.5 py-2 text-slate-400">
+            <WhatsAppIcon size={20} /><span className="text-[10px] font-semibold">WhatsApp</span>
+          </a>
         </div>
       </nav>
     </div>

@@ -32,7 +32,7 @@ const NAV = [
   { label: "Mon compte", href: "/login" }
 ];
 
-const SIGNUP = { label: "S'inscrire", href: "/login?tab=signup" };
+const SIGNUP = { label: "S'inscrire", href: "/inscription" };
 
 export default function SiteHeader() {
   const [open, setOpen] = useState(false);
@@ -62,9 +62,9 @@ export default function SiteHeader() {
   return (
     <>
       {/* ══════════ BARRE ANLÈ A ══════════ */}
-      <header className="sticky top-0 z-40 bg-navy text-white shadow-soft">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="flex h-16 items-center justify-between gap-3">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-navy/95 text-white shadow-soft backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10 xl:px-6">
+          <div className="flex h-[4.5rem] items-center justify-between gap-3">
 
             {/* Logo + non */}
             <Link href="/accueil" className="flex items-center gap-2.5 min-w-0">
@@ -86,14 +86,14 @@ export default function SiteHeader() {
                   className={`px-3 py-2 rounded-lg text-sm font-semibold transition
                     ${isActive(l.href)
                       ? "text-accent bg-white/10"
-                      : "text-white/85 hover:text-white hover:bg-white/10"}`}
+                      : "text-white/80 hover:text-white hover:bg-white/10"}`}
                 >
                   {l.label}
                 </Link>
               ))}
               <Link
                 href={SIGNUP.href}
-                className="ml-2 px-4 py-2 rounded-lg text-sm font-bold bg-accent
+                className="ml-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-accent
                            hover:bg-accent-dark text-white transition shadow-card"
               >
                 {SIGNUP.label}

@@ -170,7 +170,23 @@ insert into storage.buckets (id, name, public)
 values ('invoices', 'invoices', true)
 on conflict (id) do nothing;
 
--- ===== RLS =====
+-- ===== RLS — DENY BY DEFAULT (refi tout pa defo) =====
+-- ══════════════════════════════════════════════════════════════════════
+-- ⚠️ CHANJMAN SEKIRITE (2026)
+-- Ansyen vèsyon fichye sa a te kreye politik « anon all ... using(true) »
+-- sou CHAK tab biznis. Sa vle di: nenpòt moun ak kle anon lan (kle a
+-- livre nan chak paj nan navigatè a) te ka LI epi EKRI tout done yo —
+-- non kliyan, adrès, pyès idantite, telefòn, montan fakti, kont staff.
+--
+-- Kounye a: RLS limenn, epi PA GEN okenn politik pèmisif isit la.
+-- Aksè reyèl la (staff / kliyan / piblik) konfigire nan :
+--
+--        👉  supabase/security-hardening.sql   (OBLIGATWA)
+--        👉  supabase/20260831_public_reviews.sql
+--
+-- Kouri de fichye sa yo TOUSWIT APRE fichye sa a. San yo, app la p ap
+-- ka li anyen (li pi bon pou l bloke pase pou l louvri tout bagay).
+-- ══════════════════════════════════════════════════════════════════════
 alter table villes enable row level security;
 alter table clients enable row level security;
 alter table packages enable row level security;
@@ -180,25 +196,16 @@ alter table imports enable row level security;
 alter table app_settings enable row level security;
 alter table exchange_rate enable row level security;
 
-do $$ begin create policy "anon all villes" on villes for all using (true) with check (true);
-exception when duplicate_object then null; end $$;
-do $$ begin create policy "anon all clients" on clients for all using (true) with check (true);
-exception when duplicate_object then null; end $$;
-do $$ begin create policy "anon all packages" on packages for all using (true) with check (true);
-exception when duplicate_object then null; end $$;
-do $$ begin create policy "anon all invoices" on invoices for all using (true) with check (true);
-exception when duplicate_object then null; end $$;
-do $$ begin create policy "anon all invoice_items" on invoice_items for all using (true) with check (true);
-exception when duplicate_object then null; end $$;
-do $$ begin create policy "anon all imports" on imports for all using (true) with check (true);
-exception when duplicate_object then null; end $$;
-do $$ begin create policy "anon all app_settings" on app_settings for all using (true) with check (true);
-exception when duplicate_object then null; end $$;
-do $$ begin create policy "anon all exchange_rate" on exchange_rate for all using (true) with check (true);
-exception when duplicate_object then null; end $$;
-do $$ begin create policy "anon storage invoices" on storage.objects for all
-  using (bucket_id = 'invoices') with check (bucket_id = 'invoices');
-exception when duplicate_object then null; end $$;
+-- Retire ansyen politik danjere yo si yo egziste (baz ki te deja deplwaye)
+drop policy if exists "anon all villes" on villes;
+drop policy if exists "anon all clients" on clients;
+drop policy if exists "anon all packages" on packages;
+drop policy if exists "anon all invoices" on invoices;
+drop policy if exists "anon all invoice_items" on invoice_items;
+drop policy if exists "anon all imports" on imports;
+drop policy if exists "anon all app_settings" on app_settings;
+drop policy if exists "anon all exchange_rate" on exchange_rate;
+drop policy if exists "anon storage invoices" on storage.objects;
 
 -- ===== Vil egzanp (fresh install sèlman — tarif USD, modifye yo nan Paramètres) =====
 insert into villes (name, price_personal, price_business, tax_personal, tax_business, fixed_fee, active) values
@@ -261,14 +268,11 @@ create table if not exists retrait_items (
 create index if not exists retraits_status_idx on retraits (status);
 create index if not exists retrait_items_rid_idx on retrait_items (retrait_id);
 
+-- RLS deny-by-default (wè nòt sekirite anwo a — politik yo nan security-hardening.sql)
 alter table retraits enable row level security;
 alter table retrait_items enable row level security;
-do $$ begin
-  create policy "anon all retraits" on retraits for all using (true) with check (true);
-exception when duplicate_object then null; end $$;
-do $$ begin
-  create policy "anon all retrait_items" on retrait_items for all using (true) with check (true);
-exception when duplicate_object then null; end $$;
+drop policy if exists "anon all retraits" on retraits;
+drop policy if exists "anon all retrait_items" on retrait_items;
 
 -- ============================================================
 -- v9 — Authentication: Admin / Employé / Client
@@ -287,19 +291,15 @@ create table if not exists staff (
   created_at timestamptz not null default now()
 );
 alter table staff enable row level security;
-do $$ begin
-  create policy "anon all staff" on staff for all using (true) with check (true);
-exception when duplicate_object then null; end $$;
+drop policy if exists "anon all staff" on staff;
 
 alter table clients add column if not exists username text unique;             -- = kòd MC (MC-XXXXX)
 alter table clients add column if not exists must_change_password boolean not null default false;
 
 insert into storage.buckets (id, name, public) values ('staff-docs','staff-docs', true)
 on conflict (id) do nothing;
-do $$ begin
-  create policy "anon storage staff-docs" on storage.objects for all
-    using (bucket_id = 'staff-docs') with check (bucket_id = 'staff-docs');
-exception when duplicate_object then null; end $$;
+-- Politik storage yo nan security-hardening.sql (staff/admin sèlman).
+drop policy if exists "anon storage staff-docs" on storage.objects;
 
 -- ============================================================
 -- v10 (V7.2) — Customer Code inik fòma MC-XXXXX toupatou
@@ -323,3 +323,16 @@ update clients c set customer_code = 'MC-' || c.customer_code,
     and upper(c.customer_code) not like 'MC-%'
     and not exists (select 1 from clients c2
                     where c2.customer_code = 'MC-' || c.customer_code);
+
+-- ════════════════════════════════════════════════════════════════════
+-- ✅ SCHÉMA OK.  ÉTAPE SUIVANTE OBLIGATOIRE — SÉCURITÉ :
+--
+--   1)  supabase/security-hardening.sql        (RLS staff / client / public)
+--   2)  supabase/20260831_public_reviews.sql   (commentaires publics)
+--
+-- Tant que (1) n'est pas exécuté, RLS bloque toute lecture : c'est
+-- volontaire (fail-closed). NE PAS recréer de politique « anon all ».
+-- ════════════════════════════════════════════════════════════════════
+do $$ begin
+  raise notice '  ⚠️  STANDA COMMERCIAL : exécutez maintenant supabase/security-hardening.sql';
+end $$;

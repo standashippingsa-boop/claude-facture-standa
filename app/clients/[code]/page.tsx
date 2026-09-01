@@ -8,7 +8,7 @@ import RefreshButton from "@/components/RefreshButton";
 import { usePackageSelection } from "@/lib/selection";
 import {
   commitPdfImport, detachPackagesFromInvoice, hardDeletePackage, getClient, getClientPackagesAndInvoices,
-  getInvoiceFlags, getSettings, getUsdRate, setPackagesStatus, updatePackagePrice
+  getInvoiceFlags, getSettings, getUsdRate, logAction, setPackagesStatus, updatePackagePrice
 } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
@@ -184,6 +184,11 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           });
           const j = await res.json();
           mailInfo = j.ok ? " Email voye." : ` ⚠️ Email: ${j.reason ?? j.error ?? "echwe"}`;
+          if (!j.ok) {
+            await logAction("Notification email échouée",
+              `${bulkStatus} — ${client.customer_code}: ${j.error ?? j.reason ?? "echwe"}`,
+              "", client.customer_code);
+          }
         } catch { mailInfo = " ⚠️ Email pa pati (rezo)."; }
       }
       setNotice(`Statut "${bulkStatus}" aplike sou ${targets.length} colis.` + mailInfo);

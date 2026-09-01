@@ -21,8 +21,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, Lock, MessageCircle, User } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { clientEmail } from "@/lib/authx";
+import { clientSignInErrorMessage, signInClientWithCode } from "@/lib/authx";
 import { normalizeMcCode } from "@/lib/utils";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 import AuthBackdrop from "@/components/AuthBackdrop";
@@ -44,27 +43,18 @@ export default function AppConnexionPage() {
     setErr(null);
     const raw = username.trim();
     const norm = normalizeMcCode(raw);
-    // Modpas tanporè yo kopye sou WhatsApp — yon espas envizib kole souvan.
-    const pass = password.trim();
-    if (!raw) { setErr("Antre kòd MC ou (egzanp: MC-36191)."); return; }
-    if (!pass) { setErr("Antre modpas ou."); return; }
+    // Le mot de passe doit rester strictement identique à la saisie de l'utilisateur.
+    const pass = password;
+    if (!raw) { setErr("Saisissez votre code MC (exemple : MC-36191)."); return; }
+    if (!pass) { setErr("Saisissez votre mot de passe."); return; }
 
     setBusy(true);
     try {
-      const essais = Array.from(new Set([norm, raw.toUpperCase(), raw]));
-      let ok = false, last: unknown = null;
-      for (const code of essais) {
-        const r = await supabase.auth.signInWithPassword({ email: clientEmail(code), password: pass });
-        if (!r.error) { ok = true; break; }
-        last = r.error;
-      }
-      if (!ok) throw last;
+      const result = await signInClientWithCode(raw, pass);
+      if (!result.ok) { setErr(clientSignInErrorMessage(result.reason, norm)); return; }
       router.replace("/espace-client");
-    } catch (e: unknown) {
-      const m = String((e as Error)?.message ?? "").toLowerCase();
-      setErr(m.includes("not confirmed")
-        ? "Kont ou poko aktive. Kontakte STANDA COMMERCIAL sou WhatsApp."
-        : `Kòd ${norm || "MC-XXXXX"} oswa modpas la pa kòrèk. Peze ti je a pou verifye.`);
+    } catch {
+      setErr("Une erreur imprévue est survenue. Réessayez dans quelques instants.");
     } finally { setBusy(false); }
   };
 

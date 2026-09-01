@@ -50,21 +50,30 @@ export const CLIENT_PREFIXES = ["/espace-client"];
  * Paj ADMIN sèlman (Employé bloke). Tout lòt paj staff yo louvri pou
  * admin + employé (koli, kliyan, fakti, sync, historique, journal, retraits).
  */
-export const ADMIN_ONLY_PREFIXES = ["/settings"];
+export const ADMIN_ONLY_PREFIXES = ["/settings", "/reviews"];
+
+/**
+ * Match yon prefiks ak yon fwontyè segman: "/login" matche "/login" ak
+ * "/login/xxx" MEN PA "/login-secret". Yon `startsWith(p)` tou senp ta
+ * louvri nenpòt chemen ki jis KÒMANSE ak tèks la — yon fwit aksè.
+ */
+function underPrefix(path: string, prefixes: string[]): boolean {
+  return prefixes.some((p) => path === p || path.startsWith(p + "/"));
+}
 
 /** Èske chemen sa a piblik? */
 export function isPublicPath(path: string): boolean {
-  return PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p + "/") || path.startsWith(p));
+  return underPrefix(path, PUBLIC_PREFIXES);
 }
 
 /** Èske chemen sa a se yon paj kliyan? */
 export function isClientPath(path: string): boolean {
-  return CLIENT_PREFIXES.some((p) => path.startsWith(p));
+  return underPrefix(path, CLIENT_PREFIXES);
 }
 
 /** Èske chemen sa a admin-sèlman? */
 export function isAdminOnlyPath(path: string): boolean {
-  return ADMIN_ONLY_PREFIXES.some((p) => path.startsWith(p));
+  return underPrefix(path, ADMIN_ONLY_PREFIXES);
 }
 
 /**

@@ -16,8 +16,8 @@ export default function NouveauMotDePassePage() {
 
   const submit = async () => {
     setErr(null);
-    if (password.length < 6) { setErr("Modpas la dwe gen omwen 6 karaktè."); return; }
-    if (password !== confirm) { setErr("De modpas yo pa menm."); return; }
+    if (password.length < 6) { setErr("Le mot de passe doit contenir au moins 6 caractères."); return; }
+    if (password !== confirm) { setErr("Les deux mots de passe ne correspondent pas."); return; }
     setBusy(true);
     try {
       const { data } = await supabase.auth.getUser();
@@ -41,21 +41,21 @@ export default function NouveauMotDePassePage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" className="h-16 object-contain" />
         </div>
-        <h1 className="text-xl font-extrabold text-white text-center">Kreye nouvo modpas ou</h1>
+        <h1 className="text-xl font-extrabold text-white text-center">Créez votre nouveau mot de passe</h1>
         <p className="text-xs text-slate-400 text-center">
-          Pou sekirite w, ou dwe ranplase modpas tanporè a anvan w kontinye.
+          Pour votre sécurité, remplacez votre mot de passe temporaire avant de continuer.
         </p>
-        <label className="block"><span className="text-xs font-semibold text-slate-300">Nouvo modpas</span>
+        <label className="block"><span className="text-xs font-semibold text-slate-300">Nouveau mot de passe</span>
           <input type="password" className="mt-1 w-full rounded-xl bg-[#122A52] border border-white/10 px-3 py-3 text-sm text-white focus:outline-none focus:border-blue-400"
             value={password} onChange={(e) => setPassword(e.target.value)} /></label>
-        <label className="block"><span className="text-xs font-semibold text-slate-300">Konfime modpas la</span>
+        <label className="block"><span className="text-xs font-semibold text-slate-300">Confirmez le mot de passe</span>
           <input type="password" className="mt-1 w-full rounded-xl bg-[#122A52] border border-white/10 px-3 py-3 text-sm text-white focus:outline-none focus:border-blue-400"
             value={confirm} onChange={(e) => setConfirm(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()} /></label>
         {err && <p className="text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl px-4 py-3">{err}</p>}
         <button className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm disabled:opacity-50"
           onClick={submit} disabled={busy}>
-          {busy ? "Ap anrejistre..." : "Anrejistre epi kontinye"}
+          {busy ? "Enregistrement..." : "Enregistrer et continuer"}
         </button>
       </div>
     </div>

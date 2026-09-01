@@ -132,11 +132,12 @@ export async function POST(req: Request) {
     });
 
     if (!res.ok) {
-      const t = await res.text();
-      return NextResponse.json({ ok: false, error: t }, { status: 200 });
+      console.error("[contact] resend", res.status, await res.text().catch(() => ""));
+      return NextResponse.json({ ok: false, error: "Envoi impossible pour le moment. Réessayez ou contactez-nous sur WhatsApp." }, { status: 200 });
     }
     return NextResponse.json({ ok: true });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: String(e) }, { status: 200 });
+    console.error("[contact]", e);
+    return NextResponse.json({ ok: false, error: "Erreur serveur." }, { status: 200 });
   }
 }

@@ -250,7 +250,12 @@ export async function generateUploadDownload(
 
   let url: string | null = null;
   try {
-    const path = `${inv.invoice_number}.pdf`;
+    // ⚠️ SEKIRITE: bucket la piblik-pa-lyen (WhatsApp pa ka atache fichye).
+    // Ansyen chemen an te `SC-123456.pdf` — 6 chif previzib: nenpòt moun te
+    // ka eseye tout nimewo yo epi telechaje fakti tout kliyan (non, adrès,
+    // WhatsApp, montan). Kounye a n ap ajoute yon jeton o aza ki pa devinab.
+    const token = crypto.randomUUID().replace(/-/g, "").slice(0, 20);
+    const path = `${inv.invoice_number}-${token}.pdf`;
     const { error } = await supabase.storage.from("invoices")
       .upload(path, blob, { upsert: true, contentType: "application/pdf" });
     if (error) throw error;

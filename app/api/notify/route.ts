@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
+import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 
 /**
  * Email otomatik (Reçu à Miami / Disponible) via Resend (https://resend.com).
@@ -213,34 +215,162 @@ function buildHtml(b: NotifyBody): { subject: string; html: string } {
   return { subject, html };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// DYAGNOSTIK — poukisa imèl yo pa rive kliyan yo
+// ───────────────────────────────────────────────────────────────────────────
+// Pwoblèm imèl la se PRÈSKE TOUJOU konfigirasyon, pa kòd:
+//   1. RESEND_API_KEY pa nan Vercel        -> zewo imèl pati
+//   2. Domèn nan poko verifye sou Resend   -> Resend voye SÈLMAN nan pwòp
+//      imèl kont lan (mòd tès) — kliyan yo pa jwenn anyen
+//   3. EMAIL_FROM sèvi ak yon lòt domèn ki pa verifye -> Resend refize (403)
+//   4. DNS (SPF/DKIM) manke               -> imèl rive nan Spam
+// Seksyon "Paramètres > Notifications email" rele wout sa a ak { probe }
+// pou montre rezon egzat la (olye yon blòk JSON ki disparèt nan yon toast).
+// ═══════════════════════════════════════════════════════════════════════════
+const EXPECTED_FROM = "STANDA COMMERCIAL <notifications@standacommercialsa.com>";
+
+/** Valè "from" efektif la (env oswa valè pa defo). */
+function fromValue(): string {
+  return process.env.EMAIL_FROM || EXPECTED_FROM;
+}
+
+/** Domèn ki nan yon adrès "Nom <x@domaine>" oswa "x@domaine". */
+function domainOf(from: string): string {
+  const m = from.match(/<([^>]+)>/);
+  const addr = (m ? m[1] : from).trim();
+  const at = addr.lastIndexOf("@");
+  return at >= 0 ? addr.slice(at + 1).toLowerCase() : "";
+}
+
+/**
+ * Klasifye repons Resend la an yon kòd estab + yon mesaj moun ka konprann.
+ * Se sa ki pèmèt app la montre "Domèn poko verifye" olye yon blòk JSON brital.
+ */
+function classifyResend(status: number, bodyText: string): { code: string; message: string } {
+  let msg = (bodyText || "").trim();
+  try {
+    const j = JSON.parse(bodyText);
+    msg = j?.message || j?.error?.message || j?.error || msg;
+  } catch { /* pa JSON — kite tèks brut la */ }
+  const low = msg.toLowerCase();
+  const dom = domainOf(fromValue());
+
+  if (low.includes("testing emails") || low.includes("only send testing") || low.includes("your own email")) {
+    return {
+      code: "test_mode",
+      message: `Kont Resend nan an mòd tès : li voye SÈLMAN nan pwòp imèl kont lan. `
+        + `Verifye domèn "${dom}" sou resend.com/domains pou voye bay kliyan yo.`,
+    };
+  }
+  if (low.includes("domain") && (low.includes("not verified") || low.includes("verify") || low.includes("is not verified"))) {
+    return {
+      code: "domain_not_verified",
+      message: `Domèn "${dom}" poko verifye sou Resend. Ale sou resend.com/domains, `
+        + `ajoute domèn nan epi pibliye anrejistreman DNS yo (SPF + DKIM).`,
+    };
+  }
+  if (status === 401 || status === 403) return { code: "auth", message: `Resend refize demann nan (${status}) : ${msg}` };
+  if (status === 422) return { code: "invalid_request", message: `Resend rejte demann nan (422) : ${msg}` };
+  if (status === 429) return { code: "rate_limited", message: `Twòp imèl voye sou Resend (429). Tann yon ti moman.` };
+  return { code: "resend_error", message: `Resend erè ${status} : ${msg}` };
+}
+
+/** Voye yon imèl atravè Resend. Retounen yon rezilta estriktire. */
+async function sendViaResend(
+  key: string, to: string, subject: string, html: string
+): Promise<{ ok: true; id: string } | { ok: false; status: number; code: string; message: string }> {
+  let res: Response;
+  try {
+    res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ from: fromValue(), to: [to], subject, html }),
+    });
+  } catch (e) {
+    return { ok: false, status: 0, code: "network", message: "Rezo : " + String(e) };
+  }
+  const text = await res.text();
+  if (!res.ok) {
+    const c = classifyResend(res.status, text);
+    return { ok: false, status: res.status, code: c.code, message: c.message };
+  }
+  let id = "";
+  try { id = JSON.parse(text)?.id ?? ""; } catch { /* id opsyonèl */ }
+  return { ok: true, id };
+}
+
+/** Verifye sesyon an se yon manm pèsonèl STANDA (menm modèl ak /api/audit-log). */
+async function requireStaff(token: string): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const config = getSupabaseAdminConfig();
+  if (!config) return { ok: false, status: 200, error: "Konfigirasyon sèvè enkonplè (SUPABASE_SECRET_KEY)." };
+  const svc = createClient(config.url, config.key, { auth: { persistSession: false } });
+  const { data: au } = await svc.auth.getUser(token);
+  if (!au?.user) return { ok: false, status: 401, error: "Sesyon obligatwa." };
+  const { data: staff } = await svc.from("staff").select("role").eq("auth_user_id", au.user.id).maybeSingle();
+  if (!staff) return { ok: false, status: 403, error: "Rezève pou pèsonèl STANDA." };
+  return { ok: true };
+}
+
+interface ProbeBody { probe?: "diag" | "test"; token?: string; to?: string }
+
 export async function POST(req: Request) {
   // Rate limiting — imèl: 60 / èdtan pa IP (anti-spam kliyan)
   const rl = rateLimit("notify:" + clientIp(req), 60, 3600000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
-  try {
-    const body = (await req.json()) as NotifyBody;
-    const key = process.env.RESEND_API_KEY;
-    if (!key) return NextResponse.json({ skipped: true, reason: "RESEND_API_KEY pa konfigire" });
-    if (!body?.client?.email) return NextResponse.json({ skipped: true, reason: "kliyan san imèl" });
+  let body: (NotifyBody & ProbeBody) | null = null;
+  try { body = (await req.json()) as NotifyBody & ProbeBody; } catch { /* body rete null */ }
+  if (!body) return NextResponse.json({ ok: false, code: "bad_body", error: "Kò demann nan pa valab." }, { status: 200 });
 
-    const { subject, html } = buildHtml(body);
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM || "STANDA COMMERCIAL <notifications@standacommercialsa.com>",
-        to: [body.client.email],
-        subject,
-        html
-      })
-    });
-    if (!res.ok) {
-      const t = await res.text();
-      return NextResponse.json({ ok: false, error: t }, { status: 200 });
+  const key = process.env.RESEND_API_KEY;
+
+  // ── PROBE : dyagnostik + imèl tès (Paramètres > Notifications email) ──
+  if (body.probe === "diag" || body.probe === "test") {
+    const gate = await requireStaff(String(body.token ?? ""));
+    if (!gate.ok) return NextResponse.json({ ok: false, code: "auth", error: gate.error }, { status: gate.status });
+
+    const from = fromValue();
+    const config = {
+      resend_key_present: !!key,
+      email_from: from,
+      from_domain: domainOf(from),
+      from_is_default: !process.env.EMAIL_FROM,
+      domain_matches_expected: domainOf(from) === domainOf(EXPECTED_FROM),
+    };
+    if (body.probe === "diag") return NextResponse.json({ ok: true, config });
+
+    // probe === "test" — voye yon vrè imèl epi remonte repons egzat Resend la
+    const to = String(body.to ?? "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(to)) {
+      return NextResponse.json({ ok: false, code: "bad_to", error: "Adrès imèl tès la pa valab.", config }, { status: 200 });
     }
-    return NextResponse.json({ ok: true });
+    if (!key) {
+      return NextResponse.json({ ok: false, code: "no_key", error: "RESEND_API_KEY pa konfigire nan Vercel.", config }, { status: 200 });
+    }
+    const now = new Date().toLocaleString("fr-FR");
+    const testHtml =
+      `<!DOCTYPE html><html><body style="font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:24px;color:#111827">`
+      + `<h2 style="margin:0 0 8px">✅ Le système d'email fonctionne</h2>`
+      + `<p style="color:#4B5563;font-size:14px">Message de test envoyé depuis Paramètres → Notifications email.<br>`
+      + `Expéditeur : <code>${esc(from)}</code><br>Date : ${esc(now)}</p>`
+      + `<p style="color:#9CA3AF;font-size:12px">STANDA COMMERCIAL — ${esc(SITE_URL.replace("https://", ""))} · ${esc(SUPPORT_PHONE)}</p>`
+      + `</body></html>`;
+    const r = await sendViaResend(key, to, "Test STANDA COMMERCIAL — notifications email", testHtml);
+    return r.ok
+      ? NextResponse.json({ ok: true, id: r.id, config, to })
+      : NextResponse.json({ ok: false, code: r.code, status: r.status, error: r.message, config, to }, { status: 200 });
+  }
+
+  // ── Wout nòmal : notifikasyon "Reçu à Miami" / "Disponible" ──
+  if (!key) return NextResponse.json({ skipped: true, code: "no_key", reason: "RESEND_API_KEY pa konfigire" });
+  if (!body?.client?.email) return NextResponse.json({ skipped: true, code: "no_email", reason: "kliyan san imèl" });
+
+  try {
+    const { subject, html } = buildHtml(body);
+    const r = await sendViaResend(key, body.client.email, subject, html);
+    if (r.ok) return NextResponse.json({ ok: true, id: r.id });
+    return NextResponse.json({ ok: false, code: r.code, status: r.status, error: r.message }, { status: 200 });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: String(e) }, { status: 200 });
+    return NextResponse.json({ ok: false, code: "exception", error: String(e) }, { status: 200 });
   }
 }

@@ -192,7 +192,7 @@ export default function TrackBox() {
               et suivre tous vos colis au même endroit.
             </p>
             <Link
-              href="/login?tab=signup"
+              href="/inscription"
               className="mt-3 inline-flex items-center justify-center h-11 px-5
                          rounded-xl bg-navy hover:bg-navy-light text-white
                          font-bold text-[14px] transition"

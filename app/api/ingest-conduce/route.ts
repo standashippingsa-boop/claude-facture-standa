@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { CONDUCE_ARRIVAL_STATUS, shouldPromoteOnConduce } from "@/lib/types";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
+import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 
 /**
@@ -35,9 +36,11 @@ const isGuia = (v?: string) => /^WR\d{6,}$/i.test(String(v ?? "").trim());
 const cleanTk = (v?: string) => String(v ?? "").trim().replace(/\s+/g, "").toUpperCase();
 
 function svc() {
+  const config = getSupabaseAdminConfig();
+  if (!config) throw new Error("Configuration serveur incomplète.");
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    config.url,
+    config.key,
     { auth: { persistSession: false } }
   );
 }

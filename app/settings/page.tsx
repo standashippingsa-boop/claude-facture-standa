@@ -425,6 +425,8 @@ export default function SettingsPage() {
         </button>
       </section>
 
+      {role === "admin" && <EmailNotificationsSection />}
+
       {role === "admin" && <ApiTokensSection onNotice={setNotice} />}
 
       <EmployesSection onNotice={setNotice} />
@@ -545,6 +547,112 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
           </tbody>
         </table>
       </div>
+    </section>
+  );
+}
+
+// ============ NOTIFICATIONS EMAIL — dyagnostik + tès (admin sèlman) ============
+// Poukisa: imèl "Reçu à Miami" / "Disponible" yo pati atravè Resend. Lè yo pa
+// rive kliyan yo, se prèske toujou konfigirasyon (RESEND_API_KEY absan, domèn
+// poko verifye sou Resend, DNS manke). Seksyon sa a rele /api/notify ak
+// { probe } pou montre rezon egzat la — san bezwen gade lòg Vercel.
+interface EmailDiag {
+  resend_key_present: boolean;
+  email_from: string;
+  from_domain: string;
+  from_is_default: boolean;
+  domain_matches_expected: boolean;
+}
+
+function EmailNotificationsSection() {
+  const [diag, setDiag] = useState<EmailDiag | null>(null);
+  const [testTo, setTestTo] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const callProbe = async (probe: "diag" | "test", to?: string) => {
+    const { data } = await supabase.auth.getSession();
+    const res = await fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ probe, to, token: data.session?.access_token ?? "" }),
+    });
+    return res.json();
+  };
+
+  useEffect(() => {
+    callProbe("diag").then((j) => { if (j?.config) setDiag(j.config as EmailDiag); }).catch(() => {});
+  }, []);
+
+  const runTest = async () => {
+    setBusy(true); setResult(null);
+    try {
+      const j = await callProbe("test", testTo.trim());
+      if (j?.config) setDiag(j.config as EmailDiag);
+      if (j?.ok) {
+        setResult({ ok: true, msg: `Envoyé à ${j.to}. Vérifiez la boîte de réception ET le dossier Spam. (ID Resend : ${j.id || "—"})` });
+      } else {
+        setResult({ ok: false, msg: j?.error || j?.reason || "Échec inconnu." });
+      }
+    } catch (e) {
+      setResult({ ok: false, msg: "Erreur réseau : " + (e instanceof Error ? e.message : String(e)) });
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <section className="card p-6 space-y-3">
+      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">📧 Notifications email</h2>
+      <p className="text-xs text-slate-500">
+        Lè yon koli pase <b>« Reçu à Miami »</b> oswa <b>« Disponible »</b>, kliyan an resevwa yon imèl
+        otomatik (atravè Resend). Sèvi ak tès sa a pou verifye ke sa mache <b>vre</b> — non sèlman sou papye.
+      </p>
+
+      {diag && (
+        <div className="text-xs bg-mist rounded-lg px-3 py-2 space-y-1">
+          <div>
+            <b>Clé Resend :</b>{" "}
+            {diag.resend_key_present
+              ? <span className="text-emerald-700">✓ configurée</span>
+              : <span className="text-red-600 font-semibold">✗ absente — aucun email ne part</span>}
+          </div>
+          <div><b>Expéditeur :</b> <code className="text-[11px]">{diag.email_from}</code>{diag.from_is_default && <span className="text-slate-400"> (valeur par défaut)</span>}</div>
+          <div>
+            <b>Domaine :</b> <code className="text-[11px]">{diag.from_domain}</code>{" "}
+            {!diag.domain_matches_expected && (
+              <span className="text-amber-700">⚠ différent du domaine attendu — il doit être vérifié sur Resend</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-2 items-end flex-wrap">
+        <label className="block">
+          <span className="text-xs text-slate-600">Envoyer un email test à</span>
+          <input className="input mt-1" type="email" placeholder="votre@email.com"
+            value={testTo} onChange={(e) => setTestTo(e.target.value)} />
+        </label>
+        <button className="btn" onClick={runTest} disabled={busy || !testTo.trim()}>
+          {busy ? "Envoi…" : "Envoyer le test"}
+        </button>
+      </div>
+
+      {result && (
+        <div className={`text-xs rounded-lg px-3 py-2 ${result.ok
+          ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+          : "bg-red-50 border border-red-200 text-red-800"}`}>
+          {result.ok ? "✅ " : "⚠️ "}{result.msg}
+        </div>
+      )}
+
+      <details className="text-xs text-slate-500">
+        <summary className="cursor-pointer font-semibold text-navy">Si le test échoue…</summary>
+        <ol className="list-decimal ml-5 mt-2 space-y-1.5">
+          <li><b>Clé absente</b> : Vercel → Settings → Environment Variables → ajouter <code>RESEND_API_KEY</code> (et si besoin <code>EMAIL_FROM</code>), puis <b>Redeploy</b>.</li>
+          <li><b>« mode test » / « domaine non vérifié »</b> : sur <code>resend.com/domains</code>, ajouter le domaine <code>{diag?.from_domain || "standacommercialsa.com"}</code> et publier les enregistrements DNS (SPF + DKIM) chez le registrar. Tant que ce n&apos;est pas fait, Resend n&apos;envoie qu&apos;à l&apos;adresse du compte Resend.</li>
+          <li><b>Reçu mais dans les Spams</b> : le domaine est vérifié mais DKIM/DMARC incomplet — compléter les DNS.</li>
+          <li><b>« kliyan san imèl »</b> : la fiche client n&apos;a pas d&apos;adresse email (menu Clients → modifier le client).</li>
+        </ol>
+      </details>
     </section>
   );
 }

@@ -1,205 +1,48 @@
 import type { Metadata } from "next";
+import type { ElementType } from "react";
+import { Clock3, MapPin, Navigation, Phone, Store, Truck } from "lucide-react";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
+import PageHero from "@/components/site/PageHero";
+import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import { SITE } from "@/lib/site";
-import { getAgences, Agence } from "@/lib/agences";
+import { getAgences, type Agence } from "@/lib/agences";
 
-/**
- * STANDA COMMERCIAL — PAJ NOS AGENCES (PIBLIK)
- * ═══════════════════════════════════════════
- * Menm règ ak /accueil ak /contact:
- *   - Pa gen koneksyon obligatwa (li nan PUBLIC_PREFIXES nan lib/access.ts).
- *   - Header/Footer VINN nan components/site/ — PATAJE ak /accueil, /contact.
- *   - Enfòmasyon jeneral (WhatsApp/imèl/Instagram) soti nan SITE (lib/site.ts).
- *   - Lis ajans yo soti nan Supabase (lib/agences.ts) — pou modifye yon
- *     ajans, sèvi ak paj admin /settings/agences (PA touche fichye sa a).
- *   - SEO: layout.tsx jeneral la bloke endeksman; isit nou ranvèse règ la
- *     POU PAJ SA A SÈLMAN, menm jan ak /accueil ak /contact.
- */
 export const metadata: Metadata = {
   title: "Nos agences — STANDA COMMERCIAL",
-  description:
-    "Retrouvez toutes les agences et points de retrait STANDA COMMERCIAL en Haïti : adresses, téléphones, WhatsApp et horaires d'ouverture.",
+  description: "Retrouvez les agences et points de retrait STANDA COMMERCIAL en Haïti : adresses, téléphones, WhatsApp et horaires.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/agences" }
 };
 
-// Rafrechi lis la a chak vizit (pa mete an kachèt twòp tan) — chanjman
-// admin fè nan /settings/agences parèt vit sou sit piblik la.
 export const revalidate = 60;
 
-function mapsHref(a: Agence): string {
-  const q = encodeURIComponent(`${a.nom}, ${a.adresse}, Haïti`);
-  return `https://www.google.com/maps/search/?api=1&query=${q}`;
-}
+function mapsHref(a: Agence) { return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${a.nom}, ${a.adresse}, Haiti`)}`; }
 
 export default async function AgencesPage() {
   let agences: Agence[] = [];
   let loadError = false;
-  try {
-    agences = await getAgences();
-  } catch {
-    loadError = true;
-  }
+  try { agences = await getAgences(); } catch { loadError = true; }
 
-  return (
-    <div className="min-h-screen bg-white">
-      <SiteHeader />
+  return <div className="min-h-screen bg-[#f7f9fd] text-ink"><SiteHeader /><main>
+    <PageHero image="/agencies-agent-hero.png" eyebrow={agences.length ? `${agences.length} points de retrait en Haïti` : "Nos points de retrait"} title="Votre agence STANDA vous attend." description="Retrouvez facilement le point de retrait le plus proche, ses horaires et les moyens de la contacter." actions={<><a href={`tel:${SITE.whatsapp}`} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/[0.09] px-5 text-[14px] font-bold text-white transition hover:bg-white/20"><Phone size={16} />{SITE.phone}</a><a href={`https://wa.me/${SITE.whatsapp}`} target="_blank" rel="noreferrer" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 text-[14px] font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#1eb857]"><WhatsAppIcon size={17} />Besoin d&apos;aide ?</a></>}><div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-[12px] font-semibold text-white/70"><span className="inline-flex items-center gap-2"><MapPin size={16} className="text-accent" />Trouvez votre ville</span><span className="inline-flex items-center gap-2"><Clock3 size={16} className="text-accent" />Consultez les horaires</span></div></PageHero>
 
-      {/* ══════════════ BANYÈ TÈT PAJ LA ══════════════ */}
-      <section className="relative bg-navy overflow-hidden">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.16]"
-          style={{
-            background: "radial-gradient(70% 55% at 78% 8%, #E4650A 0%, transparent 62%)"
-          }}
-        />
-        <div className="relative mx-auto max-w-6xl px-4 pt-12 pb-10 sm:pt-16 sm:pb-14">
-          <span className="inline-flex items-center gap-2 rounded-full
-                           bg-accent/15 ring-1 ring-accent/30 px-3 py-1.5
-                           text-[12px] font-bold text-accent">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-            {agences.length > 0 ? `${agences.length} agences en Haïti` : "Nos points de retrait"}
-          </span>
+    <section className="parcel-wash relative -mt-6 px-5 sm:-mt-8 sm:px-8 lg:px-10 xl:px-6"><div className="mx-auto grid max-w-7xl gap-3 rounded-[1.4rem] border border-line bg-white p-3 shadow-[0_20px_48px_-32px_rgba(15,23,42,.45)] sm:grid-cols-3"><MiniInfo icon={Store} title="Points de retrait" text="Un accueil près de chez vous" /><MiniInfo icon={Truck} title="Colis préparés" text="Avant votre arrivée" /><MiniInfo icon={Navigation} title="Itinéraires faciles" text="Google Maps en un clic" /></div></section>
 
-          <h1 className="mt-4 text-[30px] leading-[1.15] sm:text-[42px] sm:leading-[1.1]
-                         font-black text-white tracking-tight">
-            Nos agences
-          </h1>
-          <p className="mt-3 text-[15px] sm:text-[17px] leading-relaxed text-white/75 max-w-lg">
-            Retrouvez l&apos;agence STANDA COMMERCIAL la plus proche de vous : adresse,
-            téléphone, WhatsApp et horaires d&apos;ouverture.
-          </p>
+    <section className="parcel-wash-alt mx-auto max-w-7xl rounded-[2rem] px-5 py-16 sm:px-8 sm:py-24 lg:px-10 xl:px-6"><div className="max-w-2xl"><p className="text-[11px] font-bold uppercase tracking-[.19em] text-accent">Choisissez votre ville</p><h2 className="mt-4 text-balance text-[34px] font-black leading-[1.02] tracking-[-.045em] text-navy sm:text-[46px]">Les agences à votre service.</h2><p className="mt-4 text-[16px] leading-relaxed text-mute">Appelez, écrivez sur WhatsApp ou ouvrez directement l&apos;itinéraire vers l&apos;agence de votre choix.</p></div>
+      {loadError && <p className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-[14px] text-amber-800">La liste des agences est temporairement indisponible. Contactez-nous directement sur WhatsApp.</p>}
+      {!loadError && !agences.length && <p className="mt-8 rounded-2xl border border-line bg-white px-5 py-7 text-center text-[14px] text-mute">Aucune agence n&apos;est disponible pour le moment.</p>}
+      <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{agences.map((agence) => <AgenceCard key={agence.id ?? agence.nom} agence={agence} />)}</div>
+    </section>
 
-          <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <a
-              href={`tel:${SITE.whatsapp}`}
-              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl
-                         bg-white/10 hover:bg-white/20 ring-1 ring-white/25
-                         text-white font-bold text-[15px] transition"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" />
-              </svg>
-              {SITE.phone}
-            </a>
-            <a
-              href={`https://wa.me/${SITE.whatsapp}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl
-                         bg-[#25D366] hover:bg-[#1fb857] text-white font-bold text-[15px] transition shadow-lift"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2Zm5.8 14.3c-.25.7-1.4 1.3-2 1.4-.5.1-1.1.1-1.8-.1-.4-.1-1-.3-1.7-.6-3-1.3-5-4.3-5.1-4.5-.15-.2-1.2-1.6-1.2-3.1 0-1.5.8-2.2 1.1-2.5.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5.25.6.8 2 .9 2.2.1.2.15.4 0 .6-.1.2-.2.3-.4.5-.2.2-.4.5-.5.6-.2.2-.4.4-.2.8.2.4.9 1.5 1.9 2.4 1.3 1.2 2.4 1.5 2.8 1.7.4.2.6.15.8-.1.2-.25.9-1 1.1-1.4.2-.4.4-.3.7-.2.3.1 1.9.9 2.2 1 .3.15.5.2.6.35.1.15.1.85-.15 1.55Z" />
-              </svg>
-              Écrire sur WhatsApp
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════ LIS AJANS YO ══════════════ */}
-      <section className="mx-auto max-w-6xl px-4 py-14 sm:py-20">
-        {loadError && (
-          <p className="mb-8 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm">
-            Impossible de charger la liste des agences pour le moment. Contactez-nous directement
-            par téléphone ou WhatsApp ci-dessus.
-          </p>
-        )}
-
-        {!loadError && agences.length === 0 && (
-          <p className="rounded-xl bg-mist border border-line text-mute px-4 py-6 text-sm text-center">
-            Aucune agence n&apos;est disponible pour le moment.
-          </p>
-        )}
-
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {agences.map((a) => (
-            <AgenceCard key={a.id ?? a.nom} agence={a} />
-          ))}
-        </div>
-      </section>
-
-      <SiteFooter />
-    </div>
-  );
+    <section className="parcel-wash border-y border-line bg-white"><div className="mx-auto grid max-w-7xl gap-8 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[.86fr_1.14fr] lg:items-center lg:px-10 xl:px-6"><div><p className="text-[11px] font-bold uppercase tracking-[.19em] text-accent">Avant de venir</p><h2 className="mt-4 text-balance text-[34px] font-black leading-[1.02] tracking-[-.045em] text-navy sm:text-[44px]">Un retrait plus simple pour vous.</h2><p className="mt-4 max-w-lg text-[15px] leading-relaxed text-mute">Ayez votre code client, le numéro de votre colis ou votre facture à portée de main. L&apos;équipe pourra vous guider rapidement.</p></div><div className="grid gap-3 sm:grid-cols-3"><Tip icon={Phone} title="Appelez avant" text="Pour toute question." /><Tip icon={WhatsAppIcon} title="Écrivez-nous" text="Sur WhatsApp." /><Tip icon={Clock3} title="Vérifiez l&apos;heure" text="Avant de vous déplacer." /></div></div></section>
+  </main><SiteFooter /></div>;
 }
 
 function AgenceCard({ agence: a }: { agence: Agence }) {
-  const telHref = `tel:${a.telephone.replace(/[^\d+]/g, "")}`;
-  const waHref = a.whatsapp ? `https://wa.me/${a.whatsapp}` : "";
-
-  return (
-    <div className="rounded-2xl overflow-hidden ring-1 ring-line shadow-card bg-white flex flex-col">
-      <div className="bg-navy px-5 py-4">
-        <h3 className="text-white font-bold text-[15px]">{a.nom}</h3>
-      </div>
-
-      <dl className="divide-y divide-line">
-        <Row label="Adresse" value={a.adresse} />
-        <Row label="Téléphone" value={a.telephone} />
-        {a.horaire_1 && <Row label="Horaires" value={a.horaire_1} />}
-        {a.horaire_2 && <Row label="" value={a.horaire_2} />}
-      </dl>
-
-      {a.note && (
-        <p className="mx-5 mb-4 mt-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 text-[12.5px] leading-relaxed">
-          {a.note}
-        </p>
-      )}
-
-      <div className="mt-auto px-5 py-4 border-t border-line flex flex-wrap gap-2">
-        <a
-          href={telHref}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12.5px] font-bold
-                     bg-navy/5 text-navy hover:bg-navy/10 transition"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
-            <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" />
-          </svg>
-          Appeler
-        </a>
-        {waHref && (
-          <a
-            href={waHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12.5px] font-bold
-                       bg-[#25D366]/10 text-[#128C4A] hover:bg-[#25D366]/20 transition"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2Zm5.8 14.3c-.25.7-1.4 1.3-2 1.4-.5.1-1.1.1-1.8-.1-.4-.1-1-.3-1.7-.6-3-1.3-5-4.3-5.1-4.5-.15-.2-1.2-1.6-1.2-3.1 0-1.5.8-2.2 1.1-2.5.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5.25.6.8 2 .9 2.2.1.2.15.4 0 .6-.1.2-.2.3-.4.5-.2.2-.4.5-.5.6-.2.2-.4.4-.2.8.2.4.9 1.5 1.9 2.4 1.3 1.2 2.4 1.5 2.8 1.7.4.2.6.15.8-.1.2-.25.9-1 1.1-1.4.2-.4.4-.3.7-.2.3.1 1.9.9 2.2 1 .3.15.5.2.6.35.1.15.1.85-.15 1.55Z" />
-            </svg>
-            WhatsApp
-          </a>
-        )}
-        <a
-          href={mapsHref(a)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12.5px] font-bold
-                     bg-mist text-navy hover:bg-line transition"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
-            <path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 1 1 18 0Z" />
-            <circle cx="12" cy="10" r="3" />
-          </svg>
-          Google Maps
-        </a>
-      </div>
-    </div>
-  );
+  const phone = `tel:${a.telephone.replace(/[^\d+]/g, "")}`;
+  return <article className="group overflow-hidden rounded-[1.45rem] border border-line bg-white shadow-[0_18px_44px_-34px_rgba(15,23,42,.55)] transition duration-300 hover:-translate-y-1 hover:border-accent/35 hover:shadow-lift"><div className="relative overflow-hidden bg-navy px-5 py-5"><div aria-hidden="true" className="absolute -right-8 -top-8 h-24 w-24 rounded-full border-[18px] border-white/10" /><div className="relative flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-accent"><Store size={19} /></span><div><p className="text-[10px] font-bold uppercase tracking-[.16em] text-white/45">Point de retrait</p><h3 className="mt-1 text-[19px] font-black text-white">{a.nom}</h3></div></div></div><div className="space-y-4 p-5"><div className="flex gap-3"><MapPin size={17} className="mt-0.5 shrink-0 text-accent" /><p className="text-[13.5px] leading-relaxed text-mute">{a.adresse}</p></div><div className="flex gap-3"><Clock3 size={17} className="mt-0.5 shrink-0 text-accent" /><div className="text-[13px] leading-relaxed text-mute"><p>{a.horaire_1 || "Horaires à confirmer"}</p>{a.horaire_2 && <p>{a.horaire_2}</p>}</div></div>{a.note && <p className="rounded-xl bg-amber-50 px-3 py-2.5 text-[12px] leading-relaxed text-amber-800">{a.note}</p>}</div><div className="flex flex-wrap gap-2 border-t border-line px-5 py-4"><a href={phone} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mist px-3 text-[12px] font-bold text-navy transition hover:bg-accent-light"><Phone size={14} />Appeler</a>{a.whatsapp && <a href={`https://wa.me/${a.whatsapp}`} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#25D366]/10 px-3 text-[12px] font-bold text-[#128C4A] transition hover:bg-[#25D366]/20"><WhatsAppIcon size={14} />WhatsApp</a>}<a href={mapsHref(a)} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-navy px-3 text-[12px] font-bold text-white transition hover:bg-accent-dark"><Navigation size={14} />Itinéraire</a></div></article>;
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="px-5 py-3 flex items-start justify-between gap-4">
-      {label && <dt className="text-[13px] text-mute shrink-0">{label}</dt>}
-      <dd className={`text-right break-words text-[13.5px] font-semibold text-ink ${!label ? "ml-auto" : ""}`}>
-        {value}
-      </dd>
-    </div>
-  );
-}
+function MiniInfo({ icon: Icon, title, text }: { icon: typeof Store; title: string; text: string }) { return <div className="flex items-center gap-3 rounded-xl px-3 py-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-light text-accent-dark"><Icon size={18} /></span><span><span className="block text-[12px] font-bold text-navy">{title}</span><span className="block text-[12px] text-mute">{text}</span></span></div>; }
+function Tip({ icon: Icon, title, text }: { icon: ElementType; title: string; text: string }) { return <div className="rounded-2xl bg-mist p-4"><Icon size={18} className="text-accent-dark" /><p className="mt-4 text-[13px] font-bold text-navy">{title}</p><p className="mt-1 text-[12px] text-mute">{text}</p></div>; }

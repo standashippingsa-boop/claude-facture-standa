@@ -17,8 +17,8 @@ export default function ResetPasswordPage() {
 
   const submit = async () => {
     setErr(null);
-    if (password.length < 6) { setErr("Modpas la dwe gen omwen 6 karaktè."); return; }
-    if (password !== confirm) { setErr("De modpas yo pa menm."); return; }
+    if (password.length < 6) { setErr("Le mot de passe doit contenir au moins 6 caractères."); return; }
+    if (password !== confirm) { setErr("Les deux mots de passe ne correspondent pas."); return; }
     setBusy(true);
     try {
       const { error } = await supabase.auth.updateUser({ password });
@@ -39,11 +39,11 @@ export default function ResetPasswordPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-16 object-contain" />
         </div>
-        <h1 className="text-xl font-extrabold text-white text-center">Nouvo modpas</h1>
-        <p className="text-xs text-slate-400 text-center">Chwazi yon nouvo modpas pou kont ou.</p>
+        <h1 className="text-xl font-extrabold text-white text-center">Nouveau mot de passe</h1>
+        <p className="text-xs text-slate-400 text-center">Choisissez un nouveau mot de passe pour votre compte.</p>
 
         <label className="block">
-          <span className="text-xs font-semibold text-slate-300">Nouvo modpas</span>
+          <span className="text-xs font-semibold text-slate-300">Nouveau mot de passe</span>
           <div className="mt-1 flex items-center gap-2 rounded-xl bg-[#122A52] border border-white/10 px-3 focus-within:border-blue-400">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9DB4DC" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
             <input type="password" className="w-full bg-transparent py-3 text-sm text-white focus:outline-none"
@@ -51,7 +51,7 @@ export default function ResetPasswordPage() {
           </div>
         </label>
         <label className="block">
-          <span className="text-xs font-semibold text-slate-300">Konfime modpas la</span>
+          <span className="text-xs font-semibold text-slate-300">Confirmez le mot de passe</span>
           <div className="mt-1 flex items-center gap-2 rounded-xl bg-[#122A52] border border-white/10 px-3 focus-within:border-blue-400">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9DB4DC" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
             <input type="password" className="w-full bg-transparent py-3 text-sm text-white focus:outline-none"
@@ -64,7 +64,7 @@ export default function ResetPasswordPage() {
 
         <button className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm shadow-lg shadow-blue-900/40 transition-colors disabled:opacity-50"
           onClick={submit} disabled={busy}>
-          {busy ? "Ap anrejistre..." : "Anrejistre nouvo modpas la"}
+          {busy ? "Enregistrement..." : "Enregistrer le nouveau mot de passe"}
         </button>
       </div>
     </div>

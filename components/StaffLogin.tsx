@@ -10,7 +10,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { staffEmail } from "@/lib/authx";
 import PasswordInput from "@/components/PasswordInput";
 
@@ -25,15 +25,28 @@ export default function StaffLogin({ title, subtitle }: { title: string; subtitl
     if (busy) return;
     setErr(null);
     const u = username.trim();
-    const p = password.trim();
+    // Ne jamais modifier le mot de passe : des espaces peuvent faire partie d'un mot de passe valide.
+    const p = password;
     if (!u || !p) { setErr("Antre non itilizatè ou ak modpas ou."); return; }
+    if (!isSupabaseConfigured) {
+      setErr("Le service de connexion n'est pas configuré sur cet ordinateur. Ajoutez les clés publiques Supabase dans le fichier .env.local, puis redémarrez l'application.");
+      return;
+    }
     setBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email: staffEmail(u), password: p });
-      if (error) throw error;
+      const { data, error } = await supabase.auth.signInWithPassword({ email: staffEmail(u), password: p });
+      if (error || !data.session) {
+        const message = String(error?.message ?? "").toLowerCase();
+        if (message.includes("fetch") || message.includes("network") || message.includes("timeout")) {
+          setErr("Impossible de joindre le service de connexion. Vérifiez votre connexion internet puis réessayez.");
+        } else {
+          setErr("Nom d'utilisateur ou mot de passe incorrect. Vérifiez votre saisie puis réessayez.");
+        }
+        return;
+      }
       router.replace("/dashboard");
     } catch {
-      setErr("Non itilizatè oswa modpas pa kòrèk. Peze ti je a pou verifye modpas la.");
+      setErr("Impossible de joindre le service de connexion. Vérifiez votre connexion internet puis réessayez.");
     } finally { setBusy(false); }
   };
 

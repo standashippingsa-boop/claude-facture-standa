@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
+import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 
 /**
@@ -15,9 +16,6 @@ import { createClient } from "@supabase/supabase-js";
  *  • Validasyon done kote sèvè (longè, fòma, chan otorize sèlman).
  *  • Mesaj erè jenerik — pa gen detay bazdone ki soti deyò.
  */
-const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
 const digits = (s: string) => String(s ?? "").replace(/\D/g, "");
 const clean = (v: unknown, max = 120) => String(v ?? "").trim().slice(0, max);
 
@@ -27,10 +25,11 @@ export async function POST(req: Request) {
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {
-    if (!SERVICE) {
+    const config = getSupabaseAdminConfig();
+    if (!config) {
       return NextResponse.json({ ok: false, reason: "Configuration serveur incomplète." }, { status: 500 });
     }
-    const svc = createClient(URL_, SERVICE, { auth: { persistSession: false } });
+    const svc = createClient(config.url, config.key, { auth: { persistSession: false } });
     const body = await req.json().catch(() => ({}));
 
     // ---- Sesyon OPSYONÈL ----
@@ -53,10 +52,10 @@ export async function POST(req: Request) {
     const phone = clean(p.phone, 30);
     if (fullname.length < 2) return NextResponse.json({ ok: false, reason: "Nom invalide." }, { status: 400 });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      return NextResponse.json({ ok: false, reason: "Imèl la pa bon. Verifye li (egzanp: non@gmail.com)." }, { status: 400 });
+      return NextResponse.json({ ok: false, reason: "Email invalide." }, { status: 400 });
     }
     if (digits(phone).length < 7) {
-      return NextResponse.json({ ok: false, reason: "Nimewo telefòn nan pa bon. Mete omwen 7 chif." }, { status: 400 });
+      return NextResponse.json({ ok: false, reason: "Téléphone invalide." }, { status: 400 });
     }
 
     // Chan otorize SÈLMAN (pa gen customer_code, account_status, auth_user_id soti deyò)
@@ -99,14 +98,15 @@ export async function POST(req: Request) {
        || (!!memTel && (memTel as { auth_user_id?: string | null }).auth_user_id === authUserId));
 
     if ((memMail || memTel) && !propre) {
-      // Mesaj KOUT ak KLÈ: kliyan an dwe konnen KI CHAN ki an konfli epi
-      // KI SA POU L FÈ. Yon woman pa ede pèsonn sou yon telefòn.
       const quoi = memMail && memTel
-        ? "Imèl sa a ak nimewo telefòn sa a"
-        : memMail ? "Imèl sa a" : "Nimewo telefòn sa a";
+        ? "L'adresse e-mail et le numéro de téléphone sont"
+        : memMail ? "Cette adresse e-mail est" : "Ce numéro de téléphone est";
       return NextResponse.json({
         ok: false,
-        reason: `${quoi} deja gen yon kont. Konekte sou kont ou, oswa itilize yon lòt imèl ak yon lòt telefòn.`
+        reason: `${quoi} déjà utilisé par un compte existant. Pour ouvrir un deuxième compte, `
+              + `utilisez une autre adresse e-mail et un autre numéro de téléphone — c'est par là `
+              + `que nous envoyons vos notifications, factures et mots de passe. `
+              + `Sinon, connectez-vous à votre compte ou contactez STANDA COMMERCIAL.`
       }, { status: 409 });
     }
 

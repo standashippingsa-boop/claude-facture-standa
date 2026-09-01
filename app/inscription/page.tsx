@@ -1,104 +1,57 @@
 "use client";
-/*
- * STANDA COMMERCIAL — KREYE YON KONT  (SIT WÈB LA)
- * ════════════════════════════════════════════════
- * RÈG BIZNIS: enskripsyon fèt SOU SIT LA SÈLMAN.
- * Aplikasyon an pa gen fòm enskripsyon — bouton "Kreye yon kont" nan app la
- * louvri paj SA A nan navigatè a. App la ak sit la se de pwodwi apa ki
- * pataje MENM MOTÈ a (menm kont, menm bazdone). Anyen nan motè a pa chanje:
- * paj sa a sèvi ak MENM konpozan SignupForm la.
- *
- * DEKÒ: menm lang vizyèl ak paj koneksyon app la — gradyan anime, kat vè
- * depoli, chan ki monte youn apre lòt. Tout animasyon fèt AK CSS: zewo
- * imaj, zewo bibliyotèk, donk li chaje menm sou koneksyon fèb.
- */
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Clock, MapPin, ShieldCheck, Truck } from "lucide-react";
-import AuthBackdrop from "@/components/AuthBackdrop";
+import { ArrowLeft, MapPin, PackageCheck, ShieldCheck } from "lucide-react";
 import SignupForm from "@/components/SignupForm";
+import Logo from "@/components/Logo";
+import AuthBackdrop from "@/components/site/AuthBackdrop";
+import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import { SITE } from "@/lib/site";
 
-const AVANTAJ = [
-  { icon: MapPin, t: "Adrès Miami gratis", d: "Yon adrès depo pou ou sèl, nan minit ki vin apre a." },
-  { icon: Truck, t: "Swiv chak koli", d: "Depi Miami jouk nan agans vil ou, etap pa etap." },
-  { icon: Clock, t: "Notifikasyon otomatik", d: "Imèl ak WhatsApp depi yon koli rive oswa disponib." },
-  { icon: ShieldCheck, t: "Done ou pwoteje", d: "Modpas chifre. Pèsonn pa ka wè l — pa menm nou." }
+const REASSURANCES = [
+  { icon: MapPin, label: "Adresse à Miami" },
+  { icon: PackageCheck, label: "Suivi de colis" },
+  { icon: ShieldCheck, label: "Données protégées" }
 ];
 
 export default function InscriptionPage() {
   const router = useRouter();
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden bg-[#061937] text-white">
       <AuthBackdrop />
-
-      <div className="relative max-w-5xl mx-auto px-5 py-8 sm:py-12">
-
-        {/* Retounen sou sit la */}
-        <Link href="/accueil"
-          className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-white/60
-                     hover:text-white transition sd-rise">
-          <ArrowLeft size={15} /> Retour au site
-        </Link>
-
-        {/* Antèt */}
-        <div className="text-center mt-6 mb-9">
-          <div className="w-20 h-20 mx-auto rounded-[24px] bg-white grid place-items-center
-                          shadow-[0_18px_50px_-14px_rgba(0,0,0,.6)]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-14 object-contain" />
-          </div>
-          <h1 className="text-[30px] sm:text-[38px] font-extrabold text-white mt-6 tracking-tight leading-tight sd-rise sd-d1">
-            Kreye kont ou
-          </h1>
-          <p className="text-[15px] text-white/55 mt-2 max-w-md mx-auto leading-relaxed sd-rise sd-d2">
-            Ranpli fòm nan. Ekip nou an ap aktive kont ou epi voye adrès depo
-            ou Ozetazini — pa gen anyen pou peye.
-          </p>
-        </div>
-
-        <div className="grid lg:grid-cols-[1fr_1.15fr] gap-6 items-start">
-
-          {/* Avantaj yo — monte youn apre lòt */}
-          <div className="space-y-3 order-2 lg:order-1">
-            {AVANTAJ.map((a, i) => (
-              <div key={a.t}
-                className={`sd-rise sd-d${i + 2} rounded-2xl bg-white/[0.06] backdrop-blur-xl
-                            border border-white/12 p-4 flex gap-3.5`}>
-                <span className="w-10 h-10 rounded-xl bg-white/10 grid place-items-center shrink-0 text-indigo-200">
-                  <a.icon size={18} />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[14px] font-bold text-white leading-tight">{a.t}</p>
-                  <p className="text-[12.5px] text-white/50 leading-relaxed mt-1">{a.d}</p>
-                </div>
-              </div>
-            ))}
-
-            <div className="sd-rise sd-d6 rounded-2xl bg-white/[0.06] border border-white/15 p-4">
-              <p className="text-[12.5px] text-white/60 leading-relaxed">
-                Gen yon kesyon anvan w kòmanse? Ekri nou sou WhatsApp
-                {" "}<a href={`https://wa.me/${SITE.whatsapp}`} target="_blank" rel="noreferrer"
-                  className="font-bold underline underline-offset-2">{SITE.phone}</a>.
-              </p>
-            </div>
-          </div>
-
-          {/* Fòm nan — MENM konpozan ak menm motè */}
-          <div className="order-1 lg:order-2 sd-rise sd-d3">
-            <div className="rounded-[26px] bg-white/[0.07] backdrop-blur-xl border border-white/15
-                            shadow-[0_28px_80px_-24px_rgba(0,0,0,.75)] p-2 sm:p-3">
-              <SignupForm onGoLogin={() => router.push("/login")} />
-            </div>
-          </div>
-        </div>
-
-        <p className="text-center text-[11px] text-white/30 mt-10">
-          <Link href="/confidentialite" className="hover:text-white/60 transition">
-            Politique de confidentialité
+      <div className="relative mx-auto max-w-5xl px-5 py-6 sm:px-8 sm:py-9">
+        <header className="flex items-center justify-between gap-4">
+          <Link href="/accueil" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-white/75 transition hover:text-white">
+            <ArrowLeft size={15} /> Retour au site
           </Link>
-        </p>
+          <div className="inline-flex items-center gap-2.5">
+            <Logo size={38} rounded="rounded-xl" />
+            <span className="leading-none"><b className="block text-[13px] tracking-[.08em]">STANDA</b><span className="block mt-1 text-[8px] font-bold tracking-[.2em] text-accent">COMMERCIAL</span></span>
+          </div>
+        </header>
+
+        <main className="mx-auto mt-10 max-w-3xl pb-10 sm:mt-14">
+          <section className="relative rounded-[2rem] border border-white/40 bg-white/[.13] px-3 pb-3 pt-14 shadow-[0_32px_90px_-35px_rgba(0,0,0,.8)] backdrop-blur-2xl sm:px-5 sm:pb-5">
+            <div className="absolute left-1/2 top-0 grid h-20 w-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[5px] border-[#dbeafa] bg-navy shadow-[0_15px_35px_-10px_rgba(0,0,0,.65)]">
+              <Logo size={56} rounded="rounded-xl" />
+            </div>
+            <div className="px-3 pb-5 text-center sm:px-5">
+              <p className="text-[11px] font-bold uppercase tracking-[.18em] text-orange-200">Inscription gratuite</p>
+              <h1 className="mt-3 text-balance text-[31px] font-black leading-[1.04] tracking-[-.04em] text-white sm:text-[42px]">Créez votre compte</h1>
+              <p className="mx-auto mt-3 max-w-xl text-[14px] leading-relaxed text-white/75 sm:text-[15px]">Remplissez vos informations. Notre équipe préparera votre adresse de dépôt à Miami et votre code client.</p>
+            </div>
+            <SignupForm onGoLogin={() => router.push("/login")} />
+          </section>
+
+          <div className="mt-5 grid gap-2.5 sm:grid-cols-3">
+            {REASSURANCES.map(({ icon: Icon, label }) => <div key={label} className="flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-navy/35 px-3 py-3 text-[12px] font-semibold text-white/80 backdrop-blur-md"><Icon size={16} className="text-orange-300" />{label}</div>)}
+          </div>
+
+          <p className="mt-6 text-center text-[12px] leading-relaxed text-white/65">Une question ? <a href={`https://wa.me/${SITE.whatsapp}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-bold text-white underline underline-offset-2"><WhatsAppIcon size={15} />Écrivez-nous sur WhatsApp</a>.</p>
+          <p className="mt-4 text-center text-[11px] text-white/45"><Link href="/confidentialite" className="transition hover:text-white/80">Politique de confidentialité</Link></p>
+        </main>
       </div>
     </div>
   );

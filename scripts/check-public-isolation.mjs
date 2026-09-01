@@ -128,7 +128,7 @@ for (const zone of ZONES) {
     // B. Kle sèvis la pa janm nan zòn piblik la
     src.split("\n").forEach((liy, i) => {
       if (liy.trim().startsWith("*") || liy.trim().startsWith("//")) return;
-      if (liy.includes("SUPABASE_SERVICE_ROLE")) {
+      if (liy.includes("SUPABASE_SERVICE_ROLE") || liy.includes("SUPABASE_SECRET_KEY")) {
         erè.push({ titre: "KLE SÈVIS LA NAN YON PAJ PIBLIK",
           detay: [`${f}:${i + 1}`, liy.trim(),
                   "Kle sèvis la se pou wout API sèlman, jamè yon paj."] });

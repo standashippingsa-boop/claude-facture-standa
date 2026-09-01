@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
+import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 
 /**
@@ -34,9 +35,6 @@ import { createClient } from "@supabase/supabase-js";
  *     header "Referer" lòt sit. Ak POST li rete nan kò demann nan.
  */
 
-const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
 /** Longè minimòm yon nimewo tracking pou nou aksepte chèche l */
 const MIN_LEN = 6;
 
@@ -63,7 +61,8 @@ export async function POST(req: Request) {
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {
-    if (!SERVICE) {
+    const config = getSupabaseAdminConfig();
+    if (!config) {
       // Mesaj jeneral — nou pa revele konfigirasyon entèn bay yon vizitè
       return NextResponse.json(
         { ok: false, reason: "Service temporairement indisponible." },
@@ -86,7 +85,7 @@ export async function POST(req: Request) {
     }
 
     // ── 3. Rechèch sou sèvè a ──────────────────────────────────────
-    const svc = createClient(URL_, SERVICE, {
+    const svc = createClient(config.url, config.key, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
 

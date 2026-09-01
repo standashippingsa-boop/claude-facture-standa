@@ -10,23 +10,21 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2 } from "lucide-react";
 import { getVilles, registerClientProfile, getClientByAuthId } from "@/lib/db";
-import { MessageCircle } from "lucide-react";
-import { SUPPORT_PHONE } from "@/lib/branding";
 import { safeMessage } from "@/lib/safeerror";
 import { SITE_URL } from "@/lib/branding";
 import { Ville } from "@/lib/types";
 
 const schema = z.object({
-  fullname: z.string().min(1, "Non obligatwa"),
-  surname: z.string().min(1, "Siyati obligatwa"),
-  email: z.string().email("Imèl pa valid"),
-  phone: z.string().min(6, "Telefòn obligatwa"),
-  whatsapp: z.string().min(6, "Nimewo WhatsApp obligatwa"),
-  country: z.string().min(1, "Peyi obligatwa"),
-  city: z.string().min(1, "Chwazi vil ou nan lis la"),
-  address: z.string().min(1, "Adrès obligatwa"),
-  id_type: z.enum(["Kat Idantite Nasyonal", "Paspò"], { errorMap: () => ({ message: "Chwazi kalite idantifikasyon an" }) }),
-  id_number: z.string().min(1, "Nimewo idantifikasyon obligatwa")
+  fullname: z.string().min(1, "Le prénom est obligatoire"),
+  surname: z.string().min(1, "Le nom est obligatoire"),
+  email: z.string().email("L'adresse e-mail n'est pas valide"),
+  phone: z.string().min(6, "Le téléphone est obligatoire"),
+  whatsapp: z.string().min(6, "Le numéro WhatsApp est obligatoire"),
+  country: z.string().min(1, "Le pays est obligatoire"),
+  city: z.string().min(1, "Sélectionnez votre ville dans la liste"),
+  address: z.string().min(1, "L'adresse est obligatoire"),
+  id_type: z.enum(["Carte d'identité nationale", "Passeport"], { errorMap: () => ({ message: "Sélectionnez votre pièce d'identité" }) }),
+  id_number: z.string().min(1, "Le numéro de pièce d'identité est obligatoire")
 });
 
 type Form = z.infer<typeof schema>;
@@ -63,33 +61,26 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
       });
       setDone(true);
     } catch (e: any) {
-      /*
-       * Kliyan an pa dwe janm rete devan yon mesaj wouj san wout sòti.
-       * Nou di l KI SA ki pa bon, epi nou ba l de bouton: konekte, oswa
-       * ekri nou sou WhatsApp. Se konsa yon enskripsyon ki echwe pa vin
-       * yon kliyan ki pèdi.
-       */
-      const m = String(e?.message ?? "");
-      setErr(m.includes("already registered")
-        ? "Imèl sa a gen yon kont deja. Konekte sou kont ou pito."
+      setErr(e.message?.includes("already registered")
+        ? "Cette adresse e-mail est déjà associée à un compte. Connectez-vous."
         : safeMessage(e));
     }
   };
 
   if (done) {
     return (
-      <div className="card p-6 text-center space-y-4">
+      <div className="rounded-[1.5rem] bg-white p-6 text-center shadow-[0_24px_60px_-36px_rgba(8,30,67,.55)] space-y-4">
         <div>
           <CheckCircle2 className="mx-auto text-emerald-500" size={52} />
-          <h1 className="text-xl font-extrabold text-navy">Enskripsyon ou resevwa!</h1>
+          <h1 className="text-xl font-extrabold text-navy">Votre inscription a bien été reçue !</h1>
           <p className="text-sm text-slate-600">
-            Kont ou an <b>En attente d&apos;activation</b>. Ekip STANDA COMMERCIAL ap verifye
-            enfòmasyon ou yo epi aktive kont ou — w ap resevwa sou WhatsApp: adrès depo ou
-            Ozetazini, <b>nom d&apos;utilisateur ou (kòd MC ou)</b> ak yon <b>modpas tanporè</b>
-            pou w konekte.
+            Votre compte est <b>en attente d&apos;activation</b>. L&apos;équipe STANDA COMMERCIAL
+            vérifiera vos informations puis activera votre compte. Vous recevrez sur WhatsApp
+            votre adresse de dépôt aux États-Unis, votre <b>nom d&apos;utilisateur (code MC)</b>
+            et un <b>mot de passe temporaire</b> pour vous connecter.
           </p>
           <button type="button" onClick={onGoLogin} className="btn justify-center w-full">
-            Ale nan paj koneksyon an
+            Accéder à la page de connexion
           </button>
         </div>
       </div>
@@ -108,70 +99,49 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
   );
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="card p-5 md:p-6 space-y-5">
+    <form onSubmit={handleSubmit(onSubmit)} className="rounded-[1.5rem] bg-white p-5 shadow-[0_24px_60px_-36px_rgba(8,30,67,.55)] md:p-7 space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <F name="fullname" label="Non *" placeholder="Ex: Jean" />
-            <F name="surname" label="Siyati *" placeholder="Ex: Baptiste" />
-            <F name="email" label="Imèl *" type="email" placeholder="ou@egzanp.com" />
-            <F name="phone" label="Telefòn *" placeholder="+509 ..." />
-            <F name="whatsapp" label="Nimewo WhatsApp *" placeholder="+509 ..." />
-            <F name="country" label="Peyi *" placeholder="Ex: Haïti" />
+            <F name="fullname" label="Prénom *" placeholder="Ex. : Jean" />
+            <F name="surname" label="Nom *" placeholder="Ex. : Baptiste" />
+            <F name="email" label="E-mail *" type="email" placeholder="vous@exemple.com" />
+            <F name="phone" label="Téléphone *" placeholder="+509 ..." />
+            <F name="whatsapp" label="Numéro WhatsApp *" placeholder="+509 ..." />
+            <F name="country" label="Pays *" placeholder="Ex. : Haïti" />
             <label className="block">
-              <span className="text-xs font-semibold text-slate-600">Vil *</span>
+              <span className="text-xs font-semibold text-slate-600">Ville *</span>
               <select className="input mt-1" {...register("city")}>
-                <option value="">— Chwazi vil ou —</option>
+                <option value="">— Sélectionnez votre ville —</option>
                 {villes.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
               </select>
               {errors.city && <span className="block text-xs text-red-600">{errors.city.message}</span>}
             </label>
           </div>
 
-          <F name="address" label="Adrès *" placeholder="Ruelle oswa katye kote ou rete."
-             help="Ruelle oswa katye kote ou rete." />
+          <F name="address" label="Adresse *" placeholder="Rue ou quartier où vous habitez."
+             help="Indiquez votre rue ou votre quartier." />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block">
-              <span className="text-xs font-semibold text-slate-600">Kalite idantifikasyon *</span>
+              <span className="text-xs font-semibold text-slate-600">Pièce d&apos;identité *</span>
               <select className="input mt-1" {...register("id_type")}>
-                <option value="">— Chwazi —</option>
-                <option value="Kat Idantite Nasyonal">Kat Idantite Nasyonal</option>
-                <option value="Paspò">Paspò</option>
+                <option value="">— Sélectionnez —</option>
+                <option value="Carte d'identité nationale">Carte d&apos;identité nationale</option>
+                <option value="Passeport">Passeport</option>
               </select>
               {errors.id_type && <span className="text-xs text-red-600">{errors.id_type.message}</span>}
             </label>
-            <F name="id_number" label="Nimewo idantifikasyon *" placeholder="Nimewo paspò a oswa nimewo kat la" />
+            <F name="id_number" label="Numéro de pièce d&apos;identité *" placeholder="Numéro du passeport ou de la carte" />
           </div>
 
-          {/*
-            * Kliyan an pa dwe janm rete devan yon mesaj wouj san wout sòti.
-            * Nou di l sa ki pa bon, epi nou ba l de bouton: konekte sou kont
-            * li, oswa ekri nou. Yon enskripsyon ki echwe pa dwe vin yon
-            * kliyan ki pèdi.
-            */}
-          {err && (
-            <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 space-y-3">
-              <p className="text-sm text-red-700 leading-relaxed">{err}</p>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={onGoLogin}
-                  className="text-xs font-bold text-white bg-navy hover:bg-navy-dark rounded-lg px-3 py-2 transition">
-                  Konekte sou kont mwen
-                </button>
-                <a href={`https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-white
-                             bg-emerald-600 hover:bg-emerald-500 rounded-lg px-3 py-2 transition">
-                  <MessageCircle size={14} /> Mande èd sou WhatsApp
-                </a>
-              </div>
-            </div>
-          )}
+          {err && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{err}</p>}
 
           <button type="submit" className="btn w-full justify-center py-3" disabled={isSubmitting}>
-            {isSubmitting ? "Ap kreye kont lan..." : "Créer mon compte"}
+            {isSubmitting ? "Création du compte..." : "Créer mon compte"}
           </button>
 
       <p className="text-center text-xs text-slate-500">
-        Ou gen yon kont deja?{" "}
-        <button type="button" onClick={onGoLogin} className="text-navy font-semibold underline">Konekte</button>
+        Vous avez déjà un compte ?{" "}
+        <button type="button" onClick={onGoLogin} className="text-navy font-semibold underline">Se connecter</button>
       </p>
     </form>
   );

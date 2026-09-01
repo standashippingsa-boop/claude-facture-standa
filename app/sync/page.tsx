@@ -232,6 +232,12 @@ export default function SyncPage() {
           if (j.ok) sent++; else problems.push(`${code}: ${j.reason ?? j.error ?? "erè"}`);
         } catch (err: any) { problems.push(`${code}: ${err?.message ?? "erè rezo"}`); }
       }
+      // Tras dirab: si imèl echwe, kite yon antre nan Journal (toast la disparèt)
+      if (problems.length) {
+        await logAction("Notification email échouée",
+          `Import Facture — ${sent} envoyé(s), ${problems.length} échec(s): ${problems.join(" | ").slice(0, 400)}`,
+          "", "");
+      }
       setApplyDone(
         `✅ Import Facture ${r.batchId}: ${r.updated} colis Disponible • ${sent} email(s) envoyé(s)` +
         `${noEmail ? `, ${noEmail} sans email` : ""}.` +

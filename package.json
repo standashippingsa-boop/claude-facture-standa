@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "node scripts/check-public-isolation.mjs && next build",
     "start": "next start",
-    "check:isolation": "node scripts/check-public-isolation.mjs"
+    "check:isolation": "node scripts/check-public-isolation.mjs",
+    "typecheck": "tsc --noEmit --incremental false",
+    "verify": "npm run typecheck && npm run check:isolation && npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

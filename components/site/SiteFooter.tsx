@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import Logo from "@/components/Logo";
-import { SITE } from "./SiteHeader";
+import { SITE } from "@/lib/site";
 import { DEPOT } from "@/lib/depot";
+import { FacebookIcon, InstagramIcon, TikTokIcon, WhatsAppIcon } from "./BrandIcons";
 
 /**
  * STANDA COMMERCIAL — FOOTER SIT PIBLIK LA
@@ -22,8 +23,8 @@ export default function SiteFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="bg-navy-dark text-white mt-16">
-      <div className="mx-auto max-w-6xl px-4 py-12">
+    <footer className="bg-navy-dark text-white">
+      <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10 xl:px-6">
 
         <div className="grid gap-10 md:grid-cols-4">
 
@@ -54,7 +55,7 @@ export default function SiteFooter() {
               <li><Link href="/contact" className="text-white/80 hover:text-accent transition">Contact</Link></li>
               <li><Link href="/agences" className="text-white/80 hover:text-accent transition">Nos agences</Link></li>
               <li><Link href="/login" className="text-white/80 hover:text-accent transition">Mon compte</Link></li>
-              <li><Link href="/login?tab=signup" className="text-accent font-semibold hover:text-white transition">S&apos;inscrire</Link></li>
+              <li><Link href="/inscription" className="text-accent font-semibold hover:text-white transition">S&apos;inscrire</Link></li>
             </ul>
           </div>
 
@@ -79,15 +80,29 @@ export default function SiteFooter() {
               <li>
                 <a href={`https://wa.me/${SITE.whatsapp}`}
                   target="_blank" rel="noopener noreferrer"
-                  className="text-white/80 hover:text-accent transition">
-                  WhatsApp
+                  className="inline-flex items-center gap-2 text-white/80 hover:text-accent transition">
+                  <WhatsAppIcon size={16} /> WhatsApp
                 </a>
               </li>
               <li>
-                <a href={`https://instagram.com/${SITE.instagram}`}
+                <a href={SITE.instagramUrl}
                   target="_blank" rel="noopener noreferrer"
-                  className="text-white/80 hover:text-accent transition">
-                  @{SITE.instagram}
+                  className="inline-flex items-center gap-2 text-white/80 hover:text-accent transition">
+                  <InstagramIcon size={16} /> @{SITE.instagram}
+                </a>
+              </li>
+              <li>
+                <a href={SITE.facebookUrl}
+                  target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-white/80 hover:text-accent transition">
+                  <FacebookIcon size={16} /> Facebook
+                </a>
+              </li>
+              <li>
+                <a href={SITE.tiktokUrl}
+                  target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-white/80 hover:text-accent transition">
+                  <TikTokIcon size={16} /> TikTok
                 </a>
               </li>
             </ul>

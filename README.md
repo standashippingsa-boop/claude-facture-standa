@@ -5,19 +5,27 @@ React Hook Form · Zod · SheetJS (Excel MCPACK) · jsPDF (factures).
 
 ## Installation (yon sèl fwa)
 
-### 1. Bazdone Supabase (2 minit)
+### 1. Bazdone Supabase (3 minit)
 1. https://supabase.com → pwojè ou a (oswa kreye youn gratis).
-2. **SQL Editor** → New query → kole tout `supabase/migration.sql` → **Run**.
-   Sa kreye tab yo (clients, packages, invoices, invoice_items, pricing_rules, imports,
-   app_settings) **ak** bucket Storage `invoices` pou PDF yo.
-3. **Project Settings → API** → kopye `Project URL` ak `anon public key`.
+2. **SQL Editor** → New query → kouri fichye sa yo **NAN LÒD SA A** :
+   1. `supabase/migration.sql`          — tab yo + bucket Storage
+   2. `supabase/security-hardening.sql` — **OBLIGATWA** : RLS staff / kliyan / piblik
+   3. `supabase/20260831_public_reviews.sql` — kòmantè piblik yo
+   > ⚠️ San etap 2, RLS ap bloke tout lekti (se espre — « fail-closed »).
+   > PA JANM refè yon politik « anon all » : sa louvri tout done yo bay tout entènèt la.
+3. **Project Settings → API** → kopye `Project URL`, `anon public key`, `service_role`.
+4. **Authentication → Sign In / Up → Email** → dezaktive « Confirm email ».
 
 ### 2. Aplikasyon an
 ```bash
-cp .env.local.example .env.local   # mete URL + anon key ou
+cp .env.local.example .env.local   # mete URL + anon key + service_role + SETUP_SECRET
 npm install
 npm run dev                        # http://localhost:3000
+npm run verify                     # typecheck + isolation + build (anvan chak livrezon)
 ```
+
+> `SUPABASE_SERVICE_ROLE_KEY` ak `SETUP_SECRET` = **sèvè sèlman**. Yo pa janm ale nan
+> navigatè a. `npm run check:isolation` verifye pa gen fwit nan paj piblik yo.
 
 ## Workflow chak jou
 
@@ -125,14 +133,16 @@ git push -u origin main
 2. Vercel detekte Next.js otomatikman — pa chanje anyen nan build settings.
 3. Nan **Environment Variables**, ajoute (kopye valè yo nan Supabase > Project Settings > API):
 
-   | Name | Value |
-   |---|---|
-   | `NEXT_PUBLIC_SUPABASE_URL` | `https://XXXX.supabase.co` |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJ...` |
+   | Name | Value | Ekspoze? |
+   |---|---|---|
+   | `NEXT_PUBLIC_SUPABASE_URL` | `https://XXXX.supabase.co` | navigatè |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJ...` | navigatè |
+   | `SUPABASE_SERVICE_ROLE_KEY` | `eyJ...` (service_role) | **sèvè sèlman** |
+   | `SETUP_SECRET` | valè long o aza (kreye premye admin) | **sèvè sèlman** |
+   | `RESEND_API_KEY` | `re_...` (opsyonèl — imèl) | **sèvè sèlman** |
 
-4. Klike **Deploy**. Nan ~1 minit w ap gen yon URL tankou
-   `https://standa-commercial.vercel.app` — sistèm ou a disponib sou nenpòt aparèy,
-   telefòn ou tou (e sou telefòn, bouton WhatsApp la pataje PDF la dirèkteman).
+4. Klike **Deploy**. Answit ale sou `https://TON-URL/setup` yon sèl fwa pou kreye
+   premye kont admin lan (l ap mande `SETUP_SECRET` lan).
 
 ### Mizajou pita
 
@@ -140,9 +150,16 @@ Chak fwa ou pouse yon chanjman (`git push`), Vercel redeplwaye otomatikman.
 
 ### Nòt sekirite
 
-Sistèm nan pa gen login epi kle anon lan louvri tab yo (politik RLS "anon all").
-Sou entènèt piblik, URL Vercel ou a ta dwe rete prive pou ou sèlman. Si w vle,
-m ka ajoute yon paj login senp (Supabase Auth) pou pwoteje l — di m sa.
+Wè **`SECURITY.md`** pou detay yo. Rezime :
+
+- Otantifikasyon Supabase Auth (Admin / Employé / Client). Aksè kontwole pa **RLS**
+  (`security-hardening.sql`) — se pa URL la ki sekrè, se politik yo.
+- **Kle `service_role` ak `SETUP_SECRET`** = sèvè sèlman (wout `app/api/*`). Yo pa janm
+  nan navigatè a ni nan yon paj piblik (`npm run check:isolation` fè respekte sa).
+- **Pa janm** kreye politik RLS « anon all » — sa ta louvri tout done kliyan yo
+  (non, adrès, pyès idantite, montan) bay nenpòt moun sou entènèt.
+- Si yon kle Supabase te janm pataje / komèt / voye pa imèl : **rejenere l touswit**
+  nan Supabase → Project Settings → API.
 
 
 ## Enskripsyon kliyan + aktivasyon MCPACK (v6)

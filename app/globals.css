@@ -100,3 +100,249 @@ body { @apply bg-mist text-slate-700 antialiased; }
          focus:outline-none focus:border-white/50 focus:bg-white/15 transition;
 }
 .sd-label { @apply block text-[12px] font-semibold text-white/70 mb-1.5; }
+
+/* Pages publiques — texture et mouvement très léger, sans dépendance. */
+.site-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,.32) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.32) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, black, transparent 82%);
+}
+
+@keyframes site-fade {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.site-fade { animation: site-fade .65s cubic-bezier(.22,1,.36,1) both; }
+.site-fade-d2 { animation-delay: .12s; }
+
+/* Imaj koli kliyan an pataje yo: yo rete lejè dèyè seksyon klè yo pou bay sit la lavi,
+   pandan tèks ak bouton yo toujou rete trè lizib. */
+.parcel-wash,
+.parcel-wash-alt {
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+}
+
+.parcel-wash::before,
+.parcel-wash-alt::before {
+  background-position: center;
+  background-repeat: repeat;
+  background-size: 460px auto;
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+}
+
+.parcel-wash > *,
+.parcel-wash-alt > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Bleu profond et gris bleuté : contraste renforcé sur les zones décorées. */
+.parcel-wash .text-navy,
+.parcel-wash-alt .text-navy,
+.parcel-wash .text-ink,
+.parcel-wash-alt .text-ink {
+  color: #0b3a78;
+}
+
+.parcel-wash .text-mute,
+.parcel-wash-alt .text-mute {
+  color: #36577e;
+}
+
+.parcel-wash::before {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, .93), rgba(255, 255, 255, .93)),
+    url("/site-backgrounds/shopping-cart-laptop.jpg");
+}
+
+.parcel-wash-alt::before {
+  background-image:
+    linear-gradient(rgba(247, 249, 253, .92), rgba(247, 249, 253, .92)),
+    url("/site-backgrounds/online-shopping-cart.jpg");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-fade { animation: none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ESPACE CLIENT — interface mobile claire, vivante et fonctionnelle.
+   Les données et les actions existantes ne changent pas : cette couche ne
+   concerne que la présentation du parcours client.
+   ═══════════════════════════════════════════════════════════════════════ */
+.client-app {
+  background-color: #f5f7fb;
+  background-image:
+    linear-gradient(rgba(18, 43, 92, .028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 43, 92, .028) 1px, transparent 1px),
+    radial-gradient(circle at 92% 5%, rgba(228, 101, 10, .10), transparent 20rem),
+    radial-gradient(circle at 4% 39%, rgba(30, 74, 143, .07), transparent 24rem);
+  background-size: 34px 34px, 34px 34px, auto, auto;
+}
+
+.client-app-header {
+  background: linear-gradient(116deg, #0d234d 0%, #122b5c 58%, #1d4b8f 100%);
+  box-shadow: 0 6px 18px rgba(10, 29, 68, .18);
+  color: white;
+}
+
+.client-logo-tile {
+  @apply grid h-10 w-10 place-items-center overflow-hidden rounded-xl bg-white shadow-[0_6px_14px_rgba(0,0,0,.13)];
+}
+
+.client-header-icon {
+  @apply grid h-9 w-9 place-items-center rounded-xl text-white/85 transition hover:bg-white/10 hover:text-white disabled:opacity-60;
+}
+
+.client-notification-count {
+  @apply absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-extrabold text-white ring-2 ring-navy;
+}
+
+.client-app-content { @apply relative; }
+
+.client-welcome {
+  @apply relative flex items-start justify-between overflow-hidden rounded-[1.35rem] border border-white/70 bg-white/80 px-5 py-5 shadow-[0_14px_34px_-28px_rgba(15,39,86,.65)] backdrop-blur-sm;
+}
+
+.client-welcome::after {
+  @apply pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full border-[22px] border-accent/10;
+  content: "";
+}
+
+.client-eyebrow { @apply text-[10px] font-extrabold tracking-[.17em] text-accent; }
+.client-welcome h1 { @apply mt-1 text-[25px] font-extrabold leading-tight tracking-tight text-navy; }
+.client-welcome p:not(.client-eyebrow) { @apply mt-1.5 max-w-[25rem] text-[12px] leading-relaxed text-mute; }
+
+.client-welcome-bell {
+  @apply relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-line bg-mist text-navy transition hover:-translate-y-0.5 hover:bg-white hover:shadow-soft;
+}
+
+.client-welcome-bell span {
+  @apply absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-extrabold text-white;
+}
+
+.client-main-notice {
+  @apply flex w-full items-center gap-3 rounded-[1.1rem] border border-line bg-white p-3.5 text-left shadow-[0_10px_20px_-18px_rgba(15,39,86,.7)] transition hover:-translate-y-0.5 hover:border-navy/15 hover:shadow-soft;
+}
+
+.client-main-notice strong,
+.client-notification-row strong { @apply block truncate text-[13px] font-bold leading-tight text-ink; }
+.client-main-notice small,
+.client-notification-row small { @apply mt-1 block truncate text-[11px] leading-snug text-mute; }
+
+.client-notice-icon {
+  @apply grid h-10 w-10 shrink-0 place-items-center rounded-xl;
+}
+
+.client-notice-icon-available { @apply bg-emerald-50 text-emerald-600; }
+.client-notice-icon-invoice { @apply bg-orange-50 text-accent-dark; }
+.client-notice-icon-pickup { @apply bg-blue-50 text-navy-light; }
+.client-notice-icon-shipment { @apply bg-slate-100 text-slate-600; }
+
+.client-stat-grid { @apply grid grid-cols-1 gap-3 sm:grid-cols-2; }
+
+.client-stat-card {
+  @apply flex w-full items-center gap-3 rounded-[1.15rem] border border-line bg-white p-3.5 shadow-[0_9px_20px_-18px_rgba(15,39,86,.65)] transition duration-200 hover:-translate-y-0.5 hover:border-navy/15 hover:shadow-soft;
+}
+
+.client-stat-icon { @apply grid h-11 w-11 shrink-0 place-items-center rounded-xl; }
+.client-stat-icon-available { @apply bg-emerald-50 text-emerald-600; }
+.client-stat-icon-receive { @apply bg-blue-50 text-navy-light; }
+.client-stat-icon-invoice { @apply bg-orange-50 text-accent-dark; }
+.client-stat-icon-history { @apply bg-slate-100 text-slate-600; }
+
+.client-stat-count { @apply grid h-8 min-w-8 shrink-0 place-items-center rounded-full px-1.5 text-sm font-extrabold text-white; }
+.client-stat-count-available { @apply bg-emerald-600; }
+.client-stat-count-receive { @apply bg-navy; }
+.client-stat-count-invoice { @apply bg-accent; }
+.client-stat-count-history { @apply bg-slate-600; }
+
+.client-shipment-card {
+  @apply overflow-hidden rounded-[1.35rem] border border-line bg-white p-5 shadow-[0_16px_34px_-26px_rgba(15,39,86,.65)];
+}
+
+.client-shipment-heading { @apply flex items-start justify-between gap-4; }
+.client-status-label { @apply inline-flex rounded-full bg-accent-light px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[.1em] text-accent-dark; }
+.client-shipment-heading h2 { @apply mt-2 font-mono text-[21px] font-extrabold tracking-tight text-navy; }
+.client-shipment-heading p { @apply mt-1.5 max-w-md text-[12px] leading-relaxed text-mute; }
+.client-map-mark { @apply grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-mist text-navy; }
+
+.client-route-progress { @apply relative mt-6 grid grid-cols-3 gap-2; }
+.client-route-progress::before {
+  @apply absolute left-[14%] right-[14%] top-[16px] h-[3px] rounded-full bg-slate-200;
+  content: "";
+}
+
+.client-route-progress::after {
+  @apply absolute left-[14%] top-[16px] h-[3px] rounded-full bg-navy transition-all duration-500;
+  content: "";
+}
+
+.client-route-stage-0::after { width: 0; }
+.client-route-stage-1::after { width: 36%; }
+.client-route-stage-2::after { width: 72%; }
+
+.client-route-stop { @apply relative z-10 flex flex-col items-center gap-1.5 text-center text-[11px] font-bold text-slate-400; }
+.client-route-stop b { @apply grid h-8 w-8 place-items-center rounded-full border-2 border-slate-200 bg-white text-slate-400; }
+.client-route-stage-0 .client-route-stop-start,
+.client-route-stage-1 .client-route-stop-start,
+.client-route-stage-1 .client-route-stop-middle,
+.client-route-stage-2 .client-route-stop-start,
+.client-route-stage-2 .client-route-stop-middle,
+.client-route-stage-2 .client-route-stop-end { @apply text-navy; }
+.client-route-stage-0 .client-route-stop-start b,
+.client-route-stage-1 .client-route-stop-start b,
+.client-route-stage-2 .client-route-stop-start b { @apply border-navy bg-navy text-white; }
+.client-route-stage-1 .client-route-stop-middle b { @apply border-accent bg-white text-accent ring-4 ring-accent/10; }
+.client-route-stage-2 .client-route-stop-middle b,
+.client-route-stage-2 .client-route-stop-end b { @apply border-navy bg-navy text-white; }
+
+.client-follow-button {
+  @apply mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-navy px-4 py-3 text-[13px] font-extrabold text-white shadow-[0_10px_18px_-12px_rgba(18,43,92,.8)] transition hover:bg-navy-light;
+}
+
+.client-section-title { @apply flex items-center justify-between px-1; }
+.client-section-title h2 { @apply text-[18px] font-extrabold tracking-tight text-navy; }
+.client-section-title button { @apply text-[12px] font-bold text-navy transition hover:text-accent-dark; }
+
+.client-notifications-preview { @apply space-y-2.5; }
+.client-notification-list { @apply overflow-hidden rounded-[1.15rem] border border-line bg-white shadow-[0_10px_22px_-20px_rgba(15,39,86,.75)]; }
+.client-notification-row {
+  @apply flex w-full items-center gap-3 border border-line bg-white p-3 text-left transition hover:bg-mist;
+}
+.client-notifications-preview .client-notification-row { @apply rounded-[1.05rem] shadow-[0_8px_18px_-18px_rgba(15,39,86,.7)]; }
+.client-notification-row-full { @apply rounded-none border-x-0 border-t-0 last:border-b-0; }
+.client-notice-time { @apply max-w-[68px] shrink-0 text-right text-[10px] font-medium leading-tight text-slate-400; }
+.client-empty-notice { @apply flex items-center gap-2 rounded-2xl border border-dashed border-line bg-white/70 px-4 py-5 text-[13px] text-mute; }
+
+.client-help-link { @apply flex w-full items-center justify-between rounded-2xl border border-line bg-white/80 px-4 py-3.5 text-[13px] font-bold text-navy shadow-[0_8px_18px_-18px_rgba(15,39,86,.7)] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-soft; }
+.client-help-link span { @apply inline-flex items-center gap-2; }
+
+@keyframes client-enter {
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.client-enter { animation: client-enter .48s cubic-bezier(.22, 1, .36, 1) both; }
+.client-enter-d1 { animation-delay: .06s; }
+.client-enter-d2 { animation-delay: .12s; }
+.client-enter-d3 { animation-delay: .18s; }
+.client-enter-d4 { animation-delay: .24s; }
+
+.client-bottom-nav { @apply border-line/90 bg-white/95 shadow-[0_-8px_24px_rgba(15,39,86,.08)] backdrop-blur; }
+.client-nav-item { @apply transition hover:text-navy; }
+.client-bottom-home { @apply border-4 border-white shadow-[0_8px_22px_rgba(18,43,92,.24)]; }
+
+@media (prefers-reduced-motion: reduce) {
+  .client-enter { animation: none !important; }
+  .client-route-progress::after { transition: none; }
+}

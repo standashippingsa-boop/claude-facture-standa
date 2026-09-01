@@ -22,8 +22,17 @@
  * Nimewo vèsyon an chanje (v2 -> v3), donk TOUT ansyen cache yo efase
  * otomatikman lè nouvo service worker la aktive. Kliyan yo pa gen anyen
  * pou fè: yon senp rafrechi ase.
+ *
+ * ⚠️ v4 — REPARE NAVIGATÈ DÈV KI TE ANPWAZONNEN
+ * ─────────────────────────────────────────────
+ * SW la pa t janm dwe kouri sou `next dev`: la, fichye /_next/static/ yo
+ * gen MENM non apre chak edisyon, donk "cache-first" te fè navigatè a rete
+ * ap egzekite ANSYEN JS pandan sèvè a voye nouvo HTML (hydration mismatch).
+ * Kounye a <PwaManager /> pa anrejistre SW la ditou an dèv epi li dezenskri
+ * sa ki egziste. Chanjman v3 -> v4 la fòse tout ansyen cache yo efase pou
+ * navigatè ki deja touche yo — yon sèl rechajman epi tout bagay pwòp.
  */
-const CACHE_VERSION = "standa-v3";
+const CACHE_VERSION = "standa-v4";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 
 const PRECACHE = [

@@ -79,10 +79,18 @@ export function validateUpload(file: File, kind: UploadKind): UploadCheck {
   return { ok: true, filename };
 }
 
-/** Chemen inik epi san danje pou Storage. */
+/**
+ * Chemen inik epi san danje pou Storage.
+ * ⚠️ Bucket yo piblik-pa-lyen. Yon chemen ki fasil pou devine (ex: sèlman
+ * yon timestamp) pèmèt yon moun eseye chemen youn apre lòt epi rale
+ * dokiman lòt moun (pyès idantite pèsonèl, elatriye). Nou sèvi ak yon
+ * jeton o aza kriptografik (128-bit) — li pa devinab.
+ */
 export function storagePath(filename: string, prefix = ""): string {
   const safe = safeFileName(filename);
   const stamp = Date.now().toString(36);
-  const rand = Math.random().toString(36).slice(2, 8);
+  const buf = new Uint8Array(16);
+  (globalThis.crypto ?? crypto).getRandomValues(buf);
+  const rand = Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
   return `${prefix}${stamp}_${rand}_${safe}`;
 }

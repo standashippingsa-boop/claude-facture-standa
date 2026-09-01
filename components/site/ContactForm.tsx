@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { SITE } from "./SiteHeader";
+import { SITE } from "@/lib/site";
+import { WhatsAppIcon } from "./BrandIcons";
 
 /**
  * STANDA COMMERCIAL — FÒM MESAJ PAJ CONTACT LA
@@ -182,9 +183,7 @@ export default function ContactForm() {
           </button>
 
           <button type="button" onClick={sendByWhatsApp} className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-[#25D366] hover:bg-[#1fb857] text-white font-bold text-[15px] transition">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
-              <path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2Zm5.8 14.3c-.25.7-1.4 1.3-2 1.4-.5.1-1.1.1-1.8-.1-.4-.1-1-.3-1.7-.6-3-1.3-5-4.3-5.1-4.5-.15-.2-1.2-1.6-1.2-3.1 0-1.5.8-2.2 1.1-2.5.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5.25.6.8 2 .9 2.2.1.2.15.4 0 .6-.1.2-.2.3-.4.5-.2.2-.4.5-.5.6-.2.2-.4.4-.2.8.2.4.9 1.5 1.9 2.4 1.3 1.2 2.4 1.5 2.8 1.7.4.2.6.15.8-.1.2-.25.9-1 1.1-1.4.2-.4.4-.3.7-.2.3.1 1.9.9 2.2 1 .3.15.5.2.6.35.1.15.1.85-.15 1.55Z" />
-            </svg>
+            <WhatsAppIcon size={18} className="shrink-0" />
             Envoyer sur WhatsApp
           </button>
         </div>

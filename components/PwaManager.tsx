@@ -83,6 +83,38 @@ export default function PwaManager() {
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
+    /**
+     * ⚠️ DÈV: OKENN SERVICE WORKER.
+     * ────────────────────────────
+     * An pwodiksyon, fichye /_next/static/ yo gen yon anprent nan non yo
+     * (chak build = yon nouvo non) donk SW la ka kache yo "cache-first" san
+     * risk. An DÈV, menm fichye sa yo GEN MENM NON apre chak edisyon —
+     * `/_next/static/chunks/app/accueil/page.js` pa janm chanje non. Si SW
+     * la kenbe yo "cache-first", navigatè a kontinye egzekite ANSYEN JS
+     * pandan `next dev` voye NOUVO HTML → hydration mismatch ki PA ka repare
+     * ni lè w efase .next ni lè w rekòmanse sèvè a (pwazon an nan Cache
+     * Storage navigatè a).
+     *
+     * Donk an dèv nou pa anrejistre SW la ditou, EPI nou dezenskri tout SW
+     * ki deja la + efase cache yo, pou yon navigatè ki deja anpwazonnen
+     * repare pou kont li. Yon sèl rechajman apre sa = pwòp.
+     */
+    if (process.env.NODE_ENV !== "production") {
+      navigator.serviceWorker.getRegistrations().then(async (regs) => {
+        if (regs.length === 0) return;
+        await Promise.all(regs.map((r) => r.unregister()));
+        if (typeof caches !== "undefined") {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+        if (!sessionStorage.getItem("standa-sw-cleared")) {
+          sessionStorage.setItem("standa-sw-cleared", "1");
+          window.location.reload();
+        }
+      }).catch(() => { /* pa grav — dèv sèlman */ });
+      return;
+    }
+
     let reg: ServiceWorkerRegistration | null = null;
     let timer: ReturnType<typeof setInterval> | null = null;
 

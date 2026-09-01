@@ -311,6 +311,12 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
         }
         mailInfo = ` Email: ${sent} voye${noEmail ? `, ${noEmail} kliyan san imèl` : ""}.` +
           (problems.length ? ` ⚠️ ${problems.slice(0, 2).join(" | ").slice(0, 300)}` : "");
+        // Tras dirab: si imèl echwe, kite yon antre nan Journal (toast la disparèt)
+        if (problems.length) {
+          await logAction("Notification email échouée",
+            `${bulkStatus} — ${sent} envoyé(s), ${problems.length} échec(s): ${problems.join(" | ").slice(0, 400)}`,
+            "", "");
+        }
       }
       setNotice(`Statut "${bulkStatus}" appliqué sur ${targets.length} colis.` + mailInfo);
       setBulkStatus("");

@@ -28,9 +28,6 @@ const CANONICAL_HOST = "www.standacommercialsa.com";
 export function middleware(req: NextRequest) {
   const host = req.headers.get("host") ?? "";
 
-  // Devlopman lokal: pa touche
-  if (host.startsWith("localhost") || host.startsWith("127.0.0.1")) return NextResponse.next();
-
   /*
    * RASIN DOMÈN NAN -> SIT PIBLIK LA
    * ────────────────────────────────
@@ -45,12 +42,19 @@ export function middleware(req: NextRequest) {
    */
   if (req.nextUrl.pathname === "/") {
     const home = req.nextUrl.clone();
-    home.protocol = "https:";
-    home.host = CANONICAL_HOST;
-    home.port = "";
     home.pathname = "/accueil";
+
+    // An devlopman, kenbe localhost + pò a. Anliy, sèvi ak domèn ofisyèl la.
+    if (!host.startsWith("localhost") && !host.startsWith("127.0.0.1")) {
+      home.protocol = "https:";
+      home.host = CANONICAL_HOST;
+      home.port = "";
+    }
     return NextResponse.redirect(home, 307);
   }
+
+  // Devlopman lokal: apre redireksyon rasin lan, pa chanje lòt URL yo.
+  if (host.startsWith("localhost") || host.startsWith("127.0.0.1")) return NextResponse.next();
 
   // Deja sou domèn kanonik la
   if (host === CANONICAL_HOST) return NextResponse.next();

@@ -8,6 +8,7 @@ export default function SetupPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [nom, setNom] = useState("");
+  const [setupSecret, setSetupSecret] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -16,7 +17,7 @@ export default function SetupPage() {
     try {
       const res = await fetch("/api/admin-auth", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "bootstrap", username, password, nom })
+        body: JSON.stringify({ action: "bootstrap", username, password, nom, setup_secret: setupSecret })
       });
       const j = await res.json();
       if (!j.ok) { setErr(j.reason ?? "Erè."); return; }
@@ -39,6 +40,9 @@ export default function SetupPage() {
           <input className="input mt-1" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="ex: admin" /></label>
         <label className="block"><span className="text-xs font-semibold text-slate-600">Mot de passe * (6+ karaktè)</span>
           <input type="password" className="input mt-1" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+        <label className="block"><span className="text-xs font-semibold text-slate-600">Clé d&apos;installation * (SETUP_SECRET)</span>
+          <input type="password" className="input mt-1" value={setupSecret} onChange={(e) => setSetupSecret(e.target.value)}
+            placeholder="valè SETUP_SECRET nan Vercel" autoComplete="off" /></label>
         {err && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{err}</p>}
         <button className="btn w-full justify-center py-3" onClick={submit} disabled={busy}>
           {busy ? "Ap kreye..." : "Kreye administratè a"}

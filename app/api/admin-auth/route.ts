@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
+import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 
 /**
@@ -7,10 +9,17 @@ import { createClient } from "@supabase/supabase-js";
  * Aksyon: bootstrap (premye admin), create_staff, delete_staff,
  *         activate_client (kòd MC -> kont + modpas tanporè), reset_client_password.
  */
-const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const SETUP_SECRET = process.env.SETUP_SECRET || "";
 const staffEmail = (u: string) => `${u.trim().toLowerCase()}@staff.standacommercialsa.com`;
 const clientEmail = (mc: string) => `${mc.trim().toLowerCase()}@client.standacommercialsa.com`;
+
+/** Konparezon konstant nan tan — anpeche atak timing sou SETUP_SECRET. */
+function secretOk(provided: string): boolean {
+  if (!SETUP_SECRET) return false;
+  const a = Buffer.from(String(provided));
+  const b = Buffer.from(SETUP_SECRET);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 /** Modpas tanporè: lèt + chif sèlman, fasil pou tape, san karaktè ki konfonn */
 function tempPassword(len = 8): string {
@@ -28,10 +37,11 @@ export async function POST(req: Request) {
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {
-    if (!SERVICE) {
-      return NextResponse.json({ ok: false, reason: "SUPABASE_SERVICE_ROLE_KEY pa konfigire nan Vercel (Settings > Environment Variables) + Redeploy." });
+    const config = getSupabaseAdminConfig();
+    if (!config) {
+      return NextResponse.json({ ok: false, reason: "SUPABASE_SECRET_KEY pa konfigire sou sèvè a (Settings > Environment Variables) + Redeploy." });
     }
-    const svc = createClient(URL_, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
+    const svc = createClient(config.url, config.key, { auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json();
     const action = String(body.action ?? "");
 
@@ -45,8 +55,16 @@ export async function POST(req: Request) {
       return (s?.role as "admin" | "employe") ?? null;
     }
 
-    // ---------- bootstrap: premye admin (sèlman si staff vid) ----------
+    // ---------- bootstrap: premye admin (sèlman si staff vid + SETUP_SECRET) ----------
     if (action === "bootstrap") {
+      // SEKIRITE: san sa a, nenpòt moun ki jwenn deplwaman an anvan mèt la —
+      // oswa nenpòt lè tab `staff` la vin vid — te ka kreye pwòp kont admin li.
+      if (!SETUP_SECRET) {
+        return NextResponse.json({ ok: false, reason: "SETUP_SECRET pa konfigire nan Vercel (Settings > Environment Variables). Ajoute l epi Redeploy pou kreye premye admin nan." });
+      }
+      if (!secretOk(String(body.setup_secret ?? ""))) {
+        return NextResponse.json({ ok: false, reason: "Clé d'installation invalide." }, { status: 403 });
+      }
       const { count } = await svc.from("staff").select("*", { count: "exact", head: true });
       if ((count ?? 0) > 0) return NextResponse.json({ ok: false, reason: "Sistèm nan deja gen yon administratè." });
       const username = String(body.username ?? "").trim();
@@ -151,6 +169,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: false, reason: "Aksyon enkoni." });
   } catch (e) {
-    return NextResponse.json({ ok: false, reason: e instanceof Error ? e.message : String(e) });
+    // Pa gen detay entèn (non tab, erè Postgres, stack) ki soti bay kliyan an.
+    console.error("[admin-auth]", e);
+    return NextResponse.json({ ok: false, reason: "Erreur serveur." }, { status: 500 });
   }
 }

@@ -25,5 +25,8 @@ export const SITE = {
   /** Nimewo san espas ni + — se fòma wa.me la mande */
   whatsapp: "50946738117",
   /** ⚠️ VERIFYE: non itilizatè Instagram lan (sa ki gen @ devan l) */
-  instagram: "standa_commercial_sa"
+  instagram: "standa_commercial_sa",
+  instagramUrl: "https://instagram.com/standa_commercial_sa",
+  facebookUrl: "https://www.facebook.com/share/1DSwxDWqq5/",
+  tiktokUrl: "https://www.tiktok.com/@standa_commercials.a"
 };

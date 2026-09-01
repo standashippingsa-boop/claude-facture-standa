@@ -1,5 +1,4 @@
 import { supabase } from "./supabase";
-import { userError } from "./safeerror";
 import { cleanTracking, isGuia, normalizeMcCode } from "./utils";
 import { validateUpload, storagePath } from "./upload";
 import {
@@ -1383,9 +1382,7 @@ export async function registerClientProfile(p: {
     body: JSON.stringify({ token, profile: p })
   });
   const j = await res.json().catch(() => ({ ok: false, reason: "Erreur réseau." }));
-  // Sèvè a ekri mesaj `reason` yo POU KLIYAN AN li — nou make yo konsa pou
-  // filtè safeMessage la pa jete yo (gade lib/safeerror.ts).
-  if (!j.ok) throw userError(j.reason ?? "Enregistrement impossible.");
+  if (!j.ok) throw new Error(j.reason ?? "Enregistrement impossible.");
 }
 
 export async function getClientByAuthId(uid: string): Promise<Client | null> {
