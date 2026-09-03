@@ -20,7 +20,9 @@ body { @apply bg-mist text-slate-700 antialiased; }
   .btn-ghost { @apply bg-white text-navy border border-line hover:bg-mist; }
 
   /* ---- Champs ---- */
-  .input { @apply w-full rounded-xl border border-line px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy transition; }
+  .input { @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm text-ink focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/20 transition; color-scheme: light; }
+  .input:disabled { @apply cursor-not-allowed bg-slate-100 text-slate-500; }
+  .input option { background-color: #fff; color: #0f172a; }
 
   /* ---- Tablo ---- */
   .th { @apply px-3 py-3 text-left text-xs font-bold text-mute uppercase tracking-wide bg-mist border-b border-line whitespace-nowrap; }
@@ -130,8 +132,8 @@ body { @apply bg-mist text-slate-700 antialiased; }
 .parcel-wash::before,
 .parcel-wash-alt::before {
   background-position: center;
-  background-repeat: repeat;
-  background-size: 460px auto;
+  background-repeat: no-repeat;
+  background-size: cover;
   content: "";
   inset: 0;
   pointer-events: none;
@@ -160,14 +162,23 @@ body { @apply bg-mist text-slate-700 antialiased; }
 
 .parcel-wash::before {
   background-image:
-    linear-gradient(rgba(255, 255, 255, .93), rgba(255, 255, 255, .93)),
+    linear-gradient(rgba(255, 255, 255, .975), rgba(255, 255, 255, .975)),
     url("/site-backgrounds/shopping-cart-laptop.jpg");
 }
 
 .parcel-wash-alt::before {
   background-image:
-    linear-gradient(rgba(247, 249, 253, .92), rgba(247, 249, 253, .92)),
+    linear-gradient(rgba(247, 249, 253, .97), rgba(247, 249, 253, .97)),
     url("/site-backgrounds/online-shopping-cart.jpg");
+}
+
+/* Sou gwo ekran, yon sèl imaj dekoratif limyè bay paj la pwofondè san li pa
+   repete dèyè chak kat oswa li pa lave kontrast tèks yo. */
+@media (min-width: 1024px) {
+  .parcel-wash::before,
+  .parcel-wash-alt::before {
+    background-position: center 45%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -21,7 +21,7 @@ export default function InscriptionPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#061937] text-white">
       <AuthBackdrop />
-      <div className="relative mx-auto max-w-5xl px-5 py-6 sm:px-8 sm:py-9">
+      <div className="relative mx-auto max-w-6xl px-5 py-6 sm:px-8 sm:py-9 lg:px-10 lg:py-10">
         <header className="flex items-center justify-between gap-4">
           <Link href="/accueil" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-white/75 transition hover:text-white">
             <ArrowLeft size={15} /> Retour au site
@@ -32,7 +32,7 @@ export default function InscriptionPage() {
           </div>
         </header>
 
-        <main className="mx-auto mt-10 max-w-3xl pb-10 sm:mt-14">
+        <main className="mx-auto mt-10 max-w-4xl pb-10 sm:mt-14 lg:mt-16 lg:pb-14">
           <section className="relative rounded-[2rem] border border-white/40 bg-white/[.13] px-3 pb-3 pt-14 shadow-[0_32px_90px_-35px_rgba(0,0,0,.8)] backdrop-blur-2xl sm:px-5 sm:pb-5">
             <div className="absolute left-1/2 top-0 grid h-20 w-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[5px] border-[#dbeafa] bg-navy shadow-[0_15px_35px_-10px_rgba(0,0,0,.65)]">
               <Logo size={56} rounded="rounded-xl" />

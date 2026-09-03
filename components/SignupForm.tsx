@@ -9,10 +9,10 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2 } from "lucide-react";
-import { getVilles, registerClientProfile, getClientByAuthId } from "@/lib/db";
+import { registerClientProfile } from "@/lib/db";
 import { safeMessage } from "@/lib/safeerror";
-import { SITE_URL } from "@/lib/branding";
-import { Ville } from "@/lib/types";
+
+type PublicVille = { id: string; name: string };
 
 const schema = z.object({
   fullname: z.string().min(1, "Le prénom est obligatoire"),
@@ -32,10 +32,40 @@ type Form = z.infer<typeof schema>;
 export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
   const [done, setDone] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [villes, setVilles] = useState<Ville[]>([]);
+  const [villes, setVilles] = useState<PublicVille[]>([]);
+  const [citiesState, setCitiesState] = useState<"loading" | "ready" | "unavailable">("loading");
+
   useEffect(() => {
-    // Kliyan an chwazi vil li nan lis vil aktif yo (tab villes) — li pa ka tape yon vil ki pa egziste
-    getVilles().then((v) => setVilles(v.filter((x) => x.active))).catch(() => setVilles([]));
+    const controller = new AbortController();
+
+    // Se sèvè a ki bay sèlman non vil aktif yo. Tarif ak lòt done entèn yo
+    // rete pwoteje pa RLS, epi kliyan an pa ka wè yo nan navigatè li.
+    const loadCities = async () => {
+      try {
+        const response = await fetch("/api/public/villes", { signal: controller.signal });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !Array.isArray(payload.villes)) throw new Error("Cities unavailable");
+
+        const available = payload.villes.filter(
+          (city: unknown): city is PublicVille =>
+            !!city
+            && typeof city === "object"
+            && typeof (city as PublicVille).id === "string"
+            && typeof (city as PublicVille).name === "string"
+        );
+
+        if (controller.signal.aborted) return;
+        setVilles(available);
+        setCitiesState(available.length ? "ready" : "unavailable");
+      } catch {
+        if (controller.signal.aborted) return;
+        setVilles([]);
+        setCitiesState("unavailable");
+      }
+    };
+
+    void loadCities();
+    return () => controller.abort();
   }, []);
   const { register, handleSubmit, formState: { errors, isSubmitting } } =
     useForm<Form>({ resolver: zodResolver(schema) });
@@ -46,6 +76,10 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
       // v9: kliyan an PA kreye modpas — kont Auth la ap kreye LÈ admin aktive l ak kòd MC a.
       // Lyen otomatik ak tarification: vil kliyan an chwazi a se yon vil Paramètres
       const villeChoisie = villes.find((v) => v.name === f.city);
+      if (!villeChoisie) {
+        setErr("Sélectionnez une ville dans la liste avant de continuer.");
+        return;
+      }
       await registerClientProfile({
         fullname: f.fullname.trim(),
         surname: f.surname.trim(),
@@ -57,7 +91,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
         address: f.address.trim(),
         id_type: f.id_type,
         id_number: f.id_number.trim(),
-        ville_id: villeChoisie?.id ?? null
+        ville_id: villeChoisie.id
       });
       setDone(true);
     } catch (e: any) {
@@ -109,10 +143,21 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
             <F name="country" label="Pays *" placeholder="Ex. : Haïti" />
             <label className="block">
               <span className="text-xs font-semibold text-slate-600">Ville *</span>
-              <select className="input mt-1" {...register("city")}>
-                <option value="">— Sélectionnez votre ville —</option>
+              <select
+                className="input mt-1 text-ink"
+                disabled={citiesState !== "ready"}
+                aria-describedby="city-status"
+                {...register("city")}
+              >
+                <option value="">
+                  {citiesState === "loading" ? "Chargement des villes…" : "— Sélectionnez votre ville —"}
+                </option>
                 {villes.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
               </select>
+              <span id="city-status" aria-live="polite" className="mt-1 block text-[11px] text-slate-500">
+                {citiesState === "loading" && "La liste des villes est en cours de chargement."}
+                {citiesState === "unavailable" && "La liste des villes est momentanément indisponible. Réessayez dans un instant."}
+              </span>
               {errors.city && <span className="block text-xs text-red-600">{errors.city.message}</span>}
             </label>
           </div>
@@ -123,10 +168,10 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block">
               <span className="text-xs font-semibold text-slate-600">Pièce d&apos;identité *</span>
-              <select className="input mt-1" {...register("id_type")}>
-                <option value="">— Sélectionnez —</option>
-                <option value="Carte d'identité nationale">Carte d&apos;identité nationale</option>
-                <option value="Passeport">Passeport</option>
+              <select className="input mt-1 text-ink" defaultValue="" {...register("id_type")}>
+                <option className="bg-white text-ink" value="">— Sélectionnez —</option>
+                <option className="bg-white text-ink" value="Carte d'identité nationale">Carte d&apos;identité nationale</option>
+                <option className="bg-white text-ink" value="Passeport">Passeport</option>
               </select>
               {errors.id_type && <span className="text-xs text-red-600">{errors.id_type.message}</span>}
             </label>
@@ -135,8 +180,8 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
 
           {err && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{err}</p>}
 
-          <button type="submit" className="btn w-full justify-center py-3" disabled={isSubmitting}>
-            {isSubmitting ? "Création du compte..." : "Créer mon compte"}
+          <button type="submit" className="btn w-full justify-center py-3" disabled={isSubmitting || citiesState !== "ready"}>
+            {isSubmitting ? "Création du compte..." : citiesState === "loading" ? "Chargement des villes..." : "Créer mon compte"}
           </button>
 
       <p className="text-center text-xs text-slate-500">

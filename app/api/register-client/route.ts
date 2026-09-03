@@ -18,6 +18,8 @@ import { createClient } from "@supabase/supabase-js";
  */
 const digits = (s: string) => String(s ?? "").replace(/\D/g, "");
 const clean = (v: unknown, max = 120) => String(v ?? "").trim().slice(0, max);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ID_TYPES = new Set(["Carte d'identité nationale", "Passeport"]);
 
 export async function POST(req: Request) {
   // Rate limiting — enskripsyon: 5 / èdtan pa IP (anti-spam kont)
@@ -48,14 +50,45 @@ export async function POST(req: Request) {
     // ---- Validasyon done (kote sèvè) ----
     const p = body.profile ?? {};
     const fullname = clean(p.fullname, 80);
+    const surname = clean(p.surname, 80);
     const email = clean(p.email, 120).toLowerCase();
     const phone = clean(p.phone, 30);
+    const whatsapp = clean(p.whatsapp, 30);
+    const country = clean(p.country, 80);
+    const address = clean(p.address, 200);
+    const idType = clean(p.id_type, 50);
+    const idNumber = clean(p.id_number, 80);
+    const villeId = clean(p.ville_id, 36);
     if (fullname.length < 2) return NextResponse.json({ ok: false, reason: "Nom invalide." }, { status: 400 });
+    if (surname.length < 1 || country.length < 2 || address.length < 3) {
+      return NextResponse.json({ ok: false, reason: "Informations personnelles incomplètes." }, { status: 400 });
+    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
       return NextResponse.json({ ok: false, reason: "Email invalide." }, { status: 400 });
     }
-    if (digits(phone).length < 7) {
+    if (digits(phone).length < 7 || digits(whatsapp).length < 7) {
       return NextResponse.json({ ok: false, reason: "Téléphone invalide." }, { status: 400 });
+    }
+    if (!ID_TYPES.has(idType) || idNumber.length < 2) {
+      return NextResponse.json({ ok: false, reason: "Pièce d'identité invalide." }, { status: 400 });
+    }
+    if (!UUID.test(villeId)) {
+      return NextResponse.json({ ok: false, reason: "Sélectionnez une ville dans la liste." }, { status: 400 });
+    }
+
+    // Pa fè konfyans non vil ki sòti nan navigatè a. Nou verifye id la ak
+    // sèvè a epi nou anrejistre non ofisyèl vil aktif la sèlman.
+    const { data: ville, error: villeError } = await svc
+      .from("villes")
+      .select("id,name")
+      .eq("id", villeId)
+      .eq("active", true)
+      .maybeSingle();
+    if (villeError) {
+      return NextResponse.json({ ok: false, reason: "Service temporairement indisponible." }, { status: 503 });
+    }
+    if (!ville) {
+      return NextResponse.json({ ok: false, reason: "La ville sélectionnée n'est plus disponible. Choisissez-en une autre." }, { status: 400 });
     }
 
     // Chan otorize SÈLMAN (pa gen customer_code, account_status, auth_user_id soti deyò)
@@ -64,6 +97,14 @@ export async function POST(req: Request) {
     const profile: Record<string, unknown> = {};
     for (const k of ALLOWED) if (p[k] !== undefined && p[k] !== null) profile[k] = clean(p[k], 200);
     profile.fullname = fullname;
+    profile.surname = surname;
+    profile.whatsapp = whatsapp;
+    profile.country = country;
+    profile.address = address;
+    profile.id_type = idType;
+    profile.id_number = idNumber;
+    profile.ville_id = ville.id;
+    profile.city = ville.name;
     if (email) profile.email = email;
 
     // ═══════════════════════════════════════════════════════════════════
