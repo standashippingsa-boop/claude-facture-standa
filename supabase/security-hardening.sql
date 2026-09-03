@@ -28,6 +28,7 @@ alter table if exists public.exchange_rate enable row level security;
 alter table if exists public.retraits enable row level security;
 alter table if exists public.retrait_items enable row level security;
 alter table if exists public.staff enable row level security;
+alter table if exists public.client_notification_reads enable row level security;
 
 -- ============================================================
 -- 1. REMOVE DANGEROUS LEGACY POLICIES  (+ idempotence)
@@ -47,7 +48,8 @@ begin
     where schemaname = 'public' and tablename in (
       'villes','clients','packages','invoices','invoice_items','imports',
       'app_settings','exchange_rate','retraits','retrait_items','staff',
-      'agences','conduces','journal','import_batches','api_tokens')
+      'agences','conduces','journal','import_batches','api_tokens',
+      'client_notification_reads')
   loop
     execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
   end loop;
@@ -169,6 +171,20 @@ with check (public.is_staff());
 create policy "clients_delete_admin"
 on public.clients for delete to authenticated
 using (public.is_admin());
+
+-- ============================================================
+-- 4B. CLIENT NOTIFICATION READ RECEIPTS
+-- ============================================================
+-- The app derives a notification from packages/invoices/retraits, then stores
+-- only a per-user read receipt. A client cannot inspect or modify another
+-- client's receipt, and no anonymous policy is created.
+do $$
+begin
+  if to_regclass('public.client_notification_reads') is not null then
+    execute 'create policy "client_notification_reads_select_own" on public.client_notification_reads for select to authenticated using (auth.uid() = auth_user_id)';
+    execute 'create policy "client_notification_reads_insert_own" on public.client_notification_reads for insert to authenticated with check (auth.uid() = auth_user_id)';
+  end if;
+end $$;
 
 -- ============================================================
 -- 5. STAFF

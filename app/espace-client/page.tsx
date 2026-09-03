@@ -26,7 +26,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, Check, ChevronDown, ChevronLeft,
   ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
-  Package, PackageCheck, ReceiptText, RefreshCw, Route, ScanLine, Truck, User, X
+  MessageCircle, Package, PackageCheck, ReceiptText, RefreshCw, Route, ScanLine, Truck, X
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";
@@ -51,6 +51,7 @@ type View = "home" | "disponibles" | "receptions" | "factures" | "historique" | 
 type NoticeKind = "available" | "invoice" | "pickup" | "shipment";
 type ClientNotice = {
   id: string;
+  key: string;
   title: string;
   description: string;
   stamp: string;
@@ -60,6 +61,25 @@ type ClientNotice = {
 
 const WA_NUM = SUPPORT_PHONE.replace(/\D/g, "");
 const WA_LINK = `https://wa.me/${WA_NUM}`;
+const NOTICE_STORAGE_PREFIX = "standa:client-notification-reads:";
+
+function localReadKeys(userId: string): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(`${NOTICE_STORAGE_PREFIX}${userId}`);
+    const value: unknown = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(value) ? value.filter((key): key is string => typeof key === "string").slice(-100) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveLocalReadKeys(userId: string, keys: Set<string>) {
+  try {
+    window.localStorage.setItem(`${NOTICE_STORAGE_PREFIX}${userId}`, JSON.stringify([...keys].slice(-100)));
+  } catch {
+    // L'aplikasyon an kontinye fonksyone menm si navigatè a entèdi storage.
+  }
+}
 
 /**
  * Lyen WhatsApp pou yon koli — Tracking Number ak Tracking ID nan TÈT mesaj la,
@@ -143,6 +163,8 @@ export default function EspaceClientPage() {
   const [invs, setInvs] = useState<Invoice[]>([]);
   const [retraits, setRetraits] = useState<Retrait[]>([]);
   const [smallCfg, setSmallCfg] = useState<SmallParcelConfig>(DEFAULT_SMALL_PARCEL);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [readNoticeKeys, setReadNoticeKeys] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -166,7 +188,29 @@ export default function EspaceClientPage() {
   const load = async () => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) { router.replace("/espace-client/connexion"); return; }
-    const [c, cfg] = await Promise.all([getClientByAuthId(data.user.id), getSmallParcelConfig()]);
+    const userId = data.user.id;
+    setAuthUserId(userId);
+    const cachedReads = localReadKeys(userId);
+    setReadNoticeKeys(cachedReads);
+
+    const [c, cfg, remoteReads] = await Promise.all([
+      getClientByAuthId(userId),
+      getSmallParcelConfig(),
+      supabase.from("client_notification_reads").select("notification_key").eq("auth_user_id", userId)
+    ]);
+
+    // Si la migration n'est pas encore appliquée, le cache local garde quand
+    // même le badge à jour. Dès que Supabase répond, l'état est synchronisé
+    // pour que la lecture soit conservée sur les autres appareils.
+    if (!remoteReads.error) {
+      const merged = new Set([
+        ...cachedReads,
+        ...(remoteReads.data ?? []).map((row) => String(row.notification_key ?? "")).filter(Boolean)
+      ]);
+      setReadNoticeKeys(merged);
+      saveLocalReadKeys(userId, merged);
+    }
+
     setClient(c); setSmallCfg(cfg);
     if (c?.customer_code) {
       const [{ pkgs: p, invs: i }, rs] = await Promise.all([
@@ -303,6 +347,7 @@ export default function EspaceClientPage() {
   if (disponibles.length > 0) {
     clientNotifications.push({
       id: "available",
+      key: `available:${disponibles.map((pkg) => `${pkg.id}:${pkg.status}:${pkg.verified_at ?? ""}`).sort().join("|")}`,
       title: disponibles.length === 1 ? "Votre colis est disponible" : `${disponibles.length} colis sont disponibles`,
       description: "Présentez-vous à votre agence avec une pièce d'identité.",
       stamp: "À l'instant",
@@ -314,6 +359,7 @@ export default function EspaceClientPage() {
     const latestInvoice = invs[0];
     clientNotifications.push({
       id: "invoice",
+      key: `invoice:${latestInvoice?.id ?? latestInvoice?.invoice_number ?? "latest"}:${latestInvoice?.created_at ?? ""}`,
       title: "Votre facture est prête",
       description: latestInvoice?.invoice_number ? `Facture ${latestInvoice.invoice_number} disponible dans votre espace.` : "Votre facture est disponible dans votre espace.",
       stamp: latestInvoice?.created_at ? dateFr(latestInvoice.created_at) : "Récemment",
@@ -325,6 +371,7 @@ export default function EspaceClientPage() {
     const latestRetrait = retraits[0];
     clientNotifications.push({
       id: "pickup",
+      key: `pickup:${latestRetrait?.id ?? "latest"}:${latestRetrait?.status ?? ""}:${latestRetrait?.created_at ?? ""}`,
       title: "Suivi de votre retrait",
       description: latestRetrait?.status === "Préparé" ? "Votre demande est préparée à l'agence." : "Votre demande de retrait est en cours de préparation.",
       stamp: latestRetrait?.created_at ? dateFr(latestRetrait.created_at) : "Récemment",
@@ -335,6 +382,7 @@ export default function EspaceClientPage() {
   if (!clientNotifications.length && activePackage) {
     clientNotifications.push({
       id: "shipment",
+      key: `shipment:${activePackage.id}:${activePackage.status ?? ""}:${activePackage.received_at ?? activePackage.created_date ?? ""}`,
       title: "Votre colis est en cours d'acheminement",
       description: `${activePackage.tracking_number || "Votre colis"} · ${activePackage.status || "Statut en cours"}`,
       stamp: "Actualisé",
@@ -349,20 +397,51 @@ export default function EspaceClientPage() {
       ? 1
       : 0;
 
+  const unreadNotifications = clientNotifications.filter((notice) => !readNoticeKeys.has(notice.key));
+
+  const markNoticesRead = (notices: ClientNotice[]) => {
+    if (!notices.length) return;
+    const keys = notices.map((notice) => notice.key);
+    const updated = new Set([...readNoticeKeys, ...keys]);
+    setReadNoticeKeys(updated);
+
+    if (!authUserId) return;
+    saveLocalReadKeys(authUserId, updated);
+
+    // RLS authorise uniquement l'utilisateur connecté à écrire ses propres
+    // accusés de lecture. L'échec réseau laisse le cache local en place et
+    // sera resynchronisé lors de la prochaine ouverture de l'application.
+    void supabase
+      .from("client_notification_reads")
+      .upsert(
+        keys.map((notification_key) => ({ auth_user_id: authUserId, notification_key })),
+        { onConflict: "auth_user_id,notification_key", ignoreDuplicates: true }
+      );
+  };
+
+  const openNotifications = () => {
+    markNoticesRead(clientNotifications);
+    setView("notifications");
+  };
+
+  const openNotice = (notice: ClientNotice) => {
+    markNoticesRead([notice]);
+    setView(notice.to);
+  };
+
   // ── Ti konpozan ─────────────────────────────────────────────────────────
   const MenuRow = ({ icon: Icon, label, count, to, tone, description }: {
     icon: typeof Package; label: string; count: number; to: View;
     tone: "available" | "receive" | "invoice" | "history"; description: string;
   }) => (
-    <button onClick={() => setView(to)}
-      className="client-stat-card text-left">
+    <button onClick={() => setView(to)} aria-label={`${label} : ${count}. ${description}`}
+      className={`client-stat-card client-stat-card-${tone} text-left`}>
       <span className={`client-stat-icon client-stat-icon-${tone}`}><Icon size={22} /></span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-bold text-ink leading-tight">{label}</span>
-        <span className="block text-[11px] text-mute mt-1 truncate">{description}</span>
+      <span className="client-stat-copy">
+        <strong>{label}</strong>
+        <span className={`client-stat-count client-stat-count-${tone}`}>{count}</span>
       </span>
-      <span className={`client-stat-count client-stat-count-${tone}`}>{count}</span>
-      <ChevronRight size={16} className="text-slate-300 shrink-0" />
+      <span className="client-stat-chevron"><ChevronRight size={17} /></span>
     </button>
   );
 
@@ -494,45 +573,36 @@ export default function EspaceClientPage() {
 
       {/* ══ EN-TÊTE CLIENT ══ */}
       <header className="client-app-header sticky top-0 z-30">
-        <div className="max-w-3xl mx-auto px-4 h-[68px] flex items-center gap-3">
+        <div className="client-header-inner mx-auto flex h-[76px] items-center gap-2.5 px-4">
           <div className="client-logo-tile shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="" className="h-8 object-contain" />
+            <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-9 object-contain" />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-extrabold text-[17px] leading-tight truncate">{client.customer_code}</p>
-            <p className="text-[11px] text-white/65 truncate">{non || "—"}</p>
-          </div>
+          <p className="client-header-code min-w-0 flex-1">{client.customer_code}</p>
 
           <button onClick={refresh} disabled={refreshing} aria-label="Actualiser"
             title="Mettre à jour toutes les données"
-            className="w-9 h-9 rounded-lg grid place-items-center text-white/85 hover:text-white hover:bg-white/10 disabled:opacity-60">
+            className="client-header-icon">
             {refreshing
               ? <Spinner size={19} />
               : toast ? <SuccessCheck size={20} /> : <RefreshCw size={19} />}
           </button>
 
-          <button onClick={() => setView("notifications")} aria-label="Notifications" title="Notifications"
+          <button onClick={() => setView("infos")} aria-label="Messages et aide" title="Messages et aide"
+            className="client-header-icon hidden min-[390px]:grid">
+            <MessageCircle size={20} />
+          </button>
+
+          <button onClick={openNotifications} aria-label="Notifications" title="Notifications"
             className="client-header-icon relative">
             <BellRing size={19} />
-            {clientNotifications.length > 0 && <span className="client-notification-count">{Math.min(clientNotifications.length, 9)}</span>}
+            {unreadNotifications.length > 0 && <span className="client-notification-count">{Math.min(unreadNotifications.length, 9)}</span>}
           </button>
-
-          <button onClick={() => setView("infos")} aria-label="Guide et aide" title="Guide & Aide"
-            className="client-header-icon hidden sm:grid">
-            <HelpCircle size={19} />
-          </button>
-
-          <a href={WA_LINK} target="_blank" rel="noreferrer" aria-label="WhatsApp"
-            className="client-header-icon">
-            <WhatsAppIcon size={19} />
-          </a>
 
           <div className="relative">
             <button aria-label="Mon compte" onClick={() => setMenuOpen((v) => !v)}
-              className="flex items-center gap-1 text-white/85 hover:text-white rounded-xl px-1.5 py-1.5 hover:bg-white/10">
-              <div className="w-7 h-7 rounded-full bg-white/15 grid place-items-center"><User size={15} /></div>
-              <ChevronDown size={14} />
+              className="client-header-profile">
+              {(greetingName.slice(0, 2) || "MC").toUpperCase()}
             </button>
             {menuOpen && (
               <>
@@ -553,32 +623,27 @@ export default function EspaceClientPage() {
         </div>
       </header>
 
-      <div className="client-app-content max-w-3xl mx-auto p-4 space-y-4">
+      <div className="client-app-content mx-auto space-y-4 px-4 pb-5 pt-5 sm:px-5">
 
         {/* ═══════════ ACCUEIL ═══════════ */}
         {view === "home" && (
           <>
             <section className="client-welcome client-enter" aria-label="Résumé du compte">
               <div>
-                <p className="client-eyebrow">ESPACE CLIENT</p>
                 <h1>Bonjour, {greetingName}</h1>
-                <p>Suivez vos colis et vos demandes depuis un seul espace.</p>
               </div>
-              <button onClick={() => setView("notifications")} className="client-welcome-bell" aria-label="Ouvrir les notifications">
-                <BellRing size={20} />
-                {clientNotifications.length > 0 && <span>{Math.min(clientNotifications.length, 9)}</span>}
-              </button>
             </section>
 
-            {clientNotifications[0] && (
-              <button onClick={() => setView(clientNotifications[0].to)} className="client-main-notice client-enter client-enter-d1">
-                <span className={`client-notice-icon client-notice-icon-${clientNotifications[0].kind}`}>
-                  <NotificationIcon kind={clientNotifications[0].kind} size={21} />
+            {unreadNotifications[0] && (
+              <button onClick={() => openNotice(unreadNotifications[0])} className="client-main-notice client-enter client-enter-d1">
+                <span className={`client-notice-icon client-notice-icon-${unreadNotifications[0].kind}`}>
+                  <NotificationIcon kind={unreadNotifications[0].kind} size={24} />
                 </span>
                 <span className="min-w-0 flex-1 text-left">
-                  <strong>{clientNotifications[0].title}</strong>
-                  <small>{clientNotifications[0].description}</small>
+                  <strong>{unreadNotifications[0].title}</strong>
+                  <small>{unreadNotifications[0].description}</small>
                 </span>
+                <span className="client-notice-unread-dot" aria-label="Non lu" />
                 <ChevronRight size={18} className="text-slate-400 shrink-0" />
               </button>
             )}
@@ -592,18 +657,19 @@ export default function EspaceClientPage() {
 
             {activePackage && (
               <section className="client-shipment-card client-enter client-enter-d3">
+                <div className="client-shipment-art" aria-hidden="true"><Package size={46} strokeWidth={1.45} /></div>
                 <div className="client-shipment-heading">
                   <div>
-                    <span className="client-status-label">{activePackage.status || "En cours"}</span>
+                    <p className="client-shipment-kicker">Expédition active</p>
                     <h2>{activePackage.tracking_number || activePackage.tracking_manual || "Colis en cours"}</h2>
-                    <p>{activePackage.content || "Votre colis est pris en charge par STANDA."}</p>
+                    <p>{activePackage.created_date ? `Date d'envoi : ${dateFr(activePackage.created_date)}` : activePackage.content || "Votre colis est pris en charge par STANDA."}</p>
                   </div>
-                  <span className="client-map-mark"><MapPin size={19} /></span>
+                  <span className="client-status-label">{activePackage.status || "En cours"}</span>
                 </div>
                 <div className={`client-route-progress client-route-stage-${journeyStage}`} aria-label="Avancement de votre colis">
-                  <span className="client-route-stop client-route-stop-start"><b><Package size={15} /></b><small>Miami</small></span>
-                  <span className="client-route-stop client-route-stop-middle"><b><Truck size={15} /></b><small>Haïti</small></span>
-                  <span className="client-route-stop client-route-stop-end"><b><MapPin size={15} /></b><small>Agence</small></span>
+                  <span className="client-route-stop client-route-stop-start"><b><Package size={15} /></b><small>Miami</small><em>Départ</em></span>
+                  <span className="client-route-stop client-route-stop-middle"><b><Truck size={15} /></b><small>Haïti</small><em>{journeyStage === 1 ? "En transit" : "À venir"}</em></span>
+                  <span className="client-route-stop client-route-stop-end"><b><MapPin size={15} /></b><small>Agence</small><em>À venir</em></span>
                 </div>
                 <button onClick={() => { setDetail(activePackage); setView("receptions"); }} className="client-follow-button">
                   Voir le suivi <ChevronRight size={18} />
@@ -612,14 +678,15 @@ export default function EspaceClientPage() {
             )}
 
             <section className="client-notifications-preview client-enter client-enter-d4">
-              <div className="client-section-title"><h2>Notifications</h2><button onClick={() => setView("notifications")}>Voir tout</button></div>
+              <div className="client-section-title"><h2>Notifications</h2><button onClick={openNotifications}>Voir tout</button></div>
               {clientNotifications.length === 0 ? (
                 <div className="client-empty-notice"><Bell size={18} /> Aucune notification pour le moment.</div>
               ) : clientNotifications.slice(0, 2).map((notice) => (
-                <button key={notice.id} onClick={() => setView(notice.to)} className="client-notification-row">
+                <button key={notice.id} onClick={() => openNotice(notice)} className="client-notification-row">
                   <span className={`client-notice-icon client-notice-icon-${notice.kind}`}><NotificationIcon kind={notice.kind} /></span>
                   <span className="min-w-0 flex-1 text-left"><strong>{notice.title}</strong><small>{notice.description}</small></span>
                   <span className="client-notice-time">{notice.stamp}</span>
+                  {!readNoticeKeys.has(notice.key) && <span className="client-notice-unread-dot" aria-label="Non lu" />}
                 </button>
               ))}
             </section>
@@ -779,13 +846,14 @@ export default function EspaceClientPage() {
             ) : (
               <div className="client-notification-list">
                 {clientNotifications.map((notice) => (
-                  <button key={notice.id} onClick={() => setView(notice.to)} className="client-notification-row client-notification-row-full">
+                  <button key={notice.id} onClick={() => openNotice(notice)} className="client-notification-row client-notification-row-full">
                     <span className={`client-notice-icon client-notice-icon-${notice.kind}`}><NotificationIcon kind={notice.kind} size={20} /></span>
                     <span className="min-w-0 flex-1 text-left">
                       <strong>{notice.title}</strong>
                       <small>{notice.description}</small>
                     </span>
                     <span className="client-notice-time">{notice.stamp}</span>
+                    {!readNoticeKeys.has(notice.key) && <span className="client-notice-unread-dot" aria-label="Non lu" />}
                     <ChevronRight size={16} className="text-slate-300 shrink-0" />
                   </button>
                 ))}
