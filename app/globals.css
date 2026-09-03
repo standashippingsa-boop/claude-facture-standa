@@ -191,36 +191,35 @@ body { @apply bg-mist text-slate-700 antialiased; }
    concerne que la présentation du parcours client.
    ═══════════════════════════════════════════════════════════════════════ */
 .client-app {
-  background-color: #f7f9fd;
+  background-color: #f8faff;
   background-image:
-    linear-gradient(rgba(18, 43, 92, .035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(18, 43, 92, .035) 1px, transparent 1px),
-    radial-gradient(circle at 8% 51%, rgba(68, 134, 242, .16), transparent 19rem),
-    radial-gradient(circle at 94% 25%, rgba(228, 101, 10, .12), transparent 18rem);
-  background-size: 38px 38px, 38px 38px, auto, auto;
+    linear-gradient(125deg, transparent 0 46%, rgba(20, 65, 128, .045) 46.2% 46.6%, transparent 46.8% 100%),
+    linear-gradient(90deg, rgba(18, 43, 92, .03) 1px, transparent 1px),
+    linear-gradient(rgba(18, 43, 92, .03) 1px, transparent 1px),
+    radial-gradient(circle at 9% 71%, rgba(101, 159, 255, .18), transparent 18rem),
+    radial-gradient(circle at 92% 91%, rgba(228, 101, 10, .12), transparent 16rem);
+  background-size: 100% 19rem, 38px 38px, 38px 38px, auto, auto;
 }
 
 .client-app-header {
-  background: linear-gradient(112deg, #071b41 0%, #102e64 62%, #1f4f98 100%);
-  box-shadow: 0 6px 20px rgba(10, 29, 68, .22);
+  background: linear-gradient(112deg, #0a2759 0%, #123b79 64%, #174b91 100%);
+  box-shadow: 0 8px 22px rgba(10, 37, 83, .24);
   color: white;
 }
 
 .client-header-inner { max-width: 34rem; }
 
-.client-logo-tile {
-  @apply grid h-11 w-11 place-items-center overflow-hidden rounded-2xl bg-white shadow-[0_8px_18px_rgba(0,0,0,.16)];
-}
+.client-brand-lockup { @apply flex min-w-0 items-center gap-2; }
+.client-brand-mark { @apply h-11 w-11 rounded-xl bg-white object-contain p-1 shadow-[0_6px_14px_rgba(0,0,0,.16)]; }
+.client-brand-name { @apply leading-none text-white; }
+.client-brand-name b { @apply block text-[20px] font-extrabold tracking-[.02em]; }
+.client-brand-name small { @apply mt-1 block text-[10px] font-medium tracking-[.12em] text-white/90; }
 
-.client-header-code { @apply truncate text-[18px] font-extrabold tracking-tight text-white; }
+.client-header-code { @apply truncate text-center text-[19px] font-extrabold tracking-tight text-white; }
 
-.client-header-icon {
-  @apply grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white/90 transition hover:bg-white/10 hover:text-white disabled:opacity-60;
-}
+.client-header-icon { @apply grid h-10 w-9 shrink-0 place-items-center rounded-xl text-white/95 transition hover:bg-white/10 hover:text-white disabled:opacity-60; }
 
-.client-header-profile {
-  @apply grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/45 bg-white/10 text-[13px] font-bold text-white transition hover:bg-white/20;
-}
+.client-header-profile { @apply grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/55 bg-white/10 text-[13px] font-bold text-white transition hover:bg-white/20; }
 
 .client-notification-count {
   @apply absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-extrabold text-white ring-2 ring-navy;
@@ -228,20 +227,15 @@ body { @apply bg-mist text-slate-700 antialiased; }
 
 .client-app-content { @apply relative max-w-[34rem]; }
 
-.client-welcome {
-  @apply px-0 py-1;
-}
-
-.client-welcome h1 { @apply text-[29px] font-extrabold leading-tight tracking-[-.035em] text-navy; }
-
 .client-main-notice {
-  @apply relative flex w-full items-center gap-3 rounded-[1.5rem] border border-white bg-white/95 p-4 text-left shadow-[0_18px_38px_-25px_rgba(15,39,86,.6)] transition hover:-translate-y-0.5 hover:shadow-lift;
+  @apply relative flex min-h-[5.6rem] w-full items-center gap-4 rounded-[1.35rem] border border-white bg-white/95 p-4 text-left shadow-[0_17px_32px_-24px_rgba(15,39,86,.62)] transition hover:-translate-y-0.5 hover:shadow-lift;
 }
 
 .client-main-notice strong,
 .client-notification-row strong { @apply block text-[15px] font-bold leading-tight text-navy; }
-.client-main-notice small,
 .client-notification-row small { @apply mt-1 block text-[12px] leading-snug text-mute; }
+
+.client-message-icon { @apply grid h-12 w-12 shrink-0 place-items-center rounded-full bg-orange-50 text-accent; }
 
 .client-notice-icon {
   @apply grid h-12 w-12 shrink-0 place-items-center rounded-2xl;
@@ -257,46 +251,44 @@ body { @apply bg-mist text-slate-700 antialiased; }
 .client-stat-grid { @apply grid grid-cols-2 gap-3; }
 
 .client-stat-card {
-  @apply relative flex min-h-[10.6rem] w-full flex-col items-start overflow-hidden rounded-[1.45rem] border border-white bg-white/95 p-4 shadow-[0_16px_34px_-25px_rgba(15,39,86,.62)] transition duration-200 hover:-translate-y-0.5 hover:shadow-lift;
+  @apply relative flex min-h-[9.6rem] w-full items-center gap-3 overflow-hidden rounded-[1.35rem] border border-white bg-white/95 p-4 pr-10 shadow-[0_16px_34px_-25px_rgba(15,39,86,.62)] transition duration-200 hover:-translate-y-0.5 hover:shadow-lift;
 }
 
-.client-stat-card::after { @apply pointer-events-none absolute -bottom-12 -right-10 h-28 w-28 rounded-full bg-navy/[.035]; content: ""; }
-.client-stat-card-receive::after { @apply bg-accent/[.06]; }
-.client-stat-icon { @apply relative z-10 grid h-12 w-12 shrink-0 place-items-center rounded-2xl; }
+.client-stat-card::after { @apply pointer-events-none absolute -bottom-10 -left-7 h-28 w-28 rounded-full bg-navy/[.025]; content: ""; }
+.client-stat-card-receive::after { @apply bg-accent/[.045]; }
+.client-stat-icon { @apply relative z-10 grid h-16 w-16 shrink-0 place-items-center rounded-[1.15rem] border border-white shadow-[0_10px_18px_-15px_rgba(15,39,86,.65)]; }
 .client-stat-icon-available { @apply bg-emerald-50 text-emerald-600; }
 .client-stat-icon-receive { @apply bg-blue-50 text-navy-light; }
 .client-stat-icon-invoice { @apply bg-orange-50 text-accent-dark; }
 .client-stat-icon-history { @apply bg-slate-100 text-slate-600; }
 
-.client-stat-copy { @apply relative z-10 mt-auto; }
-.client-stat-copy strong { @apply block text-[15px] font-extrabold leading-tight text-navy; }
-.client-stat-count { @apply mt-1 block text-[31px] font-extrabold leading-none tracking-tight; }
+.client-stat-copy { @apply relative z-10 min-w-0; }
+.client-stat-copy strong { @apply block text-[17px] font-extrabold leading-tight text-slate-900; }
+.client-stat-count { @apply mt-2 block text-[30px] font-extrabold leading-none tracking-tight; }
 .client-stat-count-available { @apply text-emerald-600; }
 .client-stat-count-receive { @apply text-navy; }
 .client-stat-count-invoice { @apply text-accent; }
 .client-stat-count-history { @apply text-navy; }
-.client-stat-chevron { @apply absolute bottom-4 right-4 z-10 grid h-8 w-8 place-items-center rounded-full border border-line bg-white text-slate-400 shadow-soft; }
+.client-stat-chevron { @apply absolute right-3.5 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-slate-400 transition group-hover:text-navy; }
 
 .client-shipment-card {
   @apply relative overflow-hidden rounded-[1.55rem] border border-white bg-white/95 p-5 shadow-[0_20px_42px_-28px_rgba(15,39,86,.65)];
 }
 
 .client-shipment-heading { @apply flex items-start justify-between gap-4; }
-.client-shipment-kicker { @apply text-[11px] font-bold text-mute; }
-.client-status-label { @apply relative z-10 inline-flex rounded-full bg-accent-light px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[.1em] text-accent-dark; }
+.client-status-label { @apply relative z-10 inline-flex rounded-md bg-orange-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[.09em] text-accent; }
 .client-shipment-heading h2 { @apply mt-2 font-mono text-[24px] font-extrabold tracking-tight text-navy; }
-.client-shipment-heading p { @apply mt-1.5 max-w-md text-[13px] leading-relaxed text-mute; }
-.client-shipment-art { @apply pointer-events-none absolute right-5 top-8 grid h-24 w-24 place-items-center rounded-full bg-[radial-gradient(circle_at_30%_28%,#fff_0%,#edf3ff_39%,#cfe0ff_100%)] text-navy/80 opacity-90; }
-.client-shipment-art::after { @apply absolute -bottom-2 -right-2 h-7 w-7 rounded-full bg-accent/20; content: ""; }
+.client-shipment-route { @apply mt-1.5 max-w-md text-[15px] font-medium leading-relaxed text-accent; }
+.client-shipment-map { @apply grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-line bg-white text-navy shadow-[0_10px_18px_-15px_rgba(15,39,86,.65)] transition hover:-translate-y-0.5 hover:shadow-soft; }
 
-.client-route-progress { @apply relative mt-7 grid grid-cols-3 gap-2; }
+.client-route-progress { @apply relative mt-8 grid grid-cols-3 gap-1; }
 .client-route-progress::before {
-  @apply absolute left-[14%] right-[14%] top-[16px] h-[3px] rounded-full bg-slate-200;
+  @apply absolute left-[16%] right-[16%] top-[21px] h-[3px] rounded-full bg-slate-200;
   content: "";
 }
 
 .client-route-progress::after {
-  @apply absolute left-[14%] top-[16px] h-[3px] rounded-full bg-navy transition-all duration-500;
+  @apply absolute left-[16%] top-[21px] h-[3px] rounded-full bg-navy transition-all duration-500;
   content: "";
 }
 
@@ -304,8 +296,8 @@ body { @apply bg-mist text-slate-700 antialiased; }
 .client-route-stage-1::after { width: 36%; }
 .client-route-stage-2::after { width: 72%; }
 
-.client-route-stop { @apply relative z-10 flex flex-col items-center gap-1 text-center text-[11px] font-bold text-slate-400; }
-.client-route-stop b { @apply grid h-9 w-9 place-items-center rounded-full border-2 border-slate-200 bg-white text-slate-400; }
+.client-route-stop { @apply relative z-10 flex flex-col items-center gap-1 text-center text-[12px] font-bold text-slate-400; }
+.client-route-stop b { @apply grid h-11 w-11 place-items-center rounded-full border-2 border-slate-200 bg-white text-slate-400; }
 .client-route-stop em { @apply text-[10px] not-italic font-medium text-slate-400; }
 .client-route-stage-0 .client-route-stop-start,
 .client-route-stage-1 .client-route-stop-start,
@@ -359,8 +351,14 @@ body { @apply bg-mist text-slate-700 antialiased; }
 
 @media (min-width: 640px) {
   .client-app-content { @apply pt-7; }
-  .client-welcome h1 { @apply text-[32px]; }
-  .client-stat-card { @apply min-h-[11.5rem] p-5; }
+  .client-stat-card { @apply min-h-[10.5rem] p-5 pr-12; }
+}
+
+@media (max-width: 389px) {
+  .client-brand-name { @apply hidden; }
+  .client-header-inner { @apply gap-1.5 px-3; }
+  .client-header-icon { @apply w-8; }
+  .client-header-profile { @apply h-10 w-10; }
 }
 
 @media (prefers-reduced-motion: reduce) {

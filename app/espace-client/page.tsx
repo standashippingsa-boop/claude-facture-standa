@@ -26,7 +26,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, Check, ChevronDown, ChevronLeft,
   ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
-  MessageCircle, Package, PackageCheck, ReceiptText, RefreshCw, Route, ScanLine, Truck, X
+  Mail, Map, MessageCircle, Package, PackageCheck, ReceiptText, RefreshCw, Route, ScanLine, Truck, X
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";
@@ -403,6 +403,11 @@ export default function EspaceClientPage() {
     : activePackage?.status === "En transit" || activePackage?.status === "Arrivé en Haïti" || activePackage?.status === "En route vers agence"
       ? 1
       : 0;
+  const activeShipmentRoute = journeyStage === 2
+    ? "Disponible dans votre agence"
+    : journeyStage === 1
+      ? "En route vers Haïti"
+      : "Pris en charge à Miami";
 
   const unreadNotifications = clientNotifications.filter((notice) => !readNoticeKeys.has(notice.key));
 
@@ -439,7 +444,7 @@ export default function EspaceClientPage() {
     tone: "available" | "receive" | "invoice" | "history"; description: string;
   }) => (
     <button onClick={() => setView(to)} aria-label={`${label} : ${count}. ${description}`}
-      className={`client-stat-card client-stat-card-${tone} text-left`}>
+      className={`client-stat-card client-stat-card-${tone} group text-left`}>
       <span className={`client-stat-icon client-stat-icon-${tone}`}><Icon size={22} /></span>
       <span className="client-stat-copy">
         <strong>{label}</strong>
@@ -577,10 +582,11 @@ export default function EspaceClientPage() {
 
       {/* ══ EN-TÊTE CLIENT ══ */}
       <header className="client-app-header sticky top-0 z-30">
-        <div className="client-header-inner mx-auto flex h-[76px] items-center gap-2.5 px-4">
-          <div className="client-logo-tile shrink-0">
+        <div className="client-header-inner mx-auto flex h-[88px] items-center gap-2.5 px-4">
+          <div className="client-brand-lockup shrink-0" aria-label="STANDA COMMERCIAL">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-9 object-contain" />
+            <img src="/logo.png" alt="" className="client-brand-mark" />
+            <span className="client-brand-name"><b>STANDA</b><small>COMMERCIAL</small></span>
           </div>
           <p className="client-header-code min-w-0 flex-1">{client.customer_code}</p>
 
@@ -632,22 +638,12 @@ export default function EspaceClientPage() {
         {/* ═══════════ ACCUEIL ═══════════ */}
         {view === "home" && (
           <>
-            <section className="client-welcome client-enter" aria-label="Résumé du compte">
-              <div>
-                <h1>Bonjour, {greetingName}</h1>
-              </div>
-            </section>
-
-            {unreadNotifications[0] && (
-              <button onClick={() => openNotice(unreadNotifications[0])} className="client-main-notice client-enter client-enter-d1">
-                <span className={`client-notice-icon client-notice-icon-${unreadNotifications[0].kind}`}>
-                  <NotificationIcon kind={unreadNotifications[0].kind} size={24} />
-                </span>
+            {unreadNotifications.length > 0 && (
+              <button onClick={openNotifications} className="client-main-notice client-enter client-enter-d1">
+                <span className="client-message-icon"><Mail size={24} /></span>
                 <span className="min-w-0 flex-1 text-left">
-                  <strong>{unreadNotifications[0].title}</strong>
-                  <small>{unreadNotifications[0].description}</small>
+                  <strong>{unreadNotifications.length} nouveau{unreadNotifications.length > 1 ? "x" : ""} message{unreadNotifications.length > 1 ? "s" : ""}</strong>
                 </span>
-                <span className="client-notice-unread-dot" aria-label="Non lu" />
                 <ChevronRight size={18} className="text-slate-400 shrink-0" />
               </button>
             )}
@@ -661,18 +657,19 @@ export default function EspaceClientPage() {
 
             {activePackage && (
               <section className="client-shipment-card client-enter client-enter-d3">
-                <div className="client-shipment-art" aria-hidden="true"><Package size={46} strokeWidth={1.45} /></div>
                 <div className="client-shipment-heading">
                   <div>
-                    <p className="client-shipment-kicker">Expédition active</p>
+                    <span className="client-status-label">{activePackage.status || "En cours"}</span>
                     <h2>{activePackage.tracking_number || activePackage.tracking_manual || "Colis en cours"}</h2>
-                    <p>{activePackage.created_date ? `Date d'envoi : ${dateFr(activePackage.created_date)}` : activePackage.content || "Votre colis est pris en charge par STANDA."}</p>
+                    <p className="client-shipment-route">{activeShipmentRoute}</p>
                   </div>
-                  <span className="client-status-label">{activePackage.status || "En cours"}</span>
+                  <button onClick={() => { setDetail(activePackage); setView("receptions"); }} className="client-shipment-map" aria-label="Voir la carte et le suivi">
+                    <Map size={21} />
+                  </button>
                 </div>
                 <div className={`client-route-progress client-route-stage-${journeyStage}`} aria-label="Avancement de votre colis">
-                  <span className="client-route-stop client-route-stop-start"><b><Package size={15} /></b><small>Miami</small><em>Départ</em></span>
-                  <span className="client-route-stop client-route-stop-middle"><b><Truck size={15} /></b><small>Haïti</small><em>{journeyStage === 1 ? "En transit" : "À venir"}</em></span>
+                  <span className="client-route-stop client-route-stop-start"><b><Package size={15} /></b><small>Miami</small><em>{activePackage.created_date ? dateFr(activePackage.created_date) : "Départ"}</em></span>
+                  <span className="client-route-stop client-route-stop-middle"><b><Truck size={15} /></b><small>Port-au-Prince</small><em>{journeyStage === 1 ? "En transit" : "À venir"}</em></span>
                   <span className="client-route-stop client-route-stop-end"><b><MapPin size={15} /></b><small>Agence</small><em>À venir</em></span>
                 </div>
                 <button onClick={() => { setDetail(activePackage); setView("receptions"); }} className="client-follow-button">
