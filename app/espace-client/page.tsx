@@ -62,12 +62,13 @@ type ClientNotice = {
 const WA_NUM = SUPPORT_PHONE.replace(/\D/g, "");
 const WA_LINK = `https://wa.me/${WA_NUM}`;
 const NOTICE_STORAGE_PREFIX = "standa:client-notification-reads:";
+const NOTICE_METADATA_KEY = "standa_notification_reads";
 
 function localReadKeys(userId: string): Set<string> {
   try {
     const raw = window.localStorage.getItem(`${NOTICE_STORAGE_PREFIX}${userId}`);
     const value: unknown = raw ? JSON.parse(raw) : [];
-    return new Set(Array.isArray(value) ? value.filter((key): key is string => typeof key === "string").slice(-100) : []);
+    return new Set(Array.isArray(value) ? value.filter((key): key is string => typeof key === "string").slice(-40) : []);
   } catch {
     return new Set();
   }
@@ -75,10 +76,23 @@ function localReadKeys(userId: string): Set<string> {
 
 function saveLocalReadKeys(userId: string, keys: Set<string>) {
   try {
-    window.localStorage.setItem(`${NOTICE_STORAGE_PREFIX}${userId}`, JSON.stringify([...keys].slice(-100)));
+    window.localStorage.setItem(`${NOTICE_STORAGE_PREFIX}${userId}`, JSON.stringify([...keys].slice(-40)));
   } catch {
     // L'aplikasyon an kontinye fonksyone menm si navigatè a entèdi storage.
   }
+}
+
+function metadataReadKeys(value: unknown): Set<string> {
+  return new Set(Array.isArray(value) ? value.filter((key): key is string => typeof key === "string").slice(-40) : []);
+}
+
+// Empreinte courte et déterministe : elle sert seulement à reconnaître un avis
+// déjà lu, jamais à protéger une donnée ni à identifier un client.
+function noticeKey(kind: string, ...parts: Array<string | undefined | null>): string {
+  const source = [kind, ...parts.map((part) => String(part ?? ""))].join("|");
+  let hash = 5381;
+  for (let index = 0; index < source.length; index += 1) hash = (hash * 33) ^ source.charCodeAt(index);
+  return `${kind}:${(hash >>> 0).toString(36)}`;
 }
 
 /**
@@ -164,6 +178,7 @@ export default function EspaceClientPage() {
   const [retraits, setRetraits] = useState<Retrait[]>([]);
   const [smallCfg, setSmallCfg] = useState<SmallParcelConfig>(DEFAULT_SMALL_PARCEL);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [authUserMetadata, setAuthUserMetadata] = useState<Record<string, unknown>>({});
   const [readNoticeKeys, setReadNoticeKeys] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -189,27 +204,19 @@ export default function EspaceClientPage() {
     const { data } = await supabase.auth.getUser();
     if (!data.user) { router.replace("/espace-client/connexion"); return; }
     const userId = data.user.id;
+    const metadata = (data.user.user_metadata ?? {}) as Record<string, unknown>;
     setAuthUserId(userId);
+    setAuthUserMetadata(metadata);
     const cachedReads = localReadKeys(userId);
-    setReadNoticeKeys(cachedReads);
+    const remoteReads = metadataReadKeys(metadata[NOTICE_METADATA_KEY]);
+    const mergedReads = new Set([...cachedReads, ...remoteReads]);
+    setReadNoticeKeys(mergedReads);
+    saveLocalReadKeys(userId, mergedReads);
 
-    const [c, cfg, remoteReads] = await Promise.all([
+    const [c, cfg] = await Promise.all([
       getClientByAuthId(userId),
-      getSmallParcelConfig(),
-      supabase.from("client_notification_reads").select("notification_key").eq("auth_user_id", userId)
+      getSmallParcelConfig()
     ]);
-
-    // Si la migration n'est pas encore appliquée, le cache local garde quand
-    // même le badge à jour. Dès que Supabase répond, l'état est synchronisé
-    // pour que la lecture soit conservée sur les autres appareils.
-    if (!remoteReads.error) {
-      const merged = new Set([
-        ...cachedReads,
-        ...(remoteReads.data ?? []).map((row) => String(row.notification_key ?? "")).filter(Boolean)
-      ]);
-      setReadNoticeKeys(merged);
-      saveLocalReadKeys(userId, merged);
-    }
 
     setClient(c); setSmallCfg(cfg);
     if (c?.customer_code) {
@@ -347,7 +354,7 @@ export default function EspaceClientPage() {
   if (disponibles.length > 0) {
     clientNotifications.push({
       id: "available",
-      key: `available:${disponibles.map((pkg) => `${pkg.id}:${pkg.status}:${pkg.verified_at ?? ""}`).sort().join("|")}`,
+      key: noticeKey("available", ...disponibles.map((pkg) => `${pkg.id}:${pkg.status}:${pkg.verified_at ?? ""}`).sort()),
       title: disponibles.length === 1 ? "Votre colis est disponible" : `${disponibles.length} colis sont disponibles`,
       description: "Présentez-vous à votre agence avec une pièce d'identité.",
       stamp: "À l'instant",
@@ -359,7 +366,7 @@ export default function EspaceClientPage() {
     const latestInvoice = invs[0];
     clientNotifications.push({
       id: "invoice",
-      key: `invoice:${latestInvoice?.id ?? latestInvoice?.invoice_number ?? "latest"}:${latestInvoice?.created_at ?? ""}`,
+      key: noticeKey("invoice", latestInvoice?.id ?? latestInvoice?.invoice_number, latestInvoice?.created_at),
       title: "Votre facture est prête",
       description: latestInvoice?.invoice_number ? `Facture ${latestInvoice.invoice_number} disponible dans votre espace.` : "Votre facture est disponible dans votre espace.",
       stamp: latestInvoice?.created_at ? dateFr(latestInvoice.created_at) : "Récemment",
@@ -371,7 +378,7 @@ export default function EspaceClientPage() {
     const latestRetrait = retraits[0];
     clientNotifications.push({
       id: "pickup",
-      key: `pickup:${latestRetrait?.id ?? "latest"}:${latestRetrait?.status ?? ""}:${latestRetrait?.created_at ?? ""}`,
+      key: noticeKey("pickup", latestRetrait?.id, latestRetrait?.status, latestRetrait?.created_at),
       title: "Suivi de votre retrait",
       description: latestRetrait?.status === "Préparé" ? "Votre demande est préparée à l'agence." : "Votre demande de retrait est en cours de préparation.",
       stamp: latestRetrait?.created_at ? dateFr(latestRetrait.created_at) : "Récemment",
@@ -382,7 +389,7 @@ export default function EspaceClientPage() {
   if (!clientNotifications.length && activePackage) {
     clientNotifications.push({
       id: "shipment",
-      key: `shipment:${activePackage.id}:${activePackage.status ?? ""}:${activePackage.received_at ?? activePackage.created_date ?? ""}`,
+      key: noticeKey("shipment", activePackage.id, activePackage.status, activePackage.received_at ?? activePackage.created_date),
       title: "Votre colis est en cours d'acheminement",
       description: `${activePackage.tracking_number || "Votre colis"} · ${activePackage.status || "Statut en cours"}`,
       stamp: "Actualisé",
@@ -408,15 +415,12 @@ export default function EspaceClientPage() {
     if (!authUserId) return;
     saveLocalReadKeys(authUserId, updated);
 
-    // RLS authorise uniquement l'utilisateur connecté à écrire ses propres
-    // accusés de lecture. L'échec réseau laisse le cache local en place et
-    // sera resynchronisé lors de la prochaine ouverture de l'application.
-    void supabase
-      .from("client_notification_reads")
-      .upsert(
-        keys.map((notification_key) => ({ auth_user_id: authUserId, notification_key })),
-        { onConflict: "auth_user_id,notification_key", ignoreDuplicates: true }
-      );
+    // Auth ne permet à un client de modifier que son propre user_metadata.
+    // Les clés gardées ici ne sont que des accusés de lecture, jamais des
+    // données de colis, d'identité ou de facturation.
+    const nextMetadata = { ...authUserMetadata, [NOTICE_METADATA_KEY]: [...updated].slice(-40) };
+    setAuthUserMetadata(nextMetadata);
+    void supabase.auth.updateUser({ data: nextMetadata });
   };
 
   const openNotifications = () => {
