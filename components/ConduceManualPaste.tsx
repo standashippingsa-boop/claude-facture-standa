@@ -56,7 +56,7 @@ export default function ConduceManualPaste({
     setBusy(true);
     try {
       const r = await importConduceExcelRows(conduceId, conduceNumber, excelRows, staffName);
-      setMsg({ t: "ok", s: `✔ ${r.created} créés, ${r.updated} mis à jour/liés — ${r.totalWeight.toFixed(2)} lb au total.` });
+      setMsg({ t: "ok", s: `✔ ${r.created} créés, ${r.updated} mis à jour/liés${r.special ? ` — ${r.special} colis spécial${r.special > 1 ? "aux" : ""}` : ""} — ${r.totalWeight.toFixed(2)} lb au total.` });
       setExcelRows(null); setFileName("");
       onLinked?.();
     } catch (e: any) {
@@ -97,6 +97,7 @@ export default function ConduceManualPaste({
   const elsewhere = matches?.filter((m) => m.matched && m.currentConduceId) ?? [];
   const notFound = matches?.filter((m) => !m.matched) ?? [];
   const excelWeight = excelRows?.reduce((s, r) => s + (r.weight || 0), 0) ?? 0;
+  const excelSpecial = excelRows?.filter((row) => row.is_special).length ?? 0;
 
   return (
     <div className="card p-4 space-y-3">
@@ -134,6 +135,7 @@ export default function ConduceManualPaste({
               <div className="flex flex-wrap gap-2 text-xs">
                 <span className="pill pill-green"><span className="pill-dot" />{excelRows.length} colis détectés</span>
                 <span className="pill pill-gray"><span className="pill-dot" />{excelWeight.toFixed(2)} lb au total</span>
+                {excelSpecial > 0 && <span className="pill pill-amber"><span className="pill-dot" />{excelSpecial} colis spécial{excelSpecial > 1 ? "aux" : ""}</span>}
               </div>
               <button className="btn btn-brand" onClick={confirmerExcel} disabled={busy}>
                 <CheckCircle2 size={15} /> Importer dans cette conduce ({excelRows.length})

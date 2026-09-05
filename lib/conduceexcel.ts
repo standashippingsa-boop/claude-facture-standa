@@ -41,6 +41,8 @@ export interface ConduceExcelRow {
   weight: number;
   content: string;
   quantity: number;
+  /** MCPACK make telefon ak lòt atik sansib ak yon * oswa yon nòt espesyal. */
+  is_special: boolean;
 }
 
 /** Rezime ki nan dènye liy fichye a — sèvi pou verifye enpòtasyon an. */
@@ -71,8 +73,25 @@ const parts = (cell: string): string[] =>
 /** Yon tracking valab: omwen 8 karaktè, lèt/chif/tirè sèlman. */
 function trackingValab(v: string): string {
   const t = String(v ?? "").toUpperCase().replace(/[^A-Z0-9-]/g, "");
-  return t.length >= 8 ? t : "";
+  return t.length >= 8 && /\d/.test(t) ? t : "";
 }
+
+/**
+ * Gen kèk koli espesyal MCPACK mete ak yon `*`, yon ti nòt oswa yon lòt
+ * siy nan menm selil Guía a. Nou netwaye sèlman kle teknik la pou pa kreye
+ * yon doublon; siy espesyal la rete vizib nan deskripsyon koli a pi ba a.
+ */
+function tireGuia(cell: string): string {
+  const candidats = String(cell ?? "").toUpperCase().match(/[A-Z0-9-]{6,}/g) ?? [];
+  return candidats.find((candidat) => /\d/.test(candidat)) ?? "";
+}
+
+const isSpecialText = (value: string) =>
+  /\*|t[ée]l[ée]phone|phone|celular|iphone|android|samsung|mobile|casier|casillero|sp[ée]cial/i.test(value);
+
+const joindreDetails = (values: string[]) => Array.from(new Set(
+  values.map((value) => String(value ?? "").replace(/\s+/g, " ").trim()).filter(Boolean)
+)).join(" · ");
 
 /** Tire kòd kliyan an: "Código: 36578" · "36578 - NOM" · "MC-36578". */
 function tireKod(...morceaux: string[]): string {
@@ -140,6 +159,8 @@ export function parseConduceFile(buf: ArrayBuffer): ConduceParseResult {
   const cPeso = trouve(tet, (h) => /peso/.test(h));
   const cContenido = trouve(tet, (h) => /contenido/.test(h));
   const cCant = trouve(tet, (h) => /cant/.test(h));
+  // MCPACK rele kolòn sa a souvan "ADIC.", men li ka chanje non li.
+  const cAdic = trouve(tet, (h) => /adic|observ|nota|detalle|casier|especial/.test(h));
   // Kolòn tracking SEPARE (fòma A). Nan fòma B li melanje ak guia.
   const cTrack = trouve(tet, (h) => /tracking/.test(h) && !/guia|guía/.test(h));
 
@@ -165,11 +186,17 @@ export function parseConduceFile(buf: ArrayBuffer): ConduceParseResult {
     }
 
     const selGuia = cGuia >= 0 ? parts(r[cGuia] ?? "") : [];
-    const guia = (selGuia[0] ?? "").toUpperCase().replace(/\s+/g, "");
-    if (!guia || !/^[A-Z0-9-]{6,}$/.test(guia)) continue;   // liy vid / dekorasyon
+    const guia = selGuia.map(tireGuia).find(Boolean) ?? "";
+    if (!guia) continue;   // liy vid / dekorasyon; yon `*` pa dwe fè yon vrè koli disparèt
 
     // Tracking: 2yèm liy selil la (fòma B) oswa kolòn apa (fòma A)
-    const trackBrut = combine ? (selGuia[1] ?? "") : (cTrack >= 0 ? r[cTrack] ?? "" : "");
+    const guiaAutresLignes = selGuia.filter((ligne) => tireGuia(ligne) !== guia);
+    const trackBrut = combine
+      ? guiaAutresLignes.find((ligne) => {
+        const candidat = trackingValab(ligne);
+        return !!candidat && candidat !== guia;
+      }) ?? ""
+      : (cTrack >= 0 ? r[cTrack] ?? "" : "");
 
     // Kliyan: "NOM" + "Código: 36578" (fòma B) oswa "36578 - NOM" (fòma A)
     const selClient = cClient >= 0 ? parts(r[cClient] ?? "") : [];
@@ -183,6 +210,13 @@ export function parseConduceFile(buf: ArrayBuffer): ConduceParseResult {
     // Retire kòd la si li kole nan non an
     nom = nom.replace(/c[oó]digo\s*[:\-]?\s*\d+/i, "").replace(/^\s*[\d-]+\s*[-–]\s*/, "").trim();
 
+    const contentParts = cContenido >= 0 ? parts(r[cContenido] ?? "") : [];
+    const adicParts = cAdic >= 0 ? parts(r[cAdic] ?? "") : [];
+    // Si nòt espesyal la te antre apre Tracking la nan menm selil la, nou pa pèdi l.
+    const guiaNotes = guiaAutresLignes.filter((ligne) => trackingValab(ligne) !== trackingValab(trackBrut));
+    const details = joindreDetails([...contentParts, ...adicParts, ...guiaNotes]);
+    const is_special = isSpecialText([brut, ...contentParts, ...adicParts, ...guiaNotes].join(" "));
+
     rows.push({
       guia,
       tracking_number: trackingValab(trackBrut),
@@ -190,8 +224,11 @@ export function parseConduceFile(buf: ArrayBuffer): ConduceParseResult {
       customer_name: nom,
       office: cOficina >= 0 ? String(r[cOficina] ?? "").trim() : "",
       weight: cPeso >= 0 ? num(parts(r[cPeso] ?? "")[0] ?? "") : 0,
-      content: cContenido >= 0 ? (parts(r[cContenido] ?? "")[0] ?? "").trim() : "",
-      quantity: cCant >= 0 ? (num(parts(r[cCant] ?? "")[0] ?? "") || 1) : 1
+      content: is_special
+        ? joindreDetails(["* COLIS SPÉCIAL", details])
+        : details,
+      quantity: cCant >= 0 ? (num(parts(r[cCant] ?? "")[0] ?? "") || 1) : 1,
+      is_special
     });
   }
 

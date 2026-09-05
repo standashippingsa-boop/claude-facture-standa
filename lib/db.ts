@@ -454,10 +454,11 @@ export async function linkPackagesToConduce(
 export async function importConduceExcelRows(
   conduceId: string, conduceNumber: string,
   rows: { guia: string; tracking_number: string; customer_code: string; customer_name: string;
-           office: string; weight: number; content: string; quantity: number }[],
+           office: string; weight: number; content: string; quantity: number; is_special?: boolean }[],
   who = ""
-): Promise<{ created: number; updated: number; linked: number; totalWeight: number }> {
+): Promise<{ created: number; updated: number; linked: number; special: number; totalWeight: number }> {
   let created = 0, updated = 0, linked = 0;
+  const special = rows.filter((row) => row.is_special).length;
   let officeSeen = "";
   const now = new Date().toISOString();
 
@@ -498,9 +499,9 @@ export async function importConduceExcelRows(
 
   const totalWeight = rows.reduce((s, r) => s + (r.weight || 0), 0);
   await logAction("Import Conduce (Excel)",
-    `Conduce ${conduceNumber} : ${created} créés, ${updated} mis à jour/liés, ${rows.length} colis, ${totalWeight.toFixed(2)} lb — par ${who}`,
+    `Conduce ${conduceNumber} : ${created} créés, ${updated} mis à jour/liés, ${rows.length} colis dont ${special} spécial(aux), ${totalWeight.toFixed(2)} lb — par ${who}`,
     "", "");
-  return { created, updated, linked, totalWeight };
+  return { created, updated, linked, special, totalWeight };
 }
 
 export interface FactureMatch {
