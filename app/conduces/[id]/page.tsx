@@ -7,10 +7,11 @@
  */
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Truck, Package, Receipt, Clock, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Truck, Package, Receipt, Clock, CheckCircle2, Sparkles } from "lucide-react";
 import PackagesEngine from "@/components/PackagesEngine";
 import ConduceSummaryPanel from "@/components/ConduceSummaryPanel";
 import ConduceManualPaste from "@/components/ConduceManualPaste";
+import ConducePaymentControl from "@/components/ConducePaymentControl";
 import RefreshButton from "@/components/RefreshButton";
 import Loader from "@/components/Loader";
 import { getConduceById, getConduceStats } from "@/lib/db";
@@ -22,7 +23,7 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
   const [conduce, setConduce] = useState<Conduce | null>(null);
   const [stats, setStats] = useState<{
     count: number; weight: number; facturedCount: number; facturedTotal: number; verifiedCount: number;
-    disponibleCount: number; livreCount: number;
+    disponibleCount: number; livreCount: number; specialCount: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -96,6 +97,7 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
           <div className="flex items-center gap-2">
             <RefreshButton onRefresh={load} />
             <span className="pill pill-gray"><span className="pill-dot" />{conduce.status}</span>
+            <ConducePaymentControl conduce={conduce} onChanged={setConduce} />
           </div>
         </div>
 
@@ -106,9 +108,10 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
           </div>
         )}
 
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-2.5 mb-4">
           {[
             [<Package size={14} />, "Colis", stats?.count ?? 0],
+            [<Sparkles size={14} />, "Colis spéciaux", stats?.specialCount ?? 0],
             [<Truck size={14} />, "Poids total", `${(stats?.weight ?? 0).toFixed(1)} lb`],
             [<Receipt size={14} />, "Total facturé", usd(stats?.facturedTotal ?? 0)],
             [<Clock size={14} />, "Restant à facturer", restant],

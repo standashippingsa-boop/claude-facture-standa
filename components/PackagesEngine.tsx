@@ -46,6 +46,11 @@ function pkgSources(p: Pkg): SrcKey[] {
   return out;
 }
 
+/** Marque visible des colis notés `*` dans l'export MCPACK d'une Conduce. */
+function isSpecialConducePackage(p: Pkg): boolean {
+  return /^\*\s*COLIS\s+SP[ÉE]CIAL/i.test(String(p.content ?? ""));
+}
+
 export default function PackagesEngine({ conduceId, hideHeader = false }: { conduceId?: string; hideHeader?: boolean } = {}) {
   const [pkgs, setPkgs] = useState<Pkg[]>([]);
   const [tarifMap, setTarifMap] = useState<Map<string, ClientTarifInfo>>(new Map());
@@ -562,7 +567,14 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
                   )}
                 </td>
                 <td className="tdc text-right">{p.weight}</td>
-                <td className="tdc max-w-[90px] truncate" title={p.content}>{p.content}</td>
+                <td className="tdc max-w-[120px]" title={p.content}>
+                  <div className="flex items-center gap-1 min-w-0">
+                    {isSpecialConducePackage(p) && (
+                      <span className="shrink-0 rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[9px] font-bold" title="Colis spécial signalé dans la Conduce MCPACK">* Spécial</span>
+                    )}
+                    <span className="truncate">{p.content}</span>
+                  </div>
+                </td>
                 <td className="tdc text-right">{usd(p.price_usd)}</td>
                 <td className="tdc text-right font-semibold whitespace-nowrap">{usd(p.total_usd)}</td>
                 <td className="tdc text-right text-[11px] text-slate-500 whitespace-nowrap">{htg(p.total_htg)}</td>

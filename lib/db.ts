@@ -214,11 +214,16 @@ export async function getConduceByNumber(num: string): Promise<Conduce | null> {
 }
 
 /** Kreye yon Conduce si li pa egziste, oswa retounen sa ki egziste a (jamè doublon). */
-export async function ensureConduce(num: string, office = "", who = ""): Promise<Conduce> {
+export async function ensureConduce(
+  num: string, office = "", who = "", conduceDate?: string
+): Promise<Conduce> {
   const existing = await getConduceByNumber(num);
   if (existing) return existing;
+  const importedAt = new Date().toISOString();
   const { data, error } = await supabase.from("conduces").insert({
-    conduce_number: num.trim(), office, imported_by: who, imported_at: new Date().toISOString()
+    conduce_number: num.trim(), office, imported_by: who, imported_at: importedAt,
+    // Yon dat klè fè Conduce a antre egzakteman nan katab jounen admin lan chwazi a.
+    ...(conduceDate ? { conduce_date: conduceDate } : {})
   }).select("*").single();
   if (error) throw error;
   await logAction("Création Conduce", `Conduce ${num} créée`, "", "");
@@ -231,14 +236,14 @@ export async function ensureConduce(num: string, office = "", who = ""): Promise
  * JANM doublon — reyitilize ensureConduce pou chak nimewo.
  */
 export async function createPendingConduces(
-  numbers: string[], who = ""
+  numbers: string[], who = "", options: { conduceDate?: string } = {}
 ): Promise<{ number: string; id: string; alreadyExisted: boolean }[]> {
   const out: { number: string; id: string; alreadyExisted: boolean }[] = [];
   for (const raw of numbers) {
     const num = raw.trim();
     if (!num) continue;
     const before = await getConduceByNumber(num);
-    const c = await ensureConduce(num, "", who);
+    const c = await ensureConduce(num, "", who, options.conduceDate);
     out.push({ number: c.conduce_number, id: c.id, alreadyExisted: !!before });
   }
   return out;
@@ -312,7 +317,30 @@ export async function deleteConduce(conduceId: string): Promise<{ detached: numb
 
 /** Ekri statut yon Conduce (En cours | Complète | Facturée). */
 export async function setConduceStatus(conduceId: string, status: string): Promise<void> {
-  await supabase.from("conduces").update({ status }).eq("id", conduceId);
+  const { error } = await supabase.from("conduces").update({ status }).eq("id", conduceId);
+  if (error) throw error;
+}
+
+/**
+ * Peman MCPACK pa menm bagay ak faktirasyon kliyan yo. Nou mete yon mak klè
+ * sou chak Conduce, ak dat ak non moun ki valide l, pou lo ki poko peye yo
+ * pa pèdi nan mitan Conduces ki deja fin faktire bay kliyan yo.
+ */
+export async function setConducePaymentStatus(
+  conduceId: string, paymentStatus: "Non payé" | "Payé", who = ""
+): Promise<void> {
+  const paid = paymentStatus === "Payé";
+  const { error } = await supabase.from("conduces").update({
+    payment_status: paymentStatus,
+    payment_paid_at: paid ? new Date().toISOString() : null,
+    payment_paid_by: paid ? who : null,
+  }).eq("id", conduceId);
+  if (error) throw error;
+  await logAction(
+    paid ? "Paiement MCPACK validé" : "Paiement MCPACK remis à non payé",
+    `Conduce ${conduceId} — ${paymentStatus}`,
+    "", ""
+  );
 }
 
 /**
@@ -329,10 +357,10 @@ export function deriveConduceStatus(count: number, facturedCount: number): strin
 /** Estatistik yon Conduce, kalkile depi packages ki gen menm conduce_id — jamè chan dwaplike. */
 export async function getConduceStats(conduceId: string): Promise<{
   count: number; weight: number; facturedCount: number; facturedTotal: number; verifiedCount: number;
-  disponibleCount: number; livreCount: number;
+  disponibleCount: number; livreCount: number; specialCount: number;
 }> {
   const { data } = await supabase.from("packages")
-    .select("weight, invoice_id, total_usd, verified, archived, status").eq("conduce_id", conduceId);
+    .select("weight, invoice_id, total_usd, verified, archived, status, content").eq("conduce_id", conduceId);
   const rows = (data ?? []).filter((r: any) => !r.archived);
   return {
     count: rows.length,
@@ -343,6 +371,9 @@ export async function getConduceStats(conduceId: string): Promise<{
     // Pipeline pa etap (pwen: Progression Synchronisé→Scanné→Validé→Facturé→Disponible→Livré)
     disponibleCount: rows.filter((r: any) => ["Disponible", "Facturé", "Livré"].includes(r.status)).length,
     livreCount: rows.filter((r: any) => r.status === "Livré").length,
+    // Fichye Conduce MCPACK yo make ka sa yo ak `*`/nòt espesyal.
+    // Parser la konsève yo ak prefiks sa a; kalkil la rete fyab menm apre re-import.
+    specialCount: rows.filter((r: any) => /^\*\s*COLIS\s+SP[ÉE]CIAL/i.test(String(r.content ?? ""))).length,
   };
 }
 

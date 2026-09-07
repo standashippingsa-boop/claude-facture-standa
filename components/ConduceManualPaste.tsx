@@ -122,6 +122,8 @@ export default function ConduceManualPaste({
           <p className="text-xs text-mute">
             Sur MCPACK, ouvrez la Conduce {conduceNumber} → bouton <b>« Exportar XLS »</b> → sélectionnez
             le fichier téléchargé ici. Colonnes lues : Guia, Nombre, Oficina, Peso, Contenido, Cantidad, Tracking Number.
+            Les lignes marquées d&apos;un <b>*</b> ou d&apos;une note spéciale sont conservées et visibles comme <b>colis spécial</b>.
+            Pour récupérer un ancien export, vous pouvez réimporter le même fichier : les colis déjà présents sont mis à jour, sans doublon.
           </p>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />

@@ -25,17 +25,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Boxes, ClipboardList, FileDown, Folder, FolderOpen, Trash2,
-  Search, TrendingUp, X
+  Search, TrendingUp, X, Plus, Sparkles
 } from "lucide-react";
 import Loader from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
-import { deleteConduce, deriveConduceStatus, getConduces, getConduceStats, setConduceStatus } from "@/lib/db";
+import ConducePaymentControl from "@/components/ConducePaymentControl";
+import { useRole } from "@/lib/authx";
+import { createPendingConduces, deleteConduce, deriveConduceStatus, getConduces, getConduceStats, setConduceStatus } from "@/lib/db";
 import { PROFIT_PER_LB, estimateProfit } from "@/lib/pricing";
 import { usd } from "@/lib/utils";
 import type { Conduce } from "@/lib/types";
 
 interface Row extends Conduce {
   count: number; weight: number; facturedCount: number; verifiedCount: number;
+  specialCount: number;
 }
 interface Classeur {
   key: string;        // "2026-08-19"
@@ -43,7 +46,8 @@ interface Classeur {
   dayName: string;    // "mercredi 19"
   short: string;      // "19 août 2026"
   rows: Row[];
-  count: number; weight: number; facturedCount: number;
+  count: number; weight: number; facturedCount: number; specialCount: number;
+  paidCount: number; unpaidCount: number;
 }
 
 /** Jou yon conduce: dat conduce a si li la, sinon dat kreyasyon an. */
@@ -51,6 +55,7 @@ const dayKey = (c: Conduce) => String(c.conduce_date || c.created_at).slice(0, 1
 
 export default function ConducesPage() {
   const router = useRouter();
+  const { staff } = useRole();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"toutes" | "actives" | "historique">("toutes");
@@ -58,6 +63,10 @@ export default function ConducesPage() {
   const [openDay, setOpenDay] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [newConduceNumber, setNewConduceNumber] = useState("");
+  const [creating, setCreating] = useState(false);
+  const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
 
   const load = async () => {
     try {
@@ -70,7 +79,7 @@ export default function ConducesPage() {
         }
         return {
           ...c, status: derived, count: s.count, weight: s.weight,
-          facturedCount: s.facturedCount, verifiedCount: s.verifiedCount
+          facturedCount: s.facturedCount, verifiedCount: s.verifiedCount, specialCount: s.specialCount
         };
       }));
       setRows(withStats);
@@ -107,7 +116,10 @@ export default function ConducesPage() {
           rows: list.sort((a, b) => a.conduce_number.localeCompare(b.conduce_number)),
           count: list.reduce((s, r) => s + r.count, 0),
           weight: list.reduce((s, r) => s + r.weight, 0),
-          facturedCount: list.reduce((s, r) => s + r.facturedCount, 0)
+          facturedCount: list.reduce((s, r) => s + r.facturedCount, 0),
+          specialCount: list.reduce((s, r) => s + r.specialCount, 0),
+          paidCount: list.filter((r) => r.payment_status === "Payé").length,
+          unpaidCount: list.filter((r) => r.payment_status !== "Payé").length,
         };
       })
       .sort((a, b) => b.key.localeCompare(a.key));   // pi resan an anwo
@@ -119,6 +131,7 @@ export default function ConducesPage() {
   const totalKoli = classeurs.reduce((s, c) => s + c.count, 0);
   const totalPoids = classeurs.reduce((s, c) => s + c.weight, 0);
   const totalRete = classeurs.reduce((s, c) => s + (c.count - c.facturedCount), 0);
+  const totalMcpakAPayer = classeurs.reduce((s, c) => s + c.unpaidCount, 0);
 
   /** Jounen ki louvri a (si genyen). */
   const jour = openDay ? classeurs.find((c) => c.key === openDay) ?? null : null;
@@ -157,6 +170,28 @@ export default function ConducesPage() {
   const toggleSel = (id: string) =>
     setSel((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
+  /** Mete eta lokal la touswit apre validasyon peman MCPACK la. */
+  const onPaymentChanged = (next: Conduce) =>
+    setRows((prev) => prev?.map((r) => r.id === next.id ? { ...r, ...next } : r) ?? null);
+
+  /** Kreye yon Conduce DIRÈKTEMAN nan katab dat ki louvri a. */
+  const createInFolder = async () => {
+    if (!jour) return;
+    const number = newConduceNumber.trim();
+    if (!number) { setNotice("Entrez le numéro de la Conduce."); return; }
+    setCreating(true);
+    try {
+      const [result] = await createPendingConduces([number], staffName, { conduceDate: jour.key });
+      setNewConduceNumber(""); setAdding(false);
+      setNotice(result?.alreadyExisted
+        ? `La Conduce ${result.number} existe déjà : elle reste dans son classeur d'origine.`
+        : `Conduce ${result?.number ?? number} ajoutée au classeur du ${jour.label}.`);
+      await load();
+    } catch (e: unknown) {
+      setNotice((e as Error)?.message ?? "Impossible d'ajouter cette Conduce.");
+    } finally { setCreating(false); }
+  };
+
   if (rows === null) return <Loader inline />;
 
   return (
@@ -181,6 +216,11 @@ export default function ConducesPage() {
           )}
         </div>
         <div className="flex gap-2 items-center w-full sm:w-auto">
+          {jour && (
+            <button className="btn btn-brand whitespace-nowrap" onClick={() => setAdding((v) => !v)}>
+              <Plus size={15} /> Ajouter
+            </button>
+          )}
           <div className="relative flex-1 sm:flex-none">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input className="input w-full sm:w-56 !pl-9" placeholder="Numéro, office…"
@@ -196,20 +236,24 @@ export default function ConducesPage() {
         </div>
       </div>
 
-      {/* ══ Rezime — 2 kolòn sou telefòn, 4 sou desktop ══ */}
+      {/* ══ Rezime — peman MCPACK lan separe de fakti kliyan yo ══ */}
       {!jour && classeurs.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
           {([
             ["Journées", String(classeurs.length)],
             ["Colis à facturer", String(totalRete)],
+            ["MCPACK à payer", String(totalMcpakAPayer)],
             ["Poids total", `${totalPoids.toFixed(0)} lb`],
             ["Bénéfice estimé", usd(estimateProfit(totalPoids))]
-          ] as const).map(([label, val], i) => (
-            <div key={label} className={`card px-3.5 py-3 ${i === 3 ? "bg-navy text-white" : ""}`}>
-              <p className={`text-[10px] font-bold uppercase tracking-wide ${i === 3 ? "text-white/60" : "text-mute"}`}>{label}</p>
-              <p className={`text-xl sm:text-2xl font-extrabold leading-tight mt-0.5 ${i === 3 ? "text-white" : "text-ink"}`}>{val}</p>
+          ] as const).map(([label, val], i) => {
+            const isPayment = label === "MCPACK à payer";
+            const isProfit = i === 4;
+            return (
+            <div key={label} className={`card px-3.5 py-3 ${isProfit ? "bg-navy text-white" : ""} ${isPayment ? "border-amber-200" : ""}`}>
+              <p className={`text-[10px] font-bold uppercase tracking-wide ${isProfit ? "text-white/60" : isPayment ? "text-amber-700" : "text-mute"}`}>{label}</p>
+              <p className={`text-xl sm:text-2xl font-extrabold leading-tight mt-0.5 ${isProfit ? "text-white" : isPayment ? "text-amber-800" : "text-ink"}`}>{val}</p>
             </div>
-          ))}
+          );})}
         </div>
       )}
 
@@ -229,9 +273,33 @@ export default function ConducesPage() {
 
       {/* ══ KATAB YO ══ */}
       {jour ? (
-        <JourOuvert cl={jour} sel={sel} onSel={toggleSel}
-          onOpenConduce={(id) => router.push(`/conduces/${id}`)}
-          onDelete={supprimer} onDeleteDay={() => supprimerJour(jour)} />
+        <>
+          {adding && (
+            <div className="card p-4 border border-navy/15">
+              <div className="flex items-start gap-2">
+                <FolderOpen size={17} className="text-navy mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-navy">Ajouter une Conduce dans ce classeur</p>
+                  <p className="text-xs text-mute mt-0.5">Elle sera classée dans la journée du {jour.label}. Les colis seront ajoutés après l&apos;import MCPACK.</p>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 mt-3">
+                <input className="input font-mono flex-1" autoFocus placeholder="Numéro de Conduce (ex. 10534)"
+                  value={newConduceNumber} onChange={(e) => setNewConduceNumber(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") createInFolder(); }} />
+                <button className="btn btn-brand justify-center" onClick={createInFolder} disabled={creating || !newConduceNumber.trim()}>
+                  <Plus size={15} /> {creating ? "Ajout…" : "Ajouter au classeur"}
+                </button>
+                <button className="btn btn-ghost justify-center" onClick={() => { setAdding(false); setNewConduceNumber(""); }} disabled={creating}>
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
+          <JourOuvert cl={jour} sel={sel} onSel={toggleSel}
+            onOpenConduce={(id) => router.push(`/conduces/${id}`)}
+            onDelete={supprimer} onDeleteDay={() => supprimerJour(jour)} onPaymentChanged={onPaymentChanged} />
+        </>
       ) : classeurs.length === 0 ? (
         <div className="card p-10 sm:p-12 text-center">
           <Boxes size={32} className="mx-auto text-slate-300" />
@@ -319,6 +387,13 @@ function ClasseurTile({ cl, onOpen }: { cl: Classeur; onOpen: () => void }) {
         {cl.count} colis · {cl.weight.toFixed(0)} lb
       </div>
 
+      <div className="flex flex-wrap gap-1.5 text-[10px] font-bold">
+        <span className={cl.unpaidCount ? "text-amber-700" : "text-emerald-700"}>
+          MCPACK : {cl.unpaidCount ? `${cl.unpaidCount} à payer` : "tout payé"}
+        </span>
+        {cl.specialCount > 0 && <span className="text-amber-700 inline-flex items-center gap-0.5"><Sparkles size={10} />{cl.specialCount} spécial{cl.specialCount > 1 ? "aux" : ""}</span>}
+      </div>
+
       <div className="flex items-center gap-2 mt-auto pt-1">
         <div className="flex-1"><Echelle pct={pct} /></div>
         <span className={`text-[11px] font-bold tabular-nums shrink-0 ${fini ? "text-brand" : "text-navy"}`}>{pct}%</span>
@@ -328,9 +403,9 @@ function ClasseurTile({ cl, onOpen }: { cl: Classeur; onOpen: () => void }) {
 }
 
 /** JOUNEN LOUVRI — conduces jounen an, youn anba lòt, ak rezime jounen an. */
-function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay }: {
+function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPaymentChanged }: {
   cl: Classeur; sel: Set<string>; onSel: (id: string) => void; onOpenConduce: (id: string) => void;
-  onDelete: (r: Row) => void; onDeleteDay: () => void;
+  onDelete: (r: Row) => void; onDeleteDay: () => void; onPaymentChanged: (next: Conduce) => void;
 }) {
   const pct = cl.count ? Math.round((cl.facturedCount / cl.count) * 100) : 0;
 
@@ -345,6 +420,12 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay }: {
             <p className="text-[11px] text-mute mt-0.5">
               {cl.rows.length} conduce{cl.rows.length > 1 ? "s" : ""} · {cl.count} colis · {cl.weight.toFixed(1)} lb
             </p>
+            <div className="flex flex-wrap gap-1.5 mt-2 text-[10px] font-bold">
+              <span className={cl.unpaidCount ? "text-amber-700" : "text-emerald-700"}>
+                MCPACK : {cl.paidCount} payée{cl.paidCount > 1 ? "s" : ""} · {cl.unpaidCount} à payer
+              </span>
+              {cl.specialCount > 0 && <span className="text-amber-700 inline-flex items-center gap-0.5"><Sparkles size={11} />{cl.specialCount} colis spécial{cl.specialCount > 1 ? "aux" : ""}</span>}
+            </div>
             <div className="mt-2.5 flex items-center gap-2.5">
               <div className="flex-1"><Echelle pct={pct} /></div>
               <span className="text-xs font-bold text-navy tabular-nums shrink-0">{pct}%</span>
@@ -369,10 +450,14 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay }: {
                 checked={sel.has(r.id)} onChange={() => onSel(r.id)}
                 aria-label={`Sélectionner ${r.conduce_number}`} />
               <div className="min-w-0 flex-1">
-                <button onClick={() => onOpenConduce(r.id)}
-                  className="font-mono font-extrabold text-navy text-[14px] hover:underline">
-                  {r.conduce_number}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button onClick={() => onOpenConduce(r.id)}
+                    className="font-mono font-extrabold text-navy text-[14px] hover:underline">
+                    {r.conduce_number}
+                  </button>
+                  <ConducePaymentControl conduce={r} compact onChanged={onPaymentChanged} />
+                  {r.specialCount > 0 && <span className="pill pill-amber !px-2"><Sparkles size={10} className="mr-0.5" />{r.specialCount} spécial{r.specialCount > 1 ? "aux" : ""}</span>}
+                </div>
                 <p className="text-[11px] text-mute mt-0.5 truncate">
                   {r.office || "Office —"} · {r.count} colis · {r.weight.toFixed(1)} lb
                 </p>

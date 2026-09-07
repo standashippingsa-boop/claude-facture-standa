@@ -80,12 +80,19 @@ export function shouldPromoteOnConduce(current?: string | null, invoiceId?: stri
   return actuel < cible;                             // sèlman si l ap AVANSE
 }
 
+/** Fakti MCPACK la separe ak fakti kliyan yo: se peman konpayi a bay MCPACK. */
+export type ConducePaymentStatus = "Non payé" | "Payé";
+
 export interface Conduce {
   id: string;
   conduce_number: string;
   office: string;
   conduce_date?: string | null;
   status: string;               // En cours | Complète | Facturée
+  /** Peman fakti MCPACK pou lo sa a — pa gen rapò ak fakti kliyan yo. */
+  payment_status?: ConducePaymentStatus;
+  payment_paid_at?: string | null;
+  payment_paid_by?: string | null;
   imported_by: string;
   imported_at?: string | null;
   created_at: string;
