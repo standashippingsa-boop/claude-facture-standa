@@ -6,6 +6,7 @@ import {
   LoaderCircle, ReceiptText, Upload,
 } from "lucide-react";
 import { extractFacture } from "@/lib/factureimport";
+import type { FactureTracking } from "@/lib/factureimport";
 import {
   analyzeMcpackInvoiceTrackings, createMcpackInvoice, getMcpackInvoices,
   McpackInvoiceAnalysis, payMcpackInvoice,
@@ -29,6 +30,7 @@ export default function McpackInvoiceWorkspace({
   const inputRef = useRef<HTMLInputElement>(null);
   const [invoices, setInvoices] = useState<McpackInvoice[]>([]);
   const [analysis, setAnalysis] = useState<(McpackInvoiceAnalysis & { fileName: string }) | null>(null);
+  const [sourceTrackings, setSourceTrackings] = useState<FactureTracking[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -48,6 +50,18 @@ export default function McpackInvoiceWorkspace({
   };
   useEffect(() => { void load(); }, []);
 
+  const analyze = async (trackings: FactureTracking[], fileName: string, complete = false) => {
+    const result = await analyzeMcpackInvoiceTrackings(trackings, complete ? {} : { maximumTrackings: 8 });
+    setAnalysis({ ...result, fileName });
+    setNotice(result.conduces.length
+      ? { tone: "info", text: complete
+        ? "Analyse complète terminée. Vérifiez les Conduces détectées, puis confirmez la facture."
+        : `Détection rapide : ${result.checkedTrackingCount} tracking suffisent pour trouver une Conduce. Vous pouvez confirmer ou analyser tout le PDF.` }
+      : { tone: "error", text: complete
+        ? "Aucune Conduce correspondante : aucun changement ne sera enregistré."
+        : `Aucune Conduce dans les ${result.checkedTrackingCount} premiers tracking. Utilisez l'analyse complète pour chercher les autres.` });
+  };
+
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (inputRef.current) inputRef.current.value = "";
@@ -62,11 +76,8 @@ export default function McpackInvoiceWorkspace({
         setNotice({ tone: "error", text: "Aucun tracking n'a été lu. Utilisez le PDF exporté par MCPACK (pas une photo scannée)." });
         return;
       }
-      const result = await analyzeMcpackInvoiceTrackings(trackings);
-      setAnalysis({ ...result, fileName: check.filename });
-      setNotice(result.conduces.length
-        ? { tone: "info", text: "Vérifiez les Conduces détectées, puis confirmez la facture." }
-        : { tone: "error", text: "Aucune Conduce correspondante : aucun changement ne sera enregistré." });
+      setSourceTrackings(trackings);
+      await analyze(trackings, check.filename);
     } catch (error) {
       setNotice({ tone: "error", text: error instanceof Error ? error.message : "Analyse du PDF impossible." });
     } finally {
@@ -86,6 +97,18 @@ export default function McpackInvoiceWorkspace({
       setNotice({ tone: "error", text: error instanceof Error ? error.message : "Impossible d'enregistrer la facture MCPACK." });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const analyzeAll = async () => {
+    if (!analysis || !sourceTrackings) return;
+    setParsing(true);
+    try {
+      await analyze(sourceTrackings, analysis.fileName, true);
+    } catch (error) {
+      setNotice({ tone: "error", text: error instanceof Error ? error.message : "Analyse complète impossible." });
+    } finally {
+      setParsing(false);
     }
   };
 
@@ -130,7 +153,7 @@ export default function McpackInvoiceWorkspace({
 
       <div className="p-4 sm:p-5 space-y-3">
         <p className="text-[11px] text-mute leading-relaxed">
-          Le PDF est lu sur cet appareil et n&apos;est pas conservé sur le site. Avant validation, aucun statut de Conduce ne change.
+          Le PDF est lu sur cet appareil et n&apos;est pas conservé sur le site. La détection rapide consulte seulement quelques tracking et accepte aussi les colis livrés ou archivés.
         </p>
 
         {notice && (
@@ -152,7 +175,7 @@ export default function McpackInvoiceWorkspace({
                 <p className="text-[11px] text-mute mt-0.5">Résultat de l&apos;analyse — aucun changement n&apos;est encore enregistré.</p>
               </div>
               <div className="flex gap-1.5 text-[10px] font-bold">
-                <span className="pill pill-gray !px-2">{analysis.extractedTrackingCount} tracking{analysis.extractedTrackingCount > 1 ? "s" : ""}</span>
+                <span className="pill pill-gray !px-2">{analysis.checkedTrackingCount}/{analysis.extractedTrackingCount} vérifié{analysis.checkedTrackingCount > 1 ? "s" : ""}</span>
                 <span className="pill pill-green !px-2">{analysis.matchedPackageCount} trouvé{analysis.matchedPackageCount > 1 ? "s" : ""}</span>
               </div>
             </div>
@@ -173,14 +196,20 @@ export default function McpackInvoiceWorkspace({
 
             {(analysis.unmatchedTrackingCount > 0 || analysis.unlinkedPackageCount > 0) && (
               <p className="text-[11px] text-amber-800 rounded-lg bg-amber-50 px-2.5 py-2">
-                {analysis.unmatchedTrackingCount > 0 && `${analysis.unmatchedTrackingCount} tracking non trouvé${analysis.unmatchedTrackingCount > 1 ? "s" : ""}. `}
+                {analysis.unmatchedTrackingCount > 0 && `${analysis.unmatchedTrackingCount} tracking non trouvé${analysis.unmatchedTrackingCount > 1 ? "s" : ""} dans la recherche actuelle. `}
                 {analysis.unlinkedPackageCount > 0 && `${analysis.unlinkedPackageCount} colis trouvé${analysis.unlinkedPackageCount > 1 ? "s" : ""} sans Conduce.`}
                 Ils ne seront pas ajoutés à cette facture.
               </p>
             )}
 
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-1">
-              <button type="button" className="btn btn-ghost justify-center" disabled={saving} onClick={() => setAnalysis(null)}>Annuler</button>
+              <button type="button" className="btn btn-ghost justify-center" disabled={saving} onClick={() => { setAnalysis(null); setSourceTrackings(null); }}>Annuler</button>
+              {analysis.skippedTrackingCount > 0 && sourceTrackings && (
+                <button type="button" className="btn btn-ghost justify-center" disabled={saving || parsing}
+                  onClick={() => { void analyzeAll(); }}>
+                  <FileSearch size={15} /> Analyser les {analysis.extractedTrackingCount} tracking
+                </button>
+              )}
               <button type="button" className="btn btn-brand justify-center" disabled={saving || !analysis.conduces.length} onClick={saveInvoice}>
                 {saving ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
                 {saving ? "Enregistrement…" : `Facturer ${analysis.conduces.length} Conduce${analysis.conduces.length > 1 ? "s" : ""}`}

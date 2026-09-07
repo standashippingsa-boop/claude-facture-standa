@@ -354,6 +354,9 @@ export interface McpackInvoiceConduceCandidate {
 
 export interface McpackInvoiceAnalysis {
   extractedTrackingCount: number;
+  /** Konbyen tracking nou teste vrèman (mòd rapid pa bezwen teste tout PDF la). */
+  checkedTrackingCount: number;
+  skippedTrackingCount: number;
   matchedPackageCount: number;
   unmatchedTrackingCount: number;
   unlinkedPackageCount: number;
@@ -369,13 +372,18 @@ export interface McpackInvoiceAnalysis {
  * lòt yo sèvi ak lòt la. Yon koli konte yon sèl fwa menm si PDF la repete li.
  */
 export async function analyzeMcpackInvoiceTrackings(
-  items: { value: string }[]
+  items: { value: string }[], options: { maximumTrackings?: number } = {}
 ): Promise<McpackInvoiceAnalysis> {
-  const trackings = Array.from(new Set(items
+  const allTrackings = Array.from(new Set(items
     .map((item) => cleanTracking(item.value))
     .filter(Boolean)));
+  const maximum = Math.max(1, Number(options.maximumTrackings) || allTrackings.length);
+  const trackings = allTrackings.slice(0, maximum);
   if (!trackings.length) {
-    return { extractedTrackingCount: 0, matchedPackageCount: 0, unmatchedTrackingCount: 0, unlinkedPackageCount: 0, conduces: [] };
+    return {
+      extractedTrackingCount: 0, checkedTrackingCount: 0, skippedTrackingCount: 0,
+      matchedPackageCount: 0, unmatchedTrackingCount: 0, unlinkedPackageCount: 0, conduces: [],
+    };
   }
 
   const { data: rows, error } = await supabase.from("packages")
@@ -384,7 +392,8 @@ export async function analyzeMcpackInvoiceTrackings(
 
   const byTracking = new Map<string, any>();
   for (const pkg of rows ?? []) {
-    if (pkg.archived) continue;
+    // Yon colis livré oswa archive kenbe `conduce_id` li. Li rete yon bon
+    // prèv pou idantifye ki Conduce yon fakti MCPACK fè referans a.
     for (const raw of [pkg.tracking_number, pkg.tracking_manual]) {
       const key = cleanTracking(raw);
       if (key) byTracking.set(key, pkg);
@@ -421,7 +430,9 @@ export async function analyzeMcpackInvoiceTrackings(
   result.sort((a, b) => a.conduce.conduce_number.localeCompare(b.conduce.conduce_number, undefined, { numeric: true }));
 
   return {
-    extractedTrackingCount: trackings.length,
+    extractedTrackingCount: allTrackings.length,
+    checkedTrackingCount: trackings.length,
+    skippedTrackingCount: Math.max(0, allTrackings.length - trackings.length),
     matchedPackageCount: matchedPackages.size,
     unmatchedTrackingCount,
     unlinkedPackageCount,
