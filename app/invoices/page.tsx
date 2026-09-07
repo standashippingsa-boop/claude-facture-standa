@@ -4,6 +4,7 @@ import { Eye, Download, Printer, Send, XCircle } from "lucide-react";
 import { cancelInvoice, getInvoiceItems, getInvoices, getSettings, saveInvoicePdfUrl } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import RefreshButton from "@/components/RefreshButton";
+import FilterConsole from "@/components/FilterConsole";
 import { generateUploadDownload, openInvoicePdf } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Invoice } from "@/lib/types";
@@ -12,6 +13,11 @@ import { dateFr, htg, usd } from "@/lib/utils";
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [search, setSearch] = useState("");
+  const [fromF, setFromF] = useState("");
+  const [toF, setToF] = useState("");
+  const [customerF, setCustomerF] = useState("");
+  const [minTotal, setMinTotal] = useState("");
+  const [maxTotal, setMaxTotal] = useState("");
   const [footer, setFooter] = useState("Mèsi paske ou fè STANDA COMMERCIAL konfyans.");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -78,20 +84,36 @@ export default function InvoicesPage() {
   };
 
   const q = search.trim().toLowerCase();
-  const filtered = q ? invoices.filter((f) =>
-    f.invoice_number.toLowerCase().includes(q) || f.customer_code.toLowerCase().includes(q) ||
-    f.customer_name.toLowerCase().includes(q)) : invoices;
+  const filtered = invoices.filter((f) => {
+    const date = String(f.created_at ?? "").slice(0, 10);
+    if (fromF && date < fromF) return false;
+    if (toF && date > toF) return false;
+    if (customerF && f.customer_code !== customerF) return false;
+    if (minTotal && (Number(f.grand_total) || 0) < Number(minTotal)) return false;
+    if (maxTotal && (Number(f.grand_total) || 0) > Number(maxTotal)) return false;
+    return !q || f.invoice_number.toLowerCase().includes(q) || f.customer_code.toLowerCase().includes(q) ||
+      f.customer_name.toLowerCase().includes(q);
+  });
+  const customerOptions = Array.from(new Set(invoices.map((invoice) => invoice.customer_code).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value }));
+  const clearFilters = () => { setSearch(""); setFromF(""); setToF(""); setCustomerF(""); setMinTotal(""); setMaxTotal(""); };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-extrabold text-navy">Invoices</h1>
-        <div className="flex gap-2 items-center">
-          <input className="input w-80" placeholder="No facture, code ou nom client..." value={search}
-            onChange={(e) => setSearch(e.target.value)} />
-          <RefreshButton onRefresh={load} />
-        </div>
+        <RefreshButton onRefresh={load} />
       </div>
+
+      <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="No facture, code ou nom client…"
+        resultCount={filtered.length} onClear={clearFilters}
+        fields={[
+          { key: "customer", label: "Code client", type: "select", value: customerF, onChange: setCustomerF, options: customerOptions },
+          { key: "from", label: "À partir du", type: "date", value: fromF, onChange: setFromF },
+          { key: "to", label: "Jusqu'au", type: "date", value: toF, onChange: setToF },
+          { key: "min", label: "Total min. (USD)", type: "number", value: minTotal, onChange: setMinTotal, min: 0, step: 0.01 },
+          { key: "max", label: "Total max. (USD)", type: "number", value: maxTotal, onChange: setMaxTotal, min: 0, step: 0.01 },
+        ]} />
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">

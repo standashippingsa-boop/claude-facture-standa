@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Loader from "@/components/Loader";
-import { History, Trash2, Filter, Eye } from "lucide-react";
+import { History, Trash2, Eye } from "lucide-react";
 import RefreshButton from "@/components/RefreshButton";
 import Pagination from "@/components/Pagination";
+import FilterConsole from "@/components/FilterConsole";
 import { JournalRow, clearJournal, getJournal } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 
@@ -40,6 +41,10 @@ export default function JournalPage() {
   const [rows, setRows] = useState<JournalRow[]>([]);
   const [search, setSearch] = useState("");
   const [action, setAction] = useState("");
+  const [userF, setUserF] = useState("");
+  const [customerF, setCustomerF] = useState("");
+  const [fromF, setFromF] = useState("");
+  const [toF, setToF] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
@@ -57,13 +62,20 @@ export default function JournalPage() {
     const q = search.trim().toLowerCase();
     return rows.filter((r) =>
       (!action || r.action === action) &&
+      (!userF || r.user_name === userF) &&
+      (!customerF || r.customer_code === customerF) &&
+      (!fromF || String(r.created_at ?? "").slice(0, 10) >= fromF) &&
+      (!toF || String(r.created_at ?? "").slice(0, 10) <= toF) &&
       (!q || r.user_name.toLowerCase().includes(q) || r.details.toLowerCase().includes(q)
         || r.customer_code.toLowerCase().includes(q) || r.package_ref.toLowerCase().includes(q)));
-  }, [rows, search, action]);
+  }, [rows, search, action, userF, customerF, fromF, toF]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const view = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-  useEffect(() => { setPage(1); }, [search, action]);
+  useEffect(() => { setPage(1); }, [search, action, userF, customerF, fromF, toF]);
+  const clearFilters = () => { setSearch(""); setAction(""); setUserF(""); setCustomerF(""); setFromF(""); setToF(""); };
+  const userOptions = Array.from(new Set(rows.map((row) => row.user_name).filter(Boolean))).sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value }));
+  const customerOptions = Array.from(new Set(rows.map((row) => row.customer_code).filter(Boolean))).sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value }));
 
   const clear = async () => {
     if (!confirm("Efase TOUT jounal la? Aksyon sa a definitif.")) return;
@@ -90,17 +102,15 @@ export default function JournalPage() {
         )}
       </div>
 
-      <div className="flex gap-2 flex-wrap items-center">
-        <input className="input flex-1 min-w-[200px]" placeholder="Rechercher: utilisateur, détail, code, colis..."
-          value={search} onChange={(e) => setSearch(e.target.value)} />
-        <div className="flex items-center gap-2">
-          <Filter size={15} className="text-slate-400" />
-          <select className="input !w-52" value={action} onChange={(e) => setAction(e.target.value)}>
-            <option value="">Toutes les actions</option>
-            {actions.map((a) => <option key={a}>{a}</option>)}
-          </select>
-        </div>
-      </div>
+      <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Utilisateur, détail, code, colis…"
+        resultCount={filtered.length} onClear={clearFilters}
+        fields={[
+          { key: "action", label: "Action", type: "select", value: action, onChange: setAction, options: actions.map((value) => ({ value, label: value })) },
+          { key: "user", label: "Utilisateur", type: "select", value: userF, onChange: setUserF, options: userOptions },
+          { key: "customer", label: "Code client", type: "select", value: customerF, onChange: setCustomerF, options: customerOptions },
+          { key: "from", label: "À partir du", type: "date", value: fromF, onChange: setFromF },
+          { key: "to", label: "Jusqu'au", type: "date", value: toF, onChange: setToF },
+        ]} />
 
       <div className="card overflow-x-auto">
         <table className="w-full text-xs">

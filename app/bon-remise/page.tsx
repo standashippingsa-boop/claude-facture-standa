@@ -13,9 +13,11 @@
  *   chwazi a. Konsa yon bon Port-de-Paix ak yon bon Gonaïves toude ka genyen l.
  */
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CheckCircle2, ClipboardList, FileDown, Search, Truck, X } from "lucide-react";
 import Loader, { SavedToast } from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
+import FilterConsole from "@/components/FilterConsole";
 import {
   ClientTarifInfo, getCentralAccountCode, getClientTarifMap,
   createBonRemiseRecord, deleteBonRemiseRecord, getBonRemiseConduceIds,
@@ -31,6 +33,7 @@ const CENTRAL_VILLE = "— Compte central —";
 
 export default function BonRemisePage() {
   const { staff } = useRole();
+  const searchParams = useSearchParams();
   const [conduces, setConduces] = useState<Conduce[] | null>(null);
   const [tarifMap, setTarifMap] = useState<Map<string, ClientTarifInfo>>(new Map());
   const [central, setCentral] = useState("");
@@ -43,6 +46,12 @@ export default function BonRemisePage() {
 
   const [ville, setVille] = useState("");         // vil destinasyon (filtè + PDF)
   const [q, setQ] = useState("");
+  const [customerF, setCustomerF] = useState("");
+  const [statusF, setStatusF] = useState("");
+  const [dateF, setDateF] = useState("");
+  const [specialF, setSpecialF] = useState("");
+  const [minWeight, setMinWeight] = useState("");
+  const [maxWeight, setMaxWeight] = useState("");
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -68,6 +77,16 @@ export default function BonRemisePage() {
     }
   };
   useEffect(() => { load(); }, []);
+
+  // Lè staff la te seleksyone Conduce filtre yo depi paj Conduces la, pote
+  // menm seleksyon an isit la. Conduce ki deja nan yon bon rete eskli.
+  useEffect(() => {
+    if (!conduces || !registryReady) return;
+    const requested = new Set((searchParams.get("conduces") ?? "").split(",").filter(Boolean));
+    if (!requested.size) return;
+    const valid = conduces.filter((conduce) => requested.has(conduce.id) && !recordedConduces.has(conduce.id));
+    if (valid.length) setSelCond((previous) => new Set([...previous, ...valid.map((conduce) => conduce.id)]));
+  }, [conduces, recordedConduces, registryReady, searchParams]);
 
   /** Chaje koli yo chak fwa seleksyon conduce a chanje. */
   useEffect(() => {
@@ -113,6 +132,14 @@ export default function BonRemisePage() {
     const needle = q.trim().toLowerCase();
     return pkgs.filter((p) => {
       if (ville && villeOf(p) !== ville && !isCentral(p)) return false;
+      if (customerF && p.customer_code !== customerF) return false;
+      if (statusF && p.status !== statusF) return false;
+      if (dateF && !String(p.created_date ?? "").includes(dateF)) return false;
+      const special = /^\*\s*COLIS\s+SP[ÉE]CIAL/i.test(String(p.content ?? ""));
+      if (specialF === "yes" && !special) return false;
+      if (specialF === "no" && special) return false;
+      if (minWeight && (Number(p.weight) || 0) < Number(minWeight)) return false;
+      if (maxWeight && (Number(p.weight) || 0) > Number(maxWeight)) return false;
       if (!needle) return true;
       return [p.tracking_number, p.tracking_manual, p.customer_code, p.customer_name, p.content]
         .some((f) => String(f ?? "").toLowerCase().includes(needle));
@@ -121,6 +148,8 @@ export default function BonRemisePage() {
   }, [pkgs, ville, q, tarifMap, central]);
 
   const chosen = pkgs.filter((p) => sel.has(p.id));
+  const filteredSelectedCount = filtered.filter((p) => sel.has(p.id)).length;
+  const allFilteredSelected = filtered.length > 0 && filtered.every((p) => sel.has(p.id));
   const poidsSel = chosen.reduce((s, p) => s + (Number(p.weight) || 0), 0);
   const centralSel = chosen.filter(isCentral).length;
 
@@ -135,6 +164,16 @@ export default function BonRemisePage() {
       ids.forEach((i) => (tout ? n.delete(i) : n.add(i)));
       return n;
     });
+
+  const clearFilters = () => {
+    setQ(""); setVille(""); setCustomerF(""); setStatusF(""); setDateF("");
+    setSpecialF(""); setMinWeight(""); setMaxWeight("");
+  };
+
+  const customerOptions = useMemo(() => Array.from(new Set(pkgs.map((p) => p.customer_code).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value })), [pkgs]);
+  const statusOptions = useMemo(() => Array.from(new Set(pkgs.map((p) => p.status).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value })), [pkgs]);
 
   const creer = async () => {
     if (!chosen.length) return;
@@ -229,22 +268,18 @@ export default function BonRemisePage() {
             <span className="w-6 h-6 rounded-full bg-navy text-white grid place-items-center text-[11px] font-bold">2</span>
             <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Filtrer les colis</h2>
           </div>
-          <div className="flex flex-wrap gap-2 items-center">
-            <select className="input w-52" value={ville} onChange={(e) => setVille(e.target.value)}>
-              <option value="">Toutes les villes</option>
-              {villes.map((v) => <option key={v} value={v}>{v}</option>)}
-            </select>
-            <div className="relative flex-1 min-w-[200px]">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input className="input w-full !pl-9" placeholder="Tracking, client, contenu…"
-                value={q} onChange={(e) => setQ(e.target.value)} />
-              {q && <button onClick={() => setQ("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy"><X size={14} /></button>}
-            </div>
-            <span className="text-xs text-mute whitespace-nowrap">
-              {filtered.length} / {pkgs.length} colis
-            </span>
-          </div>
+          <FilterConsole query={q} onQueryChange={setQ} queryPlaceholder="Tracking, client, contenu…"
+            resultCount={filtered.length} onClear={clearFilters}
+            selection={{ selectedCount: filteredSelectedCount, allSelected: allFilteredSelected, onToggleAll: toggleAll, label: "Sélectionner les colis filtrés" }}
+            fields={[
+              { key: "ville", label: "Ville", type: "select", value: ville, onChange: setVille, options: villes.map((value) => ({ value, label: value })) },
+              { key: "client", label: "Code client", type: "select", value: customerF, onChange: setCustomerF, options: customerOptions },
+              { key: "status", label: "Statut", type: "select", value: statusF, onChange: setStatusF, options: statusOptions },
+              { key: "date", label: "Date", type: "text", value: dateF, onChange: setDateF, placeholder: "2026-09" },
+              { key: "special", label: "Colis spécial", type: "select", value: specialF, onChange: setSpecialF, options: [{ value: "yes", label: "Seulement spéciaux" }, { value: "no", label: "Sans spécial" }] },
+              { key: "minWeight", label: "Poids min. (lb)", type: "number", value: minWeight, onChange: setMinWeight, min: 0, step: 0.01 },
+              { key: "maxWeight", label: "Poids max. (lb)", type: "number", value: maxWeight, onChange: setMaxWeight, min: 0, step: 0.01 },
+            ]} />
           {ville && central && (
             <p className="text-[11px] text-navy bg-blue-50 border border-navy/15 rounded-lg px-3 py-2 mt-3">
               Les colis du <b>compte central {central}</b> restent visibles quelle que soit la ville —

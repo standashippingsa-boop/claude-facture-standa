@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { FileText, Inbox, Loader2 } from "lucide-react";
 import RefreshButton from "@/components/RefreshButton";
 import { SavedToast } from "@/components/Loader";
+import FilterConsole from "@/components/FilterConsole";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import {
   getClient, getPackagesByTrackings, getRetraits, getSettings, setRetraitStatus
@@ -39,6 +40,10 @@ export default function RetraitsPage() {
   const [retraits, setRetraits] = useState<Retrait[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [filtre, setFiltre] = useState("");
+  const [search, setSearch] = useState("");
+  const [cityF, setCityF] = useState("");
+  const [fromF, setFromF] = useState("");
+  const [toF, setToF] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -105,8 +110,18 @@ export default function RetraitsPage() {
     await load();
   };
 
-  const list = filtre ? retraits.filter((r) => r.status === filtre) : retraits;
+  const list = retraits.filter((r) => {
+    const q = search.trim().toLowerCase();
+    const date = String(r.created_at ?? "").slice(0, 10);
+    if (filtre && r.status !== filtre) return false;
+    if (cityF && r.ville !== cityF) return false;
+    if (fromF && date < fromF) return false;
+    if (toF && date > toF) return false;
+    return !q || [r.customer_code, r.customer_name, r.ville, r.status].some((value) => String(value ?? "").toLowerCase().includes(q));
+  });
   const enAttente = retraits.filter((r) => r.status === "En attente").length;
+  const clearFilters = () => { setSearch(""); setFiltre(""); setCityF(""); setFromF(""); setToF(""); };
+  const cityOptions = Array.from(new Set(retraits.map((retrait) => retrait.ville).filter(Boolean))).sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value }));
 
   return (
     <div className="space-y-4">
@@ -115,14 +130,17 @@ export default function RetraitsPage() {
           <Inbox size={20} /> Demandes de retrait
           {enAttente > 0 && <span className="badge bg-amber-100 text-amber-700">{enAttente} en attente</span>}
         </h1>
-        <div className="flex gap-2 items-center">
-          <select className="input w-44" value={filtre} onChange={(e) => setFiltre(e.target.value)}>
-            <option value="">Tous statuts</option>
-            {STATUTS.map((s) => <option key={s}>{s}</option>)}
-          </select>
-          <RefreshButton onRefresh={load} />
-        </div>
+        <RefreshButton onRefresh={load} />
       </div>
+
+      <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Code client, nom, ville, statut…"
+        resultCount={list.length} onClear={clearFilters}
+        fields={[
+          { key: "status", label: "Statut", type: "select", value: filtre, onChange: setFiltre, options: STATUTS.map((value) => ({ value, label: value })) },
+          { key: "city", label: "Ville", type: "select", value: cityF, onChange: setCityF, options: cityOptions },
+          { key: "from", label: "À partir du", type: "date", value: fromF, onChange: setFromF },
+          { key: "to", label: "Jusqu'au", type: "date", value: toF, onChange: setToF },
+        ]} />
 
       <p className="text-xs text-slate-500">
         Ouvrez une demande pour voir les colis, les préparer, puis les <b>facturer directement</b> —

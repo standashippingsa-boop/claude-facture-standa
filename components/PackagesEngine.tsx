@@ -6,15 +6,16 @@ import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import WhatsAppQueue from "@/components/WhatsAppQueue";
 import RefreshButton from "@/components/RefreshButton";
+import FilterConsole from "@/components/FilterConsole";
 import { usePackageSelection } from "@/lib/selection";
 import {
   ClientTarifInfo, archivePackage, unarchivePackage, getClient, getClientTarifMap,
-  getPackages, getPackagesPage, getAllPackagesMatching, detachPackagesFromInvoice, hardDeletePackage, getSettings, getUsdRate,
+  getConduces, getPackages, getPackagesPage, getAllPackagesMatching, detachPackagesFromInvoice, hardDeletePackage, getSettings, getUsdRate,
   createBonRemiseRecord, deleteBonRemiseRecord, saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice, notifyEmail
 } from "@/lib/db";
 import { computePrice, round2 } from "@/lib/pricing";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
-import { Client, INTERNAL_STATUSES, Pkg } from "@/lib/types";
+import { Client, Conduce, INTERNAL_STATUSES, Pkg } from "@/lib/types";
 import { dateFr, htg, parseMcpackDate, usd } from "@/lib/utils";
 import { createBonRemiseNumber, generateBonRemise } from "@/lib/bonremise";
 import { exportPackagesPdf } from "@/lib/listpdf";
@@ -61,6 +62,15 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   const [status, setStatus] = useState("");
   const [source, setSource] = useState("");   // filtè Source/Provenance (pwen: idantifye Caribe Tours vs Facture)
   const [dateF, setDateF] = useState("");
+  const [cityF, setCityF] = useState("");
+  const [customerF, setCustomerF] = useState("");
+  const [conduceF, setConduceF] = useState("");
+  const [invoiceF, setInvoiceF] = useState("");
+  const [verifiedF, setVerifiedF] = useState("");
+  const [specialF, setSpecialF] = useState("");
+  const [minWeight, setMinWeight] = useState("");
+  const [maxWeight, setMaxWeight] = useState("");
+  const [conduces, setConduces] = useState<Conduce[]>([]);
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -79,6 +89,10 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   // Vi Conduce (conduceId) rete SAN CHANJE: chaje tout (bounded natirèlman, bulk actions pa afekte).
   // Vi global (Packages, san conduceId): pagination + rechèch SÈVÈ pa default.
   const [fullyLoaded, setFullyLoaded] = useState<boolean>(!!conduceId);
+  // Lè yon seleksyon global chaje tout rezilta yo, kenbe anprent filtè ki te
+  // sèvi a. Si filtè a chanje apre sa, nou retounen sou rechèch sèvè a pou pa
+  // janm limite nouvo rezilta yo ak ansyen lis ki te chaje a.
+  const [loadedFilterSignature, setLoadedFilterSignature] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [loadingPage, setLoadingPage] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -98,6 +112,18 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
     });
     return codes;
   }, [debouncedSearch, tarifMap]);
+  const directClientCodes = useMemo(() => {
+    const codes = Array.from(tarifMap.keys());
+    const narrowedByCity = cityF ? codes.filter((code) => tarifMap.get(code)?.ville?.name === cityF) : codes;
+    const narrowed = customerF ? narrowedByCity.filter((code) => code === customerF) : narrowedByCity;
+    // Yon filtè valid ki pa gen okenn kliyan dwe retounen zewo rezilta, pa
+    // tonbe sou tout bazdone a paske yon lis vid pa ka itilize nan `.in()`.
+    return cityF || customerF ? (narrowed.length ? narrowed : ["__NO_MATCHING_CLIENT__"]) : undefined;
+  }, [tarifMap, cityF, customerF]);
+  const filterSignature = useMemo(() => JSON.stringify({
+    search, status, source, dateF, cityF, customerF, conduceF, invoiceF,
+    verifiedF, specialF, minWeight, maxWeight, showArchived,
+  }), [search, status, source, dateF, cityF, customerF, conduceF, invoiceF, verifiedF, specialF, minWeight, maxWeight, showArchived]);
   // ===== Tooltip modèn sou tracking (pwen #2) =====
   const [hover, setHover] = useState<{ p: Pkg; ville: string; x: number; y: number } | null>(null);
   const joursDepot = (p: Pkg): number | null => {
@@ -114,9 +140,10 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   // Opsyon fakti — chak toggle endepandan (admin chwazi pou CHAK fakti)
 
   const loadSide = async () => {
-    const [tm, r, s] = await Promise.all([getClientTarifMap(), getUsdRate(), getSettings()]);
+    const [tm, r, s, cds] = await Promise.all([getClientTarifMap(), getUsdRate(), getSettings(), getConduces().catch(() => [])]);
     setTarifMap(tm);
     setRate(r);
+    setConduces(cds as Conduce[]);
     if (s.invoice_footer) setFooter(s.invoice_footer);
   };
 
@@ -133,8 +160,11 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
     setLoadingPage(true);
     try {
       const { rows, total: t } = await getPackagesPage({
-        search: debouncedSearch, matchingClientCodes, status,
-        source: (source as any) || "", dateF, includeArchived: showArchived, conduceId
+        search: debouncedSearch, matchingClientCodes, clientCodes: directClientCodes, status,
+        source: (source as any) || "", dateF, invoiceState: invoiceF as any,
+        verifiedState: verifiedF as any, specialState: specialF as any,
+        minWeight: minWeight ? Number(minWeight) : undefined, maxWeight: maxWeight ? Number(maxWeight) : undefined,
+        includeArchived: showArchived, conduceId: conduceId || conduceF
       }, pageNum, PER_PAGE);
       setPkgs(rows);
       setTotal(t);
@@ -151,13 +181,17 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
     setLoadingPage(true);
     try {
       const rows = await getAllPackagesMatching({
-        search: debouncedSearch, matchingClientCodes, status,
-        source: (source as any) || "", dateF, includeArchived: showArchived, conduceId
+        search: debouncedSearch, matchingClientCodes, clientCodes: directClientCodes, status,
+        source: (source as any) || "", dateF, invoiceState: invoiceF as any,
+        verifiedState: verifiedF as any, specialState: specialF as any,
+        minWeight: minWeight ? Number(minWeight) : undefined, maxWeight: maxWeight ? Number(maxWeight) : undefined,
+        includeArchived: showArchived, conduceId: conduceId || conduceF
       }, 3000);
       setPkgs(rows);
       sel.add(rows.map(snap));
       setTotal(rows.length);
       setFullyLoaded(true);
+      setLoadedFilterSignature(filterSignature);
       setPage(1);
       setNotice(`${rows.length} colis chargés et sélectionnés.`);
     } catch (e: any) {
@@ -187,7 +221,17 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
     if (fullyLoaded) return;
     fetchServerPage(page);
     /* eslint-disable-next-line */
-  }, [fullyLoaded, page, status, source, dateF, debouncedSearch, matchingClientCodes]);
+  }, [fullyLoaded, page, status, source, dateF, cityF, customerF, conduceF, invoiceF, verifiedF, specialF, minWeight, maxWeight, debouncedSearch, matchingClientCodes, directClientCodes]);
+
+  // Yon filtè ki chanje apre "tout seleksyone" dwe relanse rechèch nan baz la.
+  // Sa pwoteje kont yon lis ansyen ki ta ka kache lòt koli yo.
+  useEffect(() => {
+    if (!conduceId && fullyLoaded && loadedFilterSignature && loadedFilterSignature !== filterSignature) {
+      setFullyLoaded(false);
+      setLoadedFilterSignature(null);
+      setPage(1);
+    }
+  }, [conduceId, fullyLoaded, loadedFilterSignature, filterSignature]);
 
   /** Lis statut ki egziste toutbon (pou filtre a) — san Livré, ki rete nan Historique */
   const statusOptions = useMemo(() => {
@@ -206,9 +250,22 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
       // V8.5: koli Facturé yo kite lis aktif la — yo nan Historique
       .filter((p) => p.status !== "Livré" && p.status !== "Facturé")
       .filter((p) => {
+        if (!showArchived && p.archived) return false;
         if (status && p.status !== status) return false;
         if (source && !pkgSources(p).includes(source as SrcKey)) return false;
         if (dateF && !p.created_date.includes(dateF)) return false;
+        if (cityF && tarifMap.get(p.customer_code)?.ville?.name !== cityF) return false;
+        if (customerF && p.customer_code !== customerF) return false;
+        if (conduceF && p.conduce_id !== conduceF) return false;
+        if (invoiceF === "invoiced" && !p.invoice_id) return false;
+        if (invoiceF === "not_invoiced" && p.invoice_id) return false;
+        if (verifiedF === "verified" && !p.verified) return false;
+        if (verifiedF === "not_verified" && p.verified) return false;
+        const special = isSpecialConducePackage(p);
+        if (specialF === "special" && !special) return false;
+        if (specialF === "regular" && special) return false;
+        if (minWeight && (Number(p.weight) || 0) < Number(minWeight)) return false;
+        if (maxWeight && (Number(p.weight) || 0) > Number(maxWeight)) return false;
         if (!q) return true;
         // Rechèch avanse an tan reyèl: tracking, kòd, non, telefòn kliyan, vil kliyan
         const info = tarifMap.get(p.customer_code);
@@ -223,7 +280,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
       // rete konsa apre chak import MCPACK
       .slice()
       .sort((a, b) => parseMcpackDate(b.created_date) - parseMcpackDate(a.created_date));
-  }, [pkgs, search, status, source, dateF, tarifMap, fullyLoaded]);
+  }, [pkgs, search, status, source, dateF, cityF, customerF, conduceF, invoiceF, verifiedF, specialF, minWeight, maxWeight, showArchived, tarifMap, fullyLoaded]);
 
   const pages = fullyLoaded
     ? Math.max(1, Math.ceil(filtered.length / PER_PAGE))
@@ -231,7 +288,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   const pageRows = fullyLoaded ? filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE) : filtered;
   // Kenbe panèl seleksyon an enfòme ak dènye detay koli ki chaje yo
   useEffect(() => { if (pkgs.length) sel.hydrate(pkgs.map(snap)); /* eslint-disable-next-line */ }, [pkgs]);
-  useEffect(() => { setPage(1); }, [search, status, source, dateF]);
+  useEffect(() => { setPage(1); }, [search, status, source, dateF, cityF, customerF, conduceF, invoiceF, verifiedF, specialF, minWeight, maxWeight]);
 
   // ===== SÉLECTION GLOBALE (pataje ak tout sistèm nan) =====
   // Rechèch/filtè/paj/Conduce PA efase seleksyon an. Aksyon yo travay sou
@@ -243,6 +300,20 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
     if (p) sel.toggle(snap(p));
   };
   const toggleAll = (checked: boolean) => sel.setMany(pageRows.map(snap), checked);
+  const filteredSelectedCount = filtered.filter((p) => sel.has(p.id)).length;
+  const allFilteredSelected = filtered.length > 0 && filtered.every((p) => sel.has(p.id));
+  const selectAllFiltered = () => {
+    if (!fullyLoaded) { void loadAllForSelection(); return; }
+    sel.setMany(filtered.map(snap), !allFilteredSelected);
+  };
+  const clearFilters = () => {
+    setSearch(""); setStatus(""); setSource(""); setDateF(""); setCityF(""); setCustomerF("");
+    setConduceF(""); setInvoiceF(""); setVerifiedF(""); setSpecialF(""); setMinWeight(""); setMaxWeight("");
+  };
+  const cityOptions = useMemo(() => Array.from(new Set(Array.from(tarifMap.values()).map((info) => info.ville?.name).filter(Boolean) as string[]))
+    .sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value })), [tarifMap]);
+  const customerOptions = useMemo(() => Array.from(tarifMap.keys()).sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value })), [tarifMap]);
+  const conduceOptions = useMemo(() => conduces.map((conduce) => ({ value: conduce.id, label: `Conduce ${conduce.conduce_number}` })), [conduces]);
 
   /**
    * Admin SÈLMAN: mete menm statut la sou tout koli ki make yo.
@@ -465,21 +536,6 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
           </div>
         )}
         <div className="flex gap-2 flex-wrap">
-          <input className="input w-72" placeholder="Tracking, code, nom, telefòn, vil..." value={search}
-            onChange={(e) => setSearch(e.target.value)} />
-          <input className="input w-36" placeholder="Date (2026.07)" value={dateF}
-            onChange={(e) => setDateF(e.target.value)} />
-          <select className="input w-44" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">Tous statuts</option>
-            {statusOptions.map((s) => <option key={s}>{s}</option>)}
-          </select>
-          <select className="input w-44" value={source} onChange={(e) => setSource(e.target.value)}
-            title="Filtrer par provenance (un colis peut avoir plusieurs sources)">
-            <option value="">Toutes provenances</option>
-            <option value="caribe">Caribe Tours (photo)</option>
-            <option value="facture">Facture</option>
-            <option value="extension">Extension MCPACK</option>
-          </select>
           <button
             className={`btn ${showArchived ? "btn-brand" : "btn-ghost"}`}
             onClick={() => setShowArchived((v) => !v)}
@@ -489,6 +545,23 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
           <RefreshButton onRefresh={refresh} />
         </div>
       </div>
+
+      <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Tracking, code, nom, téléphone, ville, contenu…"
+        resultCount={fullyLoaded ? filtered.length : total} onClear={clearFilters}
+        selection={{ selectedCount: filteredSelectedCount, allSelected: allFilteredSelected, onToggleAll: selectAllFiltered, label: fullyLoaded ? "Sélectionner les colis filtrés" : `Charger et sélectionner les ${total} résultats`, disabled: loadingPage || (!fullyLoaded && !total) }}
+        fields={[
+          { key: "status", label: "Statut", type: "select", value: status, onChange: setStatus, options: statusOptions.map((value) => ({ value, label: value })) },
+          { key: "source", label: "Provenance", type: "select", value: source, onChange: setSource, options: [{ value: "caribe", label: "Caribe Tours (photo)" }, { value: "facture", label: "Facture" }, { value: "extension", label: "Extension MCPACK" }] },
+          { key: "city", label: "Ville", type: "select", value: cityF, onChange: setCityF, options: cityOptions },
+          { key: "client", label: "Code client", type: "select", value: customerF, onChange: setCustomerF, options: customerOptions },
+          { key: "conduce", label: "Conduce", type: "select", value: conduceF, onChange: setConduceF, options: conduceOptions },
+          { key: "date", label: "Date", type: "text", value: dateF, onChange: setDateF, placeholder: "2026-09" },
+          { key: "invoice", label: "Facture client", type: "select", value: invoiceF, onChange: setInvoiceF, options: [{ value: "invoiced", label: "Déjà facturé" }, { value: "not_invoiced", label: "Non facturé" }] },
+          { key: "verified", label: "Vérification", type: "select", value: verifiedF, onChange: setVerifiedF, options: [{ value: "verified", label: "Vérifié" }, { value: "not_verified", label: "Non vérifié" }] },
+          { key: "special", label: "Colis spécial", type: "select", value: specialF, onChange: setSpecialF, options: [{ value: "special", label: "Spécial" }, { value: "regular", label: "Normal" }] },
+          { key: "minWeight", label: "Poids min. (lb)", type: "number", value: minWeight, onChange: setMinWeight, min: 0, step: 0.01 },
+          { key: "maxWeight", label: "Poids max. (lb)", type: "number", value: maxWeight, onChange: setMaxWeight, min: 0, step: 0.01 },
+        ]} />
 
       {!fullyLoaded && (
         <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-mute -mt-2">

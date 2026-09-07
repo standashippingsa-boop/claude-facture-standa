@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import RefreshButton from "@/components/RefreshButton";
+import FilterConsole from "@/components/FilterConsole";
 import { usePackageSelection } from "@/lib/selection";
 import {
   commitPdfImport, detachPackagesFromInvoice, hardDeletePackage, getClient, getClientPackagesAndInvoices,
@@ -33,6 +34,12 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   const [rate, setRate] = useState(132);
   const [footer, setFooter] = useState("Mèsi paske ou fè STANDA COMMERCIAL konfyans.");
   const [bulkStatus, setBulkStatus] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusF, setStatusF] = useState("");
+  const [dateF, setDateF] = useState("");
+  const [specialF, setSpecialF] = useState("");
+  const [minWeight, setMinWeight] = useState("");
+  const [maxWeight, setMaxWeight] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { role } = useRole();
@@ -76,7 +83,18 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   // Kenbe panèl seleksyon global la enfòme (DWE anvan nenpòt return kondisyonèl)
   useEffect(() => { if (pkgs.length) sel.hydrate(pkgs.map(snap)); /* eslint-disable-next-line */ }, [pkgs]);
 
-  const visible = pkgs.filter((p) => p.status !== "Livré");
+  const visible = pkgs.filter((p) => {
+    if (p.status === "Livré") return false;
+    const q = search.trim().toLowerCase();
+    if (statusF && p.status !== statusF) return false;
+    if (dateF && !String(p.created_date ?? "").includes(dateF)) return false;
+    const special = /^\*\s*COLIS\s+SP[ÉE]CIAL/i.test(String(p.content ?? ""));
+    if (specialF === "special" && !special) return false;
+    if (specialF === "regular" && special) return false;
+    if (minWeight && (Number(p.weight) || 0) < Number(minWeight)) return false;
+    if (maxWeight && (Number(p.weight) || 0) > Number(maxWeight)) return false;
+    return !q || [p.tracking_number, p.tracking_manual, p.content, p.status].some((value) => String(value ?? "").toLowerCase().includes(q));
+  });
   const livres = pkgs.filter((p) => p.status === "Livré");
   // SÉLECTION GLOBALE — pataje ak Packages/Conduces (li travèse kliyan yo)
   const snap = (p: SelPkg) => ({
@@ -88,6 +106,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   const selectedDisponible = selected.filter((p) => p.status === "Disponible");
   const toggle = (id: string) => { const p = pkgs.find((x) => x.id === id); if (p) sel.toggle(snap(p)); };
   const toggleAll = (ck: boolean) => sel.setMany(visible.filter((p) => p.status !== "Livré").map(snap), ck);
+  const clearFilters = () => { setSearch(""); setStatusF(""); setDateF(""); setSpecialF(""); setMinWeight(""); setMaxWeight(""); };
 
   // ===== Estatistik =====
   const totalLbs = round2(pkgs.reduce((s, p) => s + p.weight, 0));
@@ -270,6 +289,20 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
             onChange={(e) => e.target.files?.[0] && handlePdf(e.target.files[0])} />
         </label>
       </div>
+
+      <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Tracking, contenu, statut…"
+        resultCount={visible.length} onClear={clearFilters}
+        selection={{ selectedCount: selected.length, allSelected: visible.length > 0 && visible.every((p) => sel.has(p.id)), onToggleAll: () => {
+          const allVisible = visible.length > 0 && visible.every((p) => sel.has(p.id));
+          toggleAll(!allVisible);
+        }, label: "Sélectionner les colis filtrés" }}
+        fields={[
+          { key: "status", label: "Statut", type: "select", value: statusF, onChange: setStatusF, options: Array.from(new Set(pkgs.filter((p) => p.status !== "Livré").map((p) => p.status))).sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value })) },
+          { key: "date", label: "Date", type: "text", value: dateF, onChange: setDateF, placeholder: "2026-09" },
+          { key: "special", label: "Colis spécial", type: "select", value: specialF, onChange: setSpecialF, options: [{ value: "special", label: "Spécial" }, { value: "regular", label: "Normal" }] },
+          { key: "min", label: "Poids min. (lb)", type: "number", value: minWeight, onChange: setMinWeight, min: 0, step: 0.01 },
+          { key: "max", label: "Poids max. (lb)", type: "number", value: maxWeight, onChange: setMaxWeight, min: 0, step: 0.01 },
+        ]} />
 
       {/* ===== Koli yo ===== */}
       <section className="card overflow-x-auto">

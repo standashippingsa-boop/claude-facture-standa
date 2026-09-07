@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import RefreshButton from "@/components/RefreshButton";
+import FilterConsole from "@/components/FilterConsole";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -29,6 +30,11 @@ export default function ClientsPage() {
   const [editing, setEditing] = useState<Client | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
+  const [cityF, setCityF] = useState("");
+  const [accountTypeF, setAccountTypeF] = useState("");
+  const [accountStatusF, setAccountStatusF] = useState("");
+  const [fromF, setFromF] = useState("");
+  const [toF, setToF] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [mcClient, setMcClient] = useState<Client | null>(null);  // modal "Créer compte MCPACK"
   const [mcCode, setMcCode] = useState("");
@@ -121,13 +127,20 @@ export default function ClientsPage() {
   };
 
   const q = search.trim().toLowerCase();
-  const filtered = q ? clients.filter((c) =>
-    (c.customer_code ?? "").toLowerCase().includes(q) ||
-    c.fullname.toLowerCase().includes(q) ||
-    (c.surname ?? "").toLowerCase().includes(q) ||
-    (c.email ?? "").toLowerCase().includes(q) ||
-    (c.phone ?? "").toLowerCase().includes(q) ||
-    c.whatsapp.toLowerCase().includes(q)) : clients;
+  const filtered = clients.filter((c) => {
+    const date = String(c.created_at ?? "").slice(0, 10);
+    const status = c.account_status ?? "Actif";
+    if (cityF && c.ville_id !== cityF) return false;
+    if (accountTypeF && (c.account_type ?? "Personnel") !== accountTypeF) return false;
+    if (accountStatusF && status !== accountStatusF) return false;
+    if (fromF && date < fromF) return false;
+    if (toF && date > toF) return false;
+    return !q || (c.customer_code ?? "").toLowerCase().includes(q) ||
+      c.fullname.toLowerCase().includes(q) || (c.surname ?? "").toLowerCase().includes(q) ||
+      (c.email ?? "").toLowerCase().includes(q) || (c.phone ?? "").toLowerCase().includes(q) ||
+      c.whatsapp.toLowerCase().includes(q);
+  });
+  const clearFilters = () => { setSearch(""); setCityF(""); setAccountTypeF(""); setAccountStatusF(""); setFromF(""); setToF(""); };
 
   return (
     <div className="space-y-5">
@@ -137,8 +150,6 @@ export default function ClientsPage() {
           <p className="text-sm text-mute mt-0.5">Gestion des clients — codes, villes & comptes</p>
         </div>
         <div className="flex gap-3">
-          <input className="input w-72" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher: code, nom, WhatsApp..." />
           <button className="btn btn-ghost border border-line" onClick={scanDups} title="Detekte kliyan ki egziste 2 fwa">
           🔗 Fusionner les comptes
         </button>
@@ -146,6 +157,16 @@ export default function ClientsPage() {
         <button className="btn" onClick={openNew}><Plus size={15} /> Nouveau client</button>
         </div>
       </div>
+
+      <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Code, nom, téléphone, WhatsApp, email…"
+        resultCount={filtered.length} onClear={clearFilters}
+        fields={[
+          { key: "city", label: "Ville", type: "select", value: cityF, onChange: setCityF, options: villes.flatMap((ville) => ville.id ? [{ value: ville.id, label: ville.name }] : []) },
+          { key: "type", label: "Type de compte", type: "select", value: accountTypeF, onChange: setAccountTypeF, options: [{ value: "Personnel", label: "Personnel" }, { value: "Business", label: "Business" }] },
+          { key: "status", label: "Statut du compte", type: "select", value: accountStatusF, onChange: setAccountStatusF, options: Array.from(new Set(clients.map((client) => client.account_status || "Actif"))).map((value) => ({ value: value ?? "Actif", label: value ?? "Actif" })) },
+          { key: "from", label: "Créé à partir du", type: "date", value: fromF, onChange: setFromF },
+          { key: "to", label: "Créé jusqu'au", type: "date", value: toF, onChange: setToF },
+        ]} />
 
       {showForm && (
         <form onSubmit={handleSubmit(onSubmit)} className="card p-5">

@@ -25,10 +25,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Boxes, CheckCircle2, ClipboardList, FileDown, Folder, FolderOpen, Trash2,
-  Search, TrendingUp, X, Plus, Sparkles
+  TrendingUp, Plus, Sparkles
 } from "lucide-react";
 import Loader from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
+import FilterConsole from "@/components/FilterConsole";
 import ConducePaymentControl from "@/components/ConducePaymentControl";
 import McpackInvoiceWorkspace from "@/components/McpackInvoiceWorkspace";
 import { useRole } from "@/lib/authx";
@@ -63,6 +64,13 @@ export default function ConducesPage() {
   const { staff } = useRole();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [search, setSearch] = useState("");
+  const [officeF, setOfficeF] = useState("");
+  const [fromF, setFromF] = useState("");
+  const [toF, setToF] = useState("");
+  const [paymentF, setPaymentF] = useState("");
+  const [mcpackF, setMcpackF] = useState("");
+  const [bonF, setBonF] = useState("");
+  const [specialF, setSpecialF] = useState("");
   const [tab, setTab] = useState<"toutes" | "actives" | "historique">("toutes");
   /** Jounen ki louvri a. null = gri katab yo (vi dosye). */
   const [openDay, setOpenDay] = useState<string | null>(null);
@@ -119,6 +127,13 @@ export default function ConducesPage() {
     const needle = search.trim().toLowerCase();
     const pool = all
       .filter((r) => tab === "toutes" ? true : tab === "actives" ? !estArchive(r) : estArchive(r))
+      .filter((r) => !officeF || (r.office ?? "") === officeF)
+      .filter((r) => !fromF || dayKey(r) >= fromF)
+      .filter((r) => !toF || dayKey(r) <= toF)
+      .filter((r) => !paymentF || r.payment_status === paymentF)
+      .filter((r) => !mcpackF || r.mcpackInvoiceStatus === mcpackF)
+      .filter((r) => !bonF || (bonF === "done" ? r.bonRemiseCreated : !r.bonRemiseCreated))
+      .filter((r) => !specialF || (specialF === "yes" ? r.specialCount > 0 : r.specialCount === 0))
       .filter((r) => !needle
         || r.conduce_number.toLowerCase().includes(needle)
         || (r.office ?? "").toLowerCase().includes(needle));
@@ -148,7 +163,7 @@ export default function ConducesPage() {
       })
       .sort((a, b) => b.key.localeCompare(a.key));   // pi resan an anwo
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, tab, search]);
+  }, [rows, tab, search, officeF, fromF, toF, paymentF, mcpackF, bonF, specialF]);
 
   const actives = all.filter((r) => !estArchive(r));
   const historique = all.filter(estArchive);
@@ -159,6 +174,22 @@ export default function ConducesPage() {
 
   /** Jounen ki louvri a (si genyen). */
   const jour = openDay ? classeurs.find((c) => c.key === openDay) ?? null : null;
+  const filteredConduces = useMemo(() => classeurs.flatMap((cl) => cl.rows), [classeurs]);
+  const selectableFilteredConduces = filteredConduces.filter((row) => !row.bonRemiseCreated && bonRemiseRegistryReady);
+  const selectedFilteredCount = selectableFilteredConduces.filter((row) => sel.has(row.id)).length;
+  const allFilteredSelected = selectableFilteredConduces.length > 0 && selectableFilteredConduces.every((row) => sel.has(row.id));
+  const selectAllFiltered = () => setSel((previous) => {
+    const next = new Set(previous);
+    if (allFilteredSelected) selectableFilteredConduces.forEach((row) => next.delete(row.id));
+    else selectableFilteredConduces.forEach((row) => next.add(row.id));
+    return next;
+  });
+  const clearFilters = () => {
+    setSearch(""); setOfficeF(""); setFromF(""); setToF(""); setPaymentF("");
+    setMcpackF(""); setBonF(""); setSpecialF("");
+  };
+  const officeOptions = useMemo(() => Array.from(new Set(all.map((row) => row.office).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value })), [all]);
 
   /** Efase yon conduce ki te mal kreye (koli ki poko fakti yo detache, pa efase). */
   const supprimer = async (r: Row) => {
@@ -245,20 +276,24 @@ export default function ConducesPage() {
               <Plus size={15} /> Ajouter
             </button>
           )}
-          <div className="relative flex-1 sm:flex-none">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input className="input w-full sm:w-56 !pl-9" placeholder="Numéro, office…"
-              value={search} onChange={(e) => setSearch(e.target.value)} />
-            {search && (
-              <button onClick={() => setSearch("")} aria-label="Effacer"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-ink">
-                <X size={14} />
-              </button>
-            )}
-          </div>
           <RefreshButton onRefresh={load} />
         </div>
       </div>
+
+      {!jour && (
+        <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Numéro de Conduce, office…"
+          resultCount={filteredConduces.length} onClear={clearFilters}
+          selection={{ selectedCount: selectedFilteredCount, allSelected: allFilteredSelected, onToggleAll: selectAllFiltered, label: "Sélectionner les Conduces filtrées", disabled: !bonRemiseRegistryReady || !selectableFilteredConduces.length }}
+          fields={[
+            { key: "office", label: "Office", type: "select", value: officeF, onChange: setOfficeF, options: officeOptions },
+            { key: "from", label: "À partir du", type: "date", value: fromF, onChange: setFromF },
+            { key: "to", label: "Jusqu'au", type: "date", value: toF, onChange: setToF },
+            { key: "payment", label: "Pement MCPACK", type: "select", value: paymentF, onChange: setPaymentF, options: [{ value: "Non payé", label: "À payer" }, { value: "Payé", label: "Payé" }] },
+            { key: "mcpack", label: "Facture MCPACK", type: "select", value: mcpackF, onChange: setMcpackF, options: [{ value: "Facturée", label: "Facturée · à payer" }, { value: "Payée", label: "Payée" }] },
+            { key: "bon", label: "Bon de remise", type: "select", value: bonF, onChange: setBonF, options: [{ value: "open", label: "Pas encore dans un bon" }, { value: "done", label: "Déjà dans un bon" }] },
+            { key: "special", label: "Colis spéciaux", type: "select", value: specialF, onChange: setSpecialF, options: [{ value: "yes", label: "Avec colis spéciaux" }, { value: "no", label: "Sans colis spéciaux" }] },
+          ]} />
+      )}
 
       {/* ══ Rezime — peman MCPACK lan separe de fakti kliyan yo ══ */}
       {!jour && classeurs.length > 0 && (
@@ -364,7 +399,7 @@ export default function ConducesPage() {
             <div className="rounded-2xl bg-navy text-white shadow-lift px-4 py-3 flex items-center gap-3 flex-wrap">
               <span className="font-bold text-sm">{sel.size} conduce{sel.size > 1 ? "s" : ""}</span>
               <div className="flex-1" />
-              <Link href="/bon-remise"
+              <Link href={`/bon-remise?conduces=${encodeURIComponent(Array.from(sel).join(","))}`}
                 className="rounded-lg bg-white text-navy font-bold text-xs px-3 py-2 inline-flex items-center gap-1.5">
                 <FileDown size={14} /> Bon de Remise
               </Link>

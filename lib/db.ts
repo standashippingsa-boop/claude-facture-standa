@@ -94,9 +94,15 @@ export async function getPackages(status?: string, includeArchived = false, cond
 export interface PackagesQueryFilters {
   search?: string;
   matchingClientCodes?: string[];        // customer_code ki matche non/telefòn/vil kliyan (kalkile kote kliyan)
+  clientCodes?: string[];                // filtre egzak (eg. yon vil oswa yon kliyan)
   status?: string;
   source?: "" | "extension" | "caribe" | "facture";
   dateF?: string;
+  invoiceState?: "invoiced" | "not_invoiced";
+  verifiedState?: "verified" | "not_verified";
+  specialState?: "special" | "regular";
+  minWeight?: number;
+  maxWeight?: number;
   includeArchived?: boolean;
   conduceId?: string;
 }
@@ -106,11 +112,20 @@ function applyPackagesFilters(q: any, f: PackagesQueryFilters) {
   q = q.neq("status", "Livré").neq("status", "Facturé");
   if (!f.includeArchived) q = q.eq("archived", false);
   if (f.conduceId) q = q.eq("conduce_id", f.conduceId);
+  if (f.clientCodes?.length) q = q.in("customer_code", f.clientCodes);
   if (f.status) q = q.eq("status", f.status);
   if (f.source === "caribe") q = q.eq("src_caribe", true);
   else if (f.source === "facture") q = q.eq("src_facture", true);
   else if (f.source === "extension") q = q.eq("src_extension", true);
   if (f.dateF) q = q.ilike("created_date", `%${f.dateF}%`);
+  if (f.invoiceState === "invoiced") q = q.not("invoice_id", "is", null);
+  else if (f.invoiceState === "not_invoiced") q = q.is("invoice_id", null);
+  if (f.verifiedState === "verified") q = q.eq("verified", true);
+  else if (f.verifiedState === "not_verified") q = q.or("verified.is.null,verified.eq.false");
+  if (f.specialState === "special") q = q.ilike("content", "%COLIS SP%");
+  else if (f.specialState === "regular") q = q.not("content", "ilike", "%COLIS SP%");
+  if (Number.isFinite(f.minWeight)) q = q.gte("weight", Number(f.minWeight));
+  if (Number.isFinite(f.maxWeight)) q = q.lte("weight", Number(f.maxWeight));
   const s = (f.search ?? "").replace(/[(),]/g, "").trim();
   if (s) {
     const parts = [
