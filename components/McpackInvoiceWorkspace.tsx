@@ -202,6 +202,18 @@ export default function McpackInvoiceWorkspace({
               </p>
             )}
 
+            {analysis.duplicateTrackings.length > 0 && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-[11px] text-red-800">
+                <p className="font-extrabold flex items-center gap-1.5"><AlertCircle size={14} /> Tracking trouvé dans plusieurs Conduces</p>
+                <p className="mt-1">Ces tracking ne sont pas ajoutés automatiquement à la facture. Vérifiez-les avant de continuer.</p>
+                <ul className="mt-1.5 space-y-0.5 font-mono font-semibold">
+                  {analysis.duplicateTrackings.map((conflict) => (
+                    <li key={conflict.tracking}>{conflict.tracking} → Conduces {conflict.conduceNumbers.join(", ")}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-1">
               <button type="button" className="btn btn-ghost justify-center" disabled={saving} onClick={() => { setAnalysis(null); setSourceTrackings(null); }}>Annuler</button>
               {analysis.skippedTrackingCount > 0 && sourceTrackings && (

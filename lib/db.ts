@@ -360,6 +360,8 @@ export interface McpackInvoiceAnalysis {
   matchedPackageCount: number;
   unmatchedTrackingCount: number;
   unlinkedPackageCount: number;
+  /** Menm tracking la jwenn nan plis pase yon Conduce: mande verifikasyon staff. */
+  duplicateTrackings: { tracking: string; conduceNumbers: string[] }[];
   conduces: McpackInvoiceConduceCandidate[];
 }
 
@@ -382,7 +384,8 @@ export async function analyzeMcpackInvoiceTrackings(
   if (!trackings.length) {
     return {
       extractedTrackingCount: 0, checkedTrackingCount: 0, skippedTrackingCount: 0,
-      matchedPackageCount: 0, unmatchedTrackingCount: 0, unlinkedPackageCount: 0, conduces: [],
+      matchedPackageCount: 0, unmatchedTrackingCount: 0, unlinkedPackageCount: 0,
+      duplicateTrackings: [], conduces: [],
     };
   }
 
@@ -390,31 +393,50 @@ export async function analyzeMcpackInvoiceTrackings(
     .select("id, tracking_number, tracking_manual, conduce_id, archived");
   if (error) throw error;
 
-  const byTracking = new Map<string, any>();
+  const byTracking = new Map<string, any[]>();
   for (const pkg of rows ?? []) {
     // Yon colis livré oswa archive kenbe `conduce_id` li. Li rete yon bon
     // prèv pou idantifye ki Conduce yon fakti MCPACK fè referans a.
     for (const raw of [pkg.tracking_number, pkg.tracking_manual]) {
       const key = cleanTracking(raw);
-      if (key) byTracking.set(key, pkg);
+      if (!key) continue;
+      const existing = byTracking.get(key) ?? [];
+      // Yon package ka gen menm valè nan tracking_number ak tracking_manual.
+      // Li pa dwe parèt de fwa kòm yon fo konfli.
+      if (!existing.some((row) => row.id === pkg.id)) existing.push(pkg);
+      byTracking.set(key, existing);
     }
   }
 
   const matchedPackages = new Set<string>();
   const byConduce = new Map<string, number>();
+  const duplicateConduceIds = new Map<string, string[]>();
   let unmatchedTrackingCount = 0;
   let unlinkedPackageCount = 0;
 
   for (const tracking of trackings) {
-    const pkg = byTracking.get(tracking);
-    if (!pkg) { unmatchedTrackingCount++; continue; }
-    if (matchedPackages.has(pkg.id)) continue;
-    matchedPackages.add(pkg.id);
-    if (!pkg.conduce_id) { unlinkedPackageCount++; continue; }
-    byConduce.set(pkg.conduce_id, (byConduce.get(pkg.conduce_id) ?? 0) + 1);
+    const packages = byTracking.get(tracking) ?? [];
+    if (!packages.length) { unmatchedTrackingCount++; continue; }
+    packages.forEach((pkg) => matchedPackages.add(pkg.id));
+
+    const conduceIdsForTracking = Array.from(new Set(packages
+      .map((pkg) => String(pkg.conduce_id ?? "").trim())
+      .filter(Boolean)));
+    if (conduceIdsForTracking.length > 1) {
+      // GAD: yon sèl tracking sou de lo diferan se yon sitiyasyon anbig.
+      // Nou avèti staff la epi nou pa ajoute li nan okenn Conduce otomatikman.
+      duplicateConduceIds.set(tracking, conduceIdsForTracking);
+      continue;
+    }
+    const conduceId = conduceIdsForTracking[0];
+    if (!conduceId) { unlinkedPackageCount += packages.length; continue; }
+    byConduce.set(conduceId, (byConduce.get(conduceId) ?? 0) + packages.length);
   }
 
-  const conduceIds = Array.from(byConduce.keys());
+  const conduceIds = Array.from(new Set([
+    ...byConduce.keys(),
+    ...Array.from(duplicateConduceIds.values()).flat(),
+  ]));
   const { data: conduces, error: conduceError } = conduceIds.length
     ? await supabase.from("conduces").select("*").in("id", conduceIds)
     : { data: [], error: null };
@@ -429,6 +451,12 @@ export async function analyzeMcpackInvoiceTrackings(
   }
   result.sort((a, b) => a.conduce.conduce_number.localeCompare(b.conduce.conduce_number, undefined, { numeric: true }));
 
+  const duplicateTrackings = Array.from(duplicateConduceIds.entries()).map(([tracking, ids]) => ({
+    tracking,
+    conduceNumbers: ids.map((id) => conduceById.get(id)?.conduce_number ?? id)
+      .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })),
+  }));
+
   return {
     extractedTrackingCount: allTrackings.length,
     checkedTrackingCount: trackings.length,
@@ -436,6 +464,7 @@ export async function analyzeMcpackInvoiceTrackings(
     matchedPackageCount: matchedPackages.size,
     unmatchedTrackingCount,
     unlinkedPackageCount,
+    duplicateTrackings,
     conduces: result,
   };
 }
