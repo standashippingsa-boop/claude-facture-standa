@@ -5,7 +5,8 @@ import {
   AlertCircle, CheckCircle2, CircleDollarSign, FileSearch, FileText,
   LoaderCircle, ReceiptText, Upload,
 } from "lucide-react";
-import { extractFirstFactureTracking } from "@/lib/factureimport";
+import { extractFacture } from "@/lib/factureimport";
+import type { FactureTracking } from "@/lib/factureimport";
 import {
   analyzeMcpackInvoiceTrackings, createMcpackInvoice, getMcpackInvoices,
   McpackInvoiceAnalysis, payMcpackInvoice,
@@ -49,12 +50,12 @@ export default function McpackInvoiceWorkspace({
   };
   useEffect(() => { void load(); }, []);
 
-  const analyzeOne = async (tracking: string, fileName: string) => {
-    const result = await analyzeMcpackInvoiceTrackings([{ value: tracking }], { maximumTrackings: 1 });
+  const analyzeUntilConduce = async (trackings: FactureTracking[], fileName: string) => {
+    const result = await analyzeMcpackInvoiceTrackings(trackings, { stopAfterFirstConduce: true });
     setAnalysis({ ...result, fileName });
     setNotice(result.conduces.length
-      ? { tone: "info", text: "Une seule référence a permis d'identifier la Conduce. Vérifiez-la puis confirmez la facture." }
-      : { tone: "error", text: "Ce tracking ne correspond à aucune Conduce. Essayez un autre tracking de la facture." });
+      ? { tone: "info", text: `Conduce trouvée après vérification de ${result.checkedTrackingCount} tracking. Vérifiez-la puis confirmez la facture.` }
+      : { tone: "error", text: `Aucune Conduce trouvée après vérification des ${result.checkedTrackingCount} tracking lisibles.` });
   };
 
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -66,12 +67,12 @@ export default function McpackInvoiceWorkspace({
 
     setParsing(true); setAnalysis(null); setNotice(null);
     try {
-      const tracking = await extractFirstFactureTracking(file);
-      if (!tracking?.value) {
+      const trackings = await extractFacture(file);
+      if (!trackings.length) {
         setNotice({ tone: "error", text: "Le PDF ne permet pas de lire un tracking. Copiez un seul tracking de la facture dans la case ci-dessous." });
         return;
       }
-      await analyzeOne(tracking.value, check.filename);
+      await analyzeUntilConduce(trackings, check.filename);
     } catch (error) {
       setNotice({ tone: "error", text: error instanceof Error ? error.message : "Analyse du PDF impossible." });
     } finally {
@@ -99,7 +100,7 @@ export default function McpackInvoiceWorkspace({
     if (!tracking) return;
     setParsing(true);
     try {
-      await analyzeOne(tracking, `Tracking saisi : ${tracking}`);
+      await analyzeUntilConduce([{ value: tracking, source: "text" }], `Tracking saisi : ${tracking}`);
     } catch (error) {
       setNotice({ tone: "error", text: error instanceof Error ? error.message : "Recherche de la Conduce impossible." });
     } finally {
@@ -148,7 +149,7 @@ export default function McpackInvoiceWorkspace({
 
       <div className="p-4 sm:p-5 space-y-3">
         <p className="text-[11px] text-mute leading-relaxed">
-          Le PDF est lu sur cet appareil et n&apos;est pas conservé sur le site. Seul le premier tracking valable suffit pour retrouver la Conduce, y compris si le colis est livré ou archivé.
+          Le PDF est lu sur cet appareil et n&apos;est pas conservé sur le site. Les tracking sont vérifiés dans l&apos;ordre : premier, puis deuxième si nécessaire, jusqu&apos;à la première Conduce trouvée — même si le colis est livré ou archivé.
         </p>
 
         <div className="rounded-xl border border-line bg-slate-50/70 p-3 flex flex-col sm:flex-row gap-2">
@@ -181,7 +182,7 @@ export default function McpackInvoiceWorkspace({
                 <p className="text-[11px] text-mute mt-0.5">Résultat de l&apos;analyse — aucun changement n&apos;est encore enregistré.</p>
               </div>
               <div className="flex gap-1.5 text-[10px] font-bold">
-                <span className="pill pill-gray !px-2">1 tracking vérifié</span>
+                <span className="pill pill-gray !px-2">{analysis.checkedTrackingCount}/{analysis.extractedTrackingCount} vérifié{analysis.checkedTrackingCount > 1 ? "s" : ""}</span>
                 <span className="pill pill-green !px-2">{analysis.matchedPackageCount} trouvé{analysis.matchedPackageCount > 1 ? "s" : ""}</span>
               </div>
             </div>
