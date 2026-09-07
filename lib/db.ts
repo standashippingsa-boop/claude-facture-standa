@@ -374,7 +374,7 @@ export interface McpackInvoiceAnalysis {
  * lòt yo sèvi ak lòt la. Yon koli konte yon sèl fwa menm si PDF la repete li.
  */
 export async function analyzeMcpackInvoiceTrackings(
-  items: { value: string }[], options: { maximumTrackings?: number; stopAfterFirstConduce?: boolean } = {}
+  items: { value: string }[], options: { maximumTrackings?: number } = {}
 ): Promise<McpackInvoiceAnalysis> {
   const allTrackings = Array.from(new Set(items
     .map((item) => cleanTracking(item.value))
@@ -433,10 +433,6 @@ export async function analyzeMcpackInvoiceTrackings(
     const conduceId = conduceIdsForTracking[0];
     if (!conduceId) { unlinkedPackageCount += packages.length; continue; }
     byConduce.set(conduceId, (byConduce.get(conduceId) ?? 0) + packages.length);
-    // Mòd fakti rapid: depi yon tracking konfime yon Conduce, pa gen rezon
-    // pou nou kontinye fouye rès tracking yo. Si premye a pa jwenn, bouk la
-    // kontinye natirèlman sou dezyèm, twazyèm, elatriye.
-    if (options.stopAfterFirstConduce) break;
   }
 
   const conduceIds = Array.from(new Set([

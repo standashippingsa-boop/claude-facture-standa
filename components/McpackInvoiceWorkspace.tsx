@@ -50,11 +50,11 @@ export default function McpackInvoiceWorkspace({
   };
   useEffect(() => { void load(); }, []);
 
-  const analyzeUntilConduce = async (trackings: FactureTracking[], fileName: string) => {
-    const result = await analyzeMcpackInvoiceTrackings(trackings, { stopAfterFirstConduce: true });
+  const analyzeAllConduces = async (trackings: FactureTracking[], fileName: string) => {
+    const result = await analyzeMcpackInvoiceTrackings(trackings);
     setAnalysis({ ...result, fileName });
     setNotice(result.conduces.length
-      ? { tone: "info", text: `Conduce trouvée après vérification de ${result.checkedTrackingCount} tracking. Vérifiez-la puis confirmez la facture.` }
+      ? { tone: "info", text: `${result.conduces.length} Conduce${result.conduces.length > 1 ? "s" : ""} trouvée${result.conduces.length > 1 ? "s" : ""} après analyse de ${result.checkedTrackingCount} tracking. Vérifiez la liste puis confirmez la facture.` }
       : { tone: "error", text: `Aucune Conduce trouvée après vérification des ${result.checkedTrackingCount} tracking lisibles.` });
   };
 
@@ -69,10 +69,10 @@ export default function McpackInvoiceWorkspace({
     try {
       const trackings = await extractFacture(file);
       if (!trackings.length) {
-        setNotice({ tone: "error", text: "Le PDF ne permet pas de lire un tracking. Copiez un seul tracking de la facture dans la case ci-dessous." });
+        setNotice({ tone: "error", text: "Le PDF ne permet pas de lire les tracking. Copiez-les dans la case ci-dessous, un par ligne." });
         return;
       }
-      await analyzeUntilConduce(trackings, check.filename);
+      await analyzeAllConduces(trackings, check.filename);
     } catch (error) {
       setNotice({ tone: "error", text: error instanceof Error ? error.message : "Analyse du PDF impossible." });
     } finally {
@@ -96,11 +96,11 @@ export default function McpackInvoiceWorkspace({
   };
 
   const analyzeManual = async () => {
-    const tracking = manualTracking.trim();
-    if (!tracking) return;
+    const values = Array.from(new Set(manualTracking.split(/[\n,;]+/).map((value) => value.trim()).filter(Boolean)));
+    if (!values.length) return;
     setParsing(true);
     try {
-      await analyzeUntilConduce([{ value: tracking, source: "text" }], `Tracking saisi : ${tracking}`);
+      await analyzeAllConduces(values.map((value) => ({ value, source: "text" as const })), "Tracking saisi manuellement");
     } catch (error) {
       setNotice({ tone: "error", text: error instanceof Error ? error.message : "Recherche de la Conduce impossible." });
     } finally {
@@ -149,14 +149,14 @@ export default function McpackInvoiceWorkspace({
 
       <div className="p-4 sm:p-5 space-y-3">
         <p className="text-[11px] text-mute leading-relaxed">
-          Le PDF est lu sur cet appareil et n&apos;est pas conservé sur le site. Les tracking sont vérifiés dans l&apos;ordre : premier, puis deuxième si nécessaire, jusqu&apos;à la première Conduce trouvée — même si le colis est livré ou archivé.
+          Le PDF est lu sur cet appareil et n&apos;est pas conservé sur le site. Tous les tracking lisibles sont vérifiés pour retrouver toutes les Conduces concernées, même si les colis sont livrés, archivés ou rangés dans des folders différents.
         </p>
 
         <div className="rounded-xl border border-line bg-slate-50/70 p-3 flex flex-col sm:flex-row gap-2">
           <input className="input flex-1 font-mono text-sm" value={manualTracking}
             onChange={(event) => setManualTracking(event.target.value)}
             onKeyDown={(event) => { if (event.key === "Enter") void analyzeManual(); }}
-            placeholder="Ou collez un seul numéro de tracking ici" />
+            placeholder="Collez un ou plusieurs tracking (un par ligne)" />
           <button type="button" className="btn btn-ghost justify-center" disabled={parsing || !manualTracking.trim()}
             onClick={() => { void analyzeManual(); }}>
             <FileSearch size={15} /> Chercher la Conduce
