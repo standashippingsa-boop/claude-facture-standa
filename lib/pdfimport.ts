@@ -21,6 +21,13 @@ export interface PdfPkgRow {
   status_raw: string;      // Estatus
 }
 
+/** Liy yon FAKTI KOMÈSYAL MCPACK (Kondui / Nimewo Tracking / Kontni / Pwa / USD). */
+export interface McpackCommercialInvoiceRow {
+  tracking_number: string;
+  weight: number;
+  content: string;
+}
+
 interface TextItem { x: number; y: number; s: string; }
 
 /** Chaje pdfjs sèlman nan navigatè a (worker via CDN). */
@@ -74,6 +81,93 @@ function groupRows(items: TextItem[], tol = 4): TextItem[][] {
 const reGuia = /^WR\d{6,}/i;
 const reDate = /(\d{4})-(\d{2})-(\d{2})[ T]+(\d{1,2}:\d{2}(?::\d{2})?)/;   // 2026-07-15 11:20:02
 const reDateAlt = /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})[ T]*(\d{1,2}:\d{2}(?::\d{2})?)?/; // 15/07/2026
+
+const compact = (s: string) => String(s ?? "").replace(/\s+/g, "").toUpperCase();
+
+/**
+ * Fakti MCPACK yo pa sèvi ak menm tablo ak exports MCPACK òdinè yo:
+ *
+ *   Kondui | Nimewo Tracking | Kontni | Pwa | USD
+ *
+ * Sou anpil nan yo, kolòn Kondui a vid. Li ta enposib pou ekstrè Conduce a
+ * dirèkteman depi PDF la; nou pran Nimewo Tracking la epi match li ak colis
+ * ki deja nan STANDA pou n jwenn Conduce a san devine.
+ *
+ * Fonksyon sa a separe ak `parseMcpackPdf` pou li pa fè yon fakti komèsyal
+ * parèt tankou yon nouvo import colis (sa ta kreye fo Guía).
+ */
+export async function parseMcpackCommercialInvoicePdf(
+  buf: ArrayBuffer
+): Promise<McpackCommercialInvoiceRow[]> {
+  return parseMcpackCommercialInvoiceRows(groupRows(await extractItems(buf)));
+}
+
+/** Logique pure du tableau commercial — isolée pou teste li ak plizyè modèl PDF. */
+export function parseMcpackCommercialInvoiceRows(rows: TextItem[][]): McpackCommercialInvoiceRow[] {
+  const out: McpackCommercialInvoiceRow[] = [];
+  const seen = new Set<string>();
+
+  let contentX = 0;
+  let weightX = 0;
+  let usdX = 0;
+
+  for (const row of rows) {
+    const full = row.map((cell) => cell.s).join(" ");
+    const lower = full.toLocaleLowerCase();
+    const hasTracking = lower.includes("tracking");
+    const hasWeight = lower.includes("pwa") || lower.includes("peso") || lower.includes("poids");
+    const hasContent = lower.includes("kontni") || lower.includes("contenido") || lower.includes("contenu");
+    const isHeader = hasTracking && hasWeight && hasContent && lower.includes("usd");
+
+    if (isHeader) {
+      // Kèk PDF yo mete "Kondui Nimewo Tracking" nan yon sèl selil; se poutèt
+      // sa nou sèvi ak pozisyon kolòn Kontni/Pwa/USD yo, pa pozisyon antèt la.
+      const contentHeader = row.find((cell) => /kontni|contenido|contenu/i.test(cell.s));
+      const weightHeader = row.find((cell) => /pwa|peso|poids/i.test(cell.s));
+      const usdHeader = row.find((cell) => /^usd$/i.test(cell.s.trim()));
+      contentX = contentHeader?.x ?? 0;
+      weightX = weightHeader?.x ?? 0;
+      usdX = usdHeader?.x ?? 0;
+      continue;
+    }
+
+    // Pa analize tèks anwo tablo a. Apre TOTAL, tann pwochen antèt paj la.
+    if (!contentX || /\b(total|met[oò]d peman|pwa total|tarif|total pou peye)\b/i.test(full)) {
+      if (/\btotal\b/i.test(full)) { contentX = 0; weightX = 0; usdX = 0; }
+      continue;
+    }
+
+    // Tracking yo kapab GFUS…, TBA…, 1Z…, oswa yon long nimewo Amazon/USPS.
+    // Yo toujou sou bò gòch kolòn Kontni an epi yo gen omwen 3 chif.
+    const candidates = row.filter((cell) => {
+      const value = compact(cell.s);
+      return cell.x < contentX - 18
+        && /^[A-Z0-9-]{8,64}$/.test(value)
+        && (value.match(/\d/g)?.length ?? 0) >= 3;
+    });
+    const trackingCell = candidates.sort((a, b) => a.x - b.x)[0];
+    if (!trackingCell) continue;
+    const tracking = compact(trackingCell.s);
+    if (seen.has(tracking)) continue;
+
+    const content = row
+      .filter((cell) => cell.x >= contentX - 58 && (!weightX || cell.x < weightX - 12))
+      .filter((cell) => cell !== trackingCell && !/^\d+(?:[.,]\d{1,2})?$/.test(cell.s.trim()))
+      .map((cell) => cell.s).join(" ").replace(/\s{2,}/g, " ").trim();
+
+    const weightCell = row.find((cell) =>
+      cell.x >= weightX - 30
+      && (!usdX || cell.x < usdX - 12)
+      && /^\d{1,4}(?:[.,]\d{1,2})?$/.test(cell.s.trim())
+    );
+    const weight = weightCell ? Number.parseFloat(weightCell.s.replace(",", ".")) || 0 : 0;
+
+    seen.add(tracking);
+    out.push({ tracking_number: tracking, weight, content });
+  }
+
+  return out;
+}
 
 /**
  * Analize yon PDF MCPACK -> lis koli.

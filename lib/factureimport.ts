@@ -9,7 +9,7 @@
  * yon lis Tracking Number. Matching ak chanjman statut fèt yon lòt kote,
  * ak yon ekran verifikasyon (RÈG: pa janm devine, pa janm chanje san verifye).
  */
-import { parseMcpackPdf } from "./pdfimport";
+import { parseMcpackCommercialInvoicePdf, parseMcpackPdf } from "./pdfimport";
 import { cleanTracking } from "./utils";
 
 export interface FactureTracking {
@@ -41,7 +41,11 @@ function candidatesFromText(text: string): string[] {
 
 /** Ekstrè depi yon PDF MCPACK (tèks egzat). */
 export async function extractFromPdf(buf: ArrayBuffer): Promise<FactureTracking[]> {
-  const rows = await parseMcpackPdf(buf);
+  // Priorite bay vrè "FAKTI KOMÈSYAL" MCPACK la. Fòma sa a gen Nimewo
+  // Tracking, Kontni, Pwa ak USD, men souvan pa gen Guía ni Conduce ranpli.
+  // Si se yon export MCPACK òdinè, nou retounen sou parser istorik la.
+  const commercialRows = await parseMcpackCommercialInvoicePdf(buf);
+  const rows = commercialRows.length ? commercialRows : await parseMcpackPdf(buf);
   const out: FactureTracking[] = [];
   const seen = new Set<string>();
   for (const r of rows) {
