@@ -13,24 +13,29 @@
  *   chwazi a. Konsa yon bon Port-de-Paix ak yon bon Gonaïves toude ka genyen l.
  */
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, FileDown, Search, Truck, X } from "lucide-react";
+import { CheckCircle2, ClipboardList, FileDown, Search, Truck, X } from "lucide-react";
 import Loader, { SavedToast } from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
 import {
   ClientTarifInfo, getCentralAccountCode, getClientTarifMap,
+  createBonRemiseRecord, deleteBonRemiseRecord, getBonRemiseConduceIds,
   getConduces, getPackagesByConduceIds
 } from "@/lib/db";
-import { generateBonRemise } from "@/lib/bonremise";
+import { createBonRemiseNumber, generateBonRemise } from "@/lib/bonremise";
 import type { Conduce, Pkg } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
+import { useRole } from "@/lib/authx";
 
 /** Vil "flexib" pou kont santral la — pa gen vil fiks. */
 const CENTRAL_VILLE = "— Compte central —";
 
 export default function BonRemisePage() {
+  const { staff } = useRole();
   const [conduces, setConduces] = useState<Conduce[] | null>(null);
   const [tarifMap, setTarifMap] = useState<Map<string, ClientTarifInfo>>(new Map());
   const [central, setCentral] = useState("");
+  const [recordedConduces, setRecordedConduces] = useState<Set<string>>(new Set());
+  const [registryReady, setRegistryReady] = useState(false);
 
   const [selCond, setSelCond] = useState<Set<string>>(new Set());
   const [pkgs, setPkgs] = useState<Pkg[]>([]);
@@ -41,10 +46,26 @@ export default function BonRemisePage() {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
 
   const load = async () => {
-    const [cs, tm, cc] = await Promise.all([getConduces(), getClientTarifMap(), getCentralAccountCode()]);
-    setConduces(cs); setTarifMap(tm); setCentral(cc.toUpperCase());
+    try {
+      const [cs, tm, cc] = await Promise.all([getConduces(), getClientTarifMap(), getCentralAccountCode()]);
+      setConduces(cs); setTarifMap(tm); setCentral(cc.toUpperCase());
+      try {
+        const used = await getBonRemiseConduceIds();
+        setRecordedConduces(used);
+        setRegistryReady(true);
+        setSelCond((previous) => new Set([...previous].filter((id) => !used.has(id))));
+      } catch {
+        // Pi pridan: pa kite kreye yon bon san registre ki pwoteje kont doublon.
+        setRegistryReady(false);
+        setToast("Le registre des Bons de remise doit être activé avant toute sélection.");
+      }
+    } catch {
+      setConduces([]);
+      setToast("Impossible de charger les Conduces.");
+    }
   };
   useEffect(() => { load(); }, []);
 
@@ -117,12 +138,31 @@ export default function BonRemisePage() {
 
   const creer = async () => {
     if (!chosen.length) return;
+    const conduceIds = Array.from(new Set(chosen
+      .map((p) => String(p.conduce_id ?? "").trim())
+      .filter(Boolean)));
+    if (!conduceIds.length) {
+      setToast("Aucune Conduce n'est reliée aux colis sélectionnés.");
+      return;
+    }
     setBusy(true);
+    let recordId = "";
     try {
-      await generateBonRemise(chosen, tarifMap, {
-        destination: ville, conduceOf, centralCode: central
+      const bonNumber = createBonRemiseNumber();
+      const record = await createBonRemiseRecord({
+        bonNumber, conduceIds, packageCount: chosen.length, destination: ville, who: staffName,
       });
-      setToast(`Bon de remise créé — ${chosen.length} colis${ville ? ` · ${ville}` : ""}`);
+      recordId = record.id;
+      await generateBonRemise(chosen, tarifMap, {
+        destination: ville, conduceOf, centralCode: central, number: bonNumber,
+      });
+      setRecordedConduces((previous) => new Set([...previous, ...conduceIds]));
+      setSel(new Set()); setSelCond(new Set()); setVille(""); setQ("");
+      setToast(`Bon de remise ${bonNumber} créé — ${chosen.length} colis${ville ? ` · ${ville}` : ""}`);
+    } catch (error) {
+      // Si PDF la pa rive kreye, retire mak la pou Conduce yo pa rete bloke.
+      if (recordId) await deleteBonRemiseRecord(recordId).catch(() => undefined);
+      setToast(error instanceof Error ? error.message : "Impossible de créer le Bon de remise.");
     } finally { setBusy(false); }
   };
 
@@ -155,16 +195,23 @@ export default function BonRemisePage() {
           {conduces.length === 0 && <p className="text-white/50 text-xs py-3">Aucune conduce.</p>}
           {conduces.map((c) => {
             const on = selCond.has(c.id);
+            const alreadyRecorded = recordedConduces.has(c.id);
+            const disabled = !registryReady || alreadyRecorded;
             return (
               <button key={c.id}
+                type="button"
+                disabled={disabled}
+                title={alreadyRecorded ? "Cette Conduce est déjà dans un Bon de remise." : !registryReady ? "Le registre des Bons de remise doit être activé." : undefined}
                 onClick={() => setSelCond((prev) => {
                   const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n;
                 })}
                 className={`text-left rounded-xl px-3 py-2.5 border transition ${
-                  on ? "bg-brand border-brand" : "bg-white/5 border-white/10 hover:bg-white/10"}`}>
+                  on ? "bg-brand border-brand" : alreadyRecorded ? "bg-emerald-950/35 border-emerald-300/25 opacity-75 cursor-not-allowed" : "bg-white/5 border-white/10 hover:bg-white/10"}`}>
                 <div className="flex items-center gap-2">
-                  <Truck size={14} className={on ? "text-white" : "text-white/50"} />
+                  <Truck size={14} className={on ? "text-white" : alreadyRecorded ? "text-emerald-300" : "text-white/50"} />
                   <span className="font-mono font-bold text-sm truncate">{c.conduce_number}</span>
+                  {on && <span className="ml-auto grid place-items-center h-5 w-5 rounded-full bg-emerald-500 text-white"><CheckCircle2 size={13} /></span>}
+                  {alreadyRecorded && <span className="ml-auto text-[10px] font-bold text-emerald-200 inline-flex items-center gap-1"><CheckCircle2 size={12} />Déjà dans un bon</span>}
                 </div>
                 <p className={`text-[11px] mt-0.5 truncate ${on ? "text-white/80" : "text-white/45"}`}>
                   {c.office || "—"} · {c.conduce_date ? dateFr(c.conduce_date) : dateFr(c.created_at)}

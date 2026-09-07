@@ -24,7 +24,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, Boxes, ClipboardList, FileDown, Folder, FolderOpen, Trash2,
+  ArrowLeft, Boxes, CheckCircle2, ClipboardList, FileDown, Folder, FolderOpen, Trash2,
   Search, TrendingUp, X, Plus, Sparkles
 } from "lucide-react";
 import Loader from "@/components/Loader";
@@ -32,7 +32,7 @@ import RefreshButton from "@/components/RefreshButton";
 import ConducePaymentControl from "@/components/ConducePaymentControl";
 import McpackInvoiceWorkspace from "@/components/McpackInvoiceWorkspace";
 import { useRole } from "@/lib/authx";
-import { createPendingConduces, deleteConduce, deriveConduceStatus, getConduces, getConduceStats, getMcpackInvoices, setConduceStatus } from "@/lib/db";
+import { createPendingConduces, deleteConduce, deriveConduceStatus, getBonRemiseConduceIds, getConduces, getConduceStats, getMcpackInvoices, setConduceStatus } from "@/lib/db";
 import { PROFIT_PER_LB, estimateProfit } from "@/lib/pricing";
 import { usd } from "@/lib/utils";
 import type { Conduce, McpackInvoiceStatus } from "@/lib/types";
@@ -42,6 +42,8 @@ interface Row extends Conduce {
   specialCount: number;
   /** Eta fakti MCPACK ki gen Conduce sa a, si PDF MCPACK te deja valide li. */
   mcpackInvoiceStatus?: McpackInvoiceStatus;
+  /** Yon Bon de remise deja soti pou lo sa a: li pa gen dwa seleksyone ankò. */
+  bonRemiseCreated?: boolean;
 }
 interface Classeur {
   key: string;        // "2026-08-19"
@@ -65,6 +67,7 @@ export default function ConducesPage() {
   /** Jounen ki louvri a. null = gri katab yo (vi dosye). */
   const [openDay, setOpenDay] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const [bonRemiseRegistryReady, setBonRemiseRegistryReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [newConduceNumber, setNewConduceNumber] = useState("");
@@ -74,6 +77,16 @@ export default function ConducesPage() {
   const load = async () => {
     try {
       const [list, mcpackInvoices] = await Promise.all([getConduces(), getMcpackInvoices()]);
+      let recordedBonRemiseConduces = new Set<string>();
+      try {
+        recordedBonRemiseConduces = await getBonRemiseConduceIds();
+        setBonRemiseRegistryReady(true);
+        setSel((previous) => new Set([...previous].filter((id) => !recordedBonRemiseConduces.has(id))));
+      } catch {
+        // San registre a, nou dezaktive seleksyon pou Bon de remise pou pa gen doublon.
+        setBonRemiseRegistryReady(false);
+        setNotice("Le registre des Bons de remise doit être activé avant de sélectionner une Conduce.");
+      }
       const mcpackInvoiceStatusByConduce = new Map<string, McpackInvoiceStatus>();
       for (const invoice of mcpackInvoices) {
         for (const line of invoice.conduces) {
@@ -90,6 +103,7 @@ export default function ConducesPage() {
           ...c, status: derived, count: s.count, weight: s.weight,
           facturedCount: s.facturedCount, verifiedCount: s.verifiedCount, specialCount: s.specialCount,
           mcpackInvoiceStatus: mcpackInvoiceStatusByConduce.get(c.id),
+          bonRemiseCreated: recordedBonRemiseConduces.has(c.id),
         };
       }));
       setRows(withStats);
@@ -311,7 +325,8 @@ export default function ConducesPage() {
           )}
           <JourOuvert cl={jour} sel={sel} onSel={toggleSel}
             onOpenConduce={(id) => router.push(`/conduces/${id}`)}
-            onDelete={supprimer} onDeleteDay={() => supprimerJour(jour)} onPaymentChanged={onPaymentChanged} />
+            onDelete={supprimer} onDeleteDay={() => supprimerJour(jour)} onPaymentChanged={onPaymentChanged}
+            bonRemiseRegistryReady={bonRemiseRegistryReady} />
         </>
       ) : classeurs.length === 0 ? (
         <div className="card p-10 sm:p-12 text-center">
@@ -416,9 +431,10 @@ function ClasseurTile({ cl, onOpen }: { cl: Classeur; onOpen: () => void }) {
 }
 
 /** JOUNEN LOUVRI — conduces jounen an, youn anba lòt, ak rezime jounen an. */
-function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPaymentChanged }: {
+function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPaymentChanged, bonRemiseRegistryReady }: {
   cl: Classeur; sel: Set<string>; onSel: (id: string) => void; onOpenConduce: (id: string) => void;
   onDelete: (r: Row) => void; onDeleteDay: () => void; onPaymentChanged: (next: Conduce) => void;
+  bonRemiseRegistryReady: boolean;
 }) {
   const pct = cl.count ? Math.round((cl.facturedCount / cl.count) * 100) : 0;
 
@@ -458,11 +474,13 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPa
         const p = r.count ? Math.round((r.facturedCount / r.count) * 100) : 0;
         const vide = r.count === 0;
         const done = r.count > 0 && r.facturedCount >= r.count;
+        const selectionBlocked = !bonRemiseRegistryReady || !!r.bonRemiseCreated;
         return (
           <div key={r.id} className="card p-3.5">
             <div className="flex items-start gap-2.5">
-              <input type="checkbox" className="mt-1 w-4 h-4 shrink-0"
-                checked={sel.has(r.id)} onChange={() => onSel(r.id)}
+              <input type="checkbox" className="mt-1 w-4 h-4 shrink-0 accent-emerald-600 disabled:cursor-not-allowed"
+                checked={sel.has(r.id)} disabled={selectionBlocked} onChange={() => onSel(r.id)}
+                title={r.bonRemiseCreated ? "Cette Conduce est déjà dans un Bon de remise." : !bonRemiseRegistryReady ? "Le registre des Bons de remise doit être activé." : undefined}
                 aria-label={`Sélectionner ${r.conduce_number}`} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -471,6 +489,7 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPa
                     {r.conduce_number}
                   </button>
                   <ConducePaymentControl conduce={r} invoiceStatus={r.mcpackInvoiceStatus} compact onChanged={onPaymentChanged} />
+                  {r.bonRemiseCreated && <span className="pill pill-green !px-2"><CheckCircle2 size={10} className="mr-0.5" />Déjà dans un bon</span>}
                   {r.specialCount > 0 && <span className="pill pill-amber !px-2"><Sparkles size={10} className="mr-0.5" />{r.specialCount} spécial{r.specialCount > 1 ? "aux" : ""}</span>}
                 </div>
                 <p className="text-[11px] text-mute mt-0.5 truncate">

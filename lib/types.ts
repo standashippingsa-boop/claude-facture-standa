@@ -128,6 +128,18 @@ export interface McpackInvoice {
   conduces: McpackInvoiceConduce[];
 }
 
+/** Yon Bon de remise entèn. PDF a rete telechaje sou aparèy la; registre a
+ * sonje sèlman Conduce yo pou yon menm lo pa antre de fwa. */
+export interface BonRemiseRecord {
+  id: string;
+  bon_number: string;
+  destination: string;
+  package_count: number;
+  conduce_count: number;
+  created_by: string;
+  created_at: string;
+}
+
 export interface Pkg {
   id: string;
   tracking_number: string;   // Tracking ID (Guía) — idantifyan inik la

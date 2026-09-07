@@ -25,17 +25,27 @@ export interface BonRemiseOptions {
   conduceOf?: Record<string, string>;
   /** Kòd kont santral biznis la (ex: "MC-36191") — li pran vil destinasyon an. */
   centralCode?: string;
+  /** Nimewo ki deja rezève nan registre a, pou PDF a ak bazdone a rete menm. */
+  number?: string;
+}
+
+/** Nimewo lisib, ak yon ti pati o aza pou de Bon pa pran menm nimewo a. */
+export function createBonRemiseNumber(): string {
+  const stamp = Date.now().toString().slice(-8);
+  const random = globalThis.crypto?.randomUUID?.().slice(0, 6).toUpperCase()
+    ?? Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `BR-${stamp}-${random}`;
 }
 
 export async function generateBonRemise(
   pkgs: Pkg[],
   tarifMap: Map<string, ClientTarifInfo>,
   opts: BonRemiseOptions = {}
-): Promise<void> {
+): Promise<{ number: string; filename: string }> {
   const logo = await loadLogo();
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
-  const numero = "BR-" + Date.now().toString().slice(-6);
+  const numero = opts.number?.trim() || createBonRemiseNumber();
 
   const central = (opts.centralCode ?? "").trim().toUpperCase();
   const dest = (opts.destination ?? "").trim();
@@ -196,5 +206,7 @@ export async function generateBonRemise(
   doc.text("STANDA COMMERCIAL — Bon de remise " + numero, 14, pageH - 8);
 
   const suffix = dest ? `_${dest.replace(/\s+/g, "")}` : "";
-  doc.save(`BonRemise_${numero}${suffix}.pdf`);
+  const filename = `BonRemise_${numero}${suffix}.pdf`;
+  doc.save(filename);
+  return { number: numero, filename };
 }

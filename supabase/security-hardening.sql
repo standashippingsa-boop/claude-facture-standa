@@ -617,6 +617,21 @@ select public._hard_policy('mcpack_invoice_conduces', 'mcpack_invoice_conduces_i
 select public._hard_policy('mcpack_invoice_conduces', 'mcpack_invoice_conduces_update_staff', 'update', 'authenticated', 'public.is_staff()', 'public.is_staff()');
 select public._hard_policy('mcpack_invoice_conduces', 'mcpack_invoice_conduces_delete_staff', 'delete', 'authenticated', 'public.is_staff()', null);
 
+-- BONS DE REMISE — registre lojistik entèn; pa gen aksè kliyan/piblik.
+do $$ begin execute 'drop policy if exists "anon all bons_remise" on public.bons_remise';
+exception when undefined_table then null; end $$;
+select public._hard_policy('bons_remise', 'bons_remise_select_staff', 'select', 'authenticated', 'public.is_staff()', null);
+select public._hard_policy('bons_remise', 'bons_remise_insert_staff', 'insert', 'authenticated', null, 'public.is_staff()');
+select public._hard_policy('bons_remise', 'bons_remise_update_staff', 'update', 'authenticated', 'public.is_staff()', 'public.is_staff()');
+select public._hard_policy('bons_remise', 'bons_remise_delete_staff', 'delete', 'authenticated', 'public.is_staff()', null);
+
+do $$ begin execute 'drop policy if exists "anon all bon_remise_conduces" on public.bon_remise_conduces';
+exception when undefined_table then null; end $$;
+select public._hard_policy('bon_remise_conduces', 'bon_remise_conduces_select_staff', 'select', 'authenticated', 'public.is_staff()', null);
+select public._hard_policy('bon_remise_conduces', 'bon_remise_conduces_insert_staff', 'insert', 'authenticated', null, 'public.is_staff()');
+select public._hard_policy('bon_remise_conduces', 'bon_remise_conduces_update_staff', 'update', 'authenticated', 'public.is_staff()', 'public.is_staff()');
+select public._hard_policy('bon_remise_conduces', 'bon_remise_conduces_delete_staff', 'delete', 'authenticated', 'public.is_staff()', null);
+
 -- JOURNAL — piste d'audit. Lecture staff. Écriture : uniquement via la route
 -- serveur /api/audit-log (clé service, qui contourne RLS) -> aucune politique
 -- INSERT pour anon/authenticated.

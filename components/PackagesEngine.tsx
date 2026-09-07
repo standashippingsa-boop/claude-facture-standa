@@ -10,13 +10,13 @@ import { usePackageSelection } from "@/lib/selection";
 import {
   ClientTarifInfo, archivePackage, unarchivePackage, getClient, getClientTarifMap,
   getPackages, getPackagesPage, getAllPackagesMatching, detachPackagesFromInvoice, hardDeletePackage, getSettings, getUsdRate,
-  saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice, notifyEmail
+  createBonRemiseRecord, deleteBonRemiseRecord, saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice, notifyEmail
 } from "@/lib/db";
 import { computePrice, round2 } from "@/lib/pricing";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { Client, INTERNAL_STATUSES, Pkg } from "@/lib/types";
 import { dateFr, htg, parseMcpackDate, usd } from "@/lib/utils";
-import { generateBonRemise } from "@/lib/bonremise";
+import { createBonRemiseNumber, generateBonRemise } from "@/lib/bonremise";
 import { exportPackagesPdf } from "@/lib/listpdf";
 import { exportPackagesExcel } from "@/lib/listexcel";
 import InvoiceDialog from "@/components/InvoiceDialog";
@@ -326,10 +326,26 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   /** Bon de remise: lis koli w ap voye bay ajan yo nan lòt vil */
   const bonRemise = async () => {
     if (!selectedAll.length) return;
+    const conduceIds = Array.from(new Set(selectedAll
+      .map((p) => String(p.conduce_id ?? "").trim())
+      .filter(Boolean)));
+    let recordId = "";
     try {
-      await generateBonRemise(selectedAll, tarifMap);
+      const bonNumber = createBonRemiseNumber();
+      // Menm gad ak paj Bon de remise la: si yon Conduce te deja sou yon bon,
+      // constraint bazdone a bloke yon dezyèm PDF menm si ekran sa a louvri.
+      if (conduceIds.length) {
+        const record = await createBonRemiseRecord({
+          bonNumber, conduceIds, packageCount: selectedAll.length, who: staffName,
+        });
+        recordId = record.id;
+      }
+      await generateBonRemise(selectedAll, tarifMap, { number: bonNumber });
       setNotice(`Bon de remise créé (${selectedAll.length} colis) — PDF telechaje.`);
-    } catch (e: any) { setNotice("Erè: " + e.message); }
+    } catch (e: any) {
+      if (recordId) await deleteBonRemiseRecord(recordId).catch(() => undefined);
+      setNotice("Erè: " + e.message);
+    }
   };
 
   /** Modifikasyon manyèl: chanje fakti aktyèl la sèlman, PA tarif Paramètres yo */

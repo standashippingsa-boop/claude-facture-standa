@@ -3,7 +3,7 @@ import { cleanTracking, isGuia, normalizeMcCode } from "./utils";
 import { validateUpload, storagePath } from "./upload";
 import {
   AccountType, Client, Conduce, DashboardStats, ImportLog, Invoice, InvoiceItem,
-  McpackInvoice, McpackInvoiceConduce, Pkg, Ville
+  BonRemiseRecord, McpackInvoice, McpackInvoiceConduce, Pkg, Ville
 , Retrait, RetraitStatus, CONDUCE_ARRIVAL_STATUS, shouldPromoteOnConduce } from "./types";
 import { McpackRow } from "./xlsx";
 import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS } from "./pricing";
@@ -278,6 +278,69 @@ export async function getPackagesByConduceIds(conduceIds: string[]): Promise<Pkg
       asNum(p, ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[]);
   }
   return out;
+}
+
+// ================= BONS DE REMISE =================
+// Yon Conduce ka antre nan yon sèl Bon de remise. Lyen an nan bazdone a se
+// gad prensipal la: li anpeche de navigatè/oswa de anplwaye kreye doublon.
+
+/** ID Conduce ki deja sou yon Bon de remise — pou dezaktive yo nan seleksyon an. */
+export async function getBonRemiseConduceIds(): Promise<Set<string>> {
+  const { data, error } = await supabase.from("bon_remise_conduces").select("conduce_id");
+  if (error) throw error;
+  return new Set((data ?? []).map((line: any) => String(line.conduce_id)));
+}
+
+export async function createBonRemiseRecord(input: {
+  bonNumber: string;
+  conduceIds: string[];
+  packageCount: number;
+  destination?: string;
+  who?: string;
+}): Promise<BonRemiseRecord> {
+  const conduceIds = Array.from(new Set(input.conduceIds.map((id) => String(id ?? "").trim()).filter(Boolean)));
+  if (!conduceIds.length) throw new Error("Aucune Conduce valide pour ce Bon de remise.");
+
+  // Chèk avan insert lan bay yon mesaj konprann. Constraint SQL la rete gad
+  // final la si de moun klike an menm tan.
+  const { data: existing, error: existingError } = await supabase
+    .from("bon_remise_conduces").select("conduce_id").in("conduce_id", conduceIds);
+  if (existingError) throw existingError;
+  if (existing?.length) {
+    throw new Error("Une Conduce sélectionnée est déjà dans un Bon de remise. Actualisez la page : aucun PDF n'a été créé.");
+  }
+
+  const { data: bon, error } = await supabase.from("bons_remise").insert({
+    bon_number: String(input.bonNumber ?? "").trim().slice(0, 80),
+    destination: String(input.destination ?? "").trim().slice(0, 120),
+    package_count: Math.max(0, Math.trunc(Number(input.packageCount) || 0)),
+    conduce_count: conduceIds.length,
+    created_by: String(input.who ?? "").trim().slice(0, 160),
+  }).select("*").single();
+  if (error) throw error;
+
+  const { error: linksError } = await supabase.from("bon_remise_conduces").insert(
+    conduceIds.map((conduceId) => ({ bon_remise_id: bon.id, conduce_id: conduceId }))
+  );
+  if (linksError) {
+    // Rollback konpansatwa: pa kite yon Bon vid si lyen yo pa ka sove.
+    await supabase.from("bons_remise").delete().eq("id", bon.id);
+    if ((linksError as any).code === "23505") {
+      throw new Error("Une Conduce vient d'être ajoutée à un Bon de remise. Actualisez la page : aucun PDF n'a été créé.");
+    }
+    throw linksError;
+  }
+
+  await logAction("Bon de remise créé",
+    `${bon.bon_number} — ${conduceIds.length} Conduce(s), ${input.packageCount} colis${input.destination ? ` · ${input.destination}` : ""}`,
+    "", "");
+  return bon as BonRemiseRecord;
+}
+
+/** Sèlman pou netwaye yon dosye ki fèk kreye si jenerasyon PDF la ta echwe. */
+export async function deleteBonRemiseRecord(id: string): Promise<void> {
+  const { error } = await supabase.from("bons_remise").delete().eq("id", id);
+  if (error) throw error;
 }
 
 /**
