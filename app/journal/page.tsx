@@ -7,6 +7,7 @@ import Pagination from "@/components/Pagination";
 import FilterConsole from "@/components/FilterConsole";
 import { JournalRow, clearJournal, getJournal } from "@/lib/db";
 import { useRole } from "@/lib/authx";
+import { useRememberListContext } from "@/lib/list-context";
 
 const PER_PAGE = 30;
 
@@ -46,6 +47,12 @@ export default function JournalPage() {
   const [fromF, setFromF] = useState("");
   const [toF, setToF] = useState("");
   const [page, setPage] = useState(1);
+  useRememberListContext("journal", { search, action, userF, customerF, fromF, toF, page }, (saved) => {
+    const text = (name: string) => typeof saved[name] === "string" ? saved[name] : "";
+    setSearch(text("search")); setAction(text("action")); setUserF(text("userF")); setCustomerF(text("customerF"));
+    setFromF(text("fromF")); setToF(text("toF"));
+    setPage(typeof saved.page === "number" && saved.page > 0 ? saved.page : 1);
+  });
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
 

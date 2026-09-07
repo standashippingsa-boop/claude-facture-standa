@@ -8,6 +8,8 @@
  * Chak koli gen yon lyen dirèk sou fakti li.
  */
 import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { PackageCheck, CheckCircle2, Camera } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
@@ -17,10 +19,12 @@ import { getClientTarifMap, getConduces, getInvoices, getPackages, setPackageSta
 import { Conduce, Invoice, Pkg } from "@/lib/types";
 import { usd, dateFr } from "@/lib/utils";
 import { usePackageSelection } from "@/lib/selection";
+import { useRememberListContext, withReturnTo } from "@/lib/list-context";
 
 const PER_PAGE = 25;
 
 export default function HistoriquePage() {
+  const pathname = usePathname() ?? "/historique";
   const [pkgs, setPkgs] = useState<Pkg[]>([]);
   const [invoices, setInvoices] = useState<Map<string, Invoice>>(new Map());
   const [conduces, setConduces] = useState<Conduce[]>([]);
@@ -36,6 +40,16 @@ export default function HistoriquePage() {
   const [minWeight, setMinWeight] = useState("");
   const [maxWeight, setMaxWeight] = useState("");
   const [page, setPage] = useState(1);
+  useRememberListContext("historique", {
+    search, status, dateF, conduceF, cityF, customerF, invoiceF, verifiedF,
+    specialF, minWeight, maxWeight, page,
+  }, (saved) => {
+    const text = (name: string) => typeof saved[name] === "string" ? saved[name] : "";
+    setSearch(text("search")); setStatus(text("status")); setDateF(text("dateF")); setConduceF(text("conduceF"));
+    setCityF(text("cityF")); setCustomerF(text("customerF")); setInvoiceF(text("invoiceF"));
+    setVerifiedF(text("verifiedF")); setSpecialF(text("specialF")); setMinWeight(text("minWeight")); setMaxWeight(text("maxWeight"));
+    setPage(typeof saved.page === "number" && saved.page > 0 ? saved.page : 1);
+  });
   const [tarifMap, setTarifMap] = useState<Map<string, { ville: { name: string } | null }>>(new Map());
   const sel = usePackageSelection();
 
@@ -148,7 +162,7 @@ export default function HistoriquePage() {
         <span>{totalLb.toFixed(2)} lb</span>
         <span className="font-semibold text-ink">{usd(totalUsd)}</span>
         <span className="ml-auto">
-          Factures &amp; PDF : <a href="/invoices" className="text-navy underline font-semibold">Factures</a>
+          Factures &amp; PDF : <Link href="/invoices" className="text-navy underline font-semibold">Factures</Link>
         </span>
       </div>
 
@@ -166,13 +180,13 @@ export default function HistoriquePage() {
                   <td className="td"><input type="checkbox" className="accent-emerald-600" checked={sel.has(p.id)} onChange={() => sel.toggle(snap(p))} /></td>
                   <td className="td font-bold">
                     {inv
-                      ? <a href="/invoices" className="text-navy hover:underline" title={`Facture ${inv.invoice_number} — ${dateFr(inv.created_at)}`}>{inv.invoice_number}</a>
+                      ? <Link href="/invoices" className="text-navy hover:underline" title={`Facture ${inv.invoice_number} — ${dateFr(inv.created_at)}`}>{inv.invoice_number}</Link>
                       : <span className="text-mute">—</span>}
                   </td>
                   <td className="td">
-                    <a href={`/clients/${encodeURIComponent(p.customer_code)}`} className="text-navy hover:underline font-semibold">
+                    <Link href={withReturnTo(`/clients/${encodeURIComponent(p.customer_code)}`, pathname)} className="text-navy hover:underline font-semibold">
                       {p.customer_code}
-                    </a>
+                    </Link>
                   </td>
                   <td className="td">{p.customer_name}</td>
                   <td className="td font-mono text-xs">{p.tracking_number}</td>

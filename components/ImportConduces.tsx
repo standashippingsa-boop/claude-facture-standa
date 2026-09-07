@@ -15,11 +15,14 @@
  */
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ClipboardList, ExternalLink, CheckCircle2, Clock } from "lucide-react";
 import { createPendingConduces } from "@/lib/db";
 import { useRole } from "@/lib/authx";
+import { withReturnTo } from "@/lib/list-context";
 
 export default function ImportConduces({ onLinked }: { onLinked?: () => void }) {
+  const pathname = usePathname() ?? "/sync";
   const { staff } = useRole();
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
 
@@ -83,7 +86,7 @@ export default function ImportConduces({ onLinked }: { onLinked?: () => void }) 
                     ? <span className="pill pill-gray"><span className="pill-dot" />Déjà existante</span>
                     : <span className="pill pill-amber"><Clock size={11} className="mr-0.5" />En attente</span>}
                 </div>
-                <Link href={`/conduces/${r.id}`} className="inline-flex items-center gap-1 text-navy hover:underline text-xs font-semibold">
+                <Link href={withReturnTo(`/conduces/${r.id}`, pathname)} className="inline-flex items-center gap-1 text-navy hover:underline text-xs font-semibold">
                   Ouvrir <ExternalLink size={12} />
                 </Link>
               </div>

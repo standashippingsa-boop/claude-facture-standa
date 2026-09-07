@@ -2,6 +2,7 @@
 import { use, useEffect, useState } from "react";
 import Loader from "@/components/Loader";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import RefreshButton from "@/components/RefreshButton";
@@ -17,6 +18,7 @@ import { computePrice, round2 } from "@/lib/pricing";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import { Client, INTERNAL_STATUSES, Invoice, Pkg } from "@/lib/types";
 import { dateFr, parseMcpackDate, usd } from "@/lib/utils";
+import { returnToOr, useRememberListContext } from "@/lib/list-context";
 
 type SelPkg = Pkg & { selected?: boolean };
 
@@ -28,6 +30,8 @@ type SelPkg = Pkg & { selected?: boolean };
 export default function ClientDossier({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
   const decoded = decodeURIComponent(code);
+  const searchParams = useSearchParams();
+  const backHref = returnToOr(searchParams.get("returnTo"), "/clients");
   const [client, setClient] = useState<Client | null>(null);
   const [pkgs, setPkgs] = useState<SelPkg[]>([]);
   const [invs, setInvs] = useState<Invoice[]>([]);
@@ -40,6 +44,11 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   const [specialF, setSpecialF] = useState("");
   const [minWeight, setMinWeight] = useState("");
   const [maxWeight, setMaxWeight] = useState("");
+  useRememberListContext(`client-dossier:${decoded}`, { search, statusF, dateF, specialF, minWeight, maxWeight }, (saved) => {
+    const text = (name: string) => typeof saved[name] === "string" ? saved[name] : "";
+    setSearch(text("search")); setStatusF(text("statusF")); setDateF(text("dateF"));
+    setSpecialF(text("specialF")); setMinWeight(text("minWeight")); setMaxWeight(text("maxWeight"));
+  });
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { role } = useRole();
@@ -227,7 +236,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3 flex-wrap">
-        <Link href="/clients" className="btn btn-ghost !px-2.5"><ArrowLeft size={16} /></Link>
+        <Link href={backHref} className="btn btn-ghost !px-2.5" title="Retour à la liste précédente"><ArrowLeft size={16} /></Link>
         <h1 className="text-xl font-extrabold text-navy">{client.customer_code} — {non}</h1>
         <span className={`badge ${client.account_status === "Actif" || !client.account_status
           ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>

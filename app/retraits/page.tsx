@@ -25,6 +25,7 @@ import {
 } from "@/lib/db";
 import { Client, Pkg, Retrait, RetraitStatus } from "@/lib/types";
 import { dateFr, usd } from "@/lib/utils";
+import { useRememberListContext } from "@/lib/list-context";
 
 const STATUTS: RetraitStatus[] = ["En attente", "Préparé", "Remis"];
 const BADGE: Record<RetraitStatus, string> = {
@@ -44,6 +45,11 @@ export default function RetraitsPage() {
   const [cityF, setCityF] = useState("");
   const [fromF, setFromF] = useState("");
   const [toF, setToF] = useState("");
+  useRememberListContext("retraits", { filtre, search, cityF, fromF, toF }, (saved) => {
+    const text = (name: string) => typeof saved[name] === "string" ? saved[name] : "";
+    setFiltre(text("filtre")); setSearch(text("search")); setCityF(text("cityF"));
+    setFromF(text("fromF")); setToF(text("toF"));
+  });
   const [notice, setNotice] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 

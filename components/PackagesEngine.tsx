@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Calculator, ClipboardList, FileText, FileSpreadsheet, Archive, Camera, CheckCircle2, Lock, Package, PackageCheck, Puzzle, Receipt, Pencil, RotateCcw, MessageCircle, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
@@ -22,6 +23,7 @@ import { exportPackagesPdf } from "@/lib/listpdf";
 import { exportPackagesExcel } from "@/lib/listexcel";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import { useRole } from "@/lib/authx";
+import { useRememberListContext, withReturnTo } from "@/lib/list-context";
 
 const PER_PAGE = 25;
 
@@ -53,6 +55,7 @@ function isSpecialConducePackage(p: Pkg): boolean {
 }
 
 export default function PackagesEngine({ conduceId, hideHeader = false }: { conduceId?: string; hideHeader?: boolean } = {}) {
+  const pathname = usePathname() ?? (conduceId ? `/conduces/${conduceId}` : "/packages");
   const [pkgs, setPkgs] = useState<Pkg[]>([]);
   const [tarifMap, setTarifMap] = useState<Map<string, ClientTarifInfo>>(new Map());
   const [rate, setRate] = useState(0);
@@ -79,6 +82,18 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
   const [showArchived, setShowArchived] = useState(false);
   const sel = usePackageSelection();
+  useRememberListContext(`packages:${conduceId ?? "all"}`, {
+    search, status, source, dateF, cityF, customerF, conduceF, invoiceF, verifiedF,
+    specialF, minWeight, maxWeight, page, showArchived,
+  }, (saved) => {
+    const text = (name: string) => typeof saved[name] === "string" ? saved[name] : "";
+    setSearch(text("search")); setStatus(text("status")); setSource(text("source")); setDateF(text("dateF"));
+    setCityF(text("cityF")); setCustomerF(text("customerF")); setConduceF(text("conduceF"));
+    setInvoiceF(text("invoiceF")); setVerifiedF(text("verifiedF")); setSpecialF(text("specialF"));
+    setMinWeight(text("minWeight")); setMaxWeight(text("maxWeight"));
+    setPage(typeof saved.page === "number" && saved.page > 0 ? saved.page : 1);
+    setShowArchived(saved.showArchived === true);
+  });
   /** Ti rezime koli a pou seleksyon global la (pa gen done sansib). */
   const snap = (p: Pkg) => ({
     id: p.id, tracking_number: p.tracking_number, customer_code: p.customer_code,
@@ -598,13 +613,13 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
                   <input type="checkbox" checked={sel.has(p.id)} onChange={() => toggle(p.id)} />
                 </td>
                 <td className="tdc font-bold whitespace-nowrap">
-                  <Link href={`/clients/${encodeURIComponent(p.customer_code)}`}
+                  <Link href={withReturnTo(`/clients/${encodeURIComponent(p.customer_code)}`, pathname)}
                     className="text-navy hover:underline" title="Ouvri dosye kliyan an">
                     {p.customer_code}
                   </Link>
                 </td>
                 <td className="tdc max-w-[110px] truncate" title={p.customer_name}>
-                  <Link href={`/clients/${encodeURIComponent(p.customer_code)}`}
+                  <Link href={withReturnTo(`/clients/${encodeURIComponent(p.customer_code)}`, pathname)}
                     className="hover:text-navy hover:underline">
                     {p.customer_name}
                   </Link>

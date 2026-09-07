@@ -7,6 +7,7 @@
  */
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Truck, Package, Receipt, Clock, CheckCircle2, Sparkles } from "lucide-react";
 import PackagesEngine from "@/components/PackagesEngine";
 import ConduceSummaryPanel from "@/components/ConduceSummaryPanel";
@@ -17,9 +18,12 @@ import Loader from "@/components/Loader";
 import { getConduceById, getConduceStats } from "@/lib/db";
 import { dateFr, usd } from "@/lib/utils";
 import type { Conduce } from "@/lib/types";
+import { returnToOr } from "@/lib/list-context";
 
 export default function ConduceDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const searchParams = useSearchParams();
+  const backHref = returnToOr(searchParams.get("returnTo"), "/conduces");
   const [conduce, setConduce] = useState<Conduce | null>(null);
   const [stats, setStats] = useState<{
     count: number; weight: number; facturedCount: number; facturedTotal: number; verifiedCount: number;
@@ -46,7 +50,7 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
   if (loading) return <Loader inline />;
   if (!conduce) return (
     <div className="space-y-3">
-      <Link href="/conduces" className="text-navy inline-flex items-center gap-1 hover:underline text-sm">
+      <Link href={backHref} className="text-navy inline-flex items-center gap-1 hover:underline text-sm">
         <ArrowLeft size={14} /> Retour aux Conduces
       </Link>
       <div className="card p-6 space-y-3">
@@ -75,7 +79,7 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
 
   return (
     <div className="space-y-5">
-      <Link href="/conduces" className="text-navy inline-flex items-center gap-1 hover:underline text-sm">
+      <Link href={backHref} className="text-navy inline-flex items-center gap-1 hover:underline text-sm">
         <ArrowLeft size={14} /> Retour aux Conduces
       </Link>
 

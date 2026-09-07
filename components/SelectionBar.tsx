@@ -12,6 +12,7 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { CheckSquare, X, Trash2, ChevronUp, ChevronDown, FileText } from "lucide-react";
 import { usePackageSelection } from "@/lib/selection";
+import { withReturnTo } from "@/lib/list-context";
 
 /** Paj kliyan yo pa gen bar sa a (li se yon zouti admin/employé). */
 const HIDDEN = ["/login", "/admin-login", "/inscription", "/espace-client", "/reset-password", "/nouveau-mot-de-passe"];
@@ -38,7 +39,7 @@ export default function SelectionBar() {
   const facturer = () => {
     if (!uniqueClient) return;
     setOpen(false);
-    router.push(`/clients/${encodeURIComponent(uniqueClient)}`);
+    router.push(withReturnTo(`/clients/${encodeURIComponent(uniqueClient)}`, pathname));
   };
 
   return (

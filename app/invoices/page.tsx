@@ -9,6 +9,7 @@ import { generateUploadDownload, openInvoicePdf } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Invoice } from "@/lib/types";
 import { dateFr, htg, usd } from "@/lib/utils";
+import { useRememberListContext } from "@/lib/list-context";
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -18,6 +19,11 @@ export default function InvoicesPage() {
   const [customerF, setCustomerF] = useState("");
   const [minTotal, setMinTotal] = useState("");
   const [maxTotal, setMaxTotal] = useState("");
+  useRememberListContext("invoices", { search, fromF, toF, customerF, minTotal, maxTotal }, (saved) => {
+    const text = (name: string) => typeof saved[name] === "string" ? saved[name] : "";
+    setSearch(text("search")); setFromF(text("fromF")); setToF(text("toF"));
+    setCustomerF(text("customerF")); setMinTotal(text("minTotal")); setMaxTotal(text("maxTotal"));
+  });
   const [footer, setFooter] = useState("Mèsi paske ou fè STANDA COMMERCIAL konfyans.");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

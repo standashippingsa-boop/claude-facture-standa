@@ -14,7 +14,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, ClipboardList, FileDown, Search, Truck, X } from "lucide-react";
+import { CheckCircle2, ClipboardList, FileDown, Truck } from "lucide-react";
 import Loader, { SavedToast } from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
@@ -27,6 +27,7 @@ import { createBonRemiseNumber, generateBonRemise } from "@/lib/bonremise";
 import type { Conduce, Pkg } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
 import { useRole } from "@/lib/authx";
+import { useRememberListContext } from "@/lib/list-context";
 
 /** Vil "flexib" pou kont santral la — pa gen vil fiks. */
 const CENTRAL_VILLE = "— Compte central —";
@@ -53,6 +54,17 @@ export default function BonRemisePage() {
   const [minWeight, setMinWeight] = useState("");
   const [maxWeight, setMaxWeight] = useState("");
   const [sel, setSel] = useState<Set<string>>(new Set());
+  useRememberListContext("bon-remise", {
+    selectedConduces: Array.from(selCond), ville, q, customerF, statusF, dateF,
+    specialF, minWeight, maxWeight, selectedPackages: Array.from(sel),
+  }, (saved) => {
+    const text = (name: string) => typeof saved[name] === "string" ? saved[name] : "";
+    const ids = (name: string) => Array.isArray(saved[name]) ? saved[name].filter((id): id is string => typeof id === "string") : [];
+    setSelCond(new Set(ids("selectedConduces"))); setVille(text("ville")); setQ(text("q"));
+    setCustomerF(text("customerF")); setStatusF(text("statusF")); setDateF(text("dateF"));
+    setSpecialF(text("specialF")); setMinWeight(text("minWeight")); setMaxWeight(text("maxWeight"));
+    setSel(new Set(ids("selectedPackages")));
+  });
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";

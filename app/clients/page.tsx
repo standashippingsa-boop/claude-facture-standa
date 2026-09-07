@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
 import Link from "next/link";
@@ -12,6 +13,7 @@ import { adminApi, useRole } from "@/lib/authx";
 import { Client, Ville } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
 import { openDepotWhatsApp } from "@/lib/whatsapp";
+import { useRememberListContext, withReturnTo } from "@/lib/list-context";
 
 const schema = z.object({
   customer_code: z.string().min(1, "Kòd obligatwa"),
@@ -25,6 +27,7 @@ const schema = z.object({
 type Form = z.infer<typeof schema>;
 
 export default function ClientsPage() {
+  const pathname = usePathname() ?? "/clients";
   const [clients, setClients] = useState<Client[]>([]);
   const [villes, setVilles] = useState<Ville[]>([]);
   const [editing, setEditing] = useState<Client | null>(null);
@@ -35,6 +38,11 @@ export default function ClientsPage() {
   const [accountStatusF, setAccountStatusF] = useState("");
   const [fromF, setFromF] = useState("");
   const [toF, setToF] = useState("");
+  useRememberListContext("clients", { search, cityF, accountTypeF, accountStatusF, fromF, toF }, (saved) => {
+    const text = (name: string) => typeof saved[name] === "string" ? saved[name] : "";
+    setSearch(text("search")); setCityF(text("cityF")); setAccountTypeF(text("accountTypeF"));
+    setAccountStatusF(text("accountStatusF")); setFromF(text("fromF")); setToF(text("toF"));
+  });
   const [notice, setNotice] = useState<string | null>(null);
   const [mcClient, setMcClient] = useState<Client | null>(null);  // modal "Créer compte MCPACK"
   const [mcCode, setMcCode] = useState("");
@@ -231,7 +239,7 @@ export default function ClientsPage() {
               <tr key={c.id} className={i % 2 ? "bg-mist" : ""}>
                 <td className="tdc font-bold text-navy">
                   {c.customer_code ? (
-                    <Link className="hover:underline" href={`/clients/${encodeURIComponent(c.customer_code)}`}>
+                    <Link className="hover:underline" href={withReturnTo(`/clients/${encodeURIComponent(c.customer_code)}`, pathname)}>
                       {c.customer_code}
                     </Link>
                   ) : <span className="text-slate-400 font-normal text-xs">— pa gen kòd —</span>}

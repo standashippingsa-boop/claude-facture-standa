@@ -22,7 +22,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft, Boxes, CheckCircle2, ClipboardList, FileDown, Folder, FolderOpen, Trash2,
   TrendingUp, Plus, Sparkles
@@ -37,6 +37,7 @@ import { createPendingConduces, deleteConduce, deriveConduceStatus, getBonRemise
 import { PROFIT_PER_LB, estimateProfit } from "@/lib/pricing";
 import { usd } from "@/lib/utils";
 import type { Conduce, McpackInvoiceStatus } from "@/lib/types";
+import { useRememberListContext, withReturnTo } from "@/lib/list-context";
 
 interface Row extends Conduce {
   count: number; weight: number; facturedCount: number; verifiedCount: number;
@@ -61,6 +62,7 @@ const dayKey = (c: Conduce) => String(c.conduce_date || c.created_at).slice(0, 1
 
 export default function ConducesPage() {
   const router = useRouter();
+  const pathname = usePathname() ?? "/conduces";
   const { staff } = useRole();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [search, setSearch] = useState("");
@@ -81,6 +83,17 @@ export default function ConducesPage() {
   const [newConduceNumber, setNewConduceNumber] = useState("");
   const [creating, setCreating] = useState(false);
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
+  useRememberListContext("conduces", {
+    search, officeF, fromF, toF, paymentF, mcpackF, bonF, specialF, tab, openDay,
+    selected: Array.from(sel),
+  }, (saved) => {
+    const text = (name: string) => typeof saved[name] === "string" ? saved[name] : "";
+    setSearch(text("search")); setOfficeF(text("officeF")); setFromF(text("fromF")); setToF(text("toF"));
+    setPaymentF(text("paymentF")); setMcpackF(text("mcpackF")); setBonF(text("bonF")); setSpecialF(text("specialF"));
+    setTab(saved.tab === "actives" || saved.tab === "historique" ? saved.tab : "toutes");
+    setOpenDay(typeof saved.openDay === "string" ? saved.openDay : null);
+    setSel(new Set(Array.isArray(saved.selected) ? saved.selected.filter((id): id is string => typeof id === "string") : []));
+  });
 
   const load = async () => {
     try {
@@ -359,7 +372,7 @@ export default function ConducesPage() {
             </div>
           )}
           <JourOuvert cl={jour} sel={sel} onSel={toggleSel}
-            onOpenConduce={(id) => router.push(`/conduces/${id}`)}
+            onOpenConduce={(id) => router.push(withReturnTo(`/conduces/${id}`, pathname))}
             onDelete={supprimer} onDeleteDay={() => supprimerJour(jour)} onPaymentChanged={onPaymentChanged}
             bonRemiseRegistryReady={bonRemiseRegistryReady} />
         </>
