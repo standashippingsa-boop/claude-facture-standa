@@ -9,7 +9,11 @@
  * yon lis Tracking Number. Matching ak chanjman statut fèt yon lòt kote,
  * ak yon ekran verifikasyon (RÈG: pa janm devine, pa janm chanje san verifye).
  */
-import { parseMcpackCommercialInvoicePdf, parseMcpackPdf } from "./pdfimport";
+import {
+  extractFirstMcpackCommercialInvoiceTracking,
+  parseMcpackCommercialInvoicePdf,
+  parseMcpackPdf,
+} from "./pdfimport";
 import { cleanTracking } from "./utils";
 
 export interface FactureTracking {
@@ -105,4 +109,21 @@ export async function extractFacture(
   const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
   if (isPdf) return extractFromPdf(await file.arrayBuffer());
   return extractFromImage(file, onProgress);
+}
+
+/**
+ * Yon fakti MCPACK sèvi sitou pou jwenn Conduce li. Pou sa, yon sèl tracking
+ * valab ase. Nou li premye paj la sèlman; fallback la rete disponib pou ansyen
+ * dokiman ki pa itilize tablo komèsyal MCPACK la.
+ */
+export async function extractFirstFactureTracking(file: File): Promise<FactureTracking | null> {
+  const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  if (isPdf) {
+    const buf = await file.arrayBuffer();
+    const first = await extractFirstMcpackCommercialInvoiceTracking(buf);
+    if (first) return { value: cleanTracking(first.tracking_number), weight: first.weight || undefined, source: "pdf", raw: first.tracking_number };
+    // Fallback pou yon PDF MCPACK ansyen ki ta gen lòt antèt/kolòn.
+    return (await extractFromPdf(buf))[0] ?? null;
+  }
+  return (await extractFromImage(file))[0] ?? null;
 }

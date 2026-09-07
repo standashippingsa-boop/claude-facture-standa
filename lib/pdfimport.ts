@@ -40,11 +40,12 @@ async function loadPdfjs() {
 }
 
 /** Ekstrè tout eleman tèks yo ak pozisyon (x,y) sou tout paj yo. */
-async function extractItems(buf: ArrayBuffer): Promise<TextItem[]> {
+async function extractItems(buf: ArrayBuffer, maximumPages?: number): Promise<TextItem[]> {
   const pdfjs = await loadPdfjs();
   const doc = await (pdfjs as any).getDocument({ data: buf }).promise;
   const items: TextItem[] = [];
-  for (let pageNo = 1; pageNo <= doc.numPages; pageNo++) {
+  const lastPage = Math.min(doc.numPages, Math.max(1, maximumPages ?? doc.numPages));
+  for (let pageNo = 1; pageNo <= lastPage; pageNo++) {
     const page = await doc.getPage(pageNo);
     const content = await page.getTextContent();
     const H = page.getViewport({ scale: 1 }).height;
@@ -100,6 +101,17 @@ export async function parseMcpackCommercialInvoicePdf(
   buf: ArrayBuffer
 ): Promise<McpackCommercialInvoiceRow[]> {
   return parseMcpackCommercialInvoiceRows(groupRows(await extractItems(buf)));
+}
+
+/**
+ * Deteksyon RAPID: yon sèl tracking sou premye paj fakti MCPACK la sifi pou
+ * idantifye Conduce a nan STANDA. Nou pa bezwen li tout paj/liy fakti a.
+ */
+export async function extractFirstMcpackCommercialInvoiceTracking(
+  buf: ArrayBuffer
+): Promise<McpackCommercialInvoiceRow | null> {
+  const rows = groupRows(await extractItems(buf, 1));
+  return parseMcpackCommercialInvoiceRows(rows)[0] ?? null;
 }
 
 /** Logique pure du tableau commercial — isolée pou teste li ak plizyè modèl PDF. */
