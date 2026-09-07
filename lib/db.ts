@@ -352,6 +352,13 @@ export interface McpackInvoiceConduceCandidate {
   packageCount: number;
 }
 
+/** Yon Conduce detekte nan PDF a men ki deja fè pati yon lòt fakti MCPACK. */
+export interface McpackInvoiceAlreadyRecordedConduce {
+  conduce: Conduce;
+  reason: "Déjà payée MCPACK" | "Déjà dans une facture MCPACK";
+  invoiceFileName?: string;
+}
+
 export interface McpackInvoiceAnalysis {
   extractedTrackingCount: number;
   /** Konbyen tracking nou teste vrèman (mòd rapid pa bezwen teste tout PDF la). */
@@ -362,6 +369,8 @@ export interface McpackInvoiceAnalysis {
   unlinkedPackageCount: number;
   /** Menm tracking la jwenn nan plis pase yon Conduce: mande verifikasyon staff. */
   duplicateTrackings: { tracking: string; conduceNumbers: string[] }[];
+  /** Eskli nan nouvo fakti a pou pa gen yon menm Conduce nan de fakti. */
+  alreadyRecordedConduces: McpackInvoiceAlreadyRecordedConduce[];
   conduces: McpackInvoiceConduceCandidate[];
 }
 
@@ -385,7 +394,7 @@ export async function analyzeMcpackInvoiceTrackings(
     return {
       extractedTrackingCount: 0, checkedTrackingCount: 0, skippedTrackingCount: 0,
       matchedPackageCount: 0, unmatchedTrackingCount: 0, unlinkedPackageCount: 0,
-      duplicateTrackings: [], conduces: [],
+      duplicateTrackings: [], alreadyRecordedConduces: [], conduces: [],
     };
   }
 
@@ -459,6 +468,38 @@ export async function analyzeMcpackInvoiceTrackings(
       .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })),
   }));
 
+  // Yon Conduce deja sou yon fakti MCPACK (oswa ki deja peye) pa dwe antre
+  // nan fakti PDF aktyèl la ankò. Nou montre li apa pou admin wè repetisyon an.
+  const detectedIds = result.map((line) => line.conduce.id);
+  const { data: invoiceLinks, error: invoiceLinksError } = detectedIds.length
+    ? await supabase.from("mcpack_invoice_conduces").select("conduce_id, invoice_id").in("conduce_id", detectedIds)
+    : { data: [], error: null };
+  if (invoiceLinksError) throw invoiceLinksError;
+
+  const invoiceIds = Array.from(new Set((invoiceLinks ?? []).map((line: any) => line.invoice_id)));
+  const { data: priorInvoices, error: priorInvoicesError } = invoiceIds.length
+    ? await supabase.from("mcpack_invoices").select("id, file_name").in("id", invoiceIds)
+    : { data: [], error: null };
+  if (priorInvoicesError) throw priorInvoicesError;
+  const fileNameByInvoice = new Map((priorInvoices ?? []).map((invoice: any) => [invoice.id, invoice.file_name]));
+  const priorInvoiceByConduce = new Map((invoiceLinks ?? []).map((line: any) => [line.conduce_id, line.invoice_id]));
+
+  const alreadyRecordedConduces: McpackInvoiceAlreadyRecordedConduce[] = [];
+  const eligibleConduces: McpackInvoiceConduceCandidate[] = [];
+  for (const line of result) {
+    const priorInvoiceId = priorInvoiceByConduce.get(line.conduce.id);
+    const paid = line.conduce.payment_status === "Payé";
+    if (!paid && !priorInvoiceId) {
+      eligibleConduces.push(line);
+      continue;
+    }
+    alreadyRecordedConduces.push({
+      conduce: line.conduce,
+      reason: paid ? "Déjà payée MCPACK" : "Déjà dans une facture MCPACK",
+      ...(priorInvoiceId ? { invoiceFileName: fileNameByInvoice.get(priorInvoiceId) } : {}),
+    });
+  }
+
   return {
     extractedTrackingCount: allTrackings.length,
     checkedTrackingCount,
@@ -467,7 +508,8 @@ export async function analyzeMcpackInvoiceTrackings(
     unmatchedTrackingCount,
     unlinkedPackageCount,
     duplicateTrackings,
-    conduces: result,
+    alreadyRecordedConduces,
+    conduces: eligibleConduces,
   };
 }
 

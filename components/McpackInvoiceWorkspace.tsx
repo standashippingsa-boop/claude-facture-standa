@@ -52,8 +52,10 @@ export default function McpackInvoiceWorkspace({
     const result = await analyzeMcpackInvoiceTrackings(trackings);
     setAnalysis({ ...result, fileName });
     setNotice(result.conduces.length
-      ? { tone: "info", text: `${result.conduces.length} Conduce${result.conduces.length > 1 ? "s" : ""} retrouvée${result.conduces.length > 1 ? "s" : ""} à partir des références lues dans le PDF. Vérifiez la liste puis confirmez la facture.` }
-      : { tone: "error", text: "Aucune Conduce reliée n'a été retrouvée dans la base avec les références de ce PDF." });
+      ? { tone: "info", text: `${result.conduces.length} Conduce${result.conduces.length > 1 ? "s" : ""} prête${result.conduces.length > 1 ? "s" : ""} à facturer.${result.alreadyRecordedConduces.length ? ` ${result.alreadyRecordedConduces.length} déjà enregistrée${result.alreadyRecordedConduces.length > 1 ? "s" : ""} est/sont mise(s) à part.` : ""}` }
+      : result.alreadyRecordedConduces.length
+        ? { tone: "info", text: "Toutes les Conduces détectées sont déjà enregistrées ou payées. Elles sont mises à part ci-dessous." }
+        : { tone: "error", text: "Aucune Conduce reliée n'a été retrouvée dans la base avec les références de ce PDF." });
   };
 
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -172,6 +174,21 @@ export default function McpackInvoiceWorkspace({
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {analysis.alreadyRecordedConduces.length > 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-900">
+                <p className="font-extrabold flex items-center gap-1.5"><AlertCircle size={14} /> Conduce déjà présente dans une autre facture</p>
+                <p className="mt-1">Ces Conduces sont retirées de cette nouvelle facture. Seules les autres Conduces seront validées.</p>
+                <ul className="mt-1.5 space-y-0.5 font-semibold">
+                  {analysis.alreadyRecordedConduces.map((line) => (
+                    <li key={line.conduce.id}>
+                      Conduce {line.conduce.conduce_number} — {line.reason}
+                      {line.invoiceFileName ? ` (${line.invoiceFileName})` : ""}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 
