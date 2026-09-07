@@ -6,7 +6,6 @@ import {
   LoaderCircle, ReceiptText, Upload,
 } from "lucide-react";
 import { extractFacture } from "@/lib/factureimport";
-import type { FactureTracking } from "@/lib/factureimport";
 import {
   analyzeMcpackInvoiceTrackings, createMcpackInvoice, getMcpackInvoices,
   McpackInvoiceAnalysis, payMcpackInvoice,
@@ -30,7 +29,6 @@ export default function McpackInvoiceWorkspace({
   const inputRef = useRef<HTMLInputElement>(null);
   const [invoices, setInvoices] = useState<McpackInvoice[]>([]);
   const [analysis, setAnalysis] = useState<(McpackInvoiceAnalysis & { fileName: string }) | null>(null);
-  const [manualTracking, setManualTracking] = useState("");
   const [loading, setLoading] = useState(true);
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -50,12 +48,12 @@ export default function McpackInvoiceWorkspace({
   };
   useEffect(() => { void load(); }, []);
 
-  const analyzeAllConduces = async (trackings: FactureTracking[], fileName: string) => {
+  const analyzeAllConduces = async (trackings: { value: string }[], fileName: string) => {
     const result = await analyzeMcpackInvoiceTrackings(trackings);
     setAnalysis({ ...result, fileName });
     setNotice(result.conduces.length
-      ? { tone: "info", text: `${result.conduces.length} Conduce${result.conduces.length > 1 ? "s" : ""} trouvée${result.conduces.length > 1 ? "s" : ""} après analyse de ${result.checkedTrackingCount} tracking. Vérifiez la liste puis confirmez la facture.` }
-      : { tone: "error", text: `Aucune Conduce trouvée après vérification des ${result.checkedTrackingCount} tracking lisibles.` });
+      ? { tone: "info", text: `${result.conduces.length} Conduce${result.conduces.length > 1 ? "s" : ""} retrouvée${result.conduces.length > 1 ? "s" : ""} à partir des références lues dans le PDF. Vérifiez la liste puis confirmez la facture.` }
+      : { tone: "error", text: "Aucune Conduce reliée n'a été retrouvée dans la base avec les références de ce PDF." });
   };
 
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -69,7 +67,7 @@ export default function McpackInvoiceWorkspace({
     try {
       const trackings = await extractFacture(file);
       if (!trackings.length) {
-        setNotice({ tone: "error", text: "Le PDF ne permet pas de lire les tracking. Copiez-les dans la case ci-dessous, un par ligne." });
+        setNotice({ tone: "error", text: "Le PDF ne contient aucune référence lisible. Utilisez le PDF MCPACK original, avec le tableau « Nimewo Tracking » visible." });
         return;
       }
       await analyzeAllConduces(trackings, check.filename);
@@ -92,19 +90,6 @@ export default function McpackInvoiceWorkspace({
       setNotice({ tone: "error", text: error instanceof Error ? error.message : "Impossible d'enregistrer la facture MCPACK." });
     } finally {
       setSaving(false);
-    }
-  };
-
-  const analyzeManual = async () => {
-    const values = Array.from(new Set(manualTracking.split(/[\n,;]+/).map((value) => value.trim()).filter(Boolean)));
-    if (!values.length) return;
-    setParsing(true);
-    try {
-      await analyzeAllConduces(values.map((value) => ({ value, source: "text" as const })), "Tracking saisi manuellement");
-    } catch (error) {
-      setNotice({ tone: "error", text: error instanceof Error ? error.message : "Recherche de la Conduce impossible." });
-    } finally {
-      setParsing(false);
     }
   };
 
@@ -136,7 +121,7 @@ export default function McpackInvoiceWorkspace({
           <ReceiptText size={20} className="text-brand shrink-0" />
           <div>
             <h2 className="font-extrabold text-[15px]">Factures MCPACK</h2>
-            <p className="text-[11px] text-white/65">Analysez le PDF, contrôlez les Conduces, puis enregistrez le paiement.</p>
+            <p className="text-[11px] text-white/65">Chargez le PDF : STANDA lit ses références et retrouve les Conduces.</p>
           </div>
         </div>
         <input ref={inputRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={onFile} />
@@ -149,19 +134,8 @@ export default function McpackInvoiceWorkspace({
 
       <div className="p-4 sm:p-5 space-y-3">
         <p className="text-[11px] text-mute leading-relaxed">
-          Le PDF est lu sur cet appareil et n&apos;est pas conservé sur le site. Tous les tracking lisibles sont vérifiés pour retrouver toutes les Conduces concernées, même si les colis sont livrés, archivés ou rangés dans des folders différents.
+          Le PDF est lu sur cet appareil et n&apos;est pas conservé sur le site. STANDA filtre tous les numéros de tracking présents dans le PDF, puis retrouve toutes les Conduces concernées, même si les colis sont livrés, archivés ou rangés dans des folders différents.
         </p>
-
-        <div className="rounded-xl border border-line bg-slate-50/70 p-3 flex flex-col sm:flex-row gap-2">
-          <input className="input flex-1 font-mono text-sm" value={manualTracking}
-            onChange={(event) => setManualTracking(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Enter") void analyzeManual(); }}
-            placeholder="Collez un ou plusieurs tracking (un par ligne)" />
-          <button type="button" className="btn btn-ghost justify-center" disabled={parsing || !manualTracking.trim()}
-            onClick={() => { void analyzeManual(); }}>
-            <FileSearch size={15} /> Chercher la Conduce
-          </button>
-        </div>
 
         {notice && (
           <div className={`rounded-xl px-3 py-2.5 text-xs font-semibold flex items-start gap-2 ${
@@ -179,11 +153,11 @@ export default function McpackInvoiceWorkspace({
             <div className="flex flex-wrap justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-bold text-sm text-ink truncate"><FileText size={14} className="inline mr-1.5 text-navy" />{analysis.fileName}</p>
-                <p className="text-[11px] text-mute mt-0.5">Résultat de l&apos;analyse — aucun changement n&apos;est encore enregistré.</p>
+                <p className="text-[11px] text-mute mt-0.5">Références lues dans le PDF — aucun changement n&apos;est encore enregistré.</p>
               </div>
               <div className="flex gap-1.5 text-[10px] font-bold">
-                <span className="pill pill-gray !px-2">{analysis.checkedTrackingCount}/{analysis.extractedTrackingCount} vérifié{analysis.checkedTrackingCount > 1 ? "s" : ""}</span>
-                <span className="pill pill-green !px-2">{analysis.matchedPackageCount} trouvé{analysis.matchedPackageCount > 1 ? "s" : ""}</span>
+                <span className="pill pill-gray !px-2">{analysis.extractedTrackingCount} références lues</span>
+                <span className="pill pill-green !px-2">{analysis.conduces.length} Conduce{analysis.conduces.length > 1 ? "s" : ""}</span>
               </div>
             </div>
 
@@ -199,14 +173,6 @@ export default function McpackInvoiceWorkspace({
                   </div>
                 ))}
               </div>
-            )}
-
-            {(analysis.unmatchedTrackingCount > 0 || analysis.unlinkedPackageCount > 0) && (
-              <p className="text-[11px] text-amber-800 rounded-lg bg-amber-50 px-2.5 py-2">
-                {analysis.unmatchedTrackingCount > 0 && `${analysis.unmatchedTrackingCount} tracking non trouvé${analysis.unmatchedTrackingCount > 1 ? "s" : ""} dans la recherche actuelle. `}
-                {analysis.unlinkedPackageCount > 0 && `${analysis.unlinkedPackageCount} colis trouvé${analysis.unlinkedPackageCount > 1 ? "s" : ""} sans Conduce.`}
-                Ils ne seront pas ajoutés à cette facture.
-              </p>
             )}
 
             {analysis.duplicateTrackings.length > 0 && (
