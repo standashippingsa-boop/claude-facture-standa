@@ -32,14 +32,16 @@ import RefreshButton from "@/components/RefreshButton";
 import ConducePaymentControl from "@/components/ConducePaymentControl";
 import McpackInvoiceWorkspace from "@/components/McpackInvoiceWorkspace";
 import { useRole } from "@/lib/authx";
-import { createPendingConduces, deleteConduce, deriveConduceStatus, getConduces, getConduceStats, setConduceStatus } from "@/lib/db";
+import { createPendingConduces, deleteConduce, deriveConduceStatus, getConduces, getConduceStats, getMcpackInvoices, setConduceStatus } from "@/lib/db";
 import { PROFIT_PER_LB, estimateProfit } from "@/lib/pricing";
 import { usd } from "@/lib/utils";
-import type { Conduce } from "@/lib/types";
+import type { Conduce, McpackInvoiceStatus } from "@/lib/types";
 
 interface Row extends Conduce {
   count: number; weight: number; facturedCount: number; verifiedCount: number;
   specialCount: number;
+  /** Eta fakti MCPACK ki gen Conduce sa a, si PDF MCPACK te deja valide li. */
+  mcpackInvoiceStatus?: McpackInvoiceStatus;
 }
 interface Classeur {
   key: string;        // "2026-08-19"
@@ -71,7 +73,13 @@ export default function ConducesPage() {
 
   const load = async () => {
     try {
-      const list = await getConduces();
+      const [list, mcpackInvoices] = await Promise.all([getConduces(), getMcpackInvoices()]);
+      const mcpackInvoiceStatusByConduce = new Map<string, McpackInvoiceStatus>();
+      for (const invoice of mcpackInvoices) {
+        for (const line of invoice.conduces) {
+          mcpackInvoiceStatusByConduce.set(line.conduce_id, invoice.status);
+        }
+      }
       const withStats = await Promise.all(list.map(async (c) => {
         const s = await getConduceStats(c.id);
         const derived = deriveConduceStatus(s.count, s.facturedCount);
@@ -80,7 +88,8 @@ export default function ConducesPage() {
         }
         return {
           ...c, status: derived, count: s.count, weight: s.weight,
-          facturedCount: s.facturedCount, verifiedCount: s.verifiedCount, specialCount: s.specialCount
+          facturedCount: s.facturedCount, verifiedCount: s.verifiedCount, specialCount: s.specialCount,
+          mcpackInvoiceStatus: mcpackInvoiceStatusByConduce.get(c.id),
         };
       }));
       setRows(withStats);
@@ -119,8 +128,8 @@ export default function ConducesPage() {
           weight: list.reduce((s, r) => s + r.weight, 0),
           facturedCount: list.reduce((s, r) => s + r.facturedCount, 0),
           specialCount: list.reduce((s, r) => s + r.specialCount, 0),
-          paidCount: list.filter((r) => r.payment_status === "Payé").length,
-          unpaidCount: list.filter((r) => r.payment_status !== "Payé").length,
+          paidCount: list.filter((r) => r.payment_status === "Payé" || r.mcpackInvoiceStatus === "Payée").length,
+          unpaidCount: list.filter((r) => r.mcpackInvoiceStatus === "Facturée" && r.payment_status !== "Payé").length,
         };
       })
       .sort((a, b) => b.key.localeCompare(a.key));   // pi resan an anwo
@@ -392,8 +401,8 @@ function ClasseurTile({ cl, onOpen }: { cl: Classeur; onOpen: () => void }) {
       </div>
 
       <div className="flex flex-wrap gap-1.5 text-[10px] font-bold">
-        <span className={cl.unpaidCount ? "text-amber-700" : "text-emerald-700"}>
-          MCPACK : {cl.unpaidCount ? `${cl.unpaidCount} à payer` : "tout payé"}
+        <span className={cl.unpaidCount ? "text-amber-700" : cl.paidCount ? "text-emerald-700" : "text-mute"}>
+          MCPACK : {cl.unpaidCount ? `${cl.unpaidCount} à payer` : cl.paidCount ? "tout payé" : "aucune facture"}
         </span>
         {cl.specialCount > 0 && <span className="text-amber-700 inline-flex items-center gap-0.5"><Sparkles size={10} />{cl.specialCount} spécial{cl.specialCount > 1 ? "aux" : ""}</span>}
       </div>
@@ -425,8 +434,10 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPa
               {cl.rows.length} conduce{cl.rows.length > 1 ? "s" : ""} · {cl.count} colis · {cl.weight.toFixed(1)} lb
             </p>
             <div className="flex flex-wrap gap-1.5 mt-2 text-[10px] font-bold">
-              <span className={cl.unpaidCount ? "text-amber-700" : "text-emerald-700"}>
-                MCPACK : {cl.paidCount} payée{cl.paidCount > 1 ? "s" : ""} · {cl.unpaidCount} à payer
+              <span className={cl.unpaidCount ? "text-amber-700" : cl.paidCount ? "text-emerald-700" : "text-mute"}>
+                {cl.paidCount || cl.unpaidCount
+                  ? <>MCPACK : {cl.paidCount} payée{cl.paidCount > 1 ? "s" : ""} · {cl.unpaidCount} à payer</>
+                  : "Aucune facture MCPACK"}
               </span>
               {cl.specialCount > 0 && <span className="text-amber-700 inline-flex items-center gap-0.5"><Sparkles size={11} />{cl.specialCount} colis spécial{cl.specialCount > 1 ? "aux" : ""}</span>}
             </div>
@@ -459,7 +470,7 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPa
                     className="font-mono font-extrabold text-navy text-[14px] hover:underline">
                     {r.conduce_number}
                   </button>
-                  <ConducePaymentControl conduce={r} compact onChanged={onPaymentChanged} />
+                  <ConducePaymentControl conduce={r} invoiceStatus={r.mcpackInvoiceStatus} compact onChanged={onPaymentChanged} />
                   {r.specialCount > 0 && <span className="pill pill-amber !px-2"><Sparkles size={10} className="mr-0.5" />{r.specialCount} spécial{r.specialCount > 1 ? "aux" : ""}</span>}
                 </div>
                 <p className="text-[11px] text-mute mt-0.5 truncate">

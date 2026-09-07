@@ -4,7 +4,7 @@ import { CheckCircle2, CircleDollarSign, LoaderCircle, RotateCcw } from "lucide-
 import { useState } from "react";
 import { useRole } from "@/lib/authx";
 import { setConducePaymentStatus } from "@/lib/db";
-import type { Conduce } from "@/lib/types";
+import type { Conduce, McpackInvoiceStatus } from "@/lib/types";
 
 /**
  * État de règlement de la facture MCPACK.
@@ -13,15 +13,18 @@ import type { Conduce } from "@/lib/types";
  * est protégée par RLS : seuls les employés connectés peuvent l'utiliser.
  */
 export default function ConducePaymentControl({
-  conduce, compact = false, onChanged,
+  conduce, invoiceStatus, compact = false, onChanged,
 }: {
   conduce: Conduce;
+  /** Yon badge peman sèlman parèt kòm "à payer" apre PDF MCPACK la fin valide. */
+  invoiceStatus?: McpackInvoiceStatus;
   compact?: boolean;
   onChanged?: (next: Conduce) => void;
 }) {
   const { staff, role } = useRole();
   const [busy, setBusy] = useState(false);
   const paid = conduce.payment_status === "Payé";
+  const invoiced = Boolean(invoiceStatus);
   const staffName = staff
     ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "")
     : "";
@@ -56,7 +59,18 @@ export default function ConducePaymentControl({
   if (!role) {
     return paid
       ? <span className="pill pill-green"><CheckCircle2 size={11} className="mr-0.5" />MCPACK payé</span>
-      : <span className="pill pill-amber"><CircleDollarSign size={11} className="mr-0.5" />MCPACK à payer</span>;
+      : invoiced
+        ? <span className="pill pill-amber"><CircleDollarSign size={11} className="mr-0.5" />Facturée · à payer</span>
+        : <span className="pill pill-gray">Pas facturée MCPACK</span>;
+  }
+
+  // Yon Conduce ki poko nan yon fakti MCPACK pa dwe montre "à payer":
+  // sa ta bay enpresyon li deja gen yon dèt. Li vin peye sèlman apre PDF a
+  // fin valide nan espas Factures MCPACK la.
+  if (!paid && !invoiced) {
+    return <span className={`inline-flex rounded-full bg-slate-100 text-slate-500 font-bold ${compact ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-xs"}`}>
+      Pas facturée MCPACK
+    </span>;
   }
 
   return (
@@ -76,7 +90,7 @@ export default function ConducePaymentControl({
       {busy ? <LoaderCircle size={compact ? 12 : 14} className="animate-spin" /> : paid
         ? <CheckCircle2 size={compact ? 12 : 14} />
         : <CircleDollarSign size={compact ? 12 : 14} />}
-      {paid ? "MCPACK payé" : "MCPACK à payer"}
+      {paid ? "MCPACK payé" : "Facturée · à payer"}
       {paid && !compact && <RotateCcw size={13} className="opacity-55 ml-0.5" />}
     </button>
   );
