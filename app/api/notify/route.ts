@@ -362,6 +362,13 @@ export async function POST(req: Request) {
   }
 
   // ── Wout nòmal : notifikasyon "Reçu à Miami" / "Disponible" ──
+  // SEKIRITE: se yon manm pèsonèl STANDA sèlman ki ka fè sèvè a voye yon imèl.
+  // Anvan, wout sa a te louvri — nenpòt moun te ka fè domèn ofisyèl la voye
+  // imèl bay nenpòt adrès (phishing, spam, domaj repitasyon).
+  const notifyGate = await requireStaff(String((body as ProbeBody).token ?? ""));
+  if (!notifyGate.ok) {
+    return NextResponse.json({ ok: false, code: "auth", error: notifyGate.error }, { status: notifyGate.status });
+  }
   if (!key) return NextResponse.json({ skipped: true, code: "no_key", reason: "RESEND_API_KEY pa konfigire" });
   if (!body?.client?.email) return NextResponse.json({ skipped: true, code: "no_email", reason: "kliyan san imèl" });
 

@@ -59,14 +59,14 @@ export async function POST(request: NextRequest) {
   if (message.length < 8 || message.length > 600) return json({ error: "Le commentaire doit contenir entre 8 et 600 caractères." }, { status: 400 });
 
   // La clé de service reste côté serveur : les visiteurs ne reçoivent aucun droit d'écriture SQL.
+  // Modération : l'avis est créé masqué (is_visible = false) et n'apparaît sur le site
+  // qu'après validation via l'écran d'administration (/api/admin/reviews action "visibility").
   const supabase = createClient(details.url, details.key, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("site_reviews")
-    .insert({ author_name: authorName, rating, message })
-    .select(PUBLIC_COLUMNS)
-    .single();
+    .insert({ author_name: authorName, rating, message, is_visible: false });
   if (error) return json({ error: "Impossible de publier votre commentaire pour le moment." }, { status: 503 });
-  return json({ review: data }, { status: 201 });
+  return json({ pending: true }, { status: 201 });
 }
 
 export const runtime = "nodejs";

@@ -21,8 +21,10 @@ function secretOk(provided: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** Modpas tanporè: lèt + chif sèlman, fasil pou tape, san karaktè ki konfonn */
-function tempPassword(len = 8): string {
+/** Modpas tanporè: lèt + chif sèlman, fasil pou tape, san karaktè ki konfonn.
+ *  12 karaktè (≈ 59 bit) — anpeche devinen an liy. Kliyan an OBLIJE chanje l
+ *  premye fwa li konekte (must_change_password = true). */
+function tempPassword(len = 12): string {
   const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let out = "";
   const buf = new Uint32Array(len);
@@ -130,7 +132,7 @@ export async function POST(req: Request) {
       if (error) return NextResponse.json({ ok: false, reason: error.message.includes("already") ? `Kòd "${code}" gen yon kont deja.` : error.message });
       const { error: e2 } = await svc.from("clients").update({
         customer_code: code, username: code, auth_user_id: u.user.id,
-        account_status: "Actif", must_change_password: false
+        account_status: "Actif", must_change_password: true
       }).eq("id", clientId);
       if (e2) { await svc.auth.admin.deleteUser(u.user.id); return NextResponse.json({ ok: false, reason: e2.message.includes("duplicate") ? `Kòd "${code}" deja sou yon lòt kliyan.` : e2.message }); }
       return NextResponse.json({ ok: true, temp_password: pass, username: code });
@@ -155,7 +157,7 @@ export async function POST(req: Request) {
         if (ce || !nu?.user) return NextResponse.json({ ok: false, reason: "Kreyasyon kont echwe: " + (ce?.message ?? "") });
         authId = nu.user.id;
         await svc.from("clients").update({
-          auth_user_id: authId, username: code, must_change_password: false
+          auth_user_id: authId, username: code, must_change_password: true
         }).eq("id", clientId);
         return NextResponse.json({ ok: true, username: code, temp_password: pass });
       }
@@ -163,7 +165,7 @@ export async function POST(req: Request) {
         password: pass, email: clientEmail(code), email_confirm: true
       } as any);
       if (error) return NextResponse.json({ ok: false, reason: error.message });
-      await svc.from("clients").update({ must_change_password: false, username: code }).eq("id", clientId);
+      await svc.from("clients").update({ must_change_password: true, username: code }).eq("id", clientId);
       return NextResponse.json({ ok: true, temp_password: pass, username: code });
     }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
@@ -62,8 +63,10 @@ export async function POST(req: Request) {
     if (!token) return NextResponse.json({ ok: false, reason: "Token manquant." }, { status: 401 });
 
     const db = svc();
+    // Nou konpare HASH yo — jeton an klè pa janm estoke (wè migration.sql v11).
+    const tokenHash = createHash("sha256").update(token).digest("hex");
     const { data: tok } = await db.from("api_tokens")
-      .select("id, active").eq("token", token).maybeSingle();
+      .select("id, active").eq("token_hash", tokenHash).maybeSingle();
     if (!tok || !tok.active) return NextResponse.json({ ok: false, reason: "Token invalide." }, { status: 403 });
     await db.from("api_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", tok.id);
 
@@ -134,7 +137,9 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ ok: true, created, updated, ignored, total: items.length });
-  } catch (e: unknown) {
-    return NextResponse.json({ ok: false, reason: (e as Error)?.message ?? "Erreur serveur." }, { status: 500 });
+  } catch (e) {
+    // Pa gen detay entèn (non tab, erè Postgres, stack) ki soti bay kliyan an.
+    console.error("[ingest]", e);
+    return NextResponse.json({ ok: false, reason: "Erreur serveur." }, { status: 500 });
   }
 }

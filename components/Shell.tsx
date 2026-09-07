@@ -35,16 +35,22 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       const s = await getMyStaff();
       let r: AppRole | null = null;
       let st: Staff | null = null;
+      let mustChangePw = false;
       if (s) { st = s; r = s.role; }
       else {
         // 2) Sinon, èske se yon kliyan?
         const { data } = await supabase.auth.getUser();
         if (data.user) {
           const c = await getClientByAuthId(data.user.id);
-          if (c) r = "client";
+          if (c) { r = "client"; mustChangePw = !!c.must_change_password; }
         }
       }
       if (cancelled) return;
+      // Premye koneksyon kliyan: modpas tanporè a DWE ranplase anvan tout lòt bagay.
+      if (mustChangePw && path !== "/nouveau-mot-de-passe") {
+        router.replace("/nouveau-mot-de-passe");
+        return;
+      }
       const { allowed, redirect } = resolveAccess(path, r);
       if (!allowed && redirect) { router.replace(redirect); return; }
       setStaff(st); setRole(r); setReady(true);

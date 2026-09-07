@@ -949,7 +949,10 @@ export async function createInvoiceFromComputation(
     throw new Error(`Colis d'un autre client détecté (${mauvais[0].tracking_number}). Facture bloquée.`);
   }
 
-  const invoice_number = "SC-" + Date.now().toString().slice(-6);
+  // Sifiks o aza: anpeche kolizyon (2 fakti nan menm milisegond) epi
+  // anpeche yon moun devine nimewo fakti youn apre lòt.
+  const invRand = (globalThis.crypto ?? crypto).randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase();
+  const invoice_number = "SC-" + Date.now().toString().slice(-6) + "-" + invRand;
   const { data: inv, error } = await supabase.from("invoices").insert({
     invoice_number,
     customer_code: client.customer_code,
@@ -1403,6 +1406,8 @@ export async function registerClientProfile(p: {
   phone: string; whatsapp: string; country: string; city: string;
   address: string; id_type: string; id_number: string;
   ville_id?: string | null;   // lyen otomatik ak tarification (vil kliyan an chwazi a)
+  account_type?: string;      // "Personnel" | "Business" — sèvè a valide l
+  website?: string;           // honeypot — dwe rete vid
 }): Promise<void> {
   // SEKIRITE: dedoublonaj + ekriti fèt KOTE SÈVÈ (/api/register-client).
   // Anvan, sa te fèt nan navigatè a — sa te mande li TOUT tab kliyan an,
@@ -1422,6 +1427,25 @@ export async function getClientByAuthId(uid: string): Promise<Client | null> {
     .eq("auth_user_id", uid).maybeSingle();
   if (!data) return null;
   return { ...(data as Client), customer_code: (data as any).customer_code ?? "" };
+}
+
+/**
+ * Notifikasyon imèl kliyan (Reçu à Miami / Disponible).
+ * SEKIRITE: /api/notify verifye sesyon staff la — nou pase jeton an kounye a
+ * (anvan, wout la te louvri: nenpòt moun te ka fè sèvè a voye imèl).
+ */
+export async function notifyEmail(payload: {
+  type: "recu_miami" | "disponible";
+  client: { name: string; code: string; ville?: string; email?: string };
+  packages: Array<Record<string, unknown>>;
+}): Promise<{ ok?: boolean; skipped?: boolean; reason?: string; error?: string; id?: string }> {
+  const { data } = await supabase.auth.getSession();
+  const res = await fetch("/api/notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: data.session?.access_token ?? "", ...payload }),
+  });
+  return res.json().catch(() => ({ ok: false, reason: "Erreur réseau." }));
 }
 
 /** Admin: anrejistre kòd MC a -> kont lan vin Actif otomatikman */

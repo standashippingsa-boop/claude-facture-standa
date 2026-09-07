@@ -34,6 +34,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
   const [err, setErr] = useState<string | null>(null);
   const [villes, setVilles] = useState<PublicVille[]>([]);
   const [citiesState, setCitiesState] = useState<"loading" | "ready" | "unavailable">("loading");
+  const [website, setWebsite] = useState(""); // Honeypot : doit rester vide.
 
   useEffect(() => {
     const controller = new AbortController();
@@ -91,7 +92,8 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
         address: f.address.trim(),
         id_type: f.id_type,
         id_number: f.id_number.trim(),
-        ville_id: villeChoisie.id
+        ville_id: villeChoisie.id,
+        website
       });
       setDone(true);
     } catch (e: any) {
@@ -177,6 +179,11 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
             </label>
             <F name="id_number" label="Numéro de pièce d&apos;identité *" placeholder="Numéro du passeport ou de la carte" />
           </div>
+
+          <input
+            type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true"
+            value={website} onChange={(e) => setWebsite(e.target.value)}
+            className="absolute h-px w-px -m-px overflow-hidden opacity-0" />
 
           {err && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{err}</p>}
 

@@ -360,6 +360,30 @@ create index if not exists agences_ordre_idx on agences (ordre, nom);
 alter table agences enable row level security;
 drop policy if exists "anon all agences" on agences;
 
+-- ============================================================
+-- v12 — api_tokens : jetons Bearer de l'extension Chrome (/api/ingest*)
+-- ============================================================
+-- SEKIRITE: nou PA estoke jeton an klè. Se yon hash SHA-256 sèlman ki
+-- estoke (kolòn token_hash). /api/ingest hash jeton k ap antre a epi li
+-- konpare hash yo. Konsa yon fwit tab la pa bay okenn jeton rejwe.
+create table if not exists api_tokens (
+  id uuid primary key default gen_random_uuid(),
+  token_hash text unique not null,
+  label text not null default '',
+  active boolean not null default true,
+  last_used_at timestamptz,
+  created_at timestamptz not null default now()
+);
+-- Baz ki te gen ansyen kolòn `token` an klè: kite l pou konpatibilite,
+-- men /api/ingest sèvi ak token_hash sèlman kounye a.
+alter table api_tokens add column if not exists token_hash text;
+alter table api_tokens add column if not exists label text not null default '';
+alter table api_tokens add column if not exists last_used_at timestamptz;
+create unique index if not exists api_tokens_hash_uq on api_tokens (token_hash);
+
+alter table api_tokens enable row level security;
+drop policy if exists "anon all api_tokens" on api_tokens;
+
 -- ════════════════════════════════════════════════════════════════════
 -- ✅ SCHÉMA OK.  ÉTAPE SUIVANTE OBLIGATOIRE — SÉCURITÉ :
 --

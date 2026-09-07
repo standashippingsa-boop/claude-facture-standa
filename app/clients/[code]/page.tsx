@@ -8,7 +8,7 @@ import RefreshButton from "@/components/RefreshButton";
 import { usePackageSelection } from "@/lib/selection";
 import {
   commitPdfImport, detachPackagesFromInvoice, hardDeletePackage, getClient, getClientPackagesAndInvoices,
-  getInvoiceFlags, getSettings, getUsdRate, logAction, setPackagesStatus, updatePackagePrice
+  getInvoiceFlags, getSettings, getUsdRate, logAction, setPackagesStatus, updatePackagePrice, notifyEmail
 } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
@@ -169,20 +169,16 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       let mailInfo = "";
       if ((bulkStatus === "Reçu à Miami" || bulkStatus === "Disponible") && client?.email) {
         try {
-          const res = await fetch("/api/notify", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: bulkStatus === "Reçu à Miami" ? "recu_miami" : "disponible",
-              client: { name: [client.fullname, client.surname].filter(Boolean).join(" "),
-                code: client.customer_code, ville: client.ville?.name ?? "", email: client.email },
-              packages: targets.map((p) => ({
-                tracking_number: p.tracking_number, tracking_manual: p.tracking_manual,
-                content: p.content, weight: p.weight,
-                fournisseur: p.mcpack_data?.["Proveedor"] ?? ""
-              }))
-            })
+          const j = await notifyEmail({
+            type: bulkStatus === "Reçu à Miami" ? "recu_miami" : "disponible",
+            client: { name: [client.fullname, client.surname].filter(Boolean).join(" "),
+              code: client.customer_code, ville: client.ville?.name ?? "", email: client.email },
+            packages: targets.map((p) => ({
+              tracking_number: p.tracking_number, tracking_manual: p.tracking_manual,
+              content: p.content, weight: p.weight,
+              fournisseur: p.mcpack_data?.["Proveedor"] ?? ""
+            }))
           });
-          const j = await res.json();
           mailInfo = j.ok ? " Email voye." : ` ⚠️ Email: ${j.reason ?? j.error ?? "echwe"}`;
           if (!j.ok) {
             await logAction("Notification email échouée",

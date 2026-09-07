@@ -10,7 +10,7 @@ import { extractFacture, extractFromText } from "@/lib/factureimport";
 import {
   commitSync, getClients, getImports, getSettings,
   getVilles, logAction, analyzePhotoScans, applyPhotoValidations, logOcrScans, PhotoMatch,
-  matchFactureTrackings, FactureMatch, commitFactureDisponible, uploadScanPhoto, previewSync, SyncPreview, undoLastImport
+  matchFactureTrackings, FactureMatch, commitFactureDisponible, uploadScanPhoto, previewSync, SyncPreview, undoLastImport, notifyEmail
 } from "@/lib/db";
 import { Client, ImportLog, Ville } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
@@ -217,18 +217,14 @@ export default function SyncPage() {
         const c = clients.find((x) => x.customer_code === code);
         if (!c?.email) continue;
         try {
-          const res = await fetch("/api/notify", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "disponible",
-              client: { name: c.fullname || list[0].customerName, code, ville: c.ville?.name ?? "", email: c.email },
-              packages: list.map((f) => ({
-                tracking_number: f.guia, tracking_manual: f.tracking,
-                content: f.content, weight: f.pkgWeight
-              }))
-            })
+          const j = await notifyEmail({
+            type: "disponible",
+            client: { name: c.fullname || list[0].customerName || code, code, ville: c.ville?.name ?? "", email: c.email },
+            packages: list.map((f) => ({
+              tracking_number: f.guia, tracking_manual: f.tracking,
+              content: f.content, weight: f.pkgWeight
+            }))
           });
-          const j = await res.json();
           if (j.ok) sent++; else problems.push(`${code}: ${j.reason ?? j.error ?? "erè"}`);
         } catch (err: any) { problems.push(`${code}: ${err?.message ?? "erè rezo"}`); }
       }

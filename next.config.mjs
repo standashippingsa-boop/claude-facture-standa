@@ -12,7 +12,9 @@
  *
  * NÒT: nou PA mete yon CSP script-src konplè pou kounye a — sa mande yon
  * nonce sou chak script Next.js; yon move konfigirasyon ta bloke app la nèt.
- * frame-ancestors bay pwoteksyon clickjacking san okenn risk.
+ * Direktiv ki anba yo (frame-ancestors, object-src, base-uri, form-action)
+ * bay pwoteksyon reyèl (clickjacking, enjeksyon <base>/<object>, detounman
+ * fòm) SAN okenn risk pou script Next.js yo.
  */
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
@@ -20,7 +22,7 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), interest-cohort=()" },
-  { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+  { key: "Content-Security-Policy", value: "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" },
   // Isole navigatè a: yon lòt sit pa ka gade nan fenèt nou an
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "X-DNS-Prefetch-Control", value: "off" },

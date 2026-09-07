@@ -82,9 +82,9 @@ export default function ReviewSection() {
       const data = await response.json() as ReviewResponse;
       if (!response.ok) throw new Error(data.error || "Impossible de publier votre commentaire.");
       setName(""); setRating(0); setMessage(""); setWebsite("");
+      setStatus("ready");
       setNoticeKind("success");
-      setNotice("Merci, votre commentaire est maintenant visible sur le site.");
-      await loadReviews();
+      setNotice("Merci ! Votre commentaire sera publié après vérification par notre équipe.");
     } catch (error) {
       setStatus("ready");
       setNoticeKind("error");

@@ -49,6 +49,14 @@ export async function POST(req: Request) {
 
     // ---- Validasyon done (kote sèvè) ----
     const p = body.profile ?? {};
+
+    // Chan "honeypot" — envizib pou moun, bot yo ranpli l. Nou fè tankou
+    // tout mache byen san nou pa kreye anyen. (`website` pa nan lis ALLOWED
+    // pi ba a, donk li pa janm rive nan bazdone a.)
+    if (String(p.website ?? "").trim() || String(body.website ?? "").trim()) {
+      return NextResponse.json({ ok: true, created: true });
+    }
+
     const fullname = clean(p.fullname, 80);
     const surname = clean(p.surname, 80);
     const email = clean(p.email, 120).toLowerCase();
@@ -106,6 +114,9 @@ export async function POST(req: Request) {
     profile.ville_id = ville.id;
     profile.city = ville.name;
     if (email) profile.email = email;
+    // account_type: valè otorize sèlman — anpeche yon moun chwazi tarif "Business"
+    // pou tèt li nan navigatè a. Admin nan ka chanje l apre nan paj Clients la.
+    profile.account_type = p.account_type === "Business" ? "Business" : "Personnel";
 
     // ═══════════════════════════════════════════════════════════════════
     // DEDOUBLONAJ (V18) — YON KLIYAN KA GEN PLIZYÈ KONT SHIPPING.
@@ -139,15 +150,14 @@ export async function POST(req: Request) {
        || (!!memTel && (memTel as { auth_user_id?: string | null }).auth_user_id === authUserId));
 
     if ((memMail || memTel) && !propre) {
-      const quoi = memMail && memTel
-        ? "L'adresse e-mail et le numéro de téléphone sont"
-        : memMail ? "Cette adresse e-mail est" : "Ce numéro de téléphone est";
+      // Message UNIQUE — ne révèle pas lequel des deux champs correspond
+      // (sinon un attaquant énumère les e-mails / téléphones enregistrés).
       return NextResponse.json({
         ok: false,
-        reason: `${quoi} déjà utilisé par un compte existant. Pour ouvrir un deuxième compte, `
-              + `utilisez une autre adresse e-mail et un autre numéro de téléphone — c'est par là `
-              + `que nous envoyons vos notifications, factures et mots de passe. `
-              + `Sinon, connectez-vous à votre compte ou contactez STANDA COMMERCIAL.`
+        reason: `Ces informations correspondent déjà à un compte existant. Pour ouvrir un `
+              + `deuxième compte, utilisez une autre adresse e-mail et un autre numéro de `
+              + `téléphone — c'est par là que nous envoyons vos notifications, factures et `
+              + `mots de passe. Sinon, connectez-vous à votre compte ou contactez STANDA COMMERCIAL.`
       }, { status: 409 });
     }
 

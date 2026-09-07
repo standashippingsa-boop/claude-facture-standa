@@ -10,7 +10,7 @@ import { usePackageSelection } from "@/lib/selection";
 import {
   ClientTarifInfo, archivePackage, unarchivePackage, getClient, getClientTarifMap,
   getPackages, getPackagesPage, getAllPackagesMatching, detachPackagesFromInvoice, hardDeletePackage, getSettings, getUsdRate,
-  saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice
+  saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice, notifyEmail
 } from "@/lib/db";
 import { computePrice, round2 } from "@/lib/pricing";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
@@ -294,22 +294,17 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
           const info = tarifMap.get(code);
           if (!info?.email) { noEmail++; continue; }
           try {
-            const res = await fetch("/api/notify", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                type,
-                client: { name: info.fullname || list[0].customer_name, code, ville: info.ville?.name ?? "", email: info.email },
-                packages: list.map((p) => ({
-                  tracking_number: p.tracking_number,
-                  tracking_manual: p.tracking_manual,
-                  content: p.content,
-                  weight: p.weight,
-                  fournisseur: p.mcpack_data?.["Proveedor"] ?? p.mcpack_data?.["proveedor"] ?? ""
-                }))
-              })
+            const j = await notifyEmail({
+              type,
+              client: { name: info.fullname || list[0].customer_name, code, ville: info.ville?.name ?? "", email: info.email },
+              packages: list.map((p) => ({
+                tracking_number: p.tracking_number,
+                tracking_manual: p.tracking_manual,
+                content: p.content,
+                weight: p.weight,
+                fournisseur: p.mcpack_data?.["Proveedor"] ?? p.mcpack_data?.["proveedor"] ?? ""
+              }))
             });
-            const j = await res.json();
             if (j.ok) sent++;
             else problems.push(`${code}: ${j.reason ?? j.error ?? "erè enkoni"}`);
           } catch (err: any) { problems.push(`${code}: ${err?.message ?? "erè rezo"}`); }
