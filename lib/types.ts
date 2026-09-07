@@ -83,6 +83,9 @@ export function shouldPromoteOnConduce(current?: string | null, invoiceId?: stri
 /** Fakti MCPACK la separe ak fakti kliyan yo: se peman konpayi a bay MCPACK. */
 export type ConducePaymentStatus = "Non payé" | "Payé";
 
+/** Eta yon fakti MCPACK entèn — li pa gen okenn lyen ak fakti kliyan yo. */
+export type McpackInvoiceStatus = "Facturée" | "Payée";
+
 export interface Conduce {
   id: string;
   conduce_number: string;
@@ -97,6 +100,32 @@ export interface Conduce {
   imported_at?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Yon dokiman MCPACK analize pa STANDA. Dokiman an gen plizyè Conduce;
+ * chak liy nan `conduces` montre konbyen colis fakti a jwenn pou Conduce sa a.
+ */
+export interface McpackInvoiceConduce {
+  invoice_id: string;
+  conduce_id: string;
+  package_count: number;
+  conduce?: Conduce;
+}
+
+export interface McpackInvoice {
+  id: string;
+  file_name: string;
+  extracted_tracking_count: number;
+  matched_package_count: number;
+  unmatched_tracking_count: number;
+  unlinked_package_count: number;
+  status: McpackInvoiceStatus;
+  created_by: string;
+  created_at: string;
+  paid_by?: string | null;
+  paid_at?: string | null;
+  conduces: McpackInvoiceConduce[];
 }
 
 export interface Pkg {

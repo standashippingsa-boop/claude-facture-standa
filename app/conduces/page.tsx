@@ -30,6 +30,7 @@ import {
 import Loader from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
 import ConducePaymentControl from "@/components/ConducePaymentControl";
+import McpackInvoiceWorkspace from "@/components/McpackInvoiceWorkspace";
 import { useRole } from "@/lib/authx";
 import { createPendingConduces, deleteConduce, deriveConduceStatus, getConduces, getConduceStats, setConduceStatus } from "@/lib/db";
 import { PROFIT_PER_LB, estimateProfit } from "@/lib/pricing";
@@ -256,6 +257,9 @@ export default function ConducesPage() {
           );})}
         </div>
       )}
+
+      {/* Fakti MCPACK yo pa menm bagay ak fakti kliyan yo. */}
+      {!jour && <McpackInvoiceWorkspace staffName={staffName} onPaymentRecorded={load} />}
 
       {/* ══ Onglè ══ */}
       {!jour && (

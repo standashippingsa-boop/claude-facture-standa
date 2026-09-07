@@ -2,7 +2,8 @@ import { supabase } from "./supabase";
 import { cleanTracking, isGuia, normalizeMcCode } from "./utils";
 import { validateUpload, storagePath } from "./upload";
 import {
-  AccountType, Client, Conduce, DashboardStats, ImportLog, Invoice, InvoiceItem, Pkg, Ville
+  AccountType, Client, Conduce, DashboardStats, ImportLog, Invoice, InvoiceItem,
+  McpackInvoice, McpackInvoiceConduce, Pkg, Ville
 , Retrait, RetraitStatus, CONDUCE_ARRIVAL_STATUS, shouldPromoteOnConduce } from "./types";
 import { McpackRow } from "./xlsx";
 import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS } from "./pricing";
@@ -341,6 +342,225 @@ export async function setConducePaymentStatus(
     `Conduce ${conduceId} — ${paymentStatus}`,
     "", ""
   );
+  // Si Conduce a te soti nan yon fakti MCPACK, mete eta fakti a ann amoni.
+  // Nou pa kite yon ansyen baz (ki poko resevwa migration an) bloke peman nòmal la.
+  await syncMcpackInvoicePaymentState(conduceId, who).catch(() => undefined);
+}
+
+export interface McpackInvoiceConduceCandidate {
+  conduce: Conduce;
+  packageCount: number;
+}
+
+export interface McpackInvoiceAnalysis {
+  extractedTrackingCount: number;
+  matchedPackageCount: number;
+  unmatchedTrackingCount: number;
+  unlinkedPackageCount: number;
+  conduces: McpackInvoiceConduceCandidate[];
+}
+
+/**
+ * Li tracking yo ki soti nan yon fakti MCPACK epi li retounen SÈLMAN Conduce
+ * ki konsène yo. Fonksyon an se lekti sèlman: pa gen statu ni peman ki chanje
+ * avan staff la klike sou bouton « Facturer ».
+ *
+ * Nou konpare ak Tracking Number AK Guía paske kèk fakti MCPACK sèvi ak youn,
+ * lòt yo sèvi ak lòt la. Yon koli konte yon sèl fwa menm si PDF la repete li.
+ */
+export async function analyzeMcpackInvoiceTrackings(
+  items: { value: string }[]
+): Promise<McpackInvoiceAnalysis> {
+  const trackings = Array.from(new Set(items
+    .map((item) => cleanTracking(item.value))
+    .filter(Boolean)));
+  if (!trackings.length) {
+    return { extractedTrackingCount: 0, matchedPackageCount: 0, unmatchedTrackingCount: 0, unlinkedPackageCount: 0, conduces: [] };
+  }
+
+  const { data: rows, error } = await supabase.from("packages")
+    .select("id, tracking_number, tracking_manual, conduce_id, archived");
+  if (error) throw error;
+
+  const byTracking = new Map<string, any>();
+  for (const pkg of rows ?? []) {
+    if (pkg.archived) continue;
+    for (const raw of [pkg.tracking_number, pkg.tracking_manual]) {
+      const key = cleanTracking(raw);
+      if (key) byTracking.set(key, pkg);
+    }
+  }
+
+  const matchedPackages = new Set<string>();
+  const byConduce = new Map<string, number>();
+  let unmatchedTrackingCount = 0;
+  let unlinkedPackageCount = 0;
+
+  for (const tracking of trackings) {
+    const pkg = byTracking.get(tracking);
+    if (!pkg) { unmatchedTrackingCount++; continue; }
+    if (matchedPackages.has(pkg.id)) continue;
+    matchedPackages.add(pkg.id);
+    if (!pkg.conduce_id) { unlinkedPackageCount++; continue; }
+    byConduce.set(pkg.conduce_id, (byConduce.get(pkg.conduce_id) ?? 0) + 1);
+  }
+
+  const conduceIds = Array.from(byConduce.keys());
+  const { data: conduces, error: conduceError } = conduceIds.length
+    ? await supabase.from("conduces").select("*").in("id", conduceIds)
+    : { data: [], error: null };
+  if (conduceError) throw conduceError;
+  const conduceById = new Map((conduces ?? []).map((conduce: any) => [conduce.id, conduce as Conduce]));
+
+  const result: McpackInvoiceConduceCandidate[] = [];
+  for (const [conduceId, packageCount] of byConduce) {
+    const conduce = conduceById.get(conduceId);
+    if (!conduce) { unlinkedPackageCount += packageCount; continue; }
+    result.push({ conduce, packageCount });
+  }
+  result.sort((a, b) => a.conduce.conduce_number.localeCompare(b.conduce.conduce_number, undefined, { numeric: true }));
+
+  return {
+    extractedTrackingCount: trackings.length,
+    matchedPackageCount: matchedPackages.size,
+    unmatchedTrackingCount,
+    unlinkedPackageCount,
+    conduces: result,
+  };
+}
+
+/** Lis fakti MCPACK yo ansanm ak Conduce ki ladan yo — staff only via RLS. */
+export async function getMcpackInvoices(): Promise<McpackInvoice[]> {
+  const { data: invoices, error } = await supabase.from("mcpack_invoices")
+    .select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  if (!invoices?.length) return [];
+
+  const invoiceIds = invoices.map((invoice: any) => invoice.id);
+  const { data: links, error: linksError } = await supabase.from("mcpack_invoice_conduces")
+    .select("invoice_id, conduce_id, package_count").in("invoice_id", invoiceIds);
+  if (linksError) throw linksError;
+
+  const conduceIds = Array.from(new Set((links ?? []).map((link: any) => link.conduce_id)));
+  const { data: conduces, error: conducesError } = conduceIds.length
+    ? await supabase.from("conduces").select("*").in("id", conduceIds)
+    : { data: [], error: null };
+  if (conducesError) throw conducesError;
+  const conduceById = new Map((conduces ?? []).map((conduce: any) => [conduce.id, conduce as Conduce]));
+
+  const linksByInvoice = new Map<string, McpackInvoiceConduce[]>();
+  for (const link of links ?? []) {
+    const line: McpackInvoiceConduce = {
+      invoice_id: link.invoice_id,
+      conduce_id: link.conduce_id,
+      package_count: Number(link.package_count) || 0,
+      conduce: conduceById.get(link.conduce_id),
+    };
+    linksByInvoice.set(link.invoice_id, [...(linksByInvoice.get(link.invoice_id) ?? []), line]);
+  }
+
+  return invoices.map((invoice: any) => ({
+    ...invoice,
+    conduces: (linksByInvoice.get(invoice.id) ?? [])
+      .sort((a, b) => String(a.conduce?.conduce_number ?? "").localeCompare(String(b.conduce?.conduce_number ?? ""), undefined, { numeric: true })),
+  })) as McpackInvoice[];
+}
+
+/**
+ * Konfime lis Conduce yo apre staff te verifye rezilta PDF a. Yon Conduce pa
+ * ka antre de fwa nan de fakti MCPACK — constraint SQL la se dènye gad la.
+ */
+export async function createMcpackInvoice(
+  input: McpackInvoiceAnalysis & { fileName: string }, who = ""
+): Promise<McpackInvoice> {
+  if (!input.conduces.length) throw new Error("Aucune Conduce n'a été détectée dans cette facture MCPACK.");
+  const conduceIds = input.conduces.map((line) => line.conduce.id);
+  const { data: existing, error: existingError } = await supabase.from("mcpack_invoice_conduces")
+    .select("conduce_id").in("conduce_id", conduceIds);
+  if (existingError) throw existingError;
+  if (existing?.length) {
+    const existingIds = new Set(existing.map((line: any) => line.conduce_id));
+    const numbers = input.conduces.filter((line) => existingIds.has(line.conduce.id))
+      .map((line) => line.conduce.conduce_number).join(", ");
+    throw new Error(`Cette facture contient déjà une Conduce enregistrée : ${numbers}. Aucun doublon n'a été créé.`);
+  }
+
+  const { data: invoice, error } = await supabase.from("mcpack_invoices").insert({
+    file_name: input.fileName.slice(0, 180),
+    extracted_tracking_count: input.extractedTrackingCount,
+    matched_package_count: input.matchedPackageCount,
+    unmatched_tracking_count: input.unmatchedTrackingCount,
+    unlinked_package_count: input.unlinkedPackageCount,
+    status: "Facturée",
+    created_by: who,
+  }).select("*").single();
+  if (error) throw error;
+
+  const { error: linksError } = await supabase.from("mcpack_invoice_conduces").insert(
+    input.conduces.map((line) => ({
+      invoice_id: invoice.id,
+      conduce_id: line.conduce.id,
+      package_count: line.packageCount,
+    }))
+  );
+  if (linksError) {
+    // Rollback konpansatwa. Policy staff la pèmèt netwaye dosye ki fèk kreye a.
+    await supabase.from("mcpack_invoices").delete().eq("id", invoice.id);
+    if ((linksError as any).code === "23505") {
+      throw new Error("Une des Conduces vient déjà d'être ajoutée à une facture MCPACK. Actualisez la page.");
+    }
+    throw linksError;
+  }
+
+  await logAction("Facture MCPACK enregistrée",
+    `${input.fileName} — ${input.conduces.length} Conduce(s), ${input.matchedPackageCount} colis associés`, "", "");
+  return {
+    ...(invoice as Omit<McpackInvoice, "conduces">),
+    conduces: input.conduces.map((line) => ({
+      invoice_id: invoice.id,
+      conduce_id: line.conduce.id,
+      package_count: line.packageCount,
+      conduce: line.conduce,
+    })),
+  };
+}
+
+/** Peye yon fakti MCPACK = make TOUT Conduce ki sou li kòm "Payé" ansanm. */
+export async function payMcpackInvoice(invoice: McpackInvoice, who = ""): Promise<void> {
+  const conduceIds = invoice.conduces.map((line) => line.conduce_id);
+  if (!conduceIds.length) throw new Error("Cette facture MCPACK ne contient aucune Conduce.");
+  const now = new Date().toISOString();
+  const { error: conducesError } = await supabase.from("conduces").update({
+    payment_status: "Payé", payment_paid_at: now, payment_paid_by: who,
+  }).in("id", conduceIds);
+  if (conducesError) throw conducesError;
+
+  const { error: invoiceError } = await supabase.from("mcpack_invoices").update({
+    status: "Payée", paid_at: now, paid_by: who,
+  }).eq("id", invoice.id);
+  if (invoiceError) throw invoiceError;
+  await logAction("Facture MCPACK payée",
+    `${invoice.file_name} — ${conduceIds.length} Conduce(s) réglée(s)`, "", "");
+}
+
+/** Met eta yon fakti MCPACK ajou si peman yon sèl Conduce chanje sou fich li. */
+async function syncMcpackInvoicePaymentState(conduceId: string, who = ""): Promise<void> {
+  const { data: links, error } = await supabase.from("mcpack_invoice_conduces")
+    .select("invoice_id").eq("conduce_id", conduceId);
+  if (error || !links?.length) return;
+  for (const link of links) {
+    const { data: invoiceLinks } = await supabase.from("mcpack_invoice_conduces")
+      .select("conduce_id").eq("invoice_id", link.invoice_id);
+    const ids = (invoiceLinks ?? []).map((row: any) => row.conduce_id);
+    if (!ids.length) continue;
+    const { data: conduces } = await supabase.from("conduces")
+      .select("payment_status").in("id", ids);
+    const allPaid = (conduces ?? []).length === ids.length && (conduces ?? []).every((row: any) => row.payment_status === "Payé");
+    await supabase.from("mcpack_invoices").update(allPaid
+      ? { status: "Payée", paid_at: new Date().toISOString(), paid_by: who }
+      : { status: "Facturée", paid_at: null, paid_by: null })
+      .eq("id", link.invoice_id);
+  }
 }
 
 /**

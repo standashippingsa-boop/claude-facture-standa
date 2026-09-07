@@ -602,6 +602,21 @@ select public._hard_policy('conduces', 'conduces_insert_staff', 'insert', 'authe
 select public._hard_policy('conduces', 'conduces_update_staff', 'update', 'authenticated', 'public.is_staff()', 'public.is_staff()');
 select public._hard_policy('conduces', 'conduces_delete_admin', 'delete', 'authenticated', 'public.is_admin()', null);
 
+-- FACTURES MCPACK — registre logistique interne; aucun accès client/public.
+do $$ begin execute 'drop policy if exists "anon all mcpack_invoices" on public.mcpack_invoices';
+exception when undefined_table then null; end $$;
+select public._hard_policy('mcpack_invoices', 'mcpack_invoices_select_staff', 'select', 'authenticated', 'public.is_staff()', null);
+select public._hard_policy('mcpack_invoices', 'mcpack_invoices_insert_staff', 'insert', 'authenticated', null, 'public.is_staff()');
+select public._hard_policy('mcpack_invoices', 'mcpack_invoices_update_staff', 'update', 'authenticated', 'public.is_staff()', 'public.is_staff()');
+select public._hard_policy('mcpack_invoices', 'mcpack_invoices_delete_staff', 'delete', 'authenticated', 'public.is_staff()', null);
+
+do $$ begin execute 'drop policy if exists "anon all mcpack_invoice_conduces" on public.mcpack_invoice_conduces';
+exception when undefined_table then null; end $$;
+select public._hard_policy('mcpack_invoice_conduces', 'mcpack_invoice_conduces_select_staff', 'select', 'authenticated', 'public.is_staff()', null);
+select public._hard_policy('mcpack_invoice_conduces', 'mcpack_invoice_conduces_insert_staff', 'insert', 'authenticated', null, 'public.is_staff()');
+select public._hard_policy('mcpack_invoice_conduces', 'mcpack_invoice_conduces_update_staff', 'update', 'authenticated', 'public.is_staff()', 'public.is_staff()');
+select public._hard_policy('mcpack_invoice_conduces', 'mcpack_invoice_conduces_delete_staff', 'delete', 'authenticated', 'public.is_staff()', null);
+
 -- JOURNAL — piste d'audit. Lecture staff. Écriture : uniquement via la route
 -- serveur /api/audit-log (clé service, qui contourne RLS) -> aucune politique
 -- INSERT pour anon/authenticated.
