@@ -23,6 +23,16 @@ export interface FactureTracking {
   raw?: string;             // tèks orijinal (dyagnostik)
 }
 
+/**
+ * pdf.js transfere ArrayBuffer li resevwa a bay worker li. Apre transfè sa a,
+ * buffer orijinal la vin "detached" epi li pa ka relu. Yon fakti kapab bezwen
+ * pase nan de parser (komèsyal, apre sa ansyen fòma), kidonk chak parser dwe
+ * resevwa pwòp kopi pa li.
+ */
+function copyPdfBuffer(buf: ArrayBuffer): ArrayBuffer {
+  return buf.slice(0);
+}
+
 /** WR = Tracking ID (Guía), PA yon Tracking Number transpòtè — nou ekskli yo isit. */
 const reGuia = /^WR\d{6,}$/i;
 
@@ -48,8 +58,11 @@ export async function extractFromPdf(buf: ArrayBuffer): Promise<FactureTracking[
   // Priorite bay vrè "FAKTI KOMÈSYAL" MCPACK la. Fòma sa a gen Nimewo
   // Tracking, Kontni, Pwa ak USD, men souvan pa gen Guía ni Conduce ranpli.
   // Si se yon export MCPACK òdinè, nou retounen sou parser istorik la.
-  const commercialRows = await parseMcpackCommercialInvoicePdf(buf);
-  const rows = commercialRows.length ? commercialRows : await parseMcpackPdf(buf);
+  // Pa pase menm ArrayBuffer la de fwa: pdf.js ka detache li pandan premye
+  // lekti a. Sa te lakòz "Cannot perform Construct on a detached ArrayBuffer"
+  // sou fakti ki bezwen fallback nan lòt fòma MCPACK la.
+  const commercialRows = await parseMcpackCommercialInvoicePdf(copyPdfBuffer(buf));
+  const rows = commercialRows.length ? commercialRows : await parseMcpackPdf(copyPdfBuffer(buf));
   const out: FactureTracking[] = [];
   const seen = new Set<string>();
   for (const r of rows) {
@@ -120,7 +133,7 @@ export async function extractFirstFactureTracking(file: File): Promise<FactureTr
   const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
   if (isPdf) {
     const buf = await file.arrayBuffer();
-    const first = await extractFirstMcpackCommercialInvoiceTracking(buf);
+    const first = await extractFirstMcpackCommercialInvoiceTracking(copyPdfBuffer(buf));
     if (first) return { value: cleanTracking(first.tracking_number), weight: first.weight || undefined, source: "pdf", raw: first.tracking_number };
     // Fallback pou yon PDF MCPACK ansyen ki ta gen lòt antèt/kolòn.
     return (await extractFromPdf(buf))[0] ?? null;
