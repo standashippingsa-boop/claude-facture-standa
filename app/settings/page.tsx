@@ -444,6 +444,8 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
   const [f, setF] = useState({ nom: "", prenom: "", email: "", phone: "", id_number: "",
     username: "", password: "", role: "employe" as "employe" | "admin" });
   const [photo, setPhoto] = useState<File | null>(null);
+  const [resetting, setResetting] = useState<Staff | null>(null);
+  const [newPassword, setNewPassword] = useState("");
 
   const load = () => supabase.from("staff").select("*").order("created_at")
     .then(({ data }: { data: Staff[] | null }) => setList((data ?? []) as Staff[]));
@@ -470,7 +472,8 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
       }
       const j = await adminApi("create_staff", { ...f, id_photo_url });
       if (!j.ok) { onNotice("Erè: " + j.reason); return; }
-      onNotice(`${f.role === "admin" ? "Administrateur" : "Employé"} "${f.username}" kreye — li ka konekte sou /admin-login.`);
+      const loginPath = f.role === "admin" ? "/admin-login" : "/employe";
+      onNotice(`${f.role === "admin" ? "Administrateur" : "Employé"} "${f.username}" kreye — li ka konekte sou ${loginPath}.`);
       setShow(false);
       setF({ nom: "", prenom: "", email: "", phone: "", id_number: "", username: "", password: "", role: "employe" });
       setPhoto(null);
@@ -483,6 +486,20 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
     const j = await adminApi("delete_staff", { staff_id: s.id });
     if (!j.ok) { onNotice("Erè: " + j.reason); return; }
     load();
+  };
+
+  const resetPassword = async () => {
+    if (!resetting) return;
+    if (newPassword.length < 6) {
+      onNotice("Mot de passe a dwe gen omwen 6 karaktè."); return;
+    }
+    setBusy(true);
+    try {
+      const j = await adminApi("reset_staff_password", { staff_id: resetting.id, password: newPassword });
+      if (!j.ok) { onNotice("Erè: " + j.reason); return; }
+      onNotice(`Modpas pou "${resetting.username}" reinitialize. Li ka konekte sou ${resetting.role === "admin" ? "/admin-login" : "/employe"}.`);
+      setResetting(null); setNewPassword("");
+    } finally { setBusy(false); }
   };
 
   return (
@@ -509,7 +526,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
               <input type="file" accept="image/*,.pdf" className="input mt-1 !py-1.5"
                 onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
             <label className="block"><span className="text-xs font-medium text-slate-500">Nom d&apos;utilisateur *</span>
-              <input className="input mt-1" value={f.username} onChange={set("username")} /></label>
+              <input className="input mt-1" value={f.username} onChange={set("username")} placeholder="Ex. jean.baptiste" autoCapitalize="none" /></label>
             <label className="block"><span className="text-xs font-medium text-slate-500">Mot de passe * (6+)</span>
               <input type="password" className="input mt-1" value={f.password} onChange={set("password")} /></label>
             <label className="block"><span className="text-xs font-medium text-slate-500">Rôle</span>
@@ -521,6 +538,23 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
           <div className="flex gap-3">
             <button className="btn" onClick={save} disabled={busy}>{busy ? "Ap kreye..." : "Enregistrer"}</button>
             <button className="btn btn-ghost" onClick={() => setShow(false)}>Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {resetting && (
+        <div className="card p-4 border border-amber-200 bg-amber-50/50 space-y-3">
+          <div>
+            <p className="text-sm font-bold text-navy">Réinitialiser le mot de passe</p>
+            <p className="text-xs text-mute mt-0.5">Nouveau mot de passe pour <b>{resetting.prenom} {resetting.nom}</b> ({resetting.username}).</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input type="password" className="input flex-1" value={newPassword} autoComplete="new-password"
+              placeholder="Nouveau mot de passe (6+ caractères)" onChange={(event) => setNewPassword(event.target.value)} />
+            <button className="btn" onClick={resetPassword} disabled={busy || newPassword.length < 6}>
+              {busy ? "Mise à jour…" : "Enregistrer le mot de passe"}
+            </button>
+            <button className="btn btn-ghost" onClick={() => { setResetting(null); setNewPassword(""); }} disabled={busy}>Annuler</button>
           </div>
         </div>
       )}
@@ -539,7 +573,10 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
                   {s.role === "admin" ? "Administrateur" : "Employé"}</span></td>
                 <td className="td">{s.phone}</td>
                 <td className="td text-xs">{s.id_number}{s.id_photo_url && <> · <a className="text-navy underline" href={s.id_photo_url} target="_blank">foto</a></>}</td>
-                <td className="td text-right">
+                <td className="td text-right space-x-2">
+                  <button className="text-navy hover:text-accent text-xs font-semibold" onClick={() => { setResetting(s); setNewPassword(""); }}>
+                    Réinitialiser
+                  </button>
                   <button className="text-slate-400 hover:text-red-600 text-xs" onClick={() => remove(s)}>✕</button>
                 </td>
               </tr>

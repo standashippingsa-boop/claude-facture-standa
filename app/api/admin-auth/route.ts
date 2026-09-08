@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 
 /**
  * API Authentication (kouri sou sèvè Vercel — kle sèvis la pa janm rive nan navigatè).
- * Aksyon: bootstrap (premye admin), create_staff, delete_staff,
+ * Aksyon: bootstrap (premye admin), create_staff, reset_staff_password, delete_staff,
  *         activate_client (kòd MC -> kont + modpas tanporè), reset_client_password.
  */
 const SETUP_SECRET = process.env.SETUP_SECRET || "";
@@ -104,6 +104,23 @@ export async function POST(req: Request) {
         id_number: String(body.id_number ?? ""), id_photo_url: String(body.id_photo_url ?? "")
       });
       if (e2) { await svc.auth.admin.deleteUser(u.user.id); return NextResponse.json({ ok: false, reason: e2.message }); }
+      return NextResponse.json({ ok: true });
+    }
+
+    // ---------- reset_staff_password (admin sèlman) ----------
+    // Yon admin ka re-bay yon modpas pou yon anplwaye san efase kont li,
+    // konsa istorik travay ak referans kont lan rete entak.
+    if (action === "reset_staff_password") {
+      if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
+      const staffId = String(body.staff_id ?? "");
+      const password = String(body.password ?? "");
+      if (!staffId || password.length < 6) {
+        return NextResponse.json({ ok: false, reason: "Mot de passe (6+ karaktè) obligatwa." });
+      }
+      const { data: member } = await svc.from("staff").select("auth_user_id").eq("id", staffId).maybeSingle();
+      if (!member?.auth_user_id) return NextResponse.json({ ok: false, reason: "Compte employé introuvable." });
+      const { error } = await svc.auth.admin.updateUserById(member.auth_user_id, { password });
+      if (error) return NextResponse.json({ ok: false, reason: error.message });
       return NextResponse.json({ ok: true });
     }
 
