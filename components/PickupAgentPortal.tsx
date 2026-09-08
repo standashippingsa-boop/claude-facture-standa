@@ -7,6 +7,7 @@ import {
   LogOut, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { openSecureDocument } from "@/lib/secure-document";
 
 type ZonePackage = {
   id: string; tracking_number: string; tracking_manual: string; customer_code: string;
@@ -16,11 +17,11 @@ type ZonePackage = {
 type ZoneInvoice = {
   id: string; invoice_number: string; customer_code: string; package_count: number;
   total_usd: number; total_htg: number; payment_status: string;
-  payment_paid_usd: number; payment_paid_htg: number; pdf_url: string; created_at: string;
+  payment_paid_usd: number; payment_paid_htg: number; has_pdf: boolean; created_at: string;
 };
 type ZoneBon = {
   id: string; bon_number: string; destination: string; package_count: number;
-  created_at: string; has_pdf: boolean; pdf_url: string;
+  created_at: string; has_pdf: boolean;
 };
 type PortalData = {
   agent: { name: string; username: string }; zone: { name: string };
@@ -124,6 +125,11 @@ export default function PickupAgentPortal() {
     finally { setPaymentBusy(false); }
   };
 
+  const openDocument = async (kind: "invoice" | "bon-remise", id: string) => {
+    try { await openSecureDocument(kind, id); }
+    catch (error) { setMessage({ type: "error", text: error instanceof Error ? error.message : "PDF indisponible." }); }
+  };
+
   const logout = async () => { await supabase.auth.signOut(); router.replace("/point-retrait"); };
   const paidInvoices = (data?.invoices ?? []).filter((invoice) => invoice.payment_status === "Payé").length;
 
@@ -152,8 +158,8 @@ export default function PickupAgentPortal() {
 
           {message && <Notice message={message} close={() => setMessage(null)} />}
           {(tab === "arrivals" || tab === "ready" || tab === "delivered") && <PackagesView groups={packageGroups} tab={tab} expanded={expanded} onExpand={setExpanded} releasing={releasing} onRelease={release} />}
-          {tab === "invoices" && <InvoicesView invoices={filteredInvoices} draft={paymentDraft} setDraft={setPaymentDraft} busy={paymentBusy} onPay={() => void recordPayment()} />}
-          {tab === "bons" && <BonsView bons={filteredBons} />}
+          {tab === "invoices" && <InvoicesView invoices={filteredInvoices} draft={paymentDraft} setDraft={setPaymentDraft} busy={paymentBusy} onPay={() => void recordPayment()} onOpenPdf={(id) => void openDocument("invoice", id)} />}
+          {tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
         </section>
       </>}
     </div>
@@ -180,14 +186,14 @@ function PackageCard({ item, ready, delivered, releasing, onRelease }: { item: Z
   return <div className="rounded-xl border border-slate-200 bg-white p-3"><div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Tracking</p><p className="break-all text-sm font-extrabold text-[#0a2b61]">{ref}</p></div><StatusChip status={item.status} /></div>{item.content && <p className="mt-2 text-sm text-slate-600"><span className="font-semibold text-slate-800">Marchandise:</span> {item.content}</p>}<div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500"><span className="rounded-lg bg-slate-100 px-2 py-1 font-semibold">Qté: {item.quantity}</span>{item.received_at && <span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">Reçu Miami: {dateText(item.received_at)}</span>}{item.invoice_number && <span className="rounded-lg bg-indigo-50 px-2 py-1 font-semibold text-indigo-700">{item.invoice_number} · {item.invoice_payment_status}</span>}</div>{ready && <button disabled={!canRelease || releasing} onClick={onRelease} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white hover:bg-[#0f448f] disabled:cursor-not-allowed disabled:bg-slate-300"><CheckCircle2 size={18} />{releasing ? "Confirmation…" : canRelease ? "Confirmer la remise" : "Paiement complet requis"}</button>}{delivered && <p className="mt-3 flex items-center gap-2 text-sm font-bold text-emerald-700"><CheckCircle2 size={17} />Remis au client</p>}</div>;
 }
 
-function InvoicesView({ invoices, draft, setDraft, busy, onPay }: { invoices: ZoneInvoice[]; draft: { invoiceId: string; amount: string; currency: "USD" | "HTG" }; setDraft: (value: { invoiceId: string; amount: string; currency: "USD" | "HTG" }) => void; busy: boolean; onPay: () => void }) {
+function InvoicesView({ invoices, draft, setDraft, busy, onPay, onOpenPdf }: { invoices: ZoneInvoice[]; draft: { invoiceId: string; amount: string; currency: "USD" | "HTG" }; setDraft: (value: { invoiceId: string; amount: string; currency: "USD" | "HTG" }) => void; busy: boolean; onPay: () => void; onOpenPdf: (id: string) => void }) {
   if (!invoices.length) return <Empty text="Pa gen fakti ki koresponn ak rechèch la." />;
-  return <div className="grid gap-4 lg:grid-cols-2">{invoices.map((invoice) => { const open = draft.invoiceId === invoice.id; const remainingUsd = Math.max(0, invoice.total_usd - invoice.payment_paid_usd); return <article key={invoice.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-lg font-black text-[#0a2b61]">{invoice.invoice_number}</p><p className="text-sm font-semibold text-slate-600">{invoice.customer_code} · {invoice.package_count} colis</p><p className="mt-1 text-xs text-slate-400">Créée le {dateText(invoice.created_at)}</p></div><PaymentChip status={invoice.payment_status} /></div><div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-sm"><span>Total</span><b className="text-right text-[#0a2b61]">{fmtUsd(invoice.total_usd)}</b><span>Équivalent</span><b className="text-right text-[#0a2b61]">{fmtHtg(invoice.total_htg)}</b><span>Reçu</span><b className="text-right text-emerald-700">{fmtUsd(invoice.payment_paid_usd)} · {fmtHtg(invoice.payment_paid_htg)}</b></div><div className="mt-3 flex flex-wrap gap-2">{invoice.pdf_url && <a href={invoice.pdf_url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-bold text-[#0b3270] hover:bg-slate-50"><FileText size={16} />Voir le PDF</a>}{invoice.payment_status !== "Payé" && <button onClick={() => setDraft(open ? { invoiceId: "", amount: "", currency: "HTG" } : { invoiceId: invoice.id, amount: "", currency: "HTG" })} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-bold text-white hover:bg-[#ce4e0d]"><Banknote size={16} />Enregistrer paiement</button>}</div>{open && <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50 p-3"><p className="mb-2 text-sm font-bold text-[#9f390b]">Reste à payer: {fmtUsd(remainingUsd)}</p><div className="grid grid-cols-[1fr_90px] gap-2"><input value={draft.amount} onChange={(event) => setDraft({ ...draft, amount: event.target.value })} type="number" min="0.01" step="0.01" className="input" placeholder="Montant reçu" autoFocus /><select value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value as "USD" | "HTG" })} className="input"><option value="HTG">Gourdes</option><option value="USD">Dollars</option></select></div><button disabled={busy} onClick={onPay} className="mt-2 min-h-11 w-full rounded-xl bg-[#0b3270] text-sm font-bold text-white disabled:opacity-60">{busy ? "Enregistrement…" : "Confirmer le paiement"}</button></div>}</article>; })}</div>;
+  return <div className="grid gap-4 lg:grid-cols-2">{invoices.map((invoice) => { const open = draft.invoiceId === invoice.id; const remainingUsd = Math.max(0, invoice.total_usd - invoice.payment_paid_usd); return <article key={invoice.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-lg font-black text-[#0a2b61]">{invoice.invoice_number}</p><p className="text-sm font-semibold text-slate-600">{invoice.customer_code} · {invoice.package_count} colis</p><p className="mt-1 text-xs text-slate-400">Créée le {dateText(invoice.created_at)}</p></div><PaymentChip status={invoice.payment_status} /></div><div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-sm"><span>Total</span><b className="text-right text-[#0a2b61]">{fmtUsd(invoice.total_usd)}</b><span>Équivalent</span><b className="text-right text-[#0a2b61]">{fmtHtg(invoice.total_htg)}</b><span>Reçu</span><b className="text-right text-emerald-700">{fmtUsd(invoice.payment_paid_usd)} · {fmtHtg(invoice.payment_paid_htg)}</b></div><div className="mt-3 flex flex-wrap gap-2">{invoice.has_pdf && <button type="button" onClick={() => onOpenPdf(invoice.id)} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-bold text-[#0b3270] hover:bg-slate-50"><FileText size={16} />Voir le PDF</button>}{invoice.payment_status !== "Payé" && <button onClick={() => setDraft(open ? { invoiceId: "", amount: "", currency: "HTG" } : { invoiceId: invoice.id, amount: "", currency: "HTG" })} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-bold text-white hover:bg-[#ce4e0d]"><Banknote size={16} />Enregistrer paiement</button>}</div>{open && <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50 p-3"><p className="mb-2 text-sm font-bold text-[#9f390b]">Reste à payer: {fmtUsd(remainingUsd)}</p><div className="grid grid-cols-[1fr_90px] gap-2"><input value={draft.amount} onChange={(event) => setDraft({ ...draft, amount: event.target.value })} type="number" min="0.01" step="0.01" className="input" placeholder="Montant reçu" autoFocus /><select value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value as "USD" | "HTG" })} className="input"><option value="HTG">Gourdes</option><option value="USD">Dollars</option></select></div><button disabled={busy} onClick={onPay} className="mt-2 min-h-11 w-full rounded-xl bg-[#0b3270] text-sm font-bold text-white disabled:opacity-60">{busy ? "Enregistrement…" : "Confirmer le paiement"}</button></div>}</article>; })}</div>;
 }
 
-function BonsView({ bons }: { bons: ZoneBon[] }) {
+function BonsView({ bons, onOpenPdf }: { bons: ZoneBon[]; onOpenPdf: (id: string) => void }) {
   if (!bons.length) return <Empty text="Pa gen Bon de remise ki koresponn ak zòn oswa rechèch sa a." />;
-  return <div className="grid gap-3 md:grid-cols-2">{bons.map((bon) => <article key={bon.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-black text-[#0a2b61]">{bon.bon_number}</p><p className="mt-1 text-sm text-slate-600">{bon.destination || "Destination non précisée"} · {bon.package_count} colis</p><p className="mt-1 text-xs text-slate-400">{dateText(bon.created_at)}</p></div><FileDown className="text-[#e85e19]" size={21} /></div>{bon.has_pdf ? <a href={bon.pdf_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white"><FileDown size={16} />Ouvrir le PDF</a> : <p className="mt-3 text-xs text-amber-700">PDF non archivé: ce Bon a été créé avant l&apos;archivage sécurisé.</p>}</article>)}</div>;
+  return <div className="grid gap-3 md:grid-cols-2">{bons.map((bon) => <article key={bon.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-black text-[#0a2b61]">{bon.bon_number}</p><p className="mt-1 text-sm text-slate-600">{bon.destination || "Destination non précisée"} · {bon.package_count} colis</p><p className="mt-1 text-xs text-slate-400">{dateText(bon.created_at)}</p></div><FileDown className="text-[#e85e19]" size={21} /></div>{bon.has_pdf ? <button type="button" onClick={() => onOpenPdf(bon.id)} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white"><FileDown size={16} />Ouvrir le PDF</button> : <p className="mt-3 text-xs text-amber-700">PDF non archivé: ce Bon a été créé avant l&apos;archivage sécurisé.</p>}</article>)}</div>;
 }
 
 function Stat({ icon, label, value, tint }: { icon: React.ReactNode; label: string; value: number; tint: string }) { return <div className="rounded-2xl border border-white bg-white p-4 shadow-sm"><div className={`mb-3 grid h-10 w-10 place-items-center rounded-xl ${tint}`}>{icon}</div><p className="text-xs font-semibold text-slate-500">{label}</p><p className="mt-0.5 text-2xl font-black text-[#09295e]">{value}</p></div>; }

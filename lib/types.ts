@@ -226,6 +226,10 @@ export interface Invoice {
   /** Sa kliyan an rete dwe: total_usd − order_deposit. */
   balance_due?: number;
 
+  /** Chemin Storage privé — jamais affiché ou utilisé directement dans le navigateur. */
+  pdf_path?: string | null;
+  has_pdf?: boolean;
+  /** Champ historique; la migration le vide au profit de pdf_path. */
   pdf_url?: string | null;
   payment_status?: InvoicePaymentStatus;
   payment_paid_usd?: number;

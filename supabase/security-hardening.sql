@@ -457,45 +457,16 @@ using (public.is_staff());
 -- 12. STORAGE — INVOICES
 -- ============================================================
 
--- ⚠️ NE PAS rendre le bucket "invoices" privé tant que l'application
---    envoie encore un LIEN PUBLIC de la facture par WhatsApp (le client
---    l'ouvre sans se connecter) et affiche le PDF via getPublicUrl().
---    Rendre le bucket privé casserait la livraison des factures.
---
---    Mitigation en place : lib/pdf.ts ajoute un jeton aléatoire de 80 bits
---    au nom du fichier -> le lien reste non devinable / non énumérable.
---
---    Pour passer en bucket réellement privé, il faut d'abord :
---      • une route serveur qui vérifie la session (staff OU client
---        propriétaire) et renvoie une URL signée courte durée ;
---      • remplacer les <a href={pdf_url}> et le message WhatsApp par
---        cette route.
---    Décommentez alors la ligne suivante :
--- update storage.buckets set public = false where id = 'invoices';
+-- Les PDFs de factures sont privés. L'application les sert uniquement via
+-- /api/documents après vérification de session, rôle et propriété.
+insert into storage.buckets (id, name, public) values ('invoices', 'invoices', false)
+on conflict (id) do update set public = false;
 
 create policy "invoice_files_staff_read"
 on storage.objects for select to authenticated
 using (
   bucket_id = 'invoices'
   and public.is_staff()
-);
-
-create policy "invoice_files_customer_read"
-on storage.objects for select to authenticated
-using (
-  bucket_id = 'invoices'
-  and exists (
-    select 1
-    from public.invoices i
-    join public.clients c
-      on c.customer_code = i.customer_code
-    where c.auth_user_id = auth.uid()
-      and (
-        storage.objects.name = i.id::text
-        or storage.objects.name like i.id::text || '/%'
-        or storage.objects.name like '%/' || i.id::text || '.pdf'
-      )
-  )
 );
 
 create policy "invoice_files_staff_insert"

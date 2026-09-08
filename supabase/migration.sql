@@ -125,6 +125,8 @@ alter table invoices add column if not exists total_usd numeric not null default
 alter table invoices add column if not exists total_htg numeric not null default 0;
 alter table invoices add column if not exists package_count int not null default 0;
 alter table invoices add column if not exists total_weight numeric not null default 0;
+alter table invoices add column if not exists pdf_path text;
+alter table invoices add column if not exists has_pdf boolean not null default false;
 -- Paiement en point de retrait: la monnaie et chaque versement restent tracés.
 alter table invoices add column if not exists payment_status text not null default 'Non payé';
 alter table invoices add column if not exists payment_paid_usd numeric not null default 0;

@@ -1448,7 +1448,7 @@ export async function createInvoiceFromComputation(
  */
 export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; restored: number; reason?: string }> {
   const { data: inv } = await supabase.from("invoices")
-    .select("id, invoice_number, customer_code, customer_name, total_usd, pdf_url").eq("id", invoiceId).maybeSingle();
+    .select("id, invoice_number, customer_code, customer_name, total_usd, pdf_path, pdf_url").eq("id", invoiceId).maybeSingle();
   if (!inv) return { ok: false, restored: 0, reason: "Facture introuvable." };
 
   // 1) Koli yo -> Disponible, san fakti, pri remete a zewo.
@@ -1478,9 +1478,9 @@ export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; r
   if (e2) return { ok: false, restored, reason: e2.message };
 
   // 3) PDF ki nan Storage (pou pa kite lyen mouri)
-  if (inv.pdf_url) {
+  if (inv.pdf_path || inv.pdf_url) {
     try {
-      const path = String(inv.pdf_url).split("/invoices/")[1];
+      const path = String(inv.pdf_path || inv.pdf_url).split("/invoices/").pop();
       if (path) await supabase.storage.from("invoices").remove([decodeURIComponent(path)]);
     } catch { /* PDF opsyonèl — pa bloke anilasyon an */ }
   }
@@ -1627,8 +1627,10 @@ export async function getInvoiceItems(invoiceId: string): Promise<InvoiceItem[]>
   if (error) throw error;
   return (data ?? []).map((i) => asNum(i, ["weight", "price", "tax", "total"])) as InvoiceItem[];
 }
-export async function saveInvoicePdfUrl(id: string, url: string): Promise<void> {
-  await supabase.from("invoices").update({ pdf_url: url }).eq("id", id);
+export async function saveInvoicePdfPath(id: string, path: string): Promise<void> {
+  const { error } = await supabase.from("invoices")
+    .update({ pdf_path: path, pdf_url: null, has_pdf: true }).eq("id", id);
+  if (error) throw error;
 }
 
 // ================= TARIFICATION PAR VILLE =================

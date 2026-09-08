@@ -22,7 +22,7 @@ type Parcel = {
 type ZoneInvoice = {
   id: string; invoice_number: string; customer_code: string; package_count: number | null;
   total_usd: number | null; total_htg: number | null; exchange_rate_used: number | null;
-  pdf_url: string | null; created_at: string; payment_status: string | null;
+  has_pdf: boolean | null; created_at: string; payment_status: string | null;
   payment_paid_usd: number | null; payment_paid_htg: number | null;
 };
 
@@ -111,7 +111,7 @@ export async function GET(req: Request) {
       const [parcelResult, invoiceResult] = await Promise.all([
         db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id")
           .eq("archived", false).in("customer_code", codes).order("created_at", { ascending: false }).limit(5000),
-        db.from("invoices").select("id, invoice_number, customer_code, package_count, total_usd, total_htg, exchange_rate_used, pdf_url, created_at, payment_status, payment_paid_usd, payment_paid_htg")
+        db.from("invoices").select("id, invoice_number, customer_code, package_count, total_usd, total_htg, exchange_rate_used, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
           .in("customer_code", codes).order("created_at", { ascending: false }).limit(1000)
       ]);
       if (parcelResult.error) throw parcelResult.error;
@@ -147,18 +147,11 @@ export async function GET(req: Request) {
     for (const bon of (destinationBons.data ?? []) as typeof bons) byBonId.set(bon.id, bon);
     bons = Array.from(byBonId.values()).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
 
-    const bonCards = await Promise.all(bons.map(async (bon) => {
-      let pdf_url = "";
-      if (bon.pdf_path) {
-        const signed = await db.storage.from("bons-remise").createSignedUrl(bon.pdf_path, 10 * 60);
-        if (!signed.error) pdf_url = String(signed.data?.signedUrl ?? "");
-      }
-      return {
+    const bonCards = bons.map((bon) => ({
         id: code(bon.id), bon_number: code(bon.bon_number), destination: code(bon.destination),
         package_count: Number(bon.package_count ?? 0), created_at: code(bon.created_at),
-        has_pdf: Boolean(pdf_url), pdf_url
-      };
-    }));
+        has_pdf: Boolean(bon.pdf_path)
+      }));
 
     // Liste blanche stricte, sans téléphone, adresse, identité ni coûts des colis.
     const packageCards = parcels.map((parcel) => {
@@ -175,7 +168,7 @@ export async function GET(req: Request) {
       id: code(invoice.id), invoice_number: code(invoice.invoice_number), customer_code: code(invoice.customer_code),
       package_count: Number(invoice.package_count ?? 0), total_usd: money(invoice.total_usd), total_htg: money(invoice.total_htg),
       payment_status: code(invoice.payment_status) || "Non payé", payment_paid_usd: money(invoice.payment_paid_usd),
-      payment_paid_htg: money(invoice.payment_paid_htg), pdf_url: code(invoice.pdf_url), created_at: code(invoice.created_at)
+      payment_paid_htg: money(invoice.payment_paid_htg), has_pdf: Boolean(invoice.has_pdf), created_at: code(invoice.created_at)
     }));
 
     return NextResponse.json({ ok: true, agent: { name: agentName(agent), username: agent.username }, zone: { name: zoneName },

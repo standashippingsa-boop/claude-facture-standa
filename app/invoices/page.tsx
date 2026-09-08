@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Eye, Download, Printer, Send, XCircle } from "lucide-react";
-import { cancelInvoice, getInvoiceItems, getInvoices, getSettings, saveInvoicePdfUrl } from "@/lib/db";
+import { cancelInvoice, getInvoiceItems, getInvoices, getSettings, saveInvoicePdfPath } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
@@ -10,6 +10,7 @@ import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Invoice } from "@/lib/types";
 import { dateFr, htg, usd } from "@/lib/utils";
 import { useRememberListContext } from "@/lib/list-context";
+import { openSecureDocument } from "@/lib/secure-document";
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -63,14 +64,18 @@ export default function InvoicesPage() {
   };
 
   const voir = async (inv: Invoice) => {
-    if (inv.pdf_url) { window.open(inv.pdf_url, "_blank"); return; }
+    if (inv.has_pdf || inv.pdf_path || inv.pdf_url) {
+      try { await openSecureDocument("invoice", inv.id); }
+      catch (error) { setNotice(error instanceof Error ? error.message : "PDF indisponible."); }
+      return;
+    }
     const { items } = await withItems(inv);
     await openInvoicePdf(inv, items, footer);
   };
   const telecharger = async (inv: Invoice) => {
     const { items } = await withItems(inv);
-    const { url } = await generateUploadDownload(inv, items, footer, { download: true });
-    if (url && !inv.pdf_url) { await saveInvoicePdfUrl(inv.id, url); inv.pdf_url = url; }
+    const { path } = await generateUploadDownload(inv, items, footer, { download: true });
+    if (path && !inv.has_pdf) { await saveInvoicePdfPath(inv.id, path); inv.pdf_path = path; inv.has_pdf = true; }
   };
   const imprimer = async (inv: Invoice) => {
     const { items } = await withItems(inv);
@@ -80,12 +85,12 @@ export default function InvoicesPage() {
     const { items } = await withItems(inv);
     // Rejenere PDF la (san telechaje) pou nou ka pataje FICHYE a menm
     const pdf = await generateUploadDownload(inv, items, footer);
-    if (pdf.url && !inv.pdf_url) { await saveInvoicePdfUrl(inv.id, pdf.url); inv.pdf_url = pdf.url; }
+    if (pdf.path && !inv.has_pdf) { await saveInvoicePdfPath(inv.id, pdf.path); inv.pdf_path = pdf.path; inv.has_pdf = true; }
     const how = await sendInvoicePdfWhatsApp(inv, pdf.blob, pdf.filename);
     setNotice(how === "file"
       ? `PDF facture ${inv.invoice_number} pataje dirèkteman sou WhatsApp pou ${inv.customer_name}.`
-      : how === "link"
-      ? `WhatsApp ouvri pou ${inv.customer_name} — lyen PDF la nan mesaj la, peze Send sèlman.`
+      : how === "manual"
+      ? `WhatsApp ouvri pou ${inv.customer_name}. Telechaje PDF la epi atache li nan mesaj la.`
       : "Pataj la anile.");
   };
 

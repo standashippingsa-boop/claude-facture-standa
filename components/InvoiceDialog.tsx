@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, saveInvoicePdfUrl } from "@/lib/db";
+import { createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, saveInvoicePdfPath } from "@/lib/db";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { FixedPriceMap, OrderFeeTier, SpecialArticle, TAX_THRESHOLD_LB } from "@/lib/pricing";
 import { InvoiceKind, Ville } from "@/lib/types";
@@ -192,12 +192,12 @@ export default function InvoiceDialog({
         is_small: l.isSmall, per_lb: l.perLb, fixed_label: l.isFixed ? l.fixedLabel : ""
       }));
       const pdf = await generateUploadDownload(inv, items, footer, { download: true });
-      if (pdf.url) { await saveInvoicePdfUrl(inv.id, pdf.url); inv.pdf_url = pdf.url; }
+      if (pdf.path) { await saveInvoicePdfPath(inv.id, pdf.path); inv.pdf_path = pdf.path; inv.has_pdf = true; }
       const how = await sendInvoicePdfWhatsApp(inv, pdf.blob, pdf.filename);
       onDone(
         `Facture ${inv.invoice_number} créée (${items.length} colis → Facturé, taux ${rate.toFixed(2)}). ` +
         (how === "file" ? "PDF pataje sou WhatsApp."
-          : how === "link" ? "WhatsApp ouvri — peze Send." : "Fakti a nan Invoices.")
+          : how === "manual" ? "WhatsApp ouvri — telechaje PDF la epi atache li." : "Fakti a nan Invoices.")
       );
       onClose();
     } catch (e: unknown) {

@@ -46,6 +46,7 @@ import Loader, { SavedToast, Spinner, SuccessCheck } from "@/components/Loader";
 import StatusBadge from "@/components/StatusBadge";
 import { StatusTimeline } from "@/components/StatusFlow";
 import { WhatsAppIcon } from "@/components/site/BrandIcons";
+import { openSecureDocument } from "@/lib/secure-document";
 
 type View = "home" | "disponibles" | "receptions" | "factures" | "historique" | "notifications" | "adresse" | "calc" | "infos";
 type NoticeKind = "available" | "invoice" | "pickup" | "shipment";
@@ -827,8 +828,8 @@ export default function EspaceClientPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-extrabold text-ink">{usd(f.grand_total)}</p>
-                      {f.pdf_url
-                        ? <a href={f.pdf_url} target="_blank" rel="noreferrer" className="text-xs text-navy underline font-semibold">Télécharger le PDF</a>
+                      {f.has_pdf || f.pdf_path || f.pdf_url
+                        ? <button type="button" onClick={() => void openSecureDocument("invoice", f.id).catch(() => setToast("PDF indisponible. Réessayez plus tard."))} className="text-xs text-navy underline font-semibold">Télécharger le PDF</button>
                         : <span className="text-xs text-slate-400">—</span>}
                     </div>
                   </div>

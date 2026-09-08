@@ -226,12 +226,12 @@ export function generateInvoicePdf(
 }
 
 export interface PdfResult {
-  url: string | null;    // URL piblik Supabase Storage (null si upload echwe)
+  path: string | null;   // chemin privé Storage (null si upload echwe)
   blob: Blob;            // fichye PDF la — pou pataj WhatsApp
   filename: string;
 }
 
-/** Jenere + telechaje lokalman + monte sou Supabase Storage. */
+/** Jenere + telechaje lokalman + monte sou Storage prive. */
 export async function generateUploadDownload(
   inv: Invoice, items: InvoiceItem[], footer: string,
   opts: { download?: boolean; autoPrint?: boolean } = {}
@@ -248,21 +248,18 @@ export async function generateUploadDownload(
     doc.save(filename);
   }
 
-  let url: string | null = null;
+  let path: string | null = null;
   try {
-    // ⚠️ SEKIRITE: bucket la piblik-pa-lyen (WhatsApp pa ka atache fichye).
-    // Ansyen chemen an te `SC-123456.pdf` — 6 chif previzib: nenpòt moun te
-    // ka eseye tout nimewo yo epi telechaje fakti tout kliyan (non, adrès,
-    // WhatsApp, montan). Kounye a n ap ajoute yon jeton o aza ki pa devinab.
+    // Bucket la prive. Yon jeton o aza rete yon dezyèm pwoteksyon kont
+    // devinèt; PDF la li sèlman atravè /api/documents apre verifikasyon.
     const token = crypto.randomUUID().replace(/-/g, "").slice(0, 20);
-    const path = `${inv.invoice_number}-${token}.pdf`;
+    path = `${inv.invoice_number}-${token}.pdf`;
     const { error } = await supabase.storage.from("invoices")
       .upload(path, blob, { upsert: true, contentType: "application/pdf" });
     if (error) throw error;
-    url = supabase.storage.from("invoices").getPublicUrl(path).data.publicUrl;
   } catch { /* offline oswa bucket pa la — PDF la toujou disponib lokalman */ }
 
-  return { url, blob, filename };
+  return { path, blob, filename };
 }
 
 export async function openInvoicePdf(inv: Invoice, items: InvoiceItem[], footer: string) {

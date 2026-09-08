@@ -9,13 +9,13 @@ export function normalizePhone(raw: string): string {
   return d;
 }
 
-/** Mesaj kout, santre sou fakti PDF la (fallback lè pataj fichye pa posib) */
+/** Mesaj kout san okenn lyen depo entèn. */
 export function buildMessage(inv: Invoice): string {
   return (
     `Bonjou ${inv.customer_name},\n` +
     `Men fakti STANDA COMMERCIAL ou a: No ${inv.invoice_number} — ` +
     `${usd(inv.grand_total)} (${htg(inv.total_htg || inv.grand_total * inv.exchange_rate_used)}).\n` +
-    (inv.pdf_url ? `Telechaje PDF la: ${inv.pdf_url}` : "")
+    "PDF la disponib nan espas kliyan STANDA ou a."
   );
 }
 
@@ -28,14 +28,13 @@ export function openWhatsAppLink(inv: Invoice) {
  * Voye FAKTI PDF LA menm sou WhatsApp.
  * 1) Sou telefòn/tablèt (ak Chrome/Safari modèn): Web Share API pataje FICHYE PDF la
  *    dirèkteman — ou chwazi WhatsApp, kontak la, epi w peze Send. Se PDF la k ale.
- * 2) Si aparèy la pa sipòte pataj fichye (ex: Chrome sou Windows):
- *    nou ouvri chat WhatsApp kliyan an ak lyen dirèk PDF la (Supabase Storage) —
- *    kliyan an klike epi li jwenn menm PDF la.
- * Retounen: "file" | "link" | "cancel"
+ * 2) Si aparèy la pa sipòte pataj fichye (ex: Chrome sou Windows), nou ouvri
+ *    chat la SAN lyen depo. Admin lan ka telechaje fichye a epi atache li.
+ * Retounen: "file" | "manual" | "cancel"
  */
 export async function sendInvoicePdfWhatsApp(
   inv: Invoice, blob: Blob, filename: string
-): Promise<"file" | "link" | "cancel"> {
+): Promise<"file" | "manual" | "cancel"> {
   const file = new File([blob], filename, { type: "application/pdf" });
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
   if (nav.canShare && nav.canShare({ files: [file] })) {
@@ -52,7 +51,7 @@ export async function sendInvoicePdfWhatsApp(
     }
   }
   openWhatsAppLink(inv);
-  return "link";
+  return "manual";
 }
 
 /** Konpatibilite ak ansyen kòd ki rele openWhatsApp(inv, count) */

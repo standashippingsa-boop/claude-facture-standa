@@ -19,6 +19,7 @@ import InvoiceDialog from "@/components/InvoiceDialog";
 import { Client, INTERNAL_STATUSES, Invoice, Pkg } from "@/lib/types";
 import { dateFr, parseMcpackDate, usd } from "@/lib/utils";
 import { returnToOr, useRememberListContext } from "@/lib/list-context";
+import { openSecureDocument } from "@/lib/secure-document";
 
 type SelPkg = Pkg & { selected?: boolean };
 
@@ -367,8 +368,8 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
                 <td className="tdc text-center">{f.package_count}</td>
                 <td className="tdc text-right font-semibold">{usd(f.grand_total)}</td>
                 <td className="tdc text-right text-slate-500">{Number(f.total_htg ?? 0).toFixed(0)} HTG</td>
-                <td className="tdc">{f.pdf_url
-                  ? <a href={f.pdf_url} target="_blank" className="text-navy underline font-semibold">PDF</a> : "—"}</td>
+                <td className="tdc">{f.has_pdf || f.pdf_path || f.pdf_url
+                  ? <button type="button" onClick={() => void openSecureDocument("invoice", f.id).catch((error) => setNotice(error instanceof Error ? error.message : "PDF indisponible."))} className="text-navy underline font-semibold">PDF</button> : "—"}</td>
               </tr>
             ))}
           </tbody>
