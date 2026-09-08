@@ -11,6 +11,7 @@ import { StaffRole } from "./types";
  *   - "employe": Employé — zouti travay (koli, kliyan, fakti, sync, scanner)
  *                MEN pa Paramètres/Tarification/Taxes/Utilisateurs/API/Sécurité
  *   - "client" : Kliyan — sèlman espas pèsonèl li (/espace-client)
+ *   - "agent_retrait": ajan pwen rekiperasyon — sèlman /espace-remise
  *
  * ⚠️ Sekirite reyèl la se sou SÈVÈ a (admin-auth valide wòl la). Gad sa a se
  * pou eksperyans + bloke navigasyon dirèk. Nou pa retire okenn gad ki egziste.
@@ -46,6 +47,9 @@ export const PUBLIC_PREFIXES = [
 /** Paj kliyan (wòl "client" sèlman) */
 export const CLIENT_PREFIXES = ["/espace-client"];
 
+/** Paj travay ajan remiz yo. Pa mete paj koneksyon an isit la: li piblik. */
+export const PICKUP_AGENT_PREFIXES = ["/espace-remise"];
+
 /**
  * Paj ADMIN sèlman (Employé bloke). Tout lòt paj staff yo louvri pou
  * admin + employé (koli, kliyan, fakti, sync, historique, journal, retraits).
@@ -63,12 +67,19 @@ function underPrefix(path: string, prefixes: string[]): boolean {
 
 /** Èske chemen sa a piblik? */
 export function isPublicPath(path: string): boolean {
-  return underPrefix(path, PUBLIC_PREFIXES);
+  // Match EGZAK sèlman: /point-retrait se pòt koneksyon an. Nou pa vle yon
+  // paj fiti tankou /point-retrait/xxx vin piblik pa erè.
+  return path === "/point-retrait" || underPrefix(path, PUBLIC_PREFIXES);
 }
 
 /** Èske chemen sa a se yon paj kliyan? */
 export function isClientPath(path: string): boolean {
   return underPrefix(path, CLIENT_PREFIXES);
+}
+
+/** Èske se espas ki rezève pou ajan ki remèt koli yo? */
+export function isPickupAgentPath(path: string): boolean {
+  return underPrefix(path, PICKUP_AGENT_PREFIXES);
 }
 
 /** Èske chemen sa a admin-sèlman? */
@@ -88,7 +99,9 @@ export function resolveAccess(path: string, role: AppRole | null): {
 
   // Pa gen wòl (pa konekte) -> login apwopriye
   if (!role) {
-    return { allowed: false, redirect: isClientPath(path) ? "/login" : "/admin-login" };
+    if (isClientPath(path)) return { allowed: false, redirect: "/login" };
+    if (isPickupAgentPath(path)) return { allowed: false, redirect: "/point-retrait" };
+    return { allowed: false, redirect: "/admin-login" };
   }
 
   // Kliyan
@@ -98,8 +111,18 @@ export function resolveAccess(path: string, role: AppRole | null): {
     return { allowed: false, redirect: "/espace-client" };
   }
 
+  // Ajan remiz la pa yon employé jeneral: li pa gen dwa sou okenn ekran
+  // lojistik/finans, menm si li tape URL yo dirèkteman.
+  if (role === "agent_retrait") {
+    if (isPickupAgentPath(path)) return { allowed: true, redirect: null };
+    return { allowed: false, redirect: "/espace-remise" };
+  }
+
   // Staff (admin/employe) pa gen dwa nan espas kliyan an
   if (isClientPath(path)) return { allowed: false, redirect: "/dashboard" };
+
+  // Espas remiz la se ekran ajan an sèlman.
+  if (isPickupAgentPath(path)) return { allowed: false, redirect: "/dashboard" };
 
   // Admin: tout paj staff
   if (role === "admin") return { allowed: true, redirect: null };

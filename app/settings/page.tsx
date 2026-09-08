@@ -439,17 +439,18 @@ export default function SettingsPage() {
 // ================= EMPLOYÉS (v9 — admin sèlman) =================
 function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
   const [list, setList] = useState<Staff[]>([]);
+  const [zones, setZones] = useState<Ville[]>([]);
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [f, setF] = useState({ nom: "", prenom: "", email: "", phone: "", id_number: "",
-    username: "", password: "", role: "employe" as "employe" | "admin" });
+    username: "", password: "", role: "employe" as "employe" | "admin" | "agent_retrait", pickup_ville_id: "" });
   const [photo, setPhoto] = useState<File | null>(null);
   const [resetting, setResetting] = useState<Staff | null>(null);
   const [newPassword, setNewPassword] = useState("");
 
   const load = () => supabase.from("staff").select("*").order("created_at")
     .then(({ data }: { data: Staff[] | null }) => setList((data ?? []) as Staff[]));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); getVilles().then(setZones).catch(() => setZones([])); }, []);
 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setF({ ...f, [k]: e.target.value });
@@ -457,6 +458,9 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
   const save = async () => {
     if (!f.nom || !f.prenom || !f.username || f.password.length < 6) {
       onNotice("Nom, Prénom, Nom d'utilisateur ak Mot de passe (6+ karaktè) obligatwa."); return;
+    }
+    if (f.role === "agent_retrait" && !f.pickup_ville_id) {
+      onNotice("Chwazi zòn/pwen rekiperasyon ajan an."); return;
     }
     setBusy(true);
     try {
@@ -472,10 +476,11 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
       }
       const j = await adminApi("create_staff", { ...f, id_photo_url });
       if (!j.ok) { onNotice("Erè: " + j.reason); return; }
-      const loginPath = f.role === "admin" ? "/admin-login" : "/employe";
-      onNotice(`${f.role === "admin" ? "Administrateur" : "Employé"} "${f.username}" kreye — li ka konekte sou ${loginPath}.`);
+      const loginPath = f.role === "admin" ? "/admin-login" : f.role === "agent_retrait" ? "/point-retrait" : "/employe";
+      const roleLabel = f.role === "admin" ? "Administrateur" : f.role === "agent_retrait" ? "Agent de remise" : "Employé";
+      onNotice(`${roleLabel} "${f.username}" kreye — li ka konekte sou ${loginPath}.`);
       setShow(false);
-      setF({ nom: "", prenom: "", email: "", phone: "", id_number: "", username: "", password: "", role: "employe" });
+      setF({ nom: "", prenom: "", email: "", phone: "", id_number: "", username: "", password: "", role: "employe", pickup_ville_id: "" });
       setPhoto(null);
       load();
     } finally { setBusy(false); }
@@ -497,7 +502,8 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
     try {
       const j = await adminApi("reset_staff_password", { staff_id: resetting.id, password: newPassword });
       if (!j.ok) { onNotice("Erè: " + j.reason); return; }
-      onNotice(`Modpas pou "${resetting.username}" reinitialize. Li ka konekte sou ${resetting.role === "admin" ? "/admin-login" : "/employe"}.`);
+      const loginPath = resetting.role === "admin" ? "/admin-login" : resetting.role === "agent_retrait" ? "/point-retrait" : "/employe";
+      onNotice(`Modpas pou "${resetting.username}" reinitialize. Li ka konekte sou ${loginPath}.`);
       setResetting(null); setNewPassword("");
     } finally { setBusy(false); }
   };
@@ -505,8 +511,8 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-bold text-navy uppercase tracking-wide">👥 Employés</h2>
-        <button className="btn" onClick={() => setShow((s) => !s)}>+ Nouvel Employé</button>
+          <h2 className="text-sm font-bold text-navy uppercase tracking-wide">👥 Personnel & agents de remise</h2>
+          <button className="btn" onClick={() => setShow((s) => !s)}>+ Nouveau compte</button>
       </div>
 
       {show && (
@@ -532,8 +538,16 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
             <label className="block"><span className="text-xs font-medium text-slate-500">Rôle</span>
               <select className="input mt-1" value={f.role} onChange={set("role")}>
                 <option value="employe">Employé</option>
+                <option value="agent_retrait">Agent de remise (point de retrait)</option>
                 <option value="admin">Administrateur</option>
               </select></label>
+            {f.role === "agent_retrait" && <label className="block"><span className="text-xs font-medium text-slate-500">Zone / point de retrait *</span>
+              <select className="input mt-1" value={f.pickup_ville_id} onChange={set("pickup_ville_id")}>
+                <option value="">Choisir une zone</option>
+                {zones.filter((v) => v.active).map((v) => <option key={v.id} value={v.id ?? ""}>{v.name}</option>)}
+              </select>
+              <span className="mt-1 block text-[11px] text-slate-500">L&apos;agent ne verra que les colis disponibles des clients de cette zone.</span>
+            </label>}
           </div>
           <div className="flex gap-3">
             <button className="btn" onClick={save} disabled={busy}>{busy ? "Ap kreye..." : "Enregistrer"}</button>
@@ -561,16 +575,17 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr>{["Utilisateur", "Nom", "Rôle", "Téléphone", "Pièce", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
+          <thead><tr>{["Utilisateur", "Nom", "Rôle", "Zone", "Téléphone", "Pièce", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody>
             {list.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-8 text-slate-400">Poko gen employé.</td></tr>
+              <tr><td colSpan={7} className="text-center py-8 text-slate-400">Poko gen kont pèsonèl.</td></tr>
             ) : list.map((s, i) => (
               <tr key={s.id} className={i % 2 ? "bg-mist" : ""}>
                 <td className="td font-bold text-navy">{s.username}</td>
                 <td className="td">{s.prenom} {s.nom}</td>
-                <td className="td"><span className={`badge ${s.role === "admin" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
-                  {s.role === "admin" ? "Administrateur" : "Employé"}</span></td>
+                <td className="td"><span className={`badge ${s.role === "admin" ? "bg-blue-100 text-blue-700" : s.role === "agent_retrait" ? "bg-orange-100 text-orange-700" : "bg-emerald-100 text-emerald-700"}`}>
+                  {s.role === "admin" ? "Administrateur" : s.role === "agent_retrait" ? "Agent de remise" : "Employé"}</span></td>
+                <td className="td text-xs">{s.role === "agent_retrait" ? (zones.find((v) => v.id === s.pickup_ville_id)?.name ?? "À configurer") : "—"}</td>
                 <td className="td">{s.phone}</td>
                 <td className="td text-xs">{s.id_number}{s.id_photo_url && <> · <a className="text-navy underline" href={s.id_photo_url} target="_blank">foto</a></>}</td>
                 <td className="td text-right space-x-2">

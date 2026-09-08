@@ -14,7 +14,16 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { staffEmail } from "@/lib/authx";
 import PasswordInput from "@/components/PasswordInput";
 
-export default function StaffLogin({ title, subtitle }: { title: string; subtitle: string }) {
+export default function StaffLogin({
+  title,
+  subtitle,
+  destination = "/dashboard"
+}: {
+  title: string;
+  subtitle: string;
+  /** Espas travay ki dwe louvri apre koneksyon (ajan remiz -> /espace-remise). */
+  destination?: string;
+}) {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -44,7 +53,7 @@ export default function StaffLogin({ title, subtitle }: { title: string; subtitl
         }
         return;
       }
-      router.replace("/dashboard");
+      router.replace(destination);
     } catch {
       setErr("Impossible de joindre le service de connexion. Vérifiez votre connexion internet puis réessayez.");
     } finally { setBusy(false); }

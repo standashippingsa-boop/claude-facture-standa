@@ -275,12 +275,12 @@ drop policy if exists "anon all retraits" on retraits;
 drop policy if exists "anon all retrait_items" on retrait_items;
 
 -- ============================================================
--- v9 — Authentication: Admin / Employé / Client
+-- v9 — Authentication: Admin / Employé / Client / Agent de remise
 -- ============================================================
 create table if not exists staff (
   id uuid primary key default gen_random_uuid(),
   auth_user_id uuid unique,
-  role text not null check (role in ('admin','employe')),
+  role text not null check (role in ('admin','employe','agent_retrait')),
   username text unique not null,
   nom text not null default '',
   prenom text not null default '',
@@ -288,6 +288,8 @@ create table if not exists staff (
   phone text not null default '',
   id_number text not null default '',      -- Paspò oswa CIN
   id_photo_url text not null default '',
+  -- sèlman pou agent_retrait; limite zòn kote li ka remèt koli yo
+  pickup_ville_id uuid references villes(id) on delete set null,
   created_at timestamptz not null default now()
 );
 alter table staff enable row level security;

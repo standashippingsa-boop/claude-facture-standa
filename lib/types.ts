@@ -285,7 +285,12 @@ export interface RetraitItem {
 }
 
 // ===== v9: Authentication =====
-export type StaffRole = "admin" | "employe";
+/**
+ * `agent_retrait` se moun ki remèt koli nan yon pwen rekiperasyon.
+ * Li pa antre nan `is_staff()` nan bazdone a: li itilize sèlman yon route
+ * sèvè ki bay li kantite enfòmasyon ki nesesè pou remèt yon koli.
+ */
+export type StaffRole = "admin" | "employe" | "agent_retrait";
 export interface Staff {
   id?: string;
   auth_user_id?: string | null;
@@ -297,5 +302,7 @@ export interface Staff {
   phone: string;
   id_number: string;
   id_photo_url: string;
+  /** Zòn operasyon ajan remiz la; vid pou admin/anplwaye nòmal. */
+  pickup_ville_id?: string | null;
   created_at?: string;
 }

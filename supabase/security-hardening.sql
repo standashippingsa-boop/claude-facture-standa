@@ -85,6 +85,9 @@ as $$
   select s.role
   from public.staff s
   where s.auth_user_id = auth.uid()
+    -- agent_retrait rete ESPLISITEMAN deyò. Li pa janm resevwa aksè
+    -- dirèk sou packages/clients/invoices; /api/pickup-agent filtre
+    -- repons lan sou sèvè a selon pickup_ville_id.
     and s.role in ('admin','employe')
   limit 1;
 $$;

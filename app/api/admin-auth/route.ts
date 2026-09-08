@@ -48,13 +48,13 @@ export async function POST(req: Request) {
     const action = String(body.action ?? "");
 
     // ---------- caller role ----------
-    async function callerRole(): Promise<"admin" | "employe" | null> {
+    async function callerRole(): Promise<"admin" | "employe" | "agent_retrait" | null> {
       const token = String(body.token ?? "");
       if (!token) return null;
       const { data } = await svc.auth.getUser(token);
       if (!data.user) return null;
       const { data: s } = await svc.from("staff").select("role").eq("auth_user_id", data.user.id).maybeSingle();
-      return (s?.role as "admin" | "employe") ?? null;
+      return (s?.role as "admin" | "employe" | "agent_retrait") ?? null;
     }
 
     // ---------- bootstrap: premye admin (sèlman si staff vid + SETUP_SECRET) ----------
@@ -91,8 +91,14 @@ export async function POST(req: Request) {
       if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
       const username = String(body.username ?? "").trim();
       const password = String(body.password ?? "");
-      const newRole = body.role === "admin" ? "admin" : "employe";
+      const newRole = body.role === "admin"
+        ? "admin"
+        : body.role === "agent_retrait" ? "agent_retrait" : "employe";
+      const pickupVilleId = String(body.pickup_ville_id ?? "").trim();
       if (!username || password.length < 6) return NextResponse.json({ ok: false, reason: "Username + modpas (6+ karaktè) obligatwa." });
+      if (newRole === "agent_retrait" && !pickupVilleId) {
+        return NextResponse.json({ ok: false, reason: "Chwazi zòn/pwen rekiperasyon ajan an." });
+      }
       const { data: u, error } = await svc.auth.admin.createUser({
         email: staffEmail(username), password, email_confirm: true
       });
@@ -101,7 +107,8 @@ export async function POST(req: Request) {
         auth_user_id: u.user.id, role: newRole, username,
         nom: String(body.nom ?? ""), prenom: String(body.prenom ?? ""),
         email: String(body.email ?? ""), phone: String(body.phone ?? ""),
-        id_number: String(body.id_number ?? ""), id_photo_url: String(body.id_photo_url ?? "")
+        id_number: String(body.id_number ?? ""), id_photo_url: String(body.id_photo_url ?? ""),
+        pickup_ville_id: newRole === "agent_retrait" ? pickupVilleId : null
       });
       if (e2) { await svc.auth.admin.deleteUser(u.user.id); return NextResponse.json({ ok: false, reason: e2.message }); }
       return NextResponse.json({ ok: true });

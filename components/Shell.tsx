@@ -7,7 +7,7 @@ import { getMyStaff } from "@/lib/authx";
 import { getClientByAuthId } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Staff } from "@/lib/types";
-import { AppRole, isClientPath, isPublicPath, resolveAccess } from "@/lib/access";
+import { AppRole, isClientPath, isPublicPath, isPickupAgentPath, resolveAccess } from "@/lib/access";
 
 /**
  * Shell — CONTRÔLE D'ACCÈS CENTRALISÉ (RBAC)
@@ -61,8 +61,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   if (publicPath) return <main className="min-h-screen">{children}</main>;
   if (!ready) return <Loader />;
 
-  // Kliyan: paj san sidebar staff (espace-client gen pwòp entèfas li)
-  if (role === "client" || isClientPath(path)) return <main className="min-h-screen">{children}</main>;
+  // Kliyan ak ajan remiz: chak gen pwòp entèfas mobil li, san sidebar staff.
+  if (role === "client" || role === "agent_retrait" || isClientPath(path) || isPickupAgentPath(path)) {
+    return <main className="min-h-screen">{children}</main>;
+  }
 
   // Staff: sidebar + kontni
   return (
