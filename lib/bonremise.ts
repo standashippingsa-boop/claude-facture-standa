@@ -41,7 +41,7 @@ export async function generateBonRemise(
   pkgs: Pkg[],
   tarifMap: Map<string, ClientTarifInfo>,
   opts: BonRemiseOptions = {}
-): Promise<{ number: string; filename: string }> {
+): Promise<{ number: string; filename: string; blob: Blob }> {
   const logo = await loadLogo();
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
@@ -207,6 +207,7 @@ export async function generateBonRemise(
 
   const suffix = dest ? `_${dest.replace(/\s+/g, "")}` : "";
   const filename = `BonRemise_${numero}${suffix}.pdf`;
+  const blob = doc.output("blob") as Blob;
   doc.save(filename);
-  return { number: numero, filename };
+  return { number: numero, filename, blob };
 }

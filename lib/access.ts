@@ -54,7 +54,7 @@ export const PICKUP_AGENT_PREFIXES = ["/espace-remise"];
  * Paj ADMIN sèlman (Employé bloke). Tout lòt paj staff yo louvri pou
  * admin + employé (koli, kliyan, fakti, sync, historique, journal, retraits).
  */
-export const ADMIN_ONLY_PREFIXES = ["/settings", "/reviews"];
+export const ADMIN_ONLY_PREFIXES = ["/settings", "/reviews", "/points-retrait"];
 
 /**
  * Match yon prefiks ak yon fwontyè segman: "/login" matche "/login" ak

@@ -12,7 +12,7 @@ import { usePackageSelection } from "@/lib/selection";
 import {
   ClientTarifInfo, archivePackage, unarchivePackage, getClient, getClientTarifMap,
   getConduces, getPackages, getPackagesPage, getAllPackagesMatching, detachPackagesFromInvoice, hardDeletePackage, getSettings, getUsdRate,
-  createBonRemiseRecord, deleteBonRemiseRecord, saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice, notifyEmail
+  createBonRemiseRecord, deleteBonRemiseRecord, saveBonRemisePdf, saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice, notifyEmail
 } from "@/lib/db";
 import { computePrice, round2 } from "@/lib/pricing";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
@@ -426,8 +426,13 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
         });
         recordId = record.id;
       }
-      await generateBonRemise(selectedAll, tarifMap, { number: bonNumber });
-      setNotice(`Bon de remise créé (${selectedAll.length} colis) — PDF telechaje.`);
+      const pdf = await generateBonRemise(selectedAll, tarifMap, { number: bonNumber });
+      let archiveWarning = "";
+      if (recordId) {
+        try { await saveBonRemisePdf(recordId, pdf.blob, pdf.filename); }
+        catch { archiveWarning = " PDF telechaje, men achiv sekirize a pa rive anrejistre."; }
+      }
+      setNotice(`Bon de remise créé (${selectedAll.length} colis) — PDF telechaje.${archiveWarning}`);
     } catch (e: any) {
       if (recordId) await deleteBonRemiseRecord(recordId).catch(() => undefined);
       setNotice("Erè: " + e.message);

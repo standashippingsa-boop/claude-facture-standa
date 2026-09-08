@@ -125,6 +125,29 @@ alter table invoices add column if not exists total_usd numeric not null default
 alter table invoices add column if not exists total_htg numeric not null default 0;
 alter table invoices add column if not exists package_count int not null default 0;
 alter table invoices add column if not exists total_weight numeric not null default 0;
+-- Paiement en point de retrait: la monnaie et chaque versement restent tracés.
+alter table invoices add column if not exists payment_status text not null default 'Non payé';
+alter table invoices add column if not exists payment_paid_usd numeric not null default 0;
+alter table invoices add column if not exists payment_paid_htg numeric not null default 0;
+alter table invoices add column if not exists payment_paid_at timestamptz;
+alter table invoices add column if not exists payment_paid_by text;
+
+create table if not exists invoice_payments (
+  id uuid primary key default gen_random_uuid(),
+  invoice_id uuid not null references invoices(id) on delete cascade,
+  amount numeric not null check (amount > 0),
+  currency text not null check (currency in ('USD','HTG')),
+  amount_usd numeric not null default 0 check (amount_usd >= 0),
+  amount_htg numeric not null default 0 check (amount_htg >= 0),
+  exchange_rate_used numeric not null default 0,
+  -- `staff` est créé plus bas dans ce script historique; l'identifiant reste
+  -- volontairement sans FK ici afin qu'une installation neuve puisse démarrer.
+  received_by_staff_id uuid,
+  received_by_name text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists invoice_payments_invoice_created_idx on invoice_payments (invoice_id, created_at desc);
+alter table invoice_payments enable row level security;
 
 do $$ begin
   alter table packages add constraint packages_invoice_fk

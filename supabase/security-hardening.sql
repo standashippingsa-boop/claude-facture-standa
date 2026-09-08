@@ -21,6 +21,7 @@ alter table if exists public.villes enable row level security;
 alter table if exists public.clients enable row level security;
 alter table if exists public.packages enable row level security;
 alter table if exists public.invoices enable row level security;
+alter table if exists public.invoice_payments enable row level security;
 alter table if exists public.invoice_items enable row level security;
 alter table if exists public.imports enable row level security;
 alter table if exists public.app_settings enable row level security;
@@ -45,7 +46,7 @@ begin
   for r in
     select tablename, policyname from pg_policies
     where schemaname = 'public' and tablename in (
-      'villes','clients','packages','invoices','invoice_items','imports',
+       'villes','clients','packages','invoices','invoice_items','invoice_payments','imports',
       'app_settings','exchange_rate','retraits','retrait_items','staff',
       'agences','conduces','journal','import_batches','api_tokens')
   loop
@@ -62,8 +63,10 @@ begin
         'invoice_files_staff_read','invoice_files_customer_read',
         'invoice_files_staff_insert','invoice_files_staff_update',
         'invoice_files_admin_delete',
-        'staff_docs_admin_read','staff_docs_admin_insert',
-        'staff_docs_admin_update','staff_docs_admin_delete')
+         'staff_docs_admin_read','staff_docs_admin_insert',
+         'staff_docs_admin_update','staff_docs_admin_delete',
+         'bon_remise_files_staff_read','bon_remise_files_staff_insert',
+         'bon_remise_files_staff_update','bon_remise_files_admin_delete')
   loop
     execute format('drop policy if exists %I on storage.objects', r.policyname);
   end loop;
@@ -298,6 +301,26 @@ with check (public.is_staff());
 create policy "invoice_items_delete_staff"
 on public.invoice_items for delete to authenticated
 using (public.is_staff());
+
+-- Les paiements sont une piste financière: seuls les administrateurs les
+-- consultent directement. Les agents de retrait passent par la route serveur
+-- dédiée, qui vérifie leur zone avant chaque écriture.
+create policy "invoice_payments_select_admin"
+on public.invoice_payments for select to authenticated
+using (public.is_admin());
+
+create policy "invoice_payments_insert_admin"
+on public.invoice_payments for insert to authenticated
+with check (public.is_admin());
+
+create policy "invoice_payments_update_admin"
+on public.invoice_payments for update to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy "invoice_payments_delete_admin"
+on public.invoice_payments for delete to authenticated
+using (public.is_admin());
 
 -- ============================================================
 -- 9. IMPORTS
@@ -545,6 +568,32 @@ using (
   bucket_id = 'staff-docs'
   and public.is_admin()
 );
+
+-- ============================================================
+-- 13A. STORAGE — BONS DE REMISE (privé, URL signée serveur)
+-- ============================================================
+-- Contrairement aux factures clients, un Bon contient une liste logistique
+-- complète. Le bucket est donc privé: un agent ne reçoit qu'une URL signée
+-- courte durée après que /api/pickup-agent a vérifié sa zone.
+insert into storage.buckets (id, name, public) values ('bons-remise', 'bons-remise', false)
+on conflict (id) do update set public = false;
+
+create policy "bon_remise_files_staff_read"
+on storage.objects for select to authenticated
+using (bucket_id = 'bons-remise' and public.is_staff());
+
+create policy "bon_remise_files_staff_insert"
+on storage.objects for insert to authenticated
+with check (bucket_id = 'bons-remise' and public.is_staff());
+
+create policy "bon_remise_files_staff_update"
+on storage.objects for update to authenticated
+using (bucket_id = 'bons-remise' and public.is_staff())
+with check (bucket_id = 'bons-remise' and public.is_staff());
+
+create policy "bon_remise_files_admin_delete"
+on storage.objects for delete to authenticated
+using (bucket_id = 'bons-remise' and public.is_admin());
 
 -- ============================================================
 -- 13B. AUTRES TABLES (agences · conduces · journal · import_batches ·

@@ -20,7 +20,7 @@ import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
 import {
   ClientTarifInfo, getCentralAccountCode, getClientTarifMap,
-  createBonRemiseRecord, deleteBonRemiseRecord, getBonRemiseConduceIds,
+  createBonRemiseRecord, deleteBonRemiseRecord, getBonRemiseConduceIds, saveBonRemisePdf,
   getConduces, getPackagesByConduceIds
 } from "@/lib/db";
 import { createBonRemiseNumber, generateBonRemise } from "@/lib/bonremise";
@@ -204,12 +204,17 @@ export default function BonRemisePage() {
         bonNumber, conduceIds, packageCount: chosen.length, destination: ville, who: staffName,
       });
       recordId = record.id;
-      await generateBonRemise(chosen, tarifMap, {
+      const pdf = await generateBonRemise(chosen, tarifMap, {
         destination: ville, conduceOf, centralCode: central, number: bonNumber,
       });
+      // Le téléchargement local reste disponible même si l'archivage échoue.
+      // Un Bon créé ne doit jamais être annulé après que le PDF a été produit.
+      let archiveWarning = "";
+      try { await saveBonRemisePdf(record.id, pdf.blob, pdf.filename); }
+      catch { archiveWarning = " — PDF téléchargé, mais l'archive sécurisée a échoué."; }
       setRecordedConduces((previous) => new Set([...previous, ...conduceIds]));
       setSel(new Set()); setSelCond(new Set()); setVille(""); setQ("");
-      setToast(`Bon de remise ${bonNumber} créé — ${chosen.length} colis${ville ? ` · ${ville}` : ""}`);
+      setToast(`Bon de remise ${bonNumber} créé — ${chosen.length} colis${ville ? ` · ${ville}` : ""}${archiveWarning}`);
     } catch (error) {
       // Si PDF la pa rive kreye, retire mak la pou Conduce yo pa rete bloke.
       if (recordId) await deleteBonRemiseRecord(recordId).catch(() => undefined);

@@ -359,6 +359,22 @@ export async function deleteBonRemiseRecord(id: string): Promise<void> {
 }
 
 /**
+ * Archive le PDF d'un Bon de remise dans un bucket PRIVÉ. L'agent ne reçoit
+ * ensuite qu'une URL signée, calculée par le serveur pour sa propre zone.
+ */
+export async function saveBonRemisePdf(bonId: string, pdf: Blob, filename: string): Promise<string> {
+  const path = storagePath(filename, "bons/");
+  const { error: uploadError } = await supabase.storage.from("bons-remise")
+    .upload(path, pdf, { upsert: false, contentType: "application/pdf" });
+  if (uploadError) throw uploadError;
+  const { error: updateError } = await supabase.from("bons_remise")
+    .update({ pdf_path: path, pdf_created_at: new Date().toISOString() })
+    .eq("id", bonId);
+  if (updateError) throw updateError;
+  return path;
+}
+
+/**
  * EFASE YON CONDUCE (lè li te mal kreye).
  * ═══════════════════════════════════════
  * GAD SEKIRITE — nou pa janm efase done fakti:
@@ -1603,7 +1619,7 @@ export async function getInvoices(): Promise<Invoice[]> {  const { data, error }
   if (error) throw error;
   return (data ?? []).map((i) =>
     asNum(i, ["subtotal", "tax", "grand_total", "exchange_rate_used", "total_usd", "total_htg", "total_weight",
-              "order_purchase", "order_service_fee", "order_deposit", "balance_due"])) as Invoice[];
+               "order_purchase", "order_service_fee", "order_deposit", "balance_due", "payment_paid_usd", "payment_paid_htg"])) as Invoice[];
 }
 export async function getInvoiceItems(invoiceId: string): Promise<InvoiceItem[]> {
   const { data, error } = await supabase.from("invoice_items").select("*")

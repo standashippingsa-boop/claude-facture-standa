@@ -86,6 +86,9 @@ export type ConducePaymentStatus = "Non payé" | "Payé";
 /** Eta yon fakti MCPACK entèn — li pa gen okenn lyen ak fakti kliyan yo. */
 export type McpackInvoiceStatus = "Facturée" | "Payée";
 
+/** État du règlement d'une facture client dans un point de retrait. */
+export type InvoicePaymentStatus = "Non payé" | "Payé partiel" | "Payé";
+
 export interface Conduce {
   id: string;
   conduce_number: string;
@@ -138,6 +141,9 @@ export interface BonRemiseRecord {
   conduce_count: number;
   created_by: string;
   created_at: string;
+  /** Chemin privé Storage. Jamais renvoyé directement à un agent. */
+  pdf_path?: string | null;
+  pdf_created_at?: string | null;
 }
 
 export interface Pkg {
@@ -221,6 +227,24 @@ export interface Invoice {
   balance_due?: number;
 
   pdf_url?: string | null;
+  payment_status?: InvoicePaymentStatus;
+  payment_paid_usd?: number;
+  payment_paid_htg?: number;
+  payment_paid_at?: string | null;
+  payment_paid_by?: string | null;
+  created_at: string;
+}
+
+/** Ligne immuable de paiement reçue en agence ou au point de retrait. */
+export interface InvoicePayment {
+  id: string;
+  invoice_id: string;
+  amount: number;
+  currency: "USD" | "HTG";
+  amount_usd: number;
+  amount_htg: number;
+  exchange_rate_used: number;
+  received_by_name: string;
   created_at: string;
 }
 
