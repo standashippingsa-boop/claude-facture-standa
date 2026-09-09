@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
+import { invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 
 /**
  * API isolée des points de retrait.
@@ -21,7 +22,8 @@ type Parcel = {
 };
 type ZoneInvoice = {
   id: string; invoice_number: string; customer_code: string; package_count: number | null;
-  total_usd: number | null; total_htg: number | null; exchange_rate_used: number | null;
+  grand_total: number | null; total_usd: number | null; total_htg: number | null; exchange_rate_used: number | null;
+  order_deposit: number | null; balance_due: number | null;
   has_pdf: boolean | null; created_at: string; payment_status: string | null;
   payment_paid_usd: number | null; payment_paid_htg: number | null;
 };
@@ -124,7 +126,7 @@ export async function GET(req: Request) {
       const [parcelResult, invoiceResult] = await Promise.all([
         db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id")
           .eq("archived", false).in("customer_code", codes).order("created_at", { ascending: false }).limit(5000),
-        db.from("invoices").select("id, invoice_number, customer_code, package_count, total_usd, total_htg, exchange_rate_used, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
+        db.from("invoices").select("id, invoice_number, customer_code, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
           .in("customer_code", codes).order("created_at", { ascending: false }).limit(1000)
       ]);
       if (parcelResult.error) throw parcelResult.error;
@@ -133,14 +135,17 @@ export async function GET(req: Request) {
       invoices = (invoiceResult.data ?? []) as ZoneInvoice[];
     }
 
-    const invoiceMap = new Map(invoices.map((invoice) => [invoice.id, invoice]));
-    // Balans lan kalkile sou TOUT fakti kliyan an ki poko peye nèt. Nou kenbe
-    // pi ansyen fakti a kòm sa Rony dwe regle an premye anvan nenpòt lòt remis.
+    // Yon pri pa janm soti pou ajan an jis fakti a gen PDF li a (sa vle di li
+    // te finalise pou kliyan an). Yon fakti ki toujou an preparasyon rete
+    // envizib pou Rony, menm si li deja gen yon id nan baz la.
+    const issuedInvoices = invoices.filter((invoice) => Boolean(invoice.has_pdf));
+    const invoiceMap = new Map(issuedInvoices.map((invoice) => [invoice.id, invoice]));
+    // Balans lan kalkile sou TOUT fakti kliyan an ki deja emèt epi ki poko
+    // peye nèt. Nou kenbe pi ansyen fakti a kòm sa Rony dwe regle an premye.
     const balanceByCustomer = new Map<string, CustomerBalance>();
-    const oldestFirst = [...invoices].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    const oldestFirst = [...issuedInvoices].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
     for (const invoice of oldestFirst) {
-      const remainingUsd = Math.max(0, money(Number(invoice.total_usd) - Number(invoice.payment_paid_usd)));
-      const remainingHtg = Math.max(0, money(Number(invoice.total_htg) - Number(invoice.payment_paid_htg)));
+      const { remainingUsd, remainingHtg } = invoiceRemainingAmounts(invoice);
       if (remainingUsd <= 0.01) continue;
       const current = balanceByCustomer.get(code(invoice.customer_code));
       balanceByCustomer.set(code(invoice.customer_code), {
@@ -190,18 +195,19 @@ export async function GET(req: Request) {
         customer_code: code(parcel.customer_code), customer_name: customerName(customer), quantity: Number(parcel.quantity ?? 1) || 1,
         content: code(parcel.content), created_date: code(parcel.created_date), received_at: code(parcel.received_at),
         status: code(parcel.status), invoice_id: invoice?.id ?? "", invoice_number: invoice?.invoice_number ?? "",
-        invoice_payment_status: invoice?.payment_status ?? "Non facturé", customer_balance_usd: balance?.usd ?? 0,
+        invoice_payment_status: invoice ? paymentStatusFromAmounts(invoice) : "Non facturé", customer_balance_usd: balance?.usd ?? 0,
         customer_balance_htg: balance?.htg ?? 0, balance_invoice_id: balance?.invoiceId ?? "", balance_invoice_number: balance?.invoiceNumber ?? ""
       };
     });
-    const invoiceCards = invoices.map((invoice) => {
+    const invoiceCards = issuedInvoices.map((invoice) => {
       const customerCode = code(invoice.customer_code);
       const balance = balanceByCustomer.get(customerCode);
+      const amounts = invoicePayableAmounts(invoice);
       return {
       id: code(invoice.id), invoice_number: code(invoice.invoice_number), customer_code: customerCode,
       customer_name: customerName(customerByCode.get(customerCode)), customer_balance_usd: balance?.usd ?? 0, customer_balance_htg: balance?.htg ?? 0,
-      package_count: Number(invoice.package_count ?? 0), total_usd: money(invoice.total_usd), total_htg: money(invoice.total_htg),
-      payment_status: code(invoice.payment_status) || "Non payé", payment_paid_usd: money(invoice.payment_paid_usd),
+      package_count: Number(invoice.package_count ?? 0), amount_due_usd: amounts.payableUsd, amount_due_htg: amounts.payableHtg,
+      amount_label: amounts.hasDeposit ? "Solde à payer selon la facture" : "Total de la facture", payment_status: paymentStatusFromAmounts(invoice), payment_paid_usd: money(invoice.payment_paid_usd),
       payment_paid_htg: money(invoice.payment_paid_htg), has_pdf: Boolean(invoice.has_pdf), created_at: code(invoice.created_at)
     }; });
 
@@ -235,23 +241,27 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, reason: "Montant trop élevé: vérifiez votre saisie." }, { status: 400 });
       }
       const invoiceResult = await db.from("invoices")
-        .select("id, invoice_number, customer_code, total_usd, total_htg, exchange_rate_used, payment_paid_usd, payment_paid_htg")
+        .select("id, invoice_number, customer_code, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, payment_paid_usd, payment_paid_htg")
         .eq("id", invoiceId).maybeSingle();
       const invoice = invoiceResult.data as {
-        id: string; invoice_number: string; customer_code: string; total_usd: number; total_htg: number;
-        exchange_rate_used: number; payment_paid_usd: number; payment_paid_htg: number;
+        id: string; invoice_number: string; customer_code: string; grand_total: number; total_usd: number; total_htg: number;
+        exchange_rate_used: number; order_deposit: number; balance_due: number; has_pdf: boolean; payment_paid_usd: number; payment_paid_htg: number;
       } | null;
       if (!invoice || !(await customerBelongsToZone(db, invoice.customer_code, agent.pickup_ville_id!))) {
         return NextResponse.json({ ok: false, reason: "Cette facture n'appartient pas à votre zone." }, { status: 403 });
       }
-      const rate = Number(invoice.exchange_rate_used) > 0 ? Number(invoice.exchange_rate_used) : Number(invoice.total_htg) / Math.max(Number(invoice.total_usd), 1);
+      if (!invoice.has_pdf) {
+        return NextResponse.json({ ok: false, reason: "La facture doit être générée pour le client avant tout encaissement." }, { status: 409 });
+      }
+      const payable = invoicePayableAmounts(invoice);
+      const rate = Number(invoice.exchange_rate_used) > 0 ? Number(invoice.exchange_rate_used) : payable.payableHtg / Math.max(payable.payableUsd, 1);
       if (!Number.isFinite(rate) || rate <= 0) return NextResponse.json({ ok: false, reason: "Taux de la facture introuvable. Contactez un administrateur." }, { status: 409 });
       const amountUsd = currency === "USD" ? amount : money(amount / rate);
       const amountHtg = currency === "HTG" ? amount : money(amount * rate);
       const priorUsd = money(invoice.payment_paid_usd);
       const priorHtg = money(invoice.payment_paid_htg);
-      const remainingUsd = Math.max(0, money(Number(invoice.total_usd) - priorUsd));
-      const remainingHtg = Math.max(0, money(Number(invoice.total_htg) - priorHtg));
+      const remainingUsd = Math.max(0, money(payable.payableUsd - priorUsd));
+      const remainingHtg = Math.max(0, money(payable.payableHtg - priorHtg));
       // Aksepte yon ti depase lajan (eg. 11 675 pou yon balans 11 673 HTG),
       // men pa kite yon gwo montan pase pa erè. Se sèlman balans la ki aplike.
       const toleranceUsd = currency === "HTG" ? Math.max(0.05, money(5 / rate)) : 0.05;
@@ -263,7 +273,7 @@ export async function POST(req: Request) {
       const overpaymentAmount = money(currency === "HTG" ? amount - appliedHtg : amount - appliedUsd);
       const newUsd = money(priorUsd + appliedUsd);
       const newHtg = money(priorHtg + appliedHtg);
-      const status = newUsd + 0.01 >= money(invoice.total_usd) ? "Payé" : "Payé partiel";
+      const status = newUsd + 0.01 >= payable.payableUsd ? "Payé" : "Payé partiel";
       // Écriture optimiste: une seule caisse peut ajouter un paiement à partir
       // du même solde. Si deux appareils valident au même instant, le second
       // enregistrement est retiré et doit actualiser l'écran.
@@ -307,20 +317,23 @@ export async function POST(req: Request) {
       if (!parcel.invoice_id) {
         return NextResponse.json({ ok: false, reason: "Ce colis doit être facturé avant sa remise." }, { status: 409 });
       }
-      const invoiceResult = await db.from("invoices").select("payment_status, invoice_number")
+      const invoiceResult = await db.from("invoices").select("invoice_number, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, payment_paid_usd, payment_paid_htg")
         .eq("id", parcel.invoice_id).maybeSingle();
-      if (invoiceResult.data?.payment_status !== "Payé") {
+      if (!invoiceResult.data?.has_pdf) {
+        return NextResponse.json({ ok: false, reason: "La facture doit être générée pour le client avant toute remise." }, { status: 409 });
+      }
+      if (invoiceRemainingAmounts(invoiceResult.data).remainingUsd > 0.01) {
         return NextResponse.json({ ok: false, reason: "Enregistrez le paiement complet de la facture avant de remettre ce colis." }, { status: 409 });
       }
       // Règle de caisse: un client doit aussi solder ses anciennes factures.
       // Sinon il pourrait payer uniquement le dernier colis et laisser une
       // dette antérieure, puis continuer les retraits sans contrôle.
       const balances = await db.from("invoices")
-        .select("invoice_number, total_usd, payment_paid_usd")
-        .eq("customer_code", parcel.customer_code).order("created_at", { ascending: true });
+        .select("invoice_number, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, payment_paid_usd, payment_paid_htg")
+        .eq("customer_code", parcel.customer_code).eq("has_pdf", true).order("created_at", { ascending: true });
       if (balances.error) throw balances.error;
-      const outstanding = (balances.data ?? []).map((row: { invoice_number: string; total_usd: number; payment_paid_usd: number }) => ({
-        number: code(row.invoice_number), remaining: Math.max(0, money(Number(row.total_usd) - Number(row.payment_paid_usd)))
+      const outstanding = (balances.data ?? []).map((row: ZoneInvoice) => ({
+        number: code(row.invoice_number), remaining: invoiceRemainingAmounts(row).remainingUsd
       })).filter((row: { remaining: number }) => row.remaining > 0.01);
       if (outstanding.length) {
         const total = money(outstanding.reduce((sum: number, row: { remaining: number }) => sum + row.remaining, 0));

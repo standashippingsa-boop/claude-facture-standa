@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
+import { invoicePayableAmounts } from "@/lib/invoice-payable";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 const METHODS = new Set(["Espèces", "MonCash", "NatCash", "Zelle", "Virement bancaire"]);
@@ -35,18 +36,20 @@ export async function POST(req: Request) {
     if (!staff || staff.role !== "admin") return NextResponse.json({ ok: false, reason: "Accès administrateur requis." }, { status: 403 });
 
     const { data: invoice } = await db.from("invoices")
-      .select("id, invoice_number, customer_code, total_usd, total_htg, exchange_rate_used, payment_paid_usd, payment_paid_htg")
+      .select("id, invoice_number, customer_code, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, payment_paid_usd, payment_paid_htg")
       .eq("id", invoiceId).maybeSingle();
     if (!invoice) return NextResponse.json({ ok: false, reason: "Facture introuvable." }, { status: 404 });
-    const rate = Number(invoice.exchange_rate_used) > 0 ? Number(invoice.exchange_rate_used) : Number(invoice.total_htg) / Math.max(Number(invoice.total_usd), 1);
+    if (!invoice.has_pdf) return NextResponse.json({ ok: false, reason: "Générez d'abord la facture destinée au client." }, { status: 409 });
+    const payable = invoicePayableAmounts(invoice);
+    const rate = Number(invoice.exchange_rate_used) > 0 ? Number(invoice.exchange_rate_used) : payable.payableHtg / Math.max(payable.payableUsd, 1);
     if (!Number.isFinite(rate) || rate <= 0) return NextResponse.json({ ok: false, reason: "Taux de la facture introuvable." }, { status: 409 });
 
     const amountUsd = currency === "USD" ? amount : money(amount / rate);
     const amountHtg = currency === "HTG" ? amount : money(amount * rate);
     const priorUsd = money(invoice.payment_paid_usd);
     const priorHtg = money(invoice.payment_paid_htg);
-    const remainingUsd = Math.max(0, money(Number(invoice.total_usd) - priorUsd));
-    const remainingHtg = Math.max(0, money(Number(invoice.total_htg) - priorHtg));
+    const remainingUsd = Math.max(0, money(payable.payableUsd - priorUsd));
+    const remainingHtg = Math.max(0, money(payable.payableHtg - priorHtg));
     const toleranceUsd = currency === "HTG" ? Math.max(0.05, money(5 / rate)) : 0.05;
     if (amountUsd > remainingUsd + toleranceUsd) {
       return NextResponse.json({ ok: false, reason: `Le montant dépasse le reste à payer (${remainingUsd.toFixed(2)} USD).` }, { status: 409 });
@@ -57,7 +60,7 @@ export async function POST(req: Request) {
     const overpaymentAmount = money(currency === "HTG" ? amount - appliedHtg : amount - appliedUsd);
     const newUsd = money(priorUsd + appliedUsd);
     const newHtg = money(priorHtg + appliedHtg);
-    const status = newUsd + 0.01 >= money(invoice.total_usd) ? "Payé" : "Payé partiel";
+    const status = newUsd + 0.01 >= payable.payableUsd ? "Payé" : "Payé partiel";
     const staffName = [text(staff.prenom), text(staff.nom)].filter(Boolean).join(" ") || text(staff.username) || "Administrateur";
 
     const payment = await db.from("invoice_payments").insert({
