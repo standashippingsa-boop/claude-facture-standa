@@ -1688,8 +1688,13 @@ export async function getSmallParcelConfig(): Promise<SmallParcelConfig> {
 }
 
 // ================= API TOKENS (Extension Chrome) =================
+/**
+ * Fòm yon jeton jan LI ESTOKE a — jan `token_hash` (yon SHA-256), jamè jeton
+ * klè a. Depi v12, `token` pa egziste ankò nan bazdone a; nou pa l mete l
+ * isit la pou tip la pa mennen kòd bay yon chan ki pa la.
+ */
 export interface ApiToken {
-  id: string; token: string; label: string; active: boolean;
+  id: string; label: string; active: boolean;
   created_at: string; last_used_at: string | null;
 }
 
@@ -1698,15 +1703,48 @@ export async function getApiTokens(): Promise<ApiToken[]> {
   return (data ?? []) as ApiToken[];
 }
 
-/** Kreye yon token opak (32 bytes hex). Retounen valè a yon sèl fwa. */
+/**
+ * Kreye yon token opak (24 bytes hex, prefiks "sk_"). Retounen VALÈ KLÈ a
+ * yon sèl fwa — se sèl moman kote nou wè l.
+ *
+ * ⚠️ KORÈKSYON — "Refize: Token invalide" sou ekstansyon Chrome lan
+ * ──────────────────────────────────────────────────────────────────
+ * Migrasyon v12 (supabase/migration.sql) chanje tab `api_tokens`: nou pa
+ * estoke jeton an klè ankò, sèlman `token_hash` (SHA-256). /api/ingest ak
+ * /api/ingest-conduce te deja mete ajou pou verifye kont `token_hash` —
+ * men fonksyon sa a te rete ap ekri nan ANSYEN kolòn `token` (klè).
+ *
+ * Rezilta: CHAK jeton kreye depi Paramètres te ateri nan move kolòn nan
+ * bazdone a. Ekstansyon an te voye jeton an, sèvè a t ap chèche l nan
+ * `token_hash`, li pa t janm jwenn anyen — "Token invalide" chak fwa.
+ *
+ * Nou hash jeton an ISIT LA menm jan ak wout yo, epi nou ekri nan
+ * `token_hash` — konsa kreyasyon an ak verifikasyon an sèvi ak MENM kolòn.
+ */
+
+/**
+ * SHA-256 an tèks hex — ak Web Crypto API (`crypto.subtle`), disponib
+ * TOULEDE nan navigatè a AK sou sèvè a (Node 18+, Edge). Nou EVITE
+ * "node:crypto" isit la esprè: lib/db.ts bendle pou navigatè a tou (paj
+ * Paramètres rele createApiToken() an "use client"), epi yon enpòtasyon
+ * "node:*" kraze webpack lè l ap konstwi pou navigatè a.
+ */
+async function sha256Hex(text: string): Promise<string> {
+  const data = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export async function createApiToken(label: string): Promise<string> {
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
   const token = "sk_" + Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-  const { error } = await supabase.from("api_tokens").insert({ token, label: label || "Extension Chrome", active: true });
+  const tokenHash = await sha256Hex(token);
+  const { error } = await supabase.from("api_tokens")
+    .insert({ token_hash: tokenHash, label: label || "Extension Chrome", active: true });
   if (error) throw error;
   await logAction("API", `Token API kreye: ${label || "Extension Chrome"}`, "", "");
-  return token;
+  return token;   // valè KLÈ a — sèl fwa nou ka montre kliyan an li
 }
 
 export async function setApiTokenActive(id: string, active: boolean): Promise<void> {
