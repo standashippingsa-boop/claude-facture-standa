@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Banknote, CheckCircle2, ClipboardList, PackageCheck, RefreshCw, Truck, X } from "lucide-react";
+import { Banknote, CheckCircle2, CircleDollarSign, ClipboardList, PackageCheck, RefreshCw, Truck, X } from "lucide-react";
 import { getClients, getInvoices, getPackages, getVilles } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Client, Invoice, Pkg, Ville } from "@/lib/types";
@@ -11,6 +11,7 @@ import { invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmount
 type PaymentMethod = "Espèces" | "MonCash" | "NatCash" | "Zelle" | "Virement bancaire";
 type PaymentRow = { invoice_id: string; amount: number; currency: string; amount_usd: number; amount_htg: number; applied_usd: number; applied_htg: number; overpayment_amount: number; payment_method: PaymentMethod; payment_reference: string; received_by_name: string; recorded_by_role: string; created_at: string };
 type PaymentDraft = { invoiceId: string; amount: string; currency: "USD" | "HTG"; method: PaymentMethod; reference: string };
+type CustomerBalanceRow = { customerCode: string; customerName: string; invoiceCount: number; oldestInvoiceId: string; oldestInvoiceNumber: string; usd: number; htg: number };
 const emptyPaymentDraft = (): PaymentDraft => ({ invoiceId: "", amount: "", currency: "HTG", method: "Espèces", reference: "" });
 const usd = (n: number) => `$${Number(n || 0).toFixed(2)}`;
 const htg = (n: number) => `${new Intl.NumberFormat("fr-HT", { maximumFractionDigits: 2 }).format(Number(n || 0))} HTG`;
@@ -47,6 +48,30 @@ export default function PointsRetraitPage() {
   const zoneInvoices = useMemo(() => invoices.filter((invoice) => zoneCodes.has(invoice.customer_code)), [invoices, zoneCodes]);
   const zonePackages = useMemo(() => packages.filter((item) => zoneCodes.has(item.customer_code)), [packages, zoneCodes]);
   const selectedVille = villes.find((city) => city.id === villeId);
+  const balanceCustomers = useMemo(() => {
+    const clientByCode = new Map(clients.map((client) => [client.customer_code, client]));
+    const rows = new Map<string, CustomerBalanceRow & { oldestCreated: string }>();
+    for (const invoice of zoneInvoices) {
+      // Yon balans antre nan kontwòl la sèlman lè PDF fakti kliyan an deja pare.
+      if (!invoice.has_pdf && !invoice.pdf_path && !invoice.pdf_url) continue;
+      const { remainingUsd, remainingHtg } = invoiceRemainingAmounts(invoice);
+      if (remainingUsd <= 0.01) continue;
+      const current = rows.get(invoice.customer_code);
+      const client = clientByCode.get(invoice.customer_code);
+      const customerName = [client?.fullname, client?.surname].filter(Boolean).join(" ");
+      const older = !current || String(invoice.created_at) < current.oldestCreated;
+      rows.set(invoice.customer_code, {
+        customerCode: invoice.customer_code, customerName: current?.customerName || customerName,
+        invoiceCount: (current?.invoiceCount ?? 0) + 1,
+        oldestInvoiceId: older ? invoice.id : current.oldestInvoiceId,
+        oldestInvoiceNumber: older ? invoice.invoice_number : current.oldestInvoiceNumber,
+        oldestCreated: older ? String(invoice.created_at) : current.oldestCreated,
+        usd: Number(((current?.usd ?? 0) + remainingUsd).toFixed(2)),
+        htg: Number(((current?.htg ?? 0) + remainingHtg).toFixed(2))
+      });
+    }
+    return Array.from(rows.values()).sort((a, b) => b.usd - a.usd || a.customerCode.localeCompare(b.customerCode));
+  }, [clients, zoneInvoices]);
 
   useEffect(() => {
     if (!zoneInvoices.length) { setPayments([]); return; }
@@ -92,6 +117,7 @@ export default function PointsRetraitPage() {
     {notice && <p className="card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</p>}
     {loading ? <div className="card p-10 text-center text-sm text-slate-500">Chargement…</div> : !villeId ? <div className="card p-10 text-center text-sm text-slate-500">Choisissez un point de retrait.</div> : <>
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric icon={<Banknote size={20} />} label="Factures entièrement payées" value={paid.length} hint={`${partial.length} paiement(s) partiel(s)`} tint="bg-emerald-50 text-emerald-700" /><Metric icon={<CheckCircle2 size={20} />} label="Colis remis" value={delivered.length} hint={`${zoneCodes.size} client(s) dans ${selectedVille?.name ?? "la zone"}`} tint="bg-indigo-50 text-indigo-700" /><Metric icon={<PackageCheck size={20} />} label="Colis restant à remettre" value={remaining.length} hint="En route, disponible ou facturé" tint="bg-orange-50 text-orange-700" /><Metric icon={<ClipboardList size={20} />} label="Paiements reçus" value={usd(receivedUsd)} hint={htg(receivedHtg)} tint="bg-blue-50 text-blue-700" /></section>
+      <section className="card overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4"><div><h2 className="h-sec flex items-center gap-2"><CircleDollarSign size={20} /> Clients avec un solde</h2><p className="mt-1 text-xs text-mute">Ces soldes bloquent la remise de tout nouveau colis jusqu&apos;au règlement complet.</p></div><span className="badge bg-amber-100 text-amber-800">{balanceCustomers.length} client{balanceCustomers.length > 1 ? "s" : ""}</span></div><div className="max-h-[330px] overflow-auto"><table className="w-full text-sm"><thead><tr>{["Client", "Factures impayées", "Solde à régler", "Action"].map((title) => <th className="th" key={title}>{title}</th>)}</tr></thead><tbody>{balanceCustomers.length ? balanceCustomers.map((row, index) => <tr key={row.customerCode} className={index % 2 ? "bg-mist" : ""}><td className="td"><b className="text-navy">{row.customerCode}</b>{row.customerName && <span className="mt-0.5 block text-xs text-slate-500">{row.customerName}</span>}</td><td className="td">{row.invoiceCount} facture{row.invoiceCount > 1 ? "s" : ""}<span className="mt-0.5 block text-xs text-slate-500">À partir de {row.oldestInvoiceNumber}</span></td><td className="td text-right font-bold text-amber-800">{usd(row.usd)}<span className="mt-0.5 block text-xs font-normal text-slate-500">{htg(row.htg)}</span></td><td className="td"><button type="button" onClick={() => { setPaymentDraft({ ...emptyPaymentDraft(), invoiceId: row.oldestInvoiceId }); setPaymentError(""); }} className="whitespace-nowrap text-xs font-bold text-navy underline">Régler la facture</button></td></tr>) : <tr><td className="py-8 text-center text-slate-400" colSpan={4}>Aucun solde impayé dans cette zone.</td></tr>}</tbody></table></div></section>
       {paymentDraft.invoiceId && <AdminPaymentPanel invoice={zoneInvoices.find((invoice) => invoice.id === paymentDraft.invoiceId) ?? null} draft={paymentDraft} setDraft={setPaymentDraft} busy={paymentBusy} error={paymentError} onChange={() => setPaymentError("")} onClose={() => { setPaymentDraft(emptyPaymentDraft()); setPaymentError(""); }} onSubmit={() => void recordDirectPayment()} />}
       <section className="grid gap-5 xl:grid-cols-2"><div className="card overflow-hidden"><div className="border-b border-line p-4"><h2 className="h-sec">Factures {selectedVille?.name}</h2><p className="mt-1 text-xs text-mute">Le montant à encaisser est toujours celui indiqué sur la facture envoyée au client.</p></div><div className="max-h-[430px] overflow-auto"><table className="w-full text-sm"><thead><tr>{["Facture", "Client", "À encaisser", "État", "Action"].map((title) => <th className="th" key={title}>{title}</th>)}</tr></thead><tbody>{zoneInvoices.length ? zoneInvoices.map((invoice, index) => { const amounts = invoicePayableAmounts(invoice); const status = paymentStatusFromAmounts(invoice); const issued = Boolean(invoice.has_pdf || invoice.pdf_path || invoice.pdf_url); return <tr key={invoice.id} className={index % 2 ? "bg-mist" : ""}><td className="td font-bold text-navy">{invoice.invoice_number}<span className="mt-0.5 block text-[11px] font-normal text-slate-400">{dateFr(invoice.created_at)}</span></td><td className="td">{invoice.customer_code}</td><td className="td text-right">{issued ? <>{usd(amounts.payableUsd)}<span className="mt-0.5 block text-[11px] text-slate-500">{htg(amounts.payableHtg)}</span></> : <span className="text-xs text-slate-400">PDF à générer</span>}</td><td className="td"><PaymentStatus status={status} /></td><td className="td">{!issued ? <span className="text-xs text-slate-400">Facture client requise</span> : status !== "Payé" && <button type="button" onClick={() => { setPaymentDraft({ ...emptyPaymentDraft(), invoiceId: invoice.id }); setPaymentError(""); }} className="whitespace-nowrap text-xs font-bold text-navy underline">Paiement direct</button>}</td></tr>; }) : <tr><td className="py-8 text-center text-slate-400" colSpan={5}>Aucune facture.</td></tr>}</tbody></table></div></div>
         <div className="card overflow-hidden"><div className="border-b border-line p-4"><h2 className="h-sec">Derniers paiements reçus</h2><p className="mt-1 text-xs text-mute">Méthode, montant, éventuel arrondi, personne et date restent enregistrés.</p></div><div className="max-h-[430px] overflow-auto"><table className="w-full text-sm"><thead><tr>{["Date", "Facture", "Montant", "Méthode", "Reçu par"].map((title) => <th className="th" key={title}>{title}</th>)}</tr></thead><tbody>{payments.length ? payments.map((payment, index) => { const invoice = zoneInvoices.find((row) => row.id === payment.invoice_id); return <tr key={`${payment.invoice_id}-${payment.created_at}-${index}`} className={index % 2 ? "bg-mist" : ""}><td className="td whitespace-nowrap">{dateFr(payment.created_at)}</td><td className="td font-semibold text-navy">{invoice?.invoice_number ?? "—"}</td><td className="td text-right">{payment.currency === "USD" ? usd(payment.amount) : htg(payment.amount)}{Number(payment.overpayment_amount || 0) > 0.009 && <span className="mt-0.5 block text-[11px] text-amber-700">Arrondi: {payment.currency === "USD" ? usd(payment.overpayment_amount) : htg(payment.overpayment_amount)}</span>}</td><td className="td">{payment.payment_method || "Espèces"}{payment.payment_reference && <span className="mt-0.5 block text-[11px] text-slate-500">{payment.payment_reference}</span>}</td><td className="td">{payment.received_by_name || "—"}<span className="mt-0.5 block text-[11px] text-slate-500">{payment.recorded_by_role === "admin" ? "Admin direct" : "Point de retrait"}</span></td></tr>; }) : <tr><td className="py-8 text-center text-slate-400" colSpan={5}>Aucun paiement enregistré.</td></tr>}</tbody></table></div></div></section>
