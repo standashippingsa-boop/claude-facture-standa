@@ -715,6 +715,19 @@ function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
   const [label, setLabel] = useState("Extension Chrome");
   const [newToken, setNewToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /*
+   * ⚠️ KORÈKSYON — "peze Générer un token, sistèm nan pa fè anyen"
+   * ─────────────────────────────────────────────────────────────
+   * Se pa t yon bug lojik: kreyasyon an te vre fèt (oswa echwe) san pwoblèm.
+   * Men SÈL repons vizyèl la (`onNotice`) te rann yon paragraf ki parèt
+   * TOUT ANBA PAJ PARAMÈTRES LA — apre tout seksyon Employés la, ki long.
+   * Yon admin ki klike bouton an nan mitan paj la pa t janm wè mesaj la:
+   * li te deyò ekran an. Kat "✅ Nouvo token" a te gen menm pwoblèm nan.
+   *
+   * Kounye a chak rezilta (siksè OSWA erè) parèt ISIT LA, DIRÈKTEMAN anba
+   * bouton an — pa gen tan pou li vwayaje jouk anba paj la.
+   */
+  const [localErr, setLocalErr] = useState<string | null>(null);
 
   const load = async () => {
     const { getApiTokens } = await import("@/lib/db");
@@ -723,13 +736,17 @@ function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
   useEffect(() => { load(); }, []);
 
   const create = async () => {
-    setBusy(true);
+    setBusy(true); setLocalErr(null); setNewToken(null);
     try {
       const { createApiToken } = await import("@/lib/db");
       const t = await createApiToken(label);
       setNewToken(t);
       await load();
-    } catch (e) { onNotice("Erè: " + (e as Error).message); }
+    } catch (e) {
+      const msg = (e as { message?: string })?.message || "Erreur inconnue lors de la création du token.";
+      setLocalErr(msg);
+      onNotice("Erè: " + msg);   // gade tou nan istorik jeneral la
+    }
     finally { setBusy(false); }
   };
 
@@ -758,9 +775,17 @@ function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
           <input className="input mt-1" value={label} onChange={(e) => setLabel(e.target.value)} />
         </label>
         <button className="btn" onClick={create} disabled={busy}>
-          {busy ? "..." : "Générer un token"}
+          {busy ? "Création…" : "Générer un token"}
         </button>
       </div>
+
+      {/* Repons DIRÈK, jis anba bouton an — pa gen mesaj ki disparèt nan lwen. */}
+      {localErr && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="text-xs font-bold text-red-800 mb-1">❌ Échec de la création du token</p>
+          <p className="text-xs text-red-700">{localErr}</p>
+        </div>
+      )}
 
       {newToken && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
