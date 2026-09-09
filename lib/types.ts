@@ -247,8 +247,14 @@ export interface InvoicePayment {
   currency: "USD" | "HTG";
   amount_usd: number;
   amount_htg: number;
+  applied_usd?: number;
+  applied_htg?: number;
+  overpayment_amount?: number;
+  payment_method?: "Espèces" | "MonCash" | "NatCash" | "Zelle" | "Virement bancaire";
+  payment_reference?: string;
   exchange_rate_used: number;
   received_by_name: string;
+  recorded_by_role?: string;
   created_at: string;
 }
 

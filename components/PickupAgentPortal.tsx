@@ -32,6 +32,8 @@ type PortalData = {
 };
 type Tab = "arrivals" | "ready" | "invoices" | "bons" | "delivered";
 type ArrivalFilter = "all" | "miami" | "transit";
+type PaymentMethod = "Espèces" | "MonCash" | "NatCash" | "Zelle" | "Virement bancaire";
+type PaymentDraft = { invoiceId: string; amount: string; currency: "USD" | "HTG"; method: PaymentMethod; reference: string };
 
 const DONE = "Livré";
 const READY = new Set(["Disponible", "Facturé"]);
@@ -39,6 +41,7 @@ const fmtUsd = (value: number) => `$${Number(value || 0).toFixed(2)}`;
 const fmtHtg = (value: number) => `${new Intl.NumberFormat("fr-HT", { maximumFractionDigits: 2 }).format(Number(value || 0))} HTG`;
 const dateText = (value: string) => value ? new Date(value).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "—";
 const quantityTotal = (items: ZonePackage[]) => items.reduce((total, item) => total + (Number(item.quantity) || 1), 0);
+const emptyPaymentDraft = (): PaymentDraft => ({ invoiceId: "", amount: "", currency: "HTG", method: "Espèces", reference: "" });
 
 /** Interface mobile/tablette/laptop, volontairement limitée à la zone de l'agent. */
 export default function PickupAgentPortal() {
@@ -50,7 +53,8 @@ export default function PickupAgentPortal() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [releasing, setReleasing] = useState<string | null>(null);
   const [paymentBusy, setPaymentBusy] = useState(false);
-  const [paymentDraft, setPaymentDraft] = useState({ invoiceId: "", amount: "", currency: "HTG" as "USD" | "HTG" });
+  const [paymentDraft, setPaymentDraft] = useState<PaymentDraft>(emptyPaymentDraft);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -83,12 +87,12 @@ export default function PickupAgentPortal() {
   const visible = tab === "arrivals" ? arrivalVisible : tab === "ready" ? ready : tab === "delivered" ? delivered : [];
   const filteredPackages = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    return !needle ? visible : visible.filter((item) => [item.customer_code, item.tracking_number, item.tracking_manual, item.content, item.status].join(" ").toLowerCase().includes(needle));
+    return !needle ? visible : visible.filter((item) => [item.customer_code, item.customer_name, item.tracking_number, item.tracking_manual, item.content, item.status].join(" ").toLowerCase().includes(needle));
   }, [visible, search]);
   const packageGroups = useMemo(() => groupPackages(filteredPackages), [filteredPackages]);
   const filteredInvoices = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    return !needle ? (data?.invoices ?? []) : (data?.invoices ?? []).filter((item) => [item.invoice_number, item.customer_code, item.payment_status].join(" ").toLowerCase().includes(needle));
+    return !needle ? (data?.invoices ?? []) : (data?.invoices ?? []).filter((item) => [item.invoice_number, item.customer_code, item.customer_name, item.payment_status].join(" ").toLowerCase().includes(needle));
   }, [data?.invoices, search]);
   const filteredBons = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -121,15 +125,16 @@ export default function PickupAgentPortal() {
   const recordPayment = async () => {
     const amount = Number(paymentDraft.amount);
     if (!paymentDraft.invoiceId || !Number.isFinite(amount) || amount <= 0) {
-      setMessage({ type: "error", text: "Antre yon montan ki valid." }); return;
+      setPaymentError("Antre yon montan ki valid."); return;
     }
-    setPaymentBusy(true); setMessage(null);
+    setPaymentBusy(true); setPaymentError(null);
     try {
-      const result = await call({ action: "record_payment", invoice_id: paymentDraft.invoiceId, amount, currency: paymentDraft.currency });
-      setMessage({ type: "ok", text: `Peman anrejistre: ${result.payment_status}.` });
-      setPaymentDraft({ invoiceId: "", amount: "", currency: "HTG" });
+      const result = await call({ action: "record_payment", invoice_id: paymentDraft.invoiceId, amount, currency: paymentDraft.currency, payment_method: paymentDraft.method, payment_reference: paymentDraft.reference });
+      const extra = Number(result.overpayment_amount || 0) > 0.009 ? ` Arrondi accepté: ${Number(result.overpayment_amount).toFixed(2)} ${result.currency}.` : "";
+      setMessage({ type: "ok", text: `Peman anrejistre: ${result.payment_status}.${extra}` });
+      setPaymentDraft(emptyPaymentDraft());
       await load(); setTab("ready");
-    } catch (error) { setMessage({ type: "error", text: error instanceof Error ? error.message : "Paiement impossible." }); }
+    } catch (error) { setPaymentError(error instanceof Error ? error.message : "Paiement impossible."); }
     finally { setPaymentBusy(false); }
   };
 
@@ -139,7 +144,9 @@ export default function PickupAgentPortal() {
   };
 
   const startReadyPayment = (invoiceId: string) => {
-    setPaymentDraft({ invoiceId, amount: "", currency: "HTG" });
+    setPaymentDraft({ ...emptyPaymentDraft(), invoiceId });
+    setPaymentError(null);
+    window.setTimeout(() => document.getElementById("ready-payment")?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
     setMessage(null);
   };
 
@@ -172,8 +179,8 @@ export default function PickupAgentPortal() {
           {message && <Notice message={message} close={() => setMessage(null)} />}
           {tab === "arrivals" && <ArrivalFilters value={arrivalFilter} onChange={setArrivalFilter} allCount={incoming.length} miamiCount={receivedMiami.length} transitCount={inTransit.length} />}
           {(tab === "arrivals" || tab === "ready" || tab === "delivered") && <PackagesView groups={packageGroups} tab={tab} expanded={expanded} onExpand={setExpanded} releasing={releasing} onRelease={release} onStartPayment={startReadyPayment} />}
-          {tab === "ready" && paymentDraft.invoiceId && <ReadyPaymentPanel invoice={(data.invoices ?? []).find((invoice) => invoice.id === paymentDraft.invoiceId) ?? null} draft={paymentDraft} setDraft={setPaymentDraft} busy={paymentBusy} onPay={() => void recordPayment()} onClose={() => setPaymentDraft({ invoiceId: "", amount: "", currency: "HTG" })} />}
-          {tab === "invoices" && <InvoicesView invoices={filteredInvoices} draft={paymentDraft} setDraft={setPaymentDraft} busy={paymentBusy} onPay={() => void recordPayment()} onOpenPdf={(id) => void openDocument("invoice", id)} />}
+          {tab === "ready" && paymentDraft.invoiceId && <ReadyPaymentPanel invoice={(data.invoices ?? []).find((invoice) => invoice.id === paymentDraft.invoiceId) ?? null} draft={paymentDraft} setDraft={setPaymentDraft} busy={paymentBusy} error={paymentError} onChange={() => setPaymentError(null)} onPay={() => void recordPayment()} onClose={() => { setPaymentDraft(emptyPaymentDraft()); setPaymentError(null); }} />}
+          {tab === "invoices" && <InvoicesView invoices={filteredInvoices} draft={paymentDraft} setDraft={setPaymentDraft} busy={paymentBusy} paymentError={paymentError} onPaymentChange={() => setPaymentError(null)} onPay={() => void recordPayment()} onOpenPdf={(id) => void openDocument("invoice", id)} />}
           {tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
         </section>
       </>}
@@ -205,9 +212,9 @@ function PackageCard({ item, ready, delivered, releasing, onRelease, onStartPaym
   return <div className="rounded-xl border border-slate-200 bg-white p-3"><div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Tracking</p><p className="break-all text-sm font-extrabold text-[#0a2b61]">{ref}</p></div><StatusChip status={item.status} /></div>{item.content && <p className="mt-2 text-sm text-slate-600"><span className="font-semibold text-slate-800">Marchandise:</span> {item.content}</p>}<div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500"><span className="rounded-lg bg-slate-100 px-2 py-1 font-semibold">Qté: {item.quantity}</span>{item.received_at && <span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">Reçu Miami: {dateText(item.received_at)}</span>}{item.invoice_number && <span className="rounded-lg bg-indigo-50 px-2 py-1 font-semibold text-indigo-700">{item.invoice_number} · {item.invoice_payment_status}</span>}</div>{ready && hasBalance && <p className="mt-2 rounded-lg bg-amber-100 px-2 py-1.5 text-xs font-bold text-amber-800">Balans kliyan: {fmtUsd(item.customer_balance_usd)} · {fmtHtg(item.customer_balance_htg)}{item.balance_invoice_number ? ` (${item.balance_invoice_number})` : ""}</p>}{ready && !canRelease && (item.balance_invoice_id || item.invoice_id) && <button type="button" onClick={onStartPayment} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 text-sm font-bold text-[#bd450b] hover:bg-orange-100"><Banknote size={18} />{hasBalance ? "Régler le solde" : "Enregistrer le paiement"}</button>}{ready && <button disabled={!canRelease || releasing} onClick={onRelease} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white hover:bg-[#0f448f] disabled:cursor-not-allowed disabled:bg-slate-300"><CheckCircle2 size={18} />{releasing ? "Confirmation…" : canRelease ? "Confirmer la remise" : hasBalance ? "Solde client à régler" : item.invoice_id ? "Paiement complet requis" : "Facture requise"}</button>}{delivered && <p className="mt-3 flex items-center gap-2 text-sm font-bold text-emerald-700"><CheckCircle2 size={17} />Remis au client</p>}</div>;
 }
 
-function InvoicesView({ invoices, draft, setDraft, busy, onPay, onOpenPdf }: { invoices: ZoneInvoice[]; draft: { invoiceId: string; amount: string; currency: "USD" | "HTG" }; setDraft: (value: { invoiceId: string; amount: string; currency: "USD" | "HTG" }) => void; busy: boolean; onPay: () => void; onOpenPdf: (id: string) => void }) {
+function InvoicesView({ invoices, draft, setDraft, busy, paymentError, onPaymentChange, onPay, onOpenPdf }: { invoices: ZoneInvoice[]; draft: PaymentDraft; setDraft: (value: PaymentDraft) => void; busy: boolean; paymentError: string | null; onPaymentChange: () => void; onPay: () => void; onOpenPdf: (id: string) => void }) {
   if (!invoices.length) return <Empty text="Pa gen fakti ki koresponn ak rechèch la." />;
-  return <div className="grid gap-4 lg:grid-cols-2">{invoices.map((invoice) => { const open = draft.invoiceId === invoice.id; const remainingUsd = Math.max(0, invoice.total_usd - invoice.payment_paid_usd); return <article key={invoice.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-lg font-black text-[#0a2b61]">{invoice.invoice_number}</p><p className="text-sm font-semibold text-slate-600">{invoice.customer_code}{invoice.customer_name ? ` · ${invoice.customer_name}` : ""} · {invoice.package_count} colis</p><p className="mt-1 text-xs text-slate-400">Créée le {dateText(invoice.created_at)}</p></div><PaymentChip status={invoice.payment_status} /></div><div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-sm"><span>Total</span><b className="text-right text-[#0a2b61]">{fmtUsd(invoice.total_usd)}</b><span>Équivalent</span><b className="text-right text-[#0a2b61]">{fmtHtg(invoice.total_htg)}</b><span>Reçu</span><b className="text-right text-emerald-700">{fmtUsd(invoice.payment_paid_usd)} · {fmtHtg(invoice.payment_paid_htg)}</b></div>{invoice.customer_balance_usd > 0.01 && <p className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-xs font-bold text-amber-800">Solde global du client: {fmtUsd(invoice.customer_balance_usd)} · {fmtHtg(invoice.customer_balance_htg)}</p>}<div className="mt-3 flex flex-wrap gap-2">{invoice.has_pdf && <button type="button" onClick={() => onOpenPdf(invoice.id)} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-bold text-[#0b3270] hover:bg-slate-50"><FileText size={16} />Voir le PDF</button>}{invoice.payment_status !== "Payé" && <button onClick={() => setDraft(open ? { invoiceId: "", amount: "", currency: "HTG" } : { invoiceId: invoice.id, amount: "", currency: "HTG" })} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-bold text-white hover:bg-[#ce4e0d]"><Banknote size={16} />Enregistrer paiement</button>}</div>{open && <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50 p-3"><p className="mb-2 text-sm font-bold text-[#9f390b]">Reste à payer: {fmtUsd(remainingUsd)}</p><div className="grid grid-cols-[1fr_90px] gap-2"><input value={draft.amount} onChange={(event) => setDraft({ ...draft, amount: event.target.value })} type="number" min="0.01" step="0.01" className="input" placeholder="Montant reçu" autoFocus /><select value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value as "USD" | "HTG" })} className="input"><option value="HTG">Gourdes</option><option value="USD">Dollars</option></select></div><button disabled={busy} onClick={onPay} className="mt-2 min-h-11 w-full rounded-xl bg-[#0b3270] text-sm font-bold text-white disabled:opacity-60">{busy ? "Enregistrement…" : "Confirmer le paiement"}</button></div>}</article>; })}</div>;
+  return <div className="grid gap-4 lg:grid-cols-2">{invoices.map((invoice) => { const open = draft.invoiceId === invoice.id; const remainingUsd = Math.max(0, invoice.total_usd - invoice.payment_paid_usd); return <article key={invoice.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-lg font-black text-[#0a2b61]">{invoice.invoice_number}</p><p className="text-sm font-semibold text-slate-600">{invoice.customer_code}{invoice.customer_name ? ` · ${invoice.customer_name}` : ""} · {invoice.package_count} colis</p><p className="mt-1 text-xs text-slate-400">Créée le {dateText(invoice.created_at)}</p></div><PaymentChip status={invoice.payment_status} /></div><div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-sm"><span>Total</span><b className="text-right text-[#0a2b61]">{fmtUsd(invoice.total_usd)}</b><span>Équivalent</span><b className="text-right text-[#0a2b61]">{fmtHtg(invoice.total_htg)}</b><span>Reçu</span><b className="text-right text-emerald-700">{fmtUsd(invoice.payment_paid_usd)} · {fmtHtg(invoice.payment_paid_htg)}</b></div>{invoice.customer_balance_usd > 0.01 && <p className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-xs font-bold text-amber-800">Solde global du client: {fmtUsd(invoice.customer_balance_usd)} · {fmtHtg(invoice.customer_balance_htg)}</p>}<div className="mt-3 flex flex-wrap gap-2">{invoice.has_pdf && <button type="button" onClick={() => onOpenPdf(invoice.id)} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-bold text-[#0b3270] hover:bg-slate-50"><FileText size={16} />Voir le PDF</button>}{invoice.payment_status !== "Payé" && <button onClick={() => { setDraft(open ? emptyPaymentDraft() : { ...emptyPaymentDraft(), invoiceId: invoice.id }); onPaymentChange(); }} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-bold text-white hover:bg-[#ce4e0d]"><Banknote size={16} />Enregistrer paiement</button>}</div>{open && <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50 p-3"><p className="mb-2 text-sm font-bold text-[#9f390b]">Reste à payer: {fmtUsd(remainingUsd)}</p><PaymentFields draft={draft} setDraft={setDraft} onChange={onPaymentChange} /><InlinePaymentError error={paymentError} /><button disabled={busy} onClick={onPay} className="mt-2 min-h-11 w-full rounded-xl bg-[#0b3270] text-sm font-bold text-white disabled:opacity-60">{busy ? "Enregistrement…" : "Confirmer le paiement"}</button></div>}</article>; })}</div>;
 }
 
 function BonsView({ bons, onOpenPdf }: { bons: ZoneBon[]; onOpenPdf: (id: string) => void }) {
@@ -220,11 +227,17 @@ function ArrivalFilters({ value, onChange, allCount, miamiCount, transitCount }:
   return <div className="mb-4 flex flex-wrap gap-2 rounded-2xl border border-blue-100 bg-blue-50/50 p-3">{options.map(([id, label, count]) => <button key={id} type="button" onClick={() => onChange(id)} className={`min-h-10 rounded-xl px-3 text-sm font-bold transition ${value === id ? "bg-[#0b3270] text-white" : "bg-white text-slate-600 hover:bg-slate-100"}`}>{label} <span className={`ml-1 rounded-full px-1.5 py-0.5 text-xs ${value === id ? "bg-white/20" : "bg-slate-100"}`}>{count}</span></button>)}</div>;
 }
 
-function ReadyPaymentPanel({ invoice, draft, setDraft, busy, onPay, onClose }: { invoice: ZoneInvoice | null; draft: { invoiceId: string; amount: string; currency: "USD" | "HTG" }; setDraft: (value: { invoiceId: string; amount: string; currency: "USD" | "HTG" }) => void; busy: boolean; onPay: () => void; onClose: () => void }) {
+function ReadyPaymentPanel({ invoice, draft, setDraft, busy, error, onChange, onPay, onClose }: { invoice: ZoneInvoice | null; draft: PaymentDraft; setDraft: (value: PaymentDraft) => void; busy: boolean; error: string | null; onChange: () => void; onPay: () => void; onClose: () => void }) {
   if (!invoice) return null;
   const remainingUsd = Math.max(0, invoice.total_usd - invoice.payment_paid_usd);
-  return <section className="mt-4 rounded-2xl border border-orange-200 bg-orange-50 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-[#bd450b]">Paiement avant remise</p><h3 className="mt-1 text-lg font-black text-[#0a2b61]">{invoice.invoice_number} · {invoice.customer_code}</h3><p className="mt-1 text-sm text-slate-600">Reste à payer: <b>{fmtUsd(remainingUsd)}</b> · {fmtHtg(Math.max(0, invoice.total_htg - invoice.payment_paid_htg))}</p></div><button type="button" onClick={onClose} aria-label="Fermer le paiement" className="rounded-lg p-1 text-slate-500 hover:bg-white"><X size={18} /></button></div><div className="mt-3 grid gap-2 sm:grid-cols-[1fr_130px_auto]"><input value={draft.amount} onChange={(event) => setDraft({ ...draft, amount: event.target.value })} type="number" min="0.01" step="0.01" className="input" placeholder="Montant reçu" autoFocus /><select value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value as "USD" | "HTG" })} className="input"><option value="HTG">Gourdes</option><option value="USD">Dollars</option></select><button type="button" disabled={busy} onClick={onPay} className="min-h-11 rounded-xl bg-[#e85e19] px-4 text-sm font-bold text-white hover:bg-[#ce4e0d] disabled:opacity-60">{busy ? "Enregistrement…" : "Valider paiement"}</button></div></section>;
+  return <section id="ready-payment" className="mt-4 rounded-2xl border border-orange-200 bg-orange-50 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-[#bd450b]">Paiement avant remise</p><h3 className="mt-1 text-lg font-black text-[#0a2b61]">{invoice.invoice_number} · {invoice.customer_code}</h3><p className="mt-1 text-sm text-slate-600">Reste à payer: <b>{fmtUsd(remainingUsd)}</b> · {fmtHtg(Math.max(0, invoice.total_htg - invoice.payment_paid_htg))}</p></div><button type="button" onClick={onClose} aria-label="Fermer le paiement" className="rounded-lg p-1 text-slate-500 hover:bg-white"><X size={18} /></button></div><div className="mt-3"><PaymentFields draft={draft} setDraft={setDraft} onChange={onChange} /><InlinePaymentError error={error} /><button type="button" disabled={busy} onClick={onPay} className="mt-2 min-h-11 rounded-xl bg-[#e85e19] px-4 text-sm font-bold text-white hover:bg-[#ce4e0d] disabled:opacity-60">{busy ? "Enregistrement…" : "Valider paiement"}</button></div></section>;
 }
+
+function PaymentFields({ draft, setDraft, onChange }: { draft: PaymentDraft; setDraft: (value: PaymentDraft) => void; onChange: () => void }) {
+  return <div className="grid gap-2 sm:grid-cols-2"><input value={draft.amount} onChange={(event) => { setDraft({ ...draft, amount: event.target.value }); onChange(); }} type="number" min="0.01" step="0.01" className="input" placeholder="Montant reçu" autoFocus /><select value={draft.currency} onChange={(event) => { setDraft({ ...draft, currency: event.target.value as "USD" | "HTG" }); onChange(); }} className="input"><option value="HTG">Gourdes</option><option value="USD">Dollars</option></select><select value={draft.method} onChange={(event) => { setDraft({ ...draft, method: event.target.value as PaymentMethod }); onChange(); }} className="input"><option value="Espèces">Espèces</option><option value="MonCash">MonCash</option><option value="NatCash">NatCash</option><option value="Zelle">Zelle</option><option value="Virement bancaire">Virement bancaire</option></select><input value={draft.reference} onChange={(event) => { setDraft({ ...draft, reference: event.target.value.slice(0, 120) }); onChange(); }} className="input" placeholder="Référence (facultatif)" /></div>;
+}
+
+function InlinePaymentError({ error }: { error: string | null }) { return error ? <p role="alert" className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null; }
 
 function Stat({ icon, label, value, tint, onClick, active = false }: { icon: React.ReactNode; label: string; value: number; tint: string; onClick?: () => void; active?: boolean }) { return <button type="button" onClick={onClick} className={`rounded-2xl border bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${active ? "border-[#0b3270] ring-2 ring-[#0b3270]/15" : "border-white"}`}><div className={`mb-3 grid h-10 w-10 place-items-center rounded-xl ${tint}`}>{icon}</div><p className="text-xs font-semibold text-slate-500">{label}</p><p className="mt-0.5 text-2xl font-black text-[#09295e]">{value}</p></button>; }
 function Empty({ text }: { text: string }) { return <div className="py-12 text-center"><CheckCircle2 className="mx-auto mb-3 text-emerald-500" size={38} /><p className="font-bold text-[#0a2b61]">{text}</p></div>; }

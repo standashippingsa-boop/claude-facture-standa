@@ -31,6 +31,7 @@ type CustomerBalance = { usd: number; htg: number; invoiceId: string; invoiceNum
 const uuid = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 const money = (value: unknown) => Math.round(Number(value ?? 0) * 100) / 100;
 const code = (value: unknown) => String(value ?? "").trim();
+const PAYMENT_METHODS = new Set(["Espèces", "MonCash", "NatCash", "Zelle", "Virement bancaire"]);
 
 function bearerToken(req: Request) {
   const value = req.headers.get("authorization") ?? "";
@@ -225,8 +226,10 @@ export async function POST(req: Request) {
       const invoiceId = code(body.invoice_id);
       const amount = money(body.amount);
       const currency = code(body.currency).toUpperCase();
-      if (!uuid.test(invoiceId) || !["USD", "HTG"].includes(currency) || amount <= 0) {
-        return NextResponse.json({ ok: false, reason: "Montant ou devise invalide." }, { status: 400 });
+      const paymentMethod = code(body.payment_method) || "Espèces";
+      const paymentReference = code(body.payment_reference).slice(0, 120);
+      if (!uuid.test(invoiceId) || !["USD", "HTG"].includes(currency) || amount <= 0 || !PAYMENT_METHODS.has(paymentMethod)) {
+        return NextResponse.json({ ok: false, reason: "Montant, devise ou méthode de paiement invalide." }, { status: 400 });
       }
       if ((currency === "USD" && amount > 100000) || (currency === "HTG" && amount > 50000000)) {
         return NextResponse.json({ ok: false, reason: "Montant trop élevé: vérifiez votre saisie." }, { status: 400 });
@@ -246,19 +249,29 @@ export async function POST(req: Request) {
       const amountUsd = currency === "USD" ? amount : money(amount / rate);
       const amountHtg = currency === "HTG" ? amount : money(amount * rate);
       const priorUsd = money(invoice.payment_paid_usd);
+      const priorHtg = money(invoice.payment_paid_htg);
       const remainingUsd = Math.max(0, money(Number(invoice.total_usd) - priorUsd));
-      if (amountUsd > remainingUsd + 0.01) {
+      const remainingHtg = Math.max(0, money(Number(invoice.total_htg) - priorHtg));
+      // Aksepte yon ti depase lajan (eg. 11 675 pou yon balans 11 673 HTG),
+      // men pa kite yon gwo montan pase pa erè. Se sèlman balans la ki aplike.
+      const toleranceUsd = currency === "HTG" ? Math.max(0.05, money(5 / rate)) : 0.05;
+      if (amountUsd > remainingUsd + toleranceUsd) {
         return NextResponse.json({ ok: false, reason: `Le montant dépasse le reste à payer (${remainingUsd.toFixed(2)} USD).` }, { status: 409 });
       }
-      const newUsd = money(priorUsd + amountUsd);
-      const newHtg = money(money(invoice.payment_paid_htg) + amountHtg);
+      const appliedUsd = Math.min(amountUsd, remainingUsd);
+      const appliedHtg = Math.min(amountHtg, remainingHtg);
+      const overpaymentAmount = money(currency === "HTG" ? amount - appliedHtg : amount - appliedUsd);
+      const newUsd = money(priorUsd + appliedUsd);
+      const newHtg = money(priorHtg + appliedHtg);
       const status = newUsd + 0.01 >= money(invoice.total_usd) ? "Payé" : "Payé partiel";
       // Écriture optimiste: une seule caisse peut ajouter un paiement à partir
       // du même solde. Si deux appareils valident au même instant, le second
       // enregistrement est retiré et doit actualiser l'écran.
       const payment = await db.from("invoice_payments").insert({
         invoice_id: invoice.id, amount, currency, amount_usd: amountUsd, amount_htg: amountHtg,
-        exchange_rate_used: rate, received_by_staff_id: agent.id, received_by_name: agentName(agent)
+        applied_usd: appliedUsd, applied_htg: appliedHtg, overpayment_amount: overpaymentAmount,
+        payment_method: paymentMethod, payment_reference: paymentReference, exchange_rate_used: rate,
+        received_by_staff_id: agent.id, received_by_name: agentName(agent), recorded_by_role: "agent_retrait"
       }).select("id").single();
       if (payment.error || !payment.data?.id) throw payment.error ?? new Error("Paiement non enregistré.");
       const update = await db.from("invoices").update({
@@ -271,8 +284,8 @@ export async function POST(req: Request) {
         if (update.error) throw update.error;
         return NextResponse.json({ ok: false, reason: "Le solde vient de changer. Actualisez avant d'enregistrer ce paiement." }, { status: 409 });
       }
-      await writeAudit(db, req, agent, "Paiement client reçu", `${invoice.invoice_number} · ${amount} ${currency} · ${zoneName}`, invoice.invoice_number, invoice.customer_code);
-      return NextResponse.json({ ok: true, payment_status: status, payment_paid_usd: newUsd, payment_paid_htg: newHtg });
+      await writeAudit(db, req, agent, "Paiement client reçu", `${invoice.invoice_number} · ${amount} ${currency} · ${paymentMethod} · ${zoneName}`, invoice.invoice_number, invoice.customer_code);
+      return NextResponse.json({ ok: true, payment_status: status, payment_paid_usd: newUsd, payment_paid_htg: newHtg, overpayment_amount: overpaymentAmount, currency });
     }
 
     if (body?.action === "release") {

@@ -141,11 +141,17 @@ create table if not exists invoice_payments (
   currency text not null check (currency in ('USD','HTG')),
   amount_usd numeric not null default 0 check (amount_usd >= 0),
   amount_htg numeric not null default 0 check (amount_htg >= 0),
+  applied_usd numeric not null default 0 check (applied_usd >= 0),
+  applied_htg numeric not null default 0 check (applied_htg >= 0),
+  overpayment_amount numeric not null default 0 check (overpayment_amount >= 0),
+  payment_method text not null default 'Espèces' check (payment_method in ('Espèces', 'MonCash', 'NatCash', 'Zelle', 'Virement bancaire')),
+  payment_reference text not null default '',
   exchange_rate_used numeric not null default 0,
   -- `staff` est créé plus bas dans ce script historique; l'identifiant reste
   -- volontairement sans FK ici afin qu'une installation neuve puisse démarrer.
   received_by_staff_id uuid,
   received_by_name text not null default '',
+  recorded_by_role text not null default '',
   created_at timestamptz not null default now()
 );
 create index if not exists invoice_payments_invoice_created_idx on invoice_payments (invoice_id, created_at desc);
