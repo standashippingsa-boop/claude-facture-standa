@@ -25,6 +25,8 @@ type ZoneInvoice = {
   has_pdf: boolean | null; created_at: string; payment_status: string | null;
   payment_paid_usd: number | null; payment_paid_htg: number | null;
 };
+type ZoneCustomer = { customer_code: string; fullname: string | null; surname: string | null };
+type CustomerBalance = { usd: number; htg: number; invoiceId: string; invoiceNumber: string };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 const money = (value: unknown) => Math.round(Number(value ?? 0) * 100) / 100;
@@ -77,11 +79,19 @@ async function contextFor(req: Request): Promise<
   return { ok: true, db, agent, zoneName: code(zoneResult.data.name) };
 }
 
-async function zoneCustomerCodes(db: any, villeId: string) {
-  const result = await db.from("clients").select("customer_code").eq("ville_id", villeId).neq("customer_code", "");
+async function zoneCustomers(db: any, villeId: string): Promise<ZoneCustomer[]> {
+  const result = await db.from("clients").select("customer_code, fullname, surname").eq("ville_id", villeId).neq("customer_code", "");
   if (result.error) throw result.error;
-  return Array.from(new Set(((result.data ?? []) as Array<{ customer_code: string | null }>)
-    .map((row) => code(row.customer_code)).filter(Boolean)));
+  const known = new Map<string, ZoneCustomer>();
+  for (const row of (result.data ?? []) as Array<{ customer_code: string | null; fullname: string | null; surname: string | null }>) {
+    const customer_code = code(row.customer_code);
+    if (customer_code) known.set(customer_code, { customer_code, fullname: row.fullname, surname: row.surname });
+  }
+  return Array.from(known.values());
+}
+
+function customerName(customer?: ZoneCustomer) {
+  return [code(customer?.fullname), code(customer?.surname)].filter(Boolean).join(" ");
 }
 
 async function customerBelongsToZone(db: any, customerCode: string, villeId: string) {
@@ -103,7 +113,9 @@ export async function GET(req: Request) {
     const context = await contextFor(req);
     if (!context.ok) return context.response;
     const { db, agent, zoneName } = context;
-    const codes = await zoneCustomerCodes(db, agent.pickup_ville_id!);
+    const customers = await zoneCustomers(db, agent.pickup_ville_id!);
+    const codes = customers.map((customer) => customer.customer_code);
+    const customerByCode = new Map(customers.map((customer) => [customer.customer_code, customer]));
 
     let parcels: Parcel[] = [];
     let invoices: ZoneInvoice[] = [];
@@ -121,6 +133,20 @@ export async function GET(req: Request) {
     }
 
     const invoiceMap = new Map(invoices.map((invoice) => [invoice.id, invoice]));
+    // Balans lan kalkile sou TOUT fakti kliyan an ki poko peye nèt. Nou kenbe
+    // pi ansyen fakti a kòm sa Rony dwe regle an premye anvan nenpòt lòt remis.
+    const balanceByCustomer = new Map<string, CustomerBalance>();
+    const oldestFirst = [...invoices].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    for (const invoice of oldestFirst) {
+      const remainingUsd = Math.max(0, money(Number(invoice.total_usd) - Number(invoice.payment_paid_usd)));
+      const remainingHtg = Math.max(0, money(Number(invoice.total_htg) - Number(invoice.payment_paid_htg)));
+      if (remainingUsd <= 0.01) continue;
+      const current = balanceByCustomer.get(code(invoice.customer_code));
+      balanceByCustomer.set(code(invoice.customer_code), {
+        usd: money((current?.usd ?? 0) + remainingUsd), htg: money((current?.htg ?? 0) + remainingHtg),
+        invoiceId: current?.invoiceId || code(invoice.id), invoiceNumber: current?.invoiceNumber || code(invoice.invoice_number)
+      });
+    }
     const conduiteIds = Array.from(new Set(parcels.map((parcel) => code(parcel.conduce_id)).filter(Boolean)));
     let bons: Array<{ id: string; bon_number: string; destination: string; package_count: number; created_at: string; pdf_path: string | null }> = [];
     if (conduiteIds.length) {
@@ -156,20 +182,27 @@ export async function GET(req: Request) {
     // Liste blanche stricte, sans téléphone, adresse, identité ni coûts des colis.
     const packageCards = parcels.map((parcel) => {
       const invoice = parcel.invoice_id ? invoiceMap.get(parcel.invoice_id) : undefined;
+      const customer = customerByCode.get(code(parcel.customer_code));
+      const balance = balanceByCustomer.get(code(parcel.customer_code));
       return {
         id: code(parcel.id), tracking_number: code(parcel.tracking_number), tracking_manual: code(parcel.tracking_manual),
-        customer_code: code(parcel.customer_code), quantity: Number(parcel.quantity ?? 1) || 1,
+        customer_code: code(parcel.customer_code), customer_name: customerName(customer), quantity: Number(parcel.quantity ?? 1) || 1,
         content: code(parcel.content), created_date: code(parcel.created_date), received_at: code(parcel.received_at),
         status: code(parcel.status), invoice_id: invoice?.id ?? "", invoice_number: invoice?.invoice_number ?? "",
-        invoice_payment_status: invoice?.payment_status ?? "Non facturé"
+        invoice_payment_status: invoice?.payment_status ?? "Non facturé", customer_balance_usd: balance?.usd ?? 0,
+        customer_balance_htg: balance?.htg ?? 0, balance_invoice_id: balance?.invoiceId ?? "", balance_invoice_number: balance?.invoiceNumber ?? ""
       };
     });
-    const invoiceCards = invoices.map((invoice) => ({
-      id: code(invoice.id), invoice_number: code(invoice.invoice_number), customer_code: code(invoice.customer_code),
+    const invoiceCards = invoices.map((invoice) => {
+      const customerCode = code(invoice.customer_code);
+      const balance = balanceByCustomer.get(customerCode);
+      return {
+      id: code(invoice.id), invoice_number: code(invoice.invoice_number), customer_code: customerCode,
+      customer_name: customerName(customerByCode.get(customerCode)), customer_balance_usd: balance?.usd ?? 0, customer_balance_htg: balance?.htg ?? 0,
       package_count: Number(invoice.package_count ?? 0), total_usd: money(invoice.total_usd), total_htg: money(invoice.total_htg),
       payment_status: code(invoice.payment_status) || "Non payé", payment_paid_usd: money(invoice.payment_paid_usd),
       payment_paid_htg: money(invoice.payment_paid_htg), has_pdf: Boolean(invoice.has_pdf), created_at: code(invoice.created_at)
-    }));
+    }; });
 
     return NextResponse.json({ ok: true, agent: { name: agentName(agent), username: agent.username }, zone: { name: zoneName },
       packages: packageCards, invoices: invoiceCards, bons: bonCards });
@@ -265,6 +298,21 @@ export async function POST(req: Request) {
         .eq("id", parcel.invoice_id).maybeSingle();
       if (invoiceResult.data?.payment_status !== "Payé") {
         return NextResponse.json({ ok: false, reason: "Enregistrez le paiement complet de la facture avant de remettre ce colis." }, { status: 409 });
+      }
+      // Règle de caisse: un client doit aussi solder ses anciennes factures.
+      // Sinon il pourrait payer uniquement le dernier colis et laisser une
+      // dette antérieure, puis continuer les retraits sans contrôle.
+      const balances = await db.from("invoices")
+        .select("invoice_number, total_usd, payment_paid_usd")
+        .eq("customer_code", parcel.customer_code).order("created_at", { ascending: true });
+      if (balances.error) throw balances.error;
+      const outstanding = (balances.data ?? []).map((row: { invoice_number: string; total_usd: number; payment_paid_usd: number }) => ({
+        number: code(row.invoice_number), remaining: Math.max(0, money(Number(row.total_usd) - Number(row.payment_paid_usd)))
+      })).filter((row: { remaining: number }) => row.remaining > 0.01);
+      if (outstanding.length) {
+        const total = money(outstanding.reduce((sum: number, row: { remaining: number }) => sum + row.remaining, 0));
+        const refs = outstanding.map((row: { number: string }) => row.number).filter(Boolean).join(", ");
+        return NextResponse.json({ ok: false, reason: `Client avec un solde de ${total.toFixed(2)} USD (${refs}). Réglez ce solde avant toute remise.` }, { status: 409 });
       }
       const update = await db.from("packages").update({ status: "Livré" })
         .eq("id", packageId).in("status", ["Disponible", "Facturé"]).select("id").maybeSingle();
