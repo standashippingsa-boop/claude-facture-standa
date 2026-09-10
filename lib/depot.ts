@@ -11,9 +11,9 @@ export const DEPOT = {
 
 /**
  * Mesaj WhatsApp "Voye adrès depo" — fransè, ak enfòmasyon koneksyon yo
- * (username MC + modpas tanporè) si yo bay tempPassword la.
+ * (username MC + modpas) si yo bay password la.
  */
-export function buildDepotMessage(c: Client, tempPassword?: string): string {
+export function buildDepotMessage(c: Client, password?: string): string {
   const non = [c.fullname, c.surname].filter(Boolean).join(" ").trim() || c.fullname;
   const code = c.customer_code || c.username || "MC-_____";
   let msg =
@@ -29,13 +29,13 @@ export function buildDepotMessage(c: Client, tempPassword?: string): string {
     `⚠️ IMPORTANT\n` +
     `Toujours utiliser votre code ${code} sur chacun de vos colis.\n` +
     `Sans ce code nous ne pourrons pas identifier vos colis.\n`;
-  if (tempPassword) {
+  if (password) {
     msg +=
       `\n----------------------------------------\n` +
       `INFORMATIONS DE CONNEXION\n\n` +
       `Nom d'utilisateur :\n${code}\n\n` +
-      `Mot de passe :\n${tempPassword}\n\n` +
-      `Veuillez conserver ces informations.\n`;
+      `Mot de passe :\n${password}\n\n` +
+      `Conservez ces informations. Vous pourrez modifier votre mot de passe dans votre espace personnel si vous le souhaitez.\n`;
   }
   msg += `\nMerci.\nSTANDA COMMERCIAL`;
   return msg;

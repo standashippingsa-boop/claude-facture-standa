@@ -2011,7 +2011,6 @@ export async function mergeClients(primary: Client, secondary: Client): Promise<
   });
   if (!pCode && sCode) patch.customer_code = sCode;
   if (primary.account_status !== "Actif" && secondary.account_status === "Actif") patch.account_status = "Actif";
-  if (secondary.must_change_password && !primary.auth_user_id) patch.must_change_password = true;
   if (Object.keys(patch).length) {
     const { error } = await supabase.from("clients").update(patch).eq("id", primary.id);
     if (error) throw error;

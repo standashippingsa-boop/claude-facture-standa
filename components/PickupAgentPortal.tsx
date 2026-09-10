@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Banknote, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, LogOut, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
+import { Banknote, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { openSecureDocument } from "@/lib/secure-document";
 
 type ZonePackage = {
   id: string; tracking_number: string; tracking_manual: string; customer_code: string; customer_name: string;
   customer_balance_usd: number; customer_balance_htg: number; balance_invoice_id: string; balance_invoice_number: string;
-  quantity: number; content: string; created_date: string; received_at: string; status: string;
+  quantity: number; content: string; created_date: string; received_at: string; delivered_at: string; status: string;
   invoice_id: string; invoice_number: string; invoice_payment_status: string; invoice_payment_details: string;
 };
 type ZoneInvoice = {
@@ -20,7 +20,7 @@ type ZoneInvoice = {
 };
 type ZoneBon = { id: string; bon_number: string; destination: string; package_count: number; created_at: string; has_pdf: boolean };
 type PortalData = { agent: { name: string; username: string }; zone: { name: string }; packages: ZonePackage[]; invoices: ZoneInvoice[]; bons: ZoneBon[] };
-type Tab = "dossiers" | "arrivals" | "ready" | "bons" | "history";
+type Tab = "home" | "dossiers" | "arrivals" | "ready" | "bons" | "history";
 type ArrivalFilter = "all" | "miami" | "transit";
 type PaymentMethod = "Espèces" | "MonCash" | "NatCash" | "Zelle" | "Virement bancaire";
 type PaymentDraft = { invoiceId: string; amount: string; currency: "USD" | "HTG"; method: PaymentMethod; reference: string };
@@ -41,13 +41,15 @@ const cn = (...values: Array<string | false | null | undefined>) => values.filte
 export default function PickupAgentPortal() {
   const router = useRouter();
   const [data, setData] = useState<PortalData | null>(null);
-  const [tab, setTab] = useState<Tab>("dossiers");
+  const [tab, setTab] = useState<Tab>("home");
   const [arrivalFilter, setArrivalFilter] = useState<ArrivalFilter>("all");
   const [search, setSearch] = useState("");
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
-  const [releasing, setReleasing] = useState<string | null>(null);
-  const [confirmedParcelId, setConfirmedParcelId] = useState<string | null>(null);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const [selectedPackageIds, setSelectedPackageIds] = useState<string[]>([]);
+  const [releasing, setReleasing] = useState(false);
+  const [confirmedParcelIds, setConfirmedParcelIds] = useState<string[]>([]);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentDraft, setPaymentDraft] = useState<PaymentDraft>(emptyPaymentDraft);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -125,19 +127,36 @@ export default function PickupAgentPortal() {
     window.setTimeout(() => document.getElementById("dossier-" + found.customerCode)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   };
 
-  const release = async (parcel: ZonePackage) => {
-    if (releasing || confirmedParcelId === parcel.id) return;
-    setReleasing(parcel.id);
+  const togglePackageSelection = (parcel: ZonePackage) => {
+    setSelectedPackageIds((current) => {
+      const hasAnotherCustomer = current.some((id) => packages.find((item) => item.id === id)?.customer_code !== parcel.customer_code);
+      if (hasAnotherCustomer) return [parcel.id];
+      return current.includes(parcel.id) ? current.filter((id) => id !== parcel.id) : [...current, parcel.id];
+    });
+  };
+
+  const selectPackagesForCustomer = (customerCode: string, parcelIds: string[]) => {
+    setSelectedPackageIds((current) => {
+      const selectedForCustomer = current.filter((id) => packages.find((item) => item.id === id)?.customer_code === customerCode);
+      const allSelected = parcelIds.length > 0 && parcelIds.every((id) => selectedForCustomer.includes(id));
+      return allSelected ? [] : parcelIds;
+    });
+  };
+
+  const releaseSelectedPackages = async () => {
+    if (releasing || !selectedPackageIds.length) return;
+    setReleasing(true);
     setMessage(null);
     try {
-      await call({ action: "release", package_id: parcel.id });
-      setConfirmedParcelId(parcel.id);
-      setMessage({ type: "ok", text: "Remise du colis " + packageReference(parcel) + " confirmée." });
-      window.setTimeout(() => { setConfirmedParcelId(null); void load(); }, 1_200);
+      const result = await call({ action: "release_many", package_ids: selectedPackageIds });
+      const confirmed = Array.isArray(result.package_ids) ? result.package_ids : selectedPackageIds;
+      setConfirmedParcelIds(confirmed);
+      setMessage({ type: "ok", text: confirmed.length + " colis remis et confirmés." });
+      window.setTimeout(() => { setConfirmedParcelIds([]); setSelectedPackageIds([]); void load(); }, 1_200);
     } catch (error) {
       setMessage({ type: "error", text: error instanceof Error ? error.message : "Remise impossible." });
     } finally {
-      setReleasing(null);
+      setReleasing(false);
     }
   };
 
@@ -178,7 +197,7 @@ export default function PickupAgentPortal() {
 
   const logout = async () => { await supabase.auth.signOut(); router.replace("/point-retrait"); };
 
-  return <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
+  return <div className="min-h-screen bg-gradient-to-b from-sky-100 via-[#f5f7fb] to-white text-slate-900">
     <header className="bg-gradient-to-r from-[#071b43] via-[#0d3270] to-[#154b91] text-white shadow-lg">
       <div className="mx-auto flex min-h-20 max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/20"><PackageCheck size={24} /></div><div><p className="text-lg font-black tracking-tight">STANDA</p><p className="text-[10px] font-semibold tracking-[0.18em] text-white/70">POINT DE RETRAIT</p></div></div>
@@ -194,36 +213,44 @@ export default function PickupAgentPortal() {
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-[#e85e19]">Espace de remise sécurisé</p><h1 className="mt-1 text-2xl font-black tracking-tight text-[#09295e] sm:text-3xl">Bonjour, {data.agent.name}</h1><p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500"><Truck size={15} className="text-[#e85e19]" /> Point de retrait : <b className="text-slate-700">{data.zone.name}</b></p></div><button type="button" onClick={() => void load()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-bold text-[#103a78] hover:bg-slate-50"><RefreshCw size={17} />Actualiser</button></div>
         </section>
 
-        <section className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
+        <SideNavigation tab={tab} arrivalFilter={arrivalFilter} receivedMiami={receivedMiami.length} inTransit={inTransit.length} ready={ready.length} dossiers={dossiers.length} delivered={delivered.length} bons={data.bons.length} onHome={() => setTab("home")} onMiami={() => { setTab("arrivals"); setArrivalFilter("miami"); }} onTransit={() => { setTab("arrivals"); setArrivalFilter("transit"); }} onReady={() => setTab("ready")} onDossiers={() => setTab("dossiers")} onHistory={() => setTab("history")} onBons={() => setTab("bons")} />
+        <div className="min-w-0 pb-20 lg:pb-0">
+        {tab !== "home" && <section className="hidden">
           <Stat icon={<ClipboardCheck size={20} />} label="Dossiers clients" value={dossiers.length} tint="bg-emerald-50 text-emerald-700" active={tab === "dossiers"} onClick={() => setTab("dossiers")} />
           <Stat icon={<PackageCheck size={20} />} label="Reçus à Miami" value={receivedMiami.length} tint="bg-cyan-50 text-cyan-700" active={tab === "arrivals" && arrivalFilter === "miami"} onClick={() => { setTab("arrivals"); setArrivalFilter("miami"); }} />
           <Stat icon={<Truck size={20} />} label="En transit" value={inTransit.length} tint="bg-blue-50 text-[#0d3b7a]" active={tab === "arrivals" && arrivalFilter === "transit"} onClick={() => { setTab("arrivals"); setArrivalFilter("transit"); }} />
           <Stat icon={<PackageCheck size={20} />} label="Disponibles" value={ready.length} tint="bg-orange-50 text-[#e85e19]" active={tab === "ready"} onClick={() => setTab("ready")} />
           <Stat icon={<CheckCircle2 size={20} />} label="Historique" value={delivered.length} tint="bg-indigo-50 text-indigo-700" active={tab === "history"} onClick={() => setTab("history")} />
-        </section>
+        </section>}
 
         <section className="rounded-3xl border border-white bg-white p-4 shadow-[0_10px_35px_rgba(17,54,110,0.07)] sm:p-5">
-          <div className="mb-4 flex flex-col gap-3">
+          {tab !== "home" && <div className="mb-4 flex flex-col gap-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h2 className="text-lg font-extrabold text-[#0a2b61]">Opérations — {data.zone.name}</h2><p className="text-xs text-slate-500">Colis, factures, paiements et bons de remise liés à votre zone.</p></div><form onSubmit={(event) => { event.preventDefault(); openDossier(); }} className="flex min-h-11 gap-2 md:w-[27rem]"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3"><Search size={17} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="Numéro de client, suivi ou facture" aria-label="Rechercher un dossier client" /></label><button type="submit" className="shrink-0 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white hover:bg-[#0f448f]">Dossier</button></form></div>
             <p className="text-xs font-semibold text-emerald-700">Les statuts sont synchronisés automatiquement avec le système principal.</p>
-            <nav className="flex gap-2 overflow-x-auto pb-1">{([
+            <nav className="hidden">{([
               ["dossiers", "Dossiers clients", dossiers.length],
               ["arrivals", "Colis à venir", incoming.length],
               ["ready", "Colis disponibles", ready.length],
               ["bons", "Bons de remise", data.bons.length],
               ["history", "Historique", delivered.length]
             ] as Array<[Tab, string, number]>).map(([id, label, count]) => <button key={id} type="button" onClick={() => { setTab(id); if (id === "arrivals") setArrivalFilter("all"); }} className={cn("whitespace-nowrap rounded-xl px-3 py-2 text-sm font-bold transition", tab === id ? "bg-[#0b3270] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}>{label} <span className={cn("ml-1 rounded-full px-1.5 py-0.5 text-xs", tab === id ? "bg-white/20" : "bg-white")}>{count}</span></button>)}</nav>
-          </div>
+          </div>}
 
           {message && <Notice message={message} close={() => setMessage(null)} />}
-          {tab === "dossiers" && <ClientDossiersView dossiers={matchingDossiers} expanded={expandedCustomer} onExpand={setExpandedCustomer} releasing={releasing} confirmedParcelId={confirmedParcelId} onRelease={release} onStartPayment={startPayment} onOpenInvoice={setSelectedInvoiceId} onOpenPdf={(id) => void openDocument("invoice", id)} />}
+          {tab === "home" && <HomeDashboard agentName={data.agent.name} zoneName={data.zone.name} onOpenDossier={() => setTab("dossiers")} />}
+          {tab === "dossiers" && <ClientDossiersView dossiers={matchingDossiers} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onConfirmSelection={releaseSelectedPackages} onStartPayment={startPayment} onOpenInvoice={setSelectedInvoiceId} />}
           {tab === "arrivals" && <ArrivalFilters value={arrivalFilter} onChange={setArrivalFilter} allCount={incoming.length} miamiCount={receivedMiami.length} transitCount={inTransit.length} />}
-          {(tab === "arrivals" || tab === "ready" || tab === "history") && <PackagesView groups={groups} tab={tab} expanded={expandedCustomer} onExpand={setExpandedCustomer} releasing={releasing} confirmedParcelId={confirmedParcelId} onRelease={release} onStartPayment={startPayment} onOpenInvoice={setSelectedInvoiceId} />}
+          {(tab === "arrivals" || tab === "ready") && <PackagesView groups={groups} tab={tab} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onConfirmSelection={releaseSelectedPackages} onStartPayment={startPayment} onOpenInvoice={setSelectedInvoiceId} />}
+          {tab === "history" && <DeliveredPackagesView packages={filteredPackages} onOpenInvoice={setSelectedInvoiceId} />}
           {tab === "history" && <DeliveredInvoicesView invoices={deliveredInvoices} onOpenInvoice={setSelectedInvoiceId} />}
           {tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
           {selectedInvoiceId && <InvoiceDetails invoice={invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null} packages={packages.filter((item) => item.invoice_id === selectedInvoiceId)} onClose={() => setSelectedInvoiceId(null)} />}
           {paymentDraft.invoiceId && <PaymentPanel invoice={invoices.find((invoice) => invoice.id === paymentDraft.invoiceId) ?? null} draft={paymentDraft} setDraft={setPaymentDraft} busy={paymentBusy} error={paymentError} onChange={() => setPaymentError(null)} onPay={() => void recordPayment()} onClose={() => { setPaymentDraft(emptyPaymentDraft()); setPaymentError(null); }} />}
         </section>
+        </div>
+        </div>
+        <MobileNavigation tab={tab} arrivalFilter={arrivalFilter} moreOpen={mobileMoreOpen} onHome={() => { setTab("home"); setMobileMoreOpen(false); }} onMiami={() => { setTab("arrivals"); setArrivalFilter("miami"); setMobileMoreOpen(false); }} onTransit={() => { setTab("arrivals"); setArrivalFilter("transit"); setMobileMoreOpen(false); }} onReady={() => { setTab("ready"); setMobileMoreOpen(false); }} onToggleMore={() => setMobileMoreOpen((open) => !open)} onDossiers={() => { setTab("dossiers"); setMobileMoreOpen(false); }} onHistory={() => { setTab("history"); setMobileMoreOpen(false); }} onBons={() => { setTab("bons"); setMobileMoreOpen(false); }} />
       </>}
     </main>
   </div>;
@@ -262,12 +289,70 @@ function groupClientDossiers(packages: ZonePackage[], invoices: ZoneInvoice[]): 
   };
   for (const item of packages) ensure(item.customer_code, item.customer_name).packages.push(item);
   for (const invoice of invoices) ensure(invoice.customer_code, invoice.customer_name).invoices.push(invoice);
-  return Array.from(byCustomer.values()).sort((left, right) => (left.customerName + " " + left.customerCode).localeCompare(right.customerName + " " + right.customerCode, "fr-CA"));
+  return Array.from(byCustomer.values()).filter((dossier) => dossier.packages.some((item) => item.status !== DONE)).sort((left, right) => {
+    const leftActive = left.packages.filter((item) => item.status !== DONE).length;
+    const rightActive = right.packages.filter((item) => item.status !== DONE).length;
+    return rightActive - leftActive || (left.customerName + " " + left.customerCode).localeCompare(right.customerName + " " + right.customerCode, "fr-CA");
+  });
 }
 
-function PackagesView({ groups, tab, expanded, onExpand, releasing, confirmedParcelId, onRelease, onStartPayment, onOpenInvoice }: {
+function SideNavigation({ tab, arrivalFilter, receivedMiami, inTransit, ready, dossiers, delivered, bons, onHome, onMiami, onTransit, onReady, onDossiers, onHistory, onBons }: {
+  tab: Tab; arrivalFilter: ArrivalFilter; receivedMiami: number; inTransit: number; ready: number; dossiers: number; delivered: number; bons: number;
+  onHome: () => void; onMiami: () => void; onTransit: () => void; onReady: () => void; onDossiers: () => void; onHistory: () => void; onBons: () => void;
+}) {
+  const Item = ({ label, count, icon, active, onClick }: { label: string; count?: number; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} className={cn("flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 text-left text-sm font-bold transition", active ? "bg-[#0b3270] text-white shadow-md shadow-blue-900/15" : "text-slate-600 hover:bg-slate-100 hover:text-[#0b3270]")}><span className={cn("grid h-8 w-8 place-items-center rounded-xl", active ? "bg-white/15" : "bg-sky-50 text-[#0b4d9b]")}>{icon}</span><span className="min-w-0 flex-1">{label}</span>{typeof count === "number" && <span className={cn("rounded-full px-2 py-0.5 text-xs", active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500")}>{count}</span>}</button>;
+  return <aside className="sticky top-5 hidden h-fit rounded-3xl border border-white/80 bg-white/90 p-3 shadow-[0_14px_35px_rgba(25,74,145,0.08)] backdrop-blur lg:block">
+    <p className="px-3 pb-2 pt-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Navigation</p>
+    <div className="space-y-1">
+      <Item label="Accueil" icon={<Home size={18} />} active={tab === "home"} onClick={onHome} />
+      <Item label="Reçu à Miami" count={receivedMiami} icon={<PackageCheck size={18} />} active={tab === "arrivals" && arrivalFilter === "miami"} onClick={onMiami} />
+      <Item label="En transit" count={inTransit} icon={<Truck size={18} />} active={tab === "arrivals" && arrivalFilter === "transit"} onClick={onTransit} />
+      <Item label="À remettre" count={ready} icon={<ClipboardCheck size={18} />} active={tab === "ready"} onClick={onReady} />
+      <Item label="Dossiers clients" count={dossiers} icon={<Search size={18} />} active={tab === "dossiers"} onClick={onDossiers} />
+      <Item label="Colis remis" count={delivered} icon={<CheckCircle2 size={18} />} active={tab === "history"} onClick={onHistory} />
+    </div>
+    <div className="mt-3 border-t border-slate-100 pt-3"><Item label="Bons de remise" count={bons} icon={<FileText size={18} />} active={tab === "bons"} onClick={onBons} /></div>
+  </aside>;
+}
+
+function MobileNavigation({ tab, arrivalFilter, moreOpen, onHome, onMiami, onTransit, onReady, onToggleMore, onDossiers, onHistory, onBons }: {
+  tab: Tab; arrivalFilter: ArrivalFilter; moreOpen: boolean;
+  onHome: () => void; onMiami: () => void; onTransit: () => void; onReady: () => void; onToggleMore: () => void; onDossiers: () => void; onHistory: () => void; onBons: () => void;
+}) {
+  const NavButton = ({ label, icon, active, onClick }: { label: string; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} className={cn("flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-bold transition", active ? "bg-[#0b3270] text-white shadow-md shadow-blue-900/20" : "text-slate-500 hover:bg-slate-100")}><span>{icon}</span><span>{label}</span></button>;
+  return <nav className="fixed inset-x-3 bottom-3 z-40 mx-auto max-w-xl lg:hidden" aria-label="Navigation de l’espace de remise">
+    {moreOpen && <div className="absolute bottom-[4.6rem] right-0 grid w-56 gap-1 rounded-2xl border border-slate-100 bg-white p-2 shadow-xl"><button type="button" onClick={onDossiers} className="rounded-xl px-3 py-3 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Dossiers clients</button><button type="button" onClick={onHistory} className="rounded-xl px-3 py-3 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Colis remis</button><button type="button" onClick={onBons} className="rounded-xl px-3 py-3 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Bons de remise</button></div>}
+    <div className="flex items-center gap-1 rounded-3xl border border-white bg-white/95 p-1.5 shadow-xl shadow-blue-950/15 backdrop-blur">
+      <NavButton label="Accueil" icon={<Home size={19} />} active={tab === "home"} onClick={onHome} />
+      <NavButton label="Miami" icon={<PackageCheck size={19} />} active={tab === "arrivals" && arrivalFilter === "miami"} onClick={onMiami} />
+      <NavButton label="Transit" icon={<Truck size={19} />} active={tab === "arrivals" && arrivalFilter === "transit"} onClick={onTransit} />
+      <NavButton label="À remettre" icon={<ClipboardCheck size={19} />} active={tab === "ready"} onClick={onReady} />
+      <NavButton label="Plus" icon={<MoreHorizontal size={20} />} active={moreOpen || tab === "dossiers" || tab === "history" || tab === "bons"} onClick={onToggleMore} />
+    </div>
+  </nav>;
+}
+
+function HomeDashboard({ agentName, zoneName, onOpenDossier }: { agentName: string; zoneName: string; onOpenDossier: () => void }) {
+  return <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#0b3270] via-[#1a5bc0] to-sky-400 p-6 text-white shadow-[0_20px_40px_rgba(20,76,160,0.23)] sm:p-8"><div className="max-w-xl"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/25"><PackageCheck size={25} /></span><p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-sky-100">Point de retrait · {zoneName}</p><h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Bonjour, {agentName}</h2><p className="mt-3 max-w-lg text-sm leading-6 text-white/85">Votre espace est prêt pour les remises. Recherchez un client, vérifiez son paiement, puis confirmez tous ses colis en une seule étape.</p><button type="button" onClick={onOpenDossier} className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-[#0b3270] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><Search size={18} />Ouvrir un dossier client</button></div><div className="mt-8 grid gap-3 border-t border-white/20 pt-5 text-sm sm:grid-cols-2"><p className="rounded-2xl bg-white/10 p-3 font-semibold">Les colis livrés quittent les dossiers actifs et sont classés dans l’historique.</p><p className="rounded-2xl bg-white/10 p-3 font-semibold">Les statuts et les paiements sont synchronisés avec le système principal.</p></div></section>;
+}
+
+function BatchRemiseAction({ customerCode, available, selectedPackageIds, busy, onSelectAll, onConfirm }: { customerCode: string; available: ZonePackage[]; selectedPackageIds: string[]; busy: boolean; onSelectAll: () => void; onConfirm: () => void }) {
+  const eligible = available.filter((item) => item.invoice_payment_status === "Payé" && item.customer_balance_usd <= 0.01);
+  const chosen = eligible.filter((item) => selectedPackageIds.includes(item.id));
+  if (!eligible.length) return <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">Le paiement complet est requis avant de sélectionner les colis.</p>;
+  return <section className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3"><p className="text-sm font-black text-emerald-900">Remise groupée · {customerCode}</p><p className="mt-1 text-xs text-emerald-800">Sélectionnez tous les colis remis au client, puis validez-les avec un seul bouton.</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><button type="button" disabled={busy} onClick={onSelectAll} className="min-h-11 rounded-xl border border-emerald-200 bg-white px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-60">{chosen.length === eligible.length ? "Retirer la sélection" : "Tout sélectionner"}</button><button type="button" disabled={busy || !chosen.length} onClick={onConfirm} className="min-h-11 flex-1 rounded-xl bg-emerald-600 px-3 text-sm font-black text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300">{busy ? "Confirmation…" : `Confirmer la remise (${chosen.length} colis)`}</button></div></section>;
+}
+
+function DeliveredPackagesView({ packages, onOpenInvoice }: { packages: ZonePackage[]; onOpenInvoice: (invoiceId: string) => void }) {
+  if (!packages.length) return <Empty text="Aucun colis remis ne correspond à la recherche." />;
+  const ordered = [...packages].sort((left, right) => String(right.delivered_at || right.created_date).localeCompare(String(left.delivered_at || left.created_date)));
+  return <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4"><div className="mb-3 flex items-center justify-between gap-3"><div><h3 className="text-base font-black text-[#0a2b61]">Colis remis</h3><p className="mt-1 text-xs text-slate-600">Historique des colis confirmés au point de retrait.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-700">{packages.length}</span></div><div className="space-y-2">{ordered.map((item) => <article key={item.id} className="rounded-xl border border-emerald-100 bg-white p-3"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Numéro de suivi</p><p className="break-all text-sm font-black text-[#0a2b61]">{packageReference(item)}</p></div><StatusChip status={DONE} /></div><div className="mt-3 grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4"><p className="rounded-lg bg-slate-50 px-2.5 py-2"><span className="block text-slate-400">Client</span><b className="text-slate-700">{item.customer_code}{item.customer_name ? " · " + item.customer_name : ""}</b></p><p className="rounded-lg bg-slate-50 px-2.5 py-2"><span className="block text-slate-400">Facture</span>{item.invoice_id ? <button type="button" onClick={() => onOpenInvoice(item.invoice_id)} className="font-bold text-indigo-700 hover:underline">{item.invoice_number || "Voir la facture"}</button> : <b className="text-slate-700">—</b>}</p><p className="rounded-lg bg-slate-50 px-2.5 py-2"><span className="block text-slate-400">Date de remise</span><b className="text-slate-700">{item.delivered_at ? dateText(item.delivered_at) : "Non archivée"}</b></p><p className="rounded-lg bg-slate-50 px-2.5 py-2"><span className="block text-slate-400">Quantité</span><b className="text-slate-700">{item.quantity} article{item.quantity > 1 ? "s" : ""}</b></p></div></article>)}</div></section>;
+}
+
+function PackagesView({ groups, tab, expanded, onExpand, selectedPackageIds, confirmedParcelIds, releasing, onToggleSelection, onSelectCustomerPackages, onConfirmSelection, onStartPayment, onOpenInvoice }: {
   groups: PackageGroup[]; tab: Tab; expanded: string | null; onExpand: (id: string | null) => void;
-  releasing: string | null; confirmedParcelId: string | null; onRelease: (item: ZonePackage) => void;
+  selectedPackageIds: string[]; confirmedParcelIds: string[]; releasing: boolean; onToggleSelection: (item: ZonePackage) => void;
+  onSelectCustomerPackages: (customerCode: string, parcelIds: string[]) => void; onConfirmSelection: () => void;
   onStartPayment: (invoiceId: string) => void; onOpenInvoice: (invoiceId: string) => void;
 }) {
   const emptyText = tab === "arrivals" ? "Aucun colis à venir ne correspond à la recherche." : tab === "ready" ? "Aucun colis facturé n’est disponible à remettre." : "Aucun colis remis ne correspond à la recherche.";
@@ -277,37 +362,35 @@ function PackagesView({ groups, tab, expanded, onExpand, releasing, confirmedPar
     const hasBalance = tab === "ready" && group.balanceUsd > 0.01;
     return <article key={group.customerCode} className={cn("overflow-hidden rounded-2xl border bg-white", hasBalance ? "border-amber-300" : "border-slate-200")}>
       <button type="button" onClick={() => onExpand(open ? null : group.customerCode)} className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-slate-50"><div><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Code client</p><p className="mt-0.5 text-xl font-black tracking-tight text-[#0a2b61]">{group.customerCode} {group.customerName && <span className="ml-1 text-sm font-semibold text-slate-500">· {group.customerName}</span>}</p><p className="mt-1 text-sm font-semibold text-slate-600">{group.packages.length} colis · {quantityTotal(group.packages)} article{quantityTotal(group.packages) > 1 ? "s" : ""}</p></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a]"><ChevronDown size={20} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span></button>
-      {open && <div className="space-y-3 border-t border-slate-100 bg-slate-50/70 p-3">{hasBalance && <BalanceNotice balanceUsd={group.balanceUsd} balanceHtg={group.balanceHtg} invoiceNumber={group.balanceInvoiceNumber} onPay={group.balanceInvoiceId ? () => onStartPayment(group.balanceInvoiceId) : undefined} />}{group.packages.map((item) => <PackageCard key={item.id} item={item} ready={tab === "ready"} delivered={tab === "history"} releasing={releasing === item.id} confirmed={confirmedParcelId === item.id} onRelease={() => onRelease(item)} onStartPayment={() => onStartPayment(item.invoice_id)} onOpenInvoice={() => { if (item.invoice_id) onOpenInvoice(item.invoice_id); }} />)}</div>}
+      {open && <div className="space-y-3 border-t border-slate-100 bg-slate-50/70 p-3">{hasBalance && <BalanceNotice balanceUsd={group.balanceUsd} balanceHtg={group.balanceHtg} invoiceNumber={group.balanceInvoiceNumber} onPay={group.balanceInvoiceId ? () => onStartPayment(group.balanceInvoiceId) : undefined} />}{group.packages.map((item) => <PackageCard key={item.id} item={item} ready={tab === "ready"} delivered={tab === "history"} selected={selectedPackageIds.includes(item.id)} confirmed={confirmedParcelIds.includes(item.id)} releasing={releasing} onToggleSelection={() => onToggleSelection(item)} onStartPayment={() => onStartPayment(item.invoice_id)} onOpenInvoice={() => { if (item.invoice_id) onOpenInvoice(item.invoice_id); }} />)}{tab === "ready" && !hasBalance && <BatchRemiseAction customerCode={group.customerCode} available={group.packages} selectedPackageIds={selectedPackageIds} busy={releasing} onSelectAll={() => onSelectCustomerPackages(group.customerCode, group.packages.filter((item) => item.invoice_payment_status === "Payé").map((item) => item.id))} onConfirm={onConfirmSelection} />}</div>}
     </article>;
   })}</div>;
 }
 
-function ClientDossiersView({ dossiers, expanded, onExpand, releasing, confirmedParcelId, onRelease, onStartPayment, onOpenInvoice, onOpenPdf }: {
+function ClientDossiersView({ dossiers, expanded, onExpand, selectedPackageIds, confirmedParcelIds, releasing, onToggleSelection, onSelectCustomerPackages, onConfirmSelection, onStartPayment, onOpenInvoice }: {
   dossiers: ClientDossier[]; expanded: string | null; onExpand: (value: string | null) => void;
-  releasing: string | null; confirmedParcelId: string | null; onRelease: (item: ZonePackage) => void;
-  onStartPayment: (invoiceId: string) => void; onOpenInvoice: (invoiceId: string) => void; onOpenPdf: (invoiceId: string) => void;
+  selectedPackageIds: string[]; confirmedParcelIds: string[]; releasing: boolean; onToggleSelection: (item: ZonePackage) => void;
+  onSelectCustomerPackages: (customerCode: string, parcelIds: string[]) => void; onConfirmSelection: () => void;
+  onStartPayment: (invoiceId: string) => void; onOpenInvoice: (invoiceId: string) => void;
 }) {
-  const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
   if (!dossiers.length) return <Empty text="Aucun dossier client ne correspond à la recherche." />;
   return <div className="grid gap-4 lg:grid-cols-2">{dossiers.map((dossier) => {
     const open = expanded === dossier.customerCode;
     const miami = dossier.packages.filter((item) => item.status === "Reçu à Miami");
     const available = dossier.packages.filter(isReadyForPickup);
-    const history = dossier.packages.filter((item) => item.status === DONE);
     const transit = dossier.packages.filter((item) => item.status !== DONE && item.status !== "Reçu à Miami" && !isReadyForPickup(item));
     const balanceSource = dossier.invoices[0] ?? dossier.packages[0];
     const balanceUsd = balanceSource?.customer_balance_usd ?? 0;
     const balanceHtg = balanceSource?.customer_balance_htg ?? 0;
     const balanceInvoice = dossier.invoices.find((invoice) => invoice.payment_status !== "Payé");
     return <article id={"dossier-" + dossier.customerCode} key={dossier.customerCode} className={cn("scroll-mt-6 overflow-hidden rounded-2xl border bg-white", balanceUsd > 0.01 ? "border-amber-300" : "border-slate-200")}>
-      <button type="button" onClick={() => onExpand(open ? null : dossier.customerCode)} className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-slate-50"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Dossier client</p><h3 className="mt-0.5 truncate text-xl font-black text-[#0a2b61]">{dossier.customerCode}{dossier.customerName && <span className="ml-1 text-sm font-semibold text-slate-500">· {dossier.customerName}</span>}</h3><div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold"><span className="rounded-lg bg-cyan-50 px-2 py-1 text-cyan-700">{miami.length} à Miami</span><span className="rounded-lg bg-orange-50 px-2 py-1 text-orange-700">{available.length} disponibles</span><span className="rounded-lg bg-emerald-50 px-2 py-1 text-emerald-700">{history.length} remis</span>{balanceUsd > 0.01 && <span className="rounded-lg bg-amber-50 px-2 py-1 text-amber-800">Solde à régler</span>}</div></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a]"><ChevronDown size={20} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span></button>
+      <button type="button" onClick={() => onExpand(open ? null : dossier.customerCode)} className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-slate-50"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Dossier client</p><h3 className="mt-0.5 truncate text-xl font-black text-[#0a2b61]">{dossier.customerCode}{dossier.customerName && <span className="ml-1 text-sm font-semibold text-slate-500">· {dossier.customerName}</span>}</h3><div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold"><span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">En route : {miami.length + transit.length}</span><span className="rounded-lg bg-orange-50 px-2 py-1 text-orange-700">Disponibles : {available.length}</span></div></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a]"><ChevronDown size={20} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span></button>
       {open && <div className="space-y-4 border-t border-slate-100 bg-slate-50/70 p-3">
         {balanceUsd > 0.01 && <BalanceNotice balanceUsd={balanceUsd} balanceHtg={balanceHtg} invoiceNumber={balanceInvoice?.invoice_number ?? ""} onPay={balanceInvoice ? () => onStartPayment(balanceInvoice.id) : undefined} />}
         <DossierSection title="Colis reçus à Miami" subtitle="Colis arrivés à Miami et non encore facturés." packages={miami} />
         <DossierSection title="Colis en transit ou en traitement" subtitle="Colis sans facture client finalisée." packages={transit} />
-        <DossierSection title="Colis disponibles et facturés" subtitle="Une facture a été envoyée au client. Chaque remise doit être confirmée séparément." packages={available} tone="orange" renderPackage={(item) => <PackageCard item={item} ready delivered={false} releasing={releasing === item.id} confirmed={confirmedParcelId === item.id} onRelease={() => onRelease(item)} onStartPayment={() => onStartPayment(item.invoice_id)} onOpenInvoice={() => { if (item.invoice_id) onOpenInvoice(item.invoice_id); }} />} />
-        <DossierSection title="Historique des remises" subtitle="Colis remis au client et confirmés dans le système." packages={history} tone="emerald" />
-        <DossierInvoices invoices={dossier.invoices} packages={dossier.packages} expandedInvoice={expandedInvoice} onExpandInvoice={setExpandedInvoice} onOpenPdf={onOpenPdf} />
+        <DossierSection title="Colis disponibles et facturés" subtitle="Sélectionnez tous les colis que vous remettez, puis confirmez une seule fois." packages={available} tone="orange" renderPackage={(item) => <PackageCard item={item} ready delivered={false} selected={selectedPackageIds.includes(item.id)} confirmed={confirmedParcelIds.includes(item.id)} releasing={releasing} onToggleSelection={() => onToggleSelection(item)} onStartPayment={() => onStartPayment(item.invoice_id)} onOpenInvoice={() => { if (item.invoice_id) onOpenInvoice(item.invoice_id); }} />} />
+        {available.length > 0 && balanceUsd <= 0.01 && <BatchRemiseAction customerCode={dossier.customerCode} available={available} selectedPackageIds={selectedPackageIds} busy={releasing} onSelectAll={() => onSelectCustomerPackages(dossier.customerCode, available.filter((item) => item.invoice_payment_status === "Payé").map((item) => item.id))} onConfirm={onConfirmSelection} />}
       </div>}
     </article>;
   })}</div>;
@@ -334,10 +417,10 @@ function DossierInvoices({ invoices, packages, expandedInvoice, onExpandInvoice,
   })}</div> : <p className="rounded-lg bg-white/80 px-3 py-3 text-sm text-slate-500">Aucune facture finalisée pour ce client.</p>}</section>;
 }
 
-function PackageCard({ item, ready, delivered, releasing, confirmed, onRelease, onStartPayment, onOpenInvoice }: { item: ZonePackage; ready: boolean; delivered: boolean; releasing: boolean; confirmed: boolean; onRelease: () => void; onStartPayment: () => void; onOpenInvoice: () => void }) {
+function PackageCard({ item, ready, delivered, selected, releasing, confirmed, onToggleSelection, onStartPayment, onOpenInvoice }: { item: ZonePackage; ready: boolean; delivered: boolean; selected: boolean; releasing: boolean; confirmed: boolean; onToggleSelection: () => void; onStartPayment: () => void; onOpenInvoice: () => void }) {
   const hasBalance = item.customer_balance_usd > 0.01;
   const canRelease = item.invoice_payment_status === "Payé" && !hasBalance;
-  return <div className="rounded-xl border border-slate-200 bg-white p-3"><div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Numéro de suivi</p><p className="break-all text-sm font-extrabold text-[#0a2b61]">{packageReference(item)}</p></div><StatusChip status={item.status} /></div>{item.content && <p className="mt-2 text-sm text-slate-600"><span className="font-semibold text-slate-800">Marchandise :</span> {item.content}</p>}<div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500"><span className="rounded-lg bg-slate-100 px-2 py-1 font-semibold">Quantité : {item.quantity}</span>{item.received_at && <span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">Reçu à Miami : {dateText(item.received_at)}</span>}{item.invoice_number && (item.invoice_id ? <button type="button" onClick={onOpenInvoice} className="rounded-lg bg-indigo-50 px-2 py-1 font-semibold text-indigo-700 transition hover:bg-indigo-100 hover:text-indigo-900" title="Voir le détail de cette facture">{item.invoice_number} · {item.invoice_payment_status}</button> : <span className="rounded-lg bg-indigo-50 px-2 py-1 font-semibold text-indigo-700">{item.invoice_number} · {item.invoice_payment_status}</span>)}</div>{item.invoice_payment_details && <p className="mt-2 text-xs font-bold text-emerald-700">{item.invoice_payment_details}</p>}{ready && !hasBalance && !canRelease && item.invoice_id && <button type="button" onClick={onStartPayment} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 text-sm font-bold text-[#bd450b] hover:bg-orange-100"><Banknote size={18} />Enregistrer un paiement</button>}{ready && !hasBalance && (confirmed ? <div className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-sm font-bold text-white"><CheckCircle2 size={18} />Remise confirmée</div> : <button type="button" disabled={!canRelease || releasing} onClick={onRelease} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white hover:bg-[#0f448f] disabled:cursor-not-allowed disabled:bg-slate-300"><CheckCircle2 size={18} />{releasing ? "Confirmation…" : canRelease ? "Confirmer la remise" : item.invoice_id ? "Paiement complet requis" : "Facture requise"}</button>)}{delivered && <p className="mt-3 flex items-center gap-2 text-sm font-bold text-emerald-700"><CheckCircle2 size={17} />Remis au client</p>}</div>;
+  return <div className={cn("rounded-xl border bg-white p-3", selected ? "border-emerald-400 ring-2 ring-emerald-100" : "border-slate-200")}><div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Numéro de suivi</p><p className="break-all text-sm font-extrabold text-[#0a2b61]">{packageReference(item)}</p></div><StatusChip status={item.status} /></div>{item.content && <p className="mt-2 text-sm text-slate-600"><span className="font-semibold text-slate-800">Marchandise :</span> {item.content}</p>}<div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500"><span className="rounded-lg bg-slate-100 px-2 py-1 font-semibold">Quantité : {item.quantity}</span>{item.received_at && <span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">Reçu à Miami : {dateText(item.received_at)}</span>}{item.invoice_number && (item.invoice_id ? <button type="button" onClick={onOpenInvoice} className="rounded-lg bg-indigo-50 px-2 py-1 font-semibold text-indigo-700 transition hover:bg-indigo-100 hover:text-indigo-900" title="Voir le détail de cette facture">{item.invoice_number} · {item.invoice_payment_status}</button> : <span className="rounded-lg bg-indigo-50 px-2 py-1 font-semibold text-indigo-700">{item.invoice_number} · {item.invoice_payment_status}</span>)}</div>{item.invoice_payment_details && <p className="mt-2 text-xs font-bold text-emerald-700">{item.invoice_payment_details}</p>}{ready && !hasBalance && !canRelease && item.invoice_id && <button type="button" onClick={onStartPayment} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 text-sm font-bold text-[#bd450b] hover:bg-orange-100"><Banknote size={18} />Enregistrer un paiement</button>}{ready && hasBalance && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">Le solde client doit être réglé avant la remise.</p>}{ready && !confirmed && <button type="button" disabled={!canRelease || releasing} onClick={onToggleSelection} className={cn("mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border px-3 text-sm font-bold disabled:cursor-not-allowed", selected ? "border-emerald-600 bg-emerald-600 text-white" : "border-[#0b3270] bg-white text-[#0b3270] hover:bg-[#edf3ff]", (!canRelease || releasing) && "border-slate-200 bg-slate-100 text-slate-400")}><CheckCircle2 size={18} />{selected ? "Sélectionné pour la remise" : canRelease ? "Sélectionner pour la remise" : item.invoice_id ? "Paiement complet requis" : "Facture requise"}</button>}{confirmed && <div className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-sm font-bold text-white"><CheckCircle2 size={18} />Remise confirmée</div>}{delivered && <p className="mt-3 flex items-center gap-2 text-sm font-bold text-emerald-700"><CheckCircle2 size={17} />Remis au client</p>}</div>;
 }
 
 function InvoiceSummary({ invoice, packages }: { invoice: ZoneInvoice; packages: ZonePackage[] }) {

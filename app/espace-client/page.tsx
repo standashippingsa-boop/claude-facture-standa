@@ -272,6 +272,12 @@ export default function EspaceClientPage() {
     try {
       const { error } = await supabase.auth.updateUser({ password: pwd1 });
       if (error) throw error;
+      const { data: auth } = await supabase.auth.getUser();
+      if (auth.user) {
+        // Le mot de passe vit uniquement dans Supabase Auth. Cette écriture
+        // supprime aussi un ancien marqueur de changement obligatoire.
+        await supabase.from("clients").update({ must_change_password: false }).eq("auth_user_id", auth.user.id);
+      }
       setPwd1(""); setPwd2("");
       setShowPwd(false); setPwdMsg(null);
       setToast("Votre mot de passe a été modifié");
@@ -983,7 +989,7 @@ export default function EspaceClientPage() {
                   ["Que signifie « Préparer mon retrait » ?",
                    "Cette action indique les colis que vous viendrez chercher afin que notre équipe les prépare avant votre arrivée à l'agence."],
                   ["J'ai oublié mon mot de passe.",
-                   "Contactez-nous sur WhatsApp. Nous vous enverrons un mot de passe temporaire que vous pourrez ensuite modifier."],
+                   "Contactez-nous sur WhatsApp. Nous vous donnerons un nouveau mot de passe que vous pourrez modifier si vous le souhaitez."],
                   ["Le prix peut-il changer ?",
                    "Le prix indiqué dans l'application est une estimation basée sur le poids. Le prix final est celui de la facture, après la pesée du colis à l'entrepôt."]
                 ] as const).map(([q, a]) => (

@@ -47,7 +47,7 @@ export default function ClientsPage() {
   const [mcClient, setMcClient] = useState<Client | null>(null);  // modal "Créer compte MCPACK"
   const [mcCode, setMcCode] = useState("");
   // Apre aktivasyon: kredansyèl yo (pou montre + voye WhatsApp)
-  const [creds, setCreds] = useState<{ client: Client; username: string; tempPassword: string } | null>(null);
+  const [creds, setCreds] = useState<{ client: Client; username: string; password: string } | null>(null);
   const { role } = useRole();
   const [dups, setDups] = useState<DupGroup[] | null>(null);   // modal Fusionner
   const [primaryPick, setPrimaryPick] = useState<Record<string, string>>({});
@@ -107,11 +107,11 @@ export default function ClientsPage() {
     try {
       const j = await adminApi("activate_client", { client_id: mcClient.id, mc_code: mcCode.trim() });
       if (!j.ok) { setNotice("Erè: " + (j.reason ?? "aktivasyon echwe")); return; }
-      // Sistèm nan: aktive + username = MC-XXXXX + modpas tanporè jenere otomatikman
+      // Sistèm nan: aktive + username = MC-XXXXX + modpas inisyal jenere otomatikman
       setCreds({
         client: { ...mcClient, customer_code: j.username, account_status: "Actif" },
         username: j.username,
-        tempPassword: j.temp_password
+        password: j.password
       });
       await logAction("Activation Client", `${mcClient.fullname} activé`, "", j.username);
       setMcClient(null); setMcCode("");
@@ -121,12 +121,12 @@ export default function ClientsPage() {
     }
   };
 
-  /** 🔑 Rejenere yon modpas tanporè (si kliyan an bliye l anvan premye koneksyon) */
+  /** 🔑 Bay yon nouvo modpas lè kliyan an bliye pa li. */
   const resetClientPassword = async (c: Client) => {
-    if (!confirm(`Rejenere yon modpas tanporè pou ${c.fullname} (${c.customer_code})?`)) return;
+    if (!confirm(`Bay yon nouvo modpas pou ${c.fullname} (${c.customer_code})?`)) return;
     const j = await adminApi("reset_client_password", { client_id: c.id });
     if (!j.ok) { setNotice("Erè: " + (j.reason ?? "echwe")); return; }
-    setCreds({ client: c, username: j.username, tempPassword: j.temp_password });
+    setCreds({ client: c, username: j.username, password: j.password });
   };
 
   const remove = async (c: Client) => {
@@ -282,7 +282,7 @@ export default function ClientsPage() {
                         <button className="mr-2 text-lg" title="📲 Voye adrès depo sou WhatsApp"
                           onClick={() => openDepotWhatsApp(c)}>📲</button>
                       )}
-                      <button className="mr-2" title="🔑 Rejenere modpas tanporè kliyan an"
+                      <button className="mr-2" title="🔑 Bay kliyan an yon nouvo modpas"
                         onClick={() => resetClientPassword(c)}>🔑</button>
                     </>
                   )}
@@ -353,17 +353,17 @@ export default function ClientsPage() {
                 <span className="font-mono font-bold select-all">{creds.username}</span>
               </div>
               <div className="flex justify-between gap-4 px-3 py-2">
-                <span className="text-slate-500 text-xs">Mot de passe temporaire</span>
-                <span className="font-mono font-bold select-all">{creds.tempPassword}</span>
+                <span className="text-slate-500 text-xs">Mot de passe</span>
+                <span className="font-mono font-bold select-all">{creds.password}</span>
               </div>
             </div>
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              ⚠️ Modpas sa a parèt <b>yon sèl fwa</b>. Voye l bay kliyan an kounye a — nan premye
-              koneksyon an, sistèm nan ap fòse l chwazi pwòp modpas pa li.
+              ⚠️ Modpas sa a parèt <b>yon sèl fwa</b>. Voye l bay kliyan an kounye a. Li rete valab
+              jiskaske kliyan an chwazi chanje li nan espas pèsonèl li.
             </p>
             <div className="flex gap-3">
               {(creds.client.whatsapp || creds.client.phone) && (
-                <button className="btn" onClick={() => openDepotWhatsApp(creds.client, creds.tempPassword)}>
+                <button className="btn" onClick={() => openDepotWhatsApp(creds.client, creds.password)}>
                   📲 Voye adrès depo + kredansyèl yo
                 </button>
               )}

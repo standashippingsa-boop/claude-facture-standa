@@ -2,7 +2,7 @@
 /*
  * STANDA COMMERCIAL — Chan modpas ak TI JE 👁️
  * ═══════════════════════════════════════════
- * Kliyan yo tape modpas tanporè ki soti sou WhatsApp. San wè sa yo tape,
+ * Kliyan yo ka tape modpas yo resevwa sou WhatsApp. San wè sa yo tape,
  * yo fè erè epi yo panse kont lan bloke. Ti je a regle sa.
  *
  * ENPÒTAN POU ANREJISTREMAN MODPAS SOU TELEFÒN:

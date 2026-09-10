@@ -76,7 +76,7 @@ function LoginInner() {
               {err && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3"><p className="text-[13px] leading-relaxed text-red-700">{err}</p><a href={WA} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#1fb857]"><WhatsAppIcon size={14} /> Demander de l&apos;aide sur WhatsApp</a></div>}
 
               <button type="submit" disabled={busy} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3.5 text-sm font-bold text-white shadow-[0_14px_26px_-14px_rgba(228,101,10,.95)] transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Connexion en cours..." : "Se connecter"}</button>
-              <p className="mt-4 text-center text-[11.5px] leading-relaxed text-slate-500">Mot de passe oublié ? Contactez-nous sur WhatsApp pour recevoir un nouveau mot de passe temporaire.</p>
+              <p className="mt-4 text-center text-[11.5px] leading-relaxed text-slate-500">Mot de passe oublié ? Contactez-nous sur WhatsApp pour recevoir un nouveau mot de passe.</p>
             </form>
           </section>
 

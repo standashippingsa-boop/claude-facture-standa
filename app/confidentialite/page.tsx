@@ -119,8 +119,8 @@ export default function ConfidentialitePage() {
             <Li>L&apos;accès aux données est restreint par des règles appliquées directement dans la base de données.</Li>
           </ul>
           <p className="font-semibold text-ink">
-            De votre côté : changez le mot de passe temporaire que nous vous envoyons, et ne le
-            partagez avec personne. Aucun employé de STANDA COMMERCIAL ne vous demandera
+            De votre côté : conservez votre mot de passe en lieu sûr et ne le partagez avec personne.
+            Vous pouvez le changer dans votre espace personnel quand vous le souhaitez. Aucun employé de STANDA COMMERCIAL ne vous demandera
             jamais votre mot de passe.
           </p>
         </S>

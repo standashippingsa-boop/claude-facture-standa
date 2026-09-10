@@ -3,10 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-/**
- * Premye koneksyon kliyan: li OBLIJE kreye yon nouvo modpas
- * anvan li ka itilize aplikasyon an. Ansyen modpas tanporè a mouri la a.
- */
+/** Chanjman modpas volontè pou kliyan ki prefere paj apa sa a. */
 export default function NouveauMotDePassePage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
@@ -24,7 +21,7 @@ export default function NouveauMotDePassePage() {
       if (!data.user) { router.replace("/login"); return; }
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      // Modpas tanporè a pa valab ankò
+      // Legacy flag la rete netwaye; modpas aktyèl la se nan Supabase Auth.
       await supabase.from("clients").update({ must_change_password: false })
         .eq("auth_user_id", data.user.id);
       router.replace("/espace-client");
@@ -41,9 +38,9 @@ export default function NouveauMotDePassePage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" className="h-16 object-contain" />
         </div>
-        <h1 className="text-xl font-extrabold text-white text-center">Créez votre nouveau mot de passe</h1>
+        <h1 className="text-xl font-extrabold text-white text-center">Modifier votre mot de passe</h1>
         <p className="text-xs text-slate-400 text-center">
-          Pour votre sécurité, remplacez votre mot de passe temporaire avant de continuer.
+          Cette étape est facultative. Vous pouvez conserver votre mot de passe actuel.
         </p>
         <label className="block"><span className="text-xs font-semibold text-slate-300">Nouveau mot de passe</span>
           <input type="password" className="mt-1 w-full rounded-xl bg-[#122A52] border border-white/10 px-3 py-3 text-sm text-white focus:outline-none focus:border-blue-400"
@@ -55,7 +52,11 @@ export default function NouveauMotDePassePage() {
         {err && <p className="text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl px-4 py-3">{err}</p>}
         <button className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm disabled:opacity-50"
           onClick={submit} disabled={busy}>
-          {busy ? "Enregistrement..." : "Enregistrer et continuer"}
+          {busy ? "Enregistrement..." : "Enregistrer le mot de passe"}
+        </button>
+        <button type="button" onClick={() => router.replace("/espace-client")}
+          className="w-full text-sm font-semibold text-slate-300 hover:text-white">
+          Continuer sans modifier
         </button>
       </div>
     </div>

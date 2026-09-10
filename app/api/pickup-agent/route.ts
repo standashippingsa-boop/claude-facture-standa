@@ -17,7 +17,7 @@ type Agent = {
 type Parcel = {
   id: string; tracking_number: string | null; tracking_manual: string | null;
   customer_code: string; quantity: number | null; content: string | null;
-  created_date: string | null; received_at: string | null; status: string;
+  created_date: string | null; received_at: string | null; delivered_at: string | null; status: string;
   invoice_id: string | null; conduce_id: string | null;
 };
 type ZoneInvoice = {
@@ -109,6 +109,11 @@ function paymentDetails(status: string, payments: ZonePayment[]) {
   return `${status === "Payé" ? "Payé" : "Paiement enregistré"} par ${methods.join(", ")}${source}`;
 }
 
+function missingSchemaColumn(error: unknown, column: string) {
+  const message = error && typeof error === "object" && "message" in error ? String(error.message ?? "") : "";
+  return message.toLowerCase().includes(column.toLowerCase());
+}
+
 async function customerBelongsToZone(db: any, customerCode: string, villeId: string) {
   const result = await db.from("clients").select("ville_id").eq("customer_code", customerCode).maybeSingle();
   return result.data?.ville_id === villeId;
@@ -135,12 +140,16 @@ export async function GET(req: Request) {
     let parcels: Parcel[] = [];
     let invoices: ZoneInvoice[] = [];
     if (codes.length) {
-      const [parcelResult, invoiceResult] = await Promise.all([
-        db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id")
-          .eq("archived", false).in("customer_code", codes).order("created_at", { ascending: false }).limit(5000),
-        db.from("invoices").select("id, invoice_number, customer_code, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
-          .in("customer_code", codes).order("created_at", { ascending: false }).limit(1000)
-      ]);
+      let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id")
+        .eq("archived", false).in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
+      // Le site reste utilisable durant le très court délai entre le
+      // déploiement et l'application de la migration Supabase.
+      if (missingSchemaColumn(parcelResult.error, "delivered_at")) {
+        parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id")
+          .eq("archived", false).in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
+      }
+      const invoiceResult = await db.from("invoices").select("id, invoice_number, customer_code, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
+        .in("customer_code", codes).order("created_at", { ascending: false }).limit(1000);
       if (parcelResult.error) throw parcelResult.error;
       if (invoiceResult.error) throw invoiceResult.error;
       parcels = (parcelResult.data ?? []) as Parcel[];
@@ -228,7 +237,7 @@ export async function GET(req: Request) {
       return {
         id: code(parcel.id), tracking_number: code(parcel.tracking_number), tracking_manual: code(parcel.tracking_manual),
         customer_code: code(parcel.customer_code), customer_name: customerName(customer), quantity: Number(parcel.quantity ?? 1) || 1,
-        content: code(parcel.content), created_date: code(parcel.created_date), received_at: code(parcel.received_at),
+        content: code(parcel.content), created_date: code(parcel.created_date), received_at: code(parcel.received_at), delivered_at: code(parcel.delivered_at),
         status: code(parcel.status), invoice_id: invoice?.id ?? "", invoice_number: invoice?.invoice_number ?? "",
         invoice_payment_status: paymentStatus, invoice_payment_details: invoice ? paymentDetails(paymentStatus, paymentsByInvoice.get(invoice.id) ?? []) : "", customer_balance_usd: balance?.usd ?? 0,
         customer_balance_htg: balance?.htg ?? 0, balance_invoice_id: balance?.invoiceId ?? "", balance_invoice_number: balance?.invoiceNumber ?? ""
@@ -336,6 +345,69 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, payment_status: status, payment_paid_usd: newUsd, payment_paid_htg: newHtg, overpayment_amount: overpaymentAmount, currency });
     }
 
+    if (body?.action === "release_many") {
+      const rawIds: unknown[] = Array.isArray(body?.package_ids) ? body.package_ids as unknown[] : [];
+      const packageIds = Array.from(new Set(rawIds.map((id) => code(id)).filter((id) => uuid.test(id))));
+      if (!packageIds.length || packageIds.length !== rawIds.length || packageIds.length > 100) {
+        return NextResponse.json({ ok: false, reason: "Sélection de colis invalide." }, { status: 400 });
+      }
+      const parcelsResult = await db.from("packages")
+        .select("id, tracking_number, tracking_manual, customer_code, status, invoice_id")
+        .in("id", packageIds);
+      const selected = (parcelsResult.data ?? []) as Array<{
+        id: string; tracking_number: string | null; tracking_manual: string | null;
+        customer_code: string; status: string; invoice_id: string | null;
+      }>;
+      if (parcelsResult.error) throw parcelsResult.error;
+      if (selected.length !== packageIds.length) {
+        return NextResponse.json({ ok: false, reason: "Un ou plusieurs colis ne sont plus disponibles. Actualisez la liste." }, { status: 409 });
+      }
+      const customerCode = code(selected[0]?.customer_code);
+      if (!customerCode || selected.some((parcel) => code(parcel.customer_code) !== customerCode)) {
+        return NextResponse.json({ ok: false, reason: "Une remise groupée doit concerner un seul client." }, { status: 400 });
+      }
+      if (!(await customerBelongsToZone(db, customerCode, agent.pickup_ville_id!))) {
+        return NextResponse.json({ ok: false, reason: "Ces colis n'appartiennent pas à votre zone de remise." }, { status: 403 });
+      }
+      if (selected.some((parcel) => !["Disponible", "Facturé"].includes(code(parcel.status)) || !code(parcel.invoice_id))) {
+        return NextResponse.json({ ok: false, reason: "Tous les colis sélectionnés doivent être facturés et prêts à remettre." }, { status: 409 });
+      }
+      const invoiceIds = Array.from(new Set(selected.map((parcel) => code(parcel.invoice_id)).filter(Boolean)));
+      const invoicesResult = await db.from("invoices")
+        .select("id, invoice_number, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, payment_paid_usd, payment_paid_htg")
+        .in("id", invoiceIds);
+      if (invoicesResult.error) throw invoicesResult.error;
+      const selectedInvoices = invoicesResult.data ?? [];
+      if (selectedInvoices.length !== invoiceIds.length || selectedInvoices.some((invoice: any) => !invoice.has_pdf || invoiceRemainingAmounts(invoice).remainingUsd > 0.01)) {
+        return NextResponse.json({ ok: false, reason: "Toutes les factures sélectionnées doivent être générées et entièrement payées avant la remise." }, { status: 409 });
+      }
+      const balances = await db.from("invoices")
+        .select("invoice_number, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, payment_paid_usd, payment_paid_htg")
+        .eq("customer_code", customerCode).eq("has_pdf", true).order("created_at", { ascending: true });
+      if (balances.error) throw balances.error;
+      const outstanding = (balances.data ?? []).map((row: ZoneInvoice) => ({ number: code(row.invoice_number), remaining: invoiceRemainingAmounts(row).remainingUsd }))
+        .filter((row: { remaining: number }) => row.remaining > 0.01);
+      if (outstanding.length) {
+        const total = money(outstanding.reduce((sum: number, row: { remaining: number }) => sum + row.remaining, 0));
+        const refs = outstanding.map((row: { number: string }) => row.number).filter(Boolean).join(", ");
+        return NextResponse.json({ ok: false, reason: `Client avec un solde de ${total.toFixed(2)} USD (${refs}). Réglez ce solde avant toute remise.` }, { status: 409 });
+      }
+      const deliveredAt = new Date().toISOString();
+      let update = await db.from("packages").update({ status: "Livré", delivered_at: deliveredAt })
+        .in("id", packageIds).in("status", ["Disponible", "Facturé"]).select("id");
+      if (missingSchemaColumn(update.error, "delivered_at")) {
+        update = await db.from("packages").update({ status: "Livré" })
+          .in("id", packageIds).in("status", ["Disponible", "Facturé"]).select("id");
+      }
+      if (update.error) throw update.error;
+      if ((update.data ?? []).length !== packageIds.length) {
+        return NextResponse.json({ ok: false, reason: "Un colis vient déjà d'être traité. Actualisez la liste." }, { status: 409 });
+      }
+      const references = selected.map((parcel) => code(parcel.tracking_manual || parcel.tracking_number)).filter(Boolean).slice(0, 5).join(", ");
+      await writeAudit(db, req, agent, "Remise groupée", `${packageIds.length} colis remis au point de retrait ${zoneName}`, references, customerCode);
+      return NextResponse.json({ ok: true, package_ids: packageIds });
+    }
+
     if (body?.action === "release") {
       const packageId = code(body.package_id);
       if (!uuid.test(packageId)) return NextResponse.json({ ok: false, reason: "Demande de remise invalide." }, { status: 400 });
@@ -378,8 +450,12 @@ export async function POST(req: Request) {
         const refs = outstanding.map((row: { number: string }) => row.number).filter(Boolean).join(", ");
         return NextResponse.json({ ok: false, reason: `Client avec un solde de ${total.toFixed(2)} USD (${refs}). Réglez ce solde avant toute remise.` }, { status: 409 });
       }
-      const update = await db.from("packages").update({ status: "Livré" })
+      let update = await db.from("packages").update({ status: "Livré", delivered_at: new Date().toISOString() })
         .eq("id", packageId).in("status", ["Disponible", "Facturé"]).select("id").maybeSingle();
+      if (missingSchemaColumn(update.error, "delivered_at")) {
+        update = await db.from("packages").update({ status: "Livré" })
+          .eq("id", packageId).in("status", ["Disponible", "Facturé"]).select("id").maybeSingle();
+      }
       if (update.error) throw update.error;
       if (!update.data) return NextResponse.json({ ok: false, reason: "Ce colis vient déjà d'être traité. Actualisez la liste." }, { status: 409 });
       const ref = code(parcel.tracking_manual || parcel.tracking_number);

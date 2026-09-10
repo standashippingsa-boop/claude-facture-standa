@@ -7,7 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 /**
  * API Authentication (kouri sou sèvè Vercel — kle sèvis la pa janm rive nan navigatè).
  * Aksyon: bootstrap (premye admin), create_staff, reset_staff_password, delete_staff,
- *         activate_client (kòd MC -> kont + modpas tanporè), reset_client_password.
+ *         activate_client (kòd MC -> kont + modpas), reset_client_password.
  */
 const SETUP_SECRET = process.env.SETUP_SECRET || "";
 const staffEmail = (u: string) => `${u.trim().toLowerCase()}@staff.standacommercialsa.com`;
@@ -21,10 +21,9 @@ function secretOk(provided: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** Modpas tanporè: lèt + chif sèlman, fasil pou tape, san karaktè ki konfonn.
- *  12 karaktè (≈ 59 bit) — anpeche devinen an liy. Kliyan an OBLIJE chanje l
- *  premye fwa li konekte (must_change_password = true). */
-function tempPassword(len = 12): string {
+/** Modpas inisyal: lèt + chif sèlman, fasil pou tape, san karaktè ki konfonn.
+ *  Li rete yon modpas nòmal jiskaske kliyan an chwazi chanje li. */
+function generatedPassword(len = 12): string {
   const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let out = "";
   const buf = new Uint32Array(len);
@@ -141,7 +140,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // ---------- activate_client: kòd MC -> kont + modpas tanporè ----------
+    // ---------- activate_client: kòd MC -> kont + modpas inisyal ----------
     if (action === "activate_client") {
       if (role !== "admin" && role !== "employe") return NextResponse.json({ ok: false, reason: "Accès refusé." });
       const clientId = String(body.client_id ?? "");
@@ -149,17 +148,17 @@ export async function POST(req: Request) {
       const rawCode = String(body.mc_code ?? "").trim().replace(/\s+/g, "").toUpperCase();
       const code = rawCode ? (rawCode.startsWith("MC-") ? rawCode : "MC-" + rawCode.replace(/^MC/, "").replace(/^-+/, "")) : "";
       if (!clientId || !code) return NextResponse.json({ ok: false, reason: "Kòd MC obligatwa." });
-      const pass = tempPassword();
+      const pass = generatedPassword();
       const { data: u, error } = await svc.auth.admin.createUser({
         email: clientEmail(code), password: pass, email_confirm: true
       });
       if (error) return NextResponse.json({ ok: false, reason: error.message.includes("already") ? `Kòd "${code}" gen yon kont deja.` : error.message });
       const { error: e2 } = await svc.from("clients").update({
         customer_code: code, username: code, auth_user_id: u.user.id,
-        account_status: "Actif", must_change_password: true
+        account_status: "Actif", must_change_password: false
       }).eq("id", clientId);
       if (e2) { await svc.auth.admin.deleteUser(u.user.id); return NextResponse.json({ ok: false, reason: e2.message.includes("duplicate") ? `Kòd "${code}" deja sou yon lòt kliyan.` : e2.message }); }
-      return NextResponse.json({ ok: true, temp_password: pass, username: code });
+      return NextResponse.json({ ok: true, password: pass, username: code });
     }
 
     // ---------- reset_client_password ----------
@@ -171,7 +170,7 @@ export async function POST(req: Request) {
       if (!c) return NextResponse.json({ ok: false, reason: "Kliyan pa jwenn." });
       const code = String(c.customer_code ?? "").trim();
       if (!code) return NextResponse.json({ ok: false, reason: "Kliyan sa a poko gen kòd MC — sèvi ak 'Créer compte MCPACK' pito." });
-      const pass = tempPassword();
+      const pass = generatedPassword();
       let authId = c.auth_user_id as string | null;
       if (!authId) {
         // Ansyen kliyan (kreye pa sync/admin) — nou kreye kont koneksyon li kounye a
@@ -181,16 +180,16 @@ export async function POST(req: Request) {
         if (ce || !nu?.user) return NextResponse.json({ ok: false, reason: "Kreyasyon kont echwe: " + (ce?.message ?? "") });
         authId = nu.user.id;
         await svc.from("clients").update({
-          auth_user_id: authId, username: code, must_change_password: true
+          auth_user_id: authId, username: code, must_change_password: false
         }).eq("id", clientId);
-        return NextResponse.json({ ok: true, username: code, temp_password: pass });
+        return NextResponse.json({ ok: true, username: code, password: pass });
       }
       const { error } = await svc.auth.admin.updateUserById(authId, {
         password: pass, email: clientEmail(code), email_confirm: true
       } as any);
       if (error) return NextResponse.json({ ok: false, reason: error.message });
-      await svc.from("clients").update({ must_change_password: true, username: code }).eq("id", clientId);
-      return NextResponse.json({ ok: true, temp_password: pass, username: code });
+      await svc.from("clients").update({ must_change_password: false, username: code }).eq("id", clientId);
+      return NextResponse.json({ ok: true, password: pass, username: code });
     }
 
     return NextResponse.json({ ok: false, reason: "Aksyon enkoni." });

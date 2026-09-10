@@ -60,9 +60,9 @@ export function openWhatsApp(inv: Invoice, _count?: number) {
 }
 
 /** 📲 Voye adrès depo Ozetazini bay kliyan an sou WhatsApp */
-export function openDepotWhatsApp(c: Client, tempPassword?: string) {
+export function openDepotWhatsApp(c: Client, password?: string) {
   const phone = normalizePhone(c.whatsapp || c.phone || "");
-  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(buildDepotMessage(c, tempPassword))}`, "_blank");
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(buildDepotMessage(c, password))}`, "_blank");
 }
 
 /** Mesaj pou notifye yon kliyan sou plizyè koli (File d'attente WhatsApp — bulk actions). */
