@@ -36,7 +36,7 @@ export default function StaffLogin({
     const u = username.trim();
     // Ne jamais modifier le mot de passe : des espaces peuvent faire partie d'un mot de passe valide.
     const p = password;
-    if (!u || !p) { setErr("Antre non itilizatè ou ak modpas ou."); return; }
+    if (!u || !p) { setErr("Entrez votre nom d’utilisateur et votre mot de passe."); return; }
     if (!isSupabaseConfigured) {
       setErr("Le service de connexion n'est pas configuré sur cet ordinateur. Ajoutez les clés publiques Supabase dans le fichier .env.local, puis redémarrez l'application.");
       return;
@@ -89,7 +89,7 @@ export default function StaffLogin({
 
         <button type="submit" disabled={busy}
           className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm disabled:opacity-50">
-          {busy ? "Ap konekte..." : "Konekte"}
+          {busy ? "Connexion en cours…" : "Se connecter"}
         </button>
 
         <p className="text-center text-[11px] text-slate-500">

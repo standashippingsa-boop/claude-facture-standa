@@ -29,6 +29,7 @@ type ZoneInvoice = {
 };
 type ZoneCustomer = { customer_code: string; fullname: string | null; surname: string | null };
 type CustomerBalance = { usd: number; htg: number; invoiceId: string; invoiceNumber: string };
+type ZonePayment = { invoice_id: string; payment_method: string | null; recorded_by_role: string | null; created_at: string };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 const money = (value: unknown) => Math.round(Number(value ?? 0) * 100) / 100;
@@ -97,6 +98,17 @@ function customerName(customer?: ZoneCustomer) {
   return [code(customer?.fullname), code(customer?.surname)].filter(Boolean).join(" ");
 }
 
+function paymentDetails(status: string, payments: ZonePayment[]) {
+  if (!payments.length) return "";
+  const methods = Array.from(new Set(payments.map((payment) => code(payment.payment_method)).filter(Boolean)));
+  if (!methods.length) return "";
+  const sources = new Set(payments.map((payment) => code(payment.recorded_by_role)));
+  const source = sources.size === 1
+    ? sources.has("admin") ? " · Administrateur" : sources.has("agent_retrait") ? " · Point de retrait" : ""
+    : " · Paiements multiples";
+  return `${status === "Payé" ? "Payé" : "Paiement enregistré"} par ${methods.join(", ")}${source}`;
+}
+
 async function customerBelongsToZone(db: any, customerCode: string, villeId: string) {
   const result = await db.from("clients").select("ville_id").eq("customer_code", customerCode).maybeSingle();
   return result.data?.ville_id === villeId;
@@ -140,6 +152,18 @@ export async function GET(req: Request) {
     // envizib pou Rony, menm si li deja gen yon id nan baz la.
     const issuedInvoices = invoices.filter((invoice) => Boolean(invoice.has_pdf));
     const invoiceMap = new Map(issuedInvoices.map((invoice) => [invoice.id, invoice]));
+    const issuedInvoiceIds = issuedInvoices.map((invoice) => code(invoice.id)).filter(Boolean);
+    let paymentsByInvoice = new Map<string, ZonePayment[]>();
+    if (issuedInvoiceIds.length) {
+      const paymentsResult = await db.from("invoice_payments")
+        .select("invoice_id, payment_method, recorded_by_role, created_at")
+        .in("invoice_id", issuedInvoiceIds).order("created_at", { ascending: true });
+      if (paymentsResult.error) throw paymentsResult.error;
+      for (const payment of (paymentsResult.data ?? []) as ZonePayment[]) {
+        const invoiceId = code(payment.invoice_id);
+        paymentsByInvoice.set(invoiceId, [...(paymentsByInvoice.get(invoiceId) ?? []), payment]);
+      }
+    }
     // Balans lan kalkile sou TOUT fakti kliyan an ki deja emèt epi ki poko
     // peye nèt. Nou kenbe pi ansyen fakti a kòm sa Rony dwe regle an premye.
     const balanceByCustomer = new Map<string, CustomerBalance>();
@@ -185,17 +209,28 @@ export async function GET(req: Request) {
         has_pdf: Boolean(bon.pdf_path)
       }));
 
+    const deliveryByInvoice = new Map<string, { total: number; delivered: number }>();
+    for (const parcel of parcels) {
+      const invoiceId = code(parcel.invoice_id);
+      if (!invoiceId || !invoiceMap.has(invoiceId)) continue;
+      const current = deliveryByInvoice.get(invoiceId) ?? { total: 0, delivered: 0 };
+      current.total += 1;
+      if (code(parcel.status) === "Livré") current.delivered += 1;
+      deliveryByInvoice.set(invoiceId, current);
+    }
+
     // Liste blanche stricte, sans téléphone, adresse, identité ni coûts des colis.
     const packageCards = parcels.map((parcel) => {
       const invoice = parcel.invoice_id ? invoiceMap.get(parcel.invoice_id) : undefined;
       const customer = customerByCode.get(code(parcel.customer_code));
       const balance = balanceByCustomer.get(code(parcel.customer_code));
+      const paymentStatus = invoice ? paymentStatusFromAmounts(invoice) : "Non facturé";
       return {
         id: code(parcel.id), tracking_number: code(parcel.tracking_number), tracking_manual: code(parcel.tracking_manual),
         customer_code: code(parcel.customer_code), customer_name: customerName(customer), quantity: Number(parcel.quantity ?? 1) || 1,
         content: code(parcel.content), created_date: code(parcel.created_date), received_at: code(parcel.received_at),
         status: code(parcel.status), invoice_id: invoice?.id ?? "", invoice_number: invoice?.invoice_number ?? "",
-        invoice_payment_status: invoice ? paymentStatusFromAmounts(invoice) : "Non facturé", customer_balance_usd: balance?.usd ?? 0,
+        invoice_payment_status: paymentStatus, invoice_payment_details: invoice ? paymentDetails(paymentStatus, paymentsByInvoice.get(invoice.id) ?? []) : "", customer_balance_usd: balance?.usd ?? 0,
         customer_balance_htg: balance?.htg ?? 0, balance_invoice_id: balance?.invoiceId ?? "", balance_invoice_number: balance?.invoiceNumber ?? ""
       };
     });
@@ -203,12 +238,15 @@ export async function GET(req: Request) {
       const customerCode = code(invoice.customer_code);
       const balance = balanceByCustomer.get(customerCode);
       const amounts = invoicePayableAmounts(invoice);
+      const delivery = deliveryByInvoice.get(code(invoice.id)) ?? { total: 0, delivered: 0 };
+      const expectedPackageCount = Math.max(Number(invoice.package_count ?? 0), delivery.total);
+      const deliveryStatus = expectedPackageCount > 0 && delivery.delivered >= expectedPackageCount ? "Livrée" : "À remettre";
       return {
       id: code(invoice.id), invoice_number: code(invoice.invoice_number), customer_code: customerCode,
       customer_name: customerName(customerByCode.get(customerCode)), customer_balance_usd: balance?.usd ?? 0, customer_balance_htg: balance?.htg ?? 0,
       package_count: Number(invoice.package_count ?? 0), amount_due_usd: amounts.payableUsd, amount_due_htg: amounts.payableHtg,
-      amount_label: amounts.hasDeposit ? "Solde à payer selon la facture" : "Total de la facture", payment_status: paymentStatusFromAmounts(invoice), payment_paid_usd: money(invoice.payment_paid_usd),
-      payment_paid_htg: money(invoice.payment_paid_htg), has_pdf: Boolean(invoice.has_pdf), created_at: code(invoice.created_at)
+      amount_label: amounts.hasDeposit ? "Solde à payer selon la facture" : "Total de la facture", payment_status: paymentStatusFromAmounts(invoice), payment_details: paymentDetails(paymentStatusFromAmounts(invoice), paymentsByInvoice.get(invoice.id) ?? []), payment_paid_usd: money(invoice.payment_paid_usd),
+      payment_paid_htg: money(invoice.payment_paid_htg), delivery_status: deliveryStatus, delivered_packages_count: delivery.delivered, has_pdf: Boolean(invoice.has_pdf), created_at: code(invoice.created_at)
     }; });
 
     return NextResponse.json({ ok: true, agent: { name: agentName(agent), username: agent.username }, zone: { name: zoneName },
