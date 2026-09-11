@@ -918,8 +918,15 @@ export async function importConduceExcelRows(
         patch.mcpack_data = {
           ...((existing.mcpack_data ?? {}) as Record<string, string>),
           [SPECIAL_PACKAGE_FLAG]: "true",
-          [SPECIAL_PACKAGE_REASON]: r.special_reason || "Signal spécial détecté dans la ligne Excel.",
+          [SPECIAL_PACKAGE_REASON]: r.special_reason || "Note ADIC. signalée dans la ligne Excel.",
         };
+      } else if ((existing.mcpack_data as Record<string, string> | null)?.[SPECIAL_PACKAGE_FLAG] === "true") {
+        // Yon re-enpòtasyon Conduce se referans lan: si ADIC. vin vid/`--`,
+        // retire ansyen drapo a olye li kontinye bay yon fo colis spécial.
+        const metadata = { ...((existing.mcpack_data ?? {}) as Record<string, string>) };
+        delete metadata[SPECIAL_PACKAGE_FLAG];
+        delete metadata[SPECIAL_PACKAGE_REASON];
+        patch.mcpack_data = metadata;
       }
       if (Object.keys(patch).length) await supabase.from("packages").update(patch).eq("id", existing.id);
       updated++;
@@ -932,7 +939,7 @@ export async function importConduceExcelRows(
         received_at: now, received_method: "Import Conduce Excel", src_extension: true,
         mcpack_data: r.is_special ? {
           [SPECIAL_PACKAGE_FLAG]: "true",
-          [SPECIAL_PACKAGE_REASON]: r.special_reason || "Signal spécial détecté dans la ligne Excel.",
+          [SPECIAL_PACKAGE_REASON]: r.special_reason || "Note ADIC. signalée dans la ligne Excel.",
         } : {}
       });
       created++; linked++;

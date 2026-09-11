@@ -31,7 +31,6 @@
 import * as XLSX from "xlsx";
 import { normalizeMcCode, num } from "./utils";
 import { splitCliente } from "./xlsx";
-import { detectSpecialPackage } from "./special-package";
 
 export interface ConduceExcelRow {
   guia: string;              // Tracking ID (WR...) — kle prensipal
@@ -92,6 +91,12 @@ function tireGuia(cell: string): string {
 const joindreDetails = (values: string[]) => Array.from(new Set(
   values.map((value) => String(value ?? "").replace(/\s+/g, " ").trim()).filter(Boolean)
 )).join(" · ");
+
+/** ADIC. se sèl kolòn MCPACK ki siyale yon colis spécial; `--` vle di pa gen nòt. */
+const noteAdicValab = (value: string) => {
+  const note = String(value ?? "").replace(/\s+/g, " ").trim();
+  return note && !/^(?:[-–—_.\s]+|n\s*\/?\s*a|none|ninguno|sin\s+nota)$/i.test(note) ? note : "";
+};
 
 /** Tire kòd kliyan an: "Código: 36578" · "36578 - NOM" · "MC-36578". */
 function tireKod(...morceaux: string[]): string {
@@ -159,8 +164,9 @@ export function parseConduceFile(buf: ArrayBuffer): ConduceParseResult {
   const cPeso = trouve(tet, (h) => /peso/.test(h));
   const cContenido = trouve(tet, (h) => /contenido/.test(h));
   const cCant = trouve(tet, (h) => /cant/.test(h));
-  // MCPACK rele kolòn sa a souvan "ADIC.", men li ka chanje non li.
-  const cAdic = trouve(tet, (h) => /adic|observ|nota|detalle|casier|especial/.test(h));
+  // MCPACK rele kolòn sa a "ADIC." oswa "ADICIONALES". Se SÈLMAN li ki
+  // konsène koli espesyal; nou pa devine depi lòt kolòn yo.
+  const cAdic = trouve(tet, (h) => /^adic(?:\.|\b)|^adicional(?:es)?\b/.test(h));
   // Kolòn tracking SEPARE (fòma A). Nan fòma B li melanje ak guia.
   const cTrack = trouve(tet, (h) => /tracking/.test(h) && !/guia|guía/.test(h));
 
@@ -211,17 +217,13 @@ export function parseConduceFile(buf: ArrayBuffer): ConduceParseResult {
     nom = nom.replace(/c[oó]digo\s*[:\-]?\s*\d+/i, "").replace(/^\s*[\d-]+\s*[-–]\s*/, "").trim();
 
     const contentParts = cContenido >= 0 ? parts(r[cContenido] ?? "") : [];
-    const adicParts = cAdic >= 0 ? parts(r[cAdic] ?? "") : [];
+    const adicParts = cAdic >= 0 ? parts(r[cAdic] ?? "").map(noteAdicValab).filter(Boolean) : [];
     // Si nòt espesyal la te antre apre Tracking la nan menm selil la, nou pa pèdi l.
     const guiaNotes = guiaAutresLignes.filter((ligne) => trackingValab(ligne) !== trackingValab(trackBrut));
-    const details = joindreDetails([...contentParts, ...adicParts, ...guiaNotes]);
-    const special = detectSpecialPackage(details, {
-      "Note Excel": joindreDetails(adicParts),
-      "Guía / Tracking": joindreDetails(guiaNotes),
-      // Rekou: si `*` a nan yon kolòn nou pa konnen, kopi liy lan bay prèv la.
-      "Ligne Excel": brut,
-    });
-    const is_special = special.isSpecial;
+    const details = joindreDetails([...contentParts, ...adicParts]);
+    // Nòt ADIC. la se tèks egzak ki pral afiche kòm rezon an.
+    const special_reason = joindreDetails(adicParts);
+    const is_special = Boolean(special_reason);
 
     rows.push({
       guia,
@@ -235,7 +237,7 @@ export function parseConduceFile(buf: ArrayBuffer): ConduceParseResult {
         : details,
       quantity: cCant >= 0 ? (num(parts(r[cCant] ?? "")[0] ?? "") || 1) : 1,
       is_special,
-      special_reason: special.reason,
+      special_reason,
     });
   }
 

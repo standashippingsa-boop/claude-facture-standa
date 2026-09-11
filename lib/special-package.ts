@@ -1,9 +1,10 @@
 /**
  * Détection des colis spéciaux dans les exports MCPACK.
  *
- * MCPACK peut signaler un colis par un `*`, un téléphone, un casier ou une
- * note libre. On conserve toujours le texte qui a déclenché le signal afin
- * que l'équipe STANDA puisse expliquer le marquage sans rien inventer.
+ * Dans les Conduces MCPACK, la consigne métier est précise : seul le petit
+ * texte de la colonne ADIC. / ADICIONALES désigne un colis spécial. On le
+ * conserve tel quel pour que l'équipe STANDA puisse l'expliquer sans rien
+ * inventer ni déduire depuis le contenu du colis.
  */
 export const SPECIAL_PACKAGE_FLAG = "__standa_special";
 export const SPECIAL_PACKAGE_REASON = "__standa_special_reason";
@@ -19,9 +20,9 @@ type PackageLike = {
   mcpack_data?: Record<string, string> | null;
 };
 
-const SPECIAL_SIGNAL = /\*|t[ée]l[ée]phone|phone|celular|iphone|android|samsung|mobile|casier|casillero|sp[ée]cial/i;
-const NOTE_HEADER = /adic|observ|nota|note|detalle|d[ée]tail|casier|especial|comment|remark/i;
 const MAX_REASON_LENGTH = 520;
+const ADDITIONAL_HEADER = /^adic(?:\.|\b)|^adicional(?:es)?\b/i;
+const EMPTY_ADDITIONAL_NOTE = /^(?:[-–—_.\s]+|n\s*\/?\s*a|none|ninguno|sin\s+nota)$/i;
 
 function clean(value: unknown): string {
   return String(value ?? "").replace(/\s+/g, " ").trim();
@@ -35,44 +36,19 @@ function shorten(value: string): string {
   return value.length <= MAX_REASON_LENGTH ? value : `${value.slice(0, MAX_REASON_LENGTH - 1).trimEnd()}…`;
 }
 
-function labelled(label: string, value: string): string {
-  return label ? `${label}: ${value}` : value;
-}
-
 /**
- * Lit les cellules d'une ligne Excel et extrait l'explication visible. Les
- * colonnes de note sont privilégiées; la ligne complète ne sert que de
- * recours quand le seul indice est un `*` ailleurs sur la ligne.
+ * Lit seulement les cellules ADIC. / ADICIONALES. Un tiret (`--`) n'est pas
+ * une note et ne transforme jamais un colis normal en colis spécial.
  */
 export function detectSpecialPackage(
-  content: string | null | undefined,
+  _content: string | null | undefined,
   fields: Record<string, string | null | undefined> = {}
 ): SpecialPackageInfo {
   const entries = Object.entries(fields)
     .map(([label, value]) => [clean(label), clean(value)] as const)
-    .filter(([, value]) => Boolean(value));
-  const contentText = clean(content);
-  const directEntries = [
-    ...(contentText ? [["Contenu", contentText] as const] : []),
-    ...entries.filter(([label]) => label.toLowerCase() !== "ligne excel"),
-  ];
-  const signalFound = [contentText, ...entries.map(([, value]) => value)].some((value) => SPECIAL_SIGNAL.test(value));
-  if (!signalFound) return { isSpecial: false, reason: "" };
-
-  // Priorité aux cellules qui portent réellement le signal; si le `*` est
-  // isolé, on montre la ligne Excel complète au lieu d'une raison inventée.
-  const trigger = directEntries
-    .filter(([, value]) => SPECIAL_SIGNAL.test(value))
-    .map(([label, value]) => labelled(label, value));
-  const noteContext = entries
-    .filter(([label]) => NOTE_HEADER.test(label))
-    .map(([label, value]) => labelled(label, value));
-  const fallback = entries
-    .filter(([label]) => label.toLowerCase() === "ligne excel")
-    .map(([label, value]) => labelled(label, value));
-  const evidence = unique([...trigger, ...noteContext]);
-  const reason = shorten(unique(evidence.length ? evidence : fallback).join(" · "));
-  return { isSpecial: true, reason: reason || "Signal spécial détecté dans la ligne Excel." };
+    .filter(([label, value]) => ADDITIONAL_HEADER.test(label) && Boolean(value) && !EMPTY_ADDITIONAL_NOTE.test(value));
+  const reason = shorten(unique(entries.map(([, value]) => value)).join(" · "));
+  return reason ? { isSpecial: true, reason } : { isSpecial: false, reason: "" };
 }
 
 /** Rend les métadonnées Excel prêtes à être enregistrées dans `mcpack_data`. */
@@ -97,7 +73,7 @@ export function specialPackageInfo(pkg: PackageLike): SpecialPackageInfo {
   const data = pkg.mcpack_data ?? {};
   const storedReason = clean(data[SPECIAL_PACKAGE_REASON]);
   if (data[SPECIAL_PACKAGE_FLAG] === "true") {
-    return { isSpecial: true, reason: storedReason || "Signal spécial détecté dans la ligne Excel." };
+    return { isSpecial: true, reason: storedReason || "Note ADIC. signalée dans la ligne Excel." };
   }
 
   const content = clean(pkg.content);
