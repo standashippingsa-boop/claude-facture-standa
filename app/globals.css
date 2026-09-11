@@ -193,12 +193,10 @@ body { @apply bg-mist text-slate-700 antialiased; }
 .client-app {
   background-color: #f8faff;
   background-image:
-    linear-gradient(125deg, transparent 0 46%, rgba(20, 65, 128, .045) 46.2% 46.6%, transparent 46.8% 100%),
-    linear-gradient(90deg, rgba(18, 43, 92, .03) 1px, transparent 1px),
-    linear-gradient(rgba(18, 43, 92, .03) 1px, transparent 1px),
-    radial-gradient(circle at 9% 71%, rgba(101, 159, 255, .18), transparent 18rem),
-    radial-gradient(circle at 92% 91%, rgba(228, 101, 10, .12), transparent 16rem);
-  background-size: 100% 19rem, 38px 38px, 38px 38px, auto, auto;
+    radial-gradient(circle at 9% 21%, rgba(96, 165, 250, .19), transparent 19rem),
+    radial-gradient(circle at 92% 74%, rgba(125, 211, 252, .18), transparent 18rem),
+    linear-gradient(180deg, #e0f2fe 0%, #f8fbff 32%, #ffffff 68%);
+  background-size: auto, auto, 100% 100%;
 }
 
 .client-app-header {

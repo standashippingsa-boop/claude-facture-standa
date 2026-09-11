@@ -24,9 +24,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, Check, ChevronDown, ChevronLeft,
+  AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, ChevronDown, ChevronLeft,
   ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
-  Mail, Map, MessageCircle, Package, PackageCheck, ReceiptText, RefreshCw, Route, ScanLine, Truck, X
+  MessageCircle, Package, PackageCheck, ReceiptText, RefreshCw, Route, Truck, X
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";
@@ -47,6 +47,7 @@ import StatusBadge from "@/components/StatusBadge";
 import { StatusTimeline } from "@/components/StatusFlow";
 import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import { openSecureDocument } from "@/lib/secure-document";
+import { ClientLogisticsDashboard, ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
 
 type View = "home" | "disponibles" | "receptions" | "factures" | "historique" | "notifications" | "adresse" | "calc" | "infos";
 type NoticeKind = "available" | "invoice" | "pickup" | "shipment";
@@ -113,62 +114,6 @@ function waPkgLink(p: Pkg, code: string): string {
 
 /** Yon koli "fini" (fakti oswa livre) -> li ale nan Historique. */
 const isDone = (p: Pkg) => p.status === "Facturé" || p.status === "Livré" || !!p.invoice_id;
-
-/**
- * SUIVI VERTICAL — chaque étape affiche clairement la position du colis.
- * Étape terminée = vert avec ✓ · étape active = bleu animé · le reste = gris.
- */
-function SuiviVertical({ p }: { p: Pkg }) {
-  const ETAPES: { nom: string; desc: string; date?: string | null }[] = [
-    { nom: "Reçu à Miami", desc: "Votre colis a été réceptionné dans notre entrepôt américain", date: p.received_at ?? p.created_date },
-    { nom: "En préparation", desc: "Votre colis est préparé pour le départ" },
-    { nom: "En transit", desc: "Votre colis voyage vers Haïti" },
-    { nom: "Arrivé en Haïti", desc: "Votre colis est arrivé dans le pays" },
-    { nom: "En route vers l'agence", desc: "Votre colis est en route vers votre agence" },
-    { nom: "Disponible", desc: "Vous pouvez venir le retirer", date: p.verified_at },
-    { nom: "Facturé", desc: "Votre facture est disponible", date: p.invoiced_at }
-  ];
-
-  const ORDRE = ["Reçu à Miami", "En préparation", "En transit", "Arrivé en Haïti",
-                 "En route vers agence", "Disponible", "Livré"];
-  let actuel = ORDRE.indexOf(p.status);
-  if (p.status === "Facturé" || p.invoice_id) actuel = ETAPES.length - 1;
-  if (actuel < 0) actuel = 0;
-
-  return (
-    <ol className="space-y-0">
-      {ETAPES.map((e, i) => {
-        const fini = i < actuel;
-        const ici = i === actuel;
-        const dernye = i === ETAPES.length - 1;
-        return (
-          <li key={e.nom} className="flex gap-3">
-            <div className="flex flex-col items-center shrink-0">
-              <span className={`w-6 h-6 rounded-full grid place-items-center shrink-0 ${
-                fini ? "bg-brand text-white" : ici ? "bg-navy text-white" : "bg-line text-slate-400"}`}>
-                {fini ? <Check size={13} strokeWidth={3} />
-                      : ici ? <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                            : <span className="w-1.5 h-1.5 rounded-full bg-current" />}
-              </span>
-              {!dernye && <span className={`w-0.5 flex-1 min-h-[26px] ${fini ? "bg-brand" : "bg-line"}`} />}
-            </div>
-            <div className={`min-w-0 flex-1 ${dernye ? "pb-0" : "pb-4"}`}>
-              <p className={`text-[13px] font-bold leading-tight ${
-                ici ? "text-navy" : fini ? "text-ink" : "text-slate-400"}`}>{e.nom}</p>
-              <p className={`text-[11px] leading-snug mt-0.5 ${ici || fini ? "text-mute" : "text-slate-300"}`}>
-                {e.desc}
-              </p>
-              {e.date && (fini || ici) && (
-                <p className="text-[11px] font-semibold text-brand-dark mt-0.5">{dateFr(e.date)}</p>
-              )}
-              {ici && <span className="pill pill-blue mt-1.5"><span className="pill-dot" />Étape en cours</span>}
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
 
 export default function EspaceClientPage() {
   // ── HOOKS (tout ansanm, anvan tout return) ──────────────────────────────
@@ -356,6 +301,11 @@ export default function EspaceClientPage() {
     ?? autres[0]
     ?? disponibles[0]
     ?? null;
+  const outstandingBalanceUsd = round2(invs.reduce((total, invoice) => {
+    const billed = Number(invoice.balance_due ?? invoice.grand_total ?? invoice.total_usd ?? 0);
+    const paid = Number(invoice.payment_paid_usd ?? 0);
+    return total + Math.max(0, billed - paid);
+  }, 0));
   const clientNotifications: ClientNotice[] = [];
 
   if (disponibles.length > 0) {
@@ -405,17 +355,6 @@ export default function EspaceClientPage() {
     });
   }
 
-  const journeyStage = activePackage?.status === "Disponible" || (activePackage ? isDone(activePackage) : false)
-    ? 2
-    : activePackage?.status === "En transit" || activePackage?.status === "Arrivé en Haïti" || activePackage?.status === "En route vers agence"
-      ? 1
-      : 0;
-  const activeShipmentRoute = journeyStage === 2
-    ? "Disponible dans votre agence"
-    : journeyStage === 1
-      ? "En route vers Haïti"
-      : "Pris en charge à Miami";
-
   const unreadNotifications = clientNotifications.filter((notice) => !readNoticeKeys.has(notice.key));
 
   const markNoticesRead = (notices: ClientNotice[]) => {
@@ -444,22 +383,6 @@ export default function EspaceClientPage() {
     markNoticesRead([notice]);
     setView(notice.to);
   };
-
-  // ── Ti konpozan ─────────────────────────────────────────────────────────
-  const MenuRow = ({ icon: Icon, label, count, to, tone, description }: {
-    icon: typeof Package; label: string; count: number; to: View;
-    tone: "available" | "receive" | "invoice" | "history"; description: string;
-  }) => (
-    <button onClick={() => setView(to)} aria-label={`${label} : ${count}. ${description}`}
-      className={`client-stat-card client-stat-card-${tone} group text-left`}>
-      <span className={`client-stat-icon client-stat-icon-${tone}`}><Icon size={22} /></span>
-      <span className="client-stat-copy">
-        <strong>{label}</strong>
-        <span className={`client-stat-count client-stat-count-${tone}`}>{count}</span>
-      </span>
-      <span className="client-stat-chevron"><ChevronRight size={17} /></span>
-    </button>
-  );
 
   const NotificationIcon = ({ kind, size = 18 }: { kind: NoticeKind; size?: number }) => {
     if (kind === "available") return <PackageCheck size={size} />;
@@ -589,13 +512,32 @@ export default function EspaceClientPage() {
 
       {/* ══ EN-TÊTE CLIENT ══ */}
       <header className="client-app-header sticky top-0 z-30">
-        <div className="client-header-inner mx-auto flex h-[88px] items-center gap-2.5 px-4">
-          <div className="client-brand-lockup shrink-0" aria-label="STANDA COMMERCIAL">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="" className="client-brand-mark" />
-            <span className="client-brand-name"><b>STANDA</b><small>COMMERCIAL</small></span>
+        <div className="client-header-inner mx-auto flex h-[78px] items-center gap-2.5 px-4">
+          <div className="relative flex min-w-0 flex-1 items-center gap-3">
+            <button aria-label="Mon compte" onClick={() => setMenuOpen((v) => !v)}
+              className="client-header-profile">
+              {(greetingName.slice(0, 2) || "MC").toUpperCase()}
+            </button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-extrabold text-white">Bonjour, {greetingName}</p>
+              <p className="mt-0.5 truncate text-[11px] font-medium tracking-wide text-white/70">{client.customer_code} · STANDA COMMERCIAL</p>
+            </div>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 mt-1 w-56 bg-white rounded-xl shadow-lift border border-line py-1 z-20 text-ink">
+                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-mist text-left"
+                    onClick={() => { setMenuOpen(false); setShowPwd(true); }}>
+                    <KeyRound size={15} className="text-mute" /> Changer mon mot de passe
+                  </button>
+                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-mist text-left text-red-600"
+                    onClick={logout}>
+                    <LogOut size={15} /> Dekonekte
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-          <p className="client-header-code min-w-0 flex-1">{client.customer_code}</p>
 
           <button onClick={refresh} disabled={refreshing} aria-label="Actualiser"
             title="Mettre à jour toutes les données"
@@ -615,28 +557,6 @@ export default function EspaceClientPage() {
             <BellRing size={19} />
             {unreadNotifications.length > 0 && <span className="client-notification-count">{Math.min(unreadNotifications.length, 9)}</span>}
           </button>
-
-          <div className="relative">
-            <button aria-label="Mon compte" onClick={() => setMenuOpen((v) => !v)}
-              className="client-header-profile">
-              {(greetingName.slice(0, 2) || "MC").toUpperCase()}
-            </button>
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 mt-1 w-56 bg-white rounded-xl shadow-lift border border-line py-1 z-20 text-ink">
-                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-mist text-left"
-                    onClick={() => { setMenuOpen(false); setShowPwd(true); }}>
-                    <KeyRound size={15} className="text-mute" /> Changer mon mot de passe
-                  </button>
-                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-mist text-left text-red-600"
-                    onClick={logout}>
-                    <LogOut size={15} /> Dekonekte
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
         </div>
       </header>
 
@@ -645,62 +565,22 @@ export default function EspaceClientPage() {
         {/* ═══════════ ACCUEIL ═══════════ */}
         {view === "home" && (
           <>
-            {unreadNotifications.length > 0 && (
-              <button onClick={openNotifications} className="client-main-notice client-enter client-enter-d1">
-                <span className="client-message-icon"><Mail size={24} /></span>
-                <span className="min-w-0 flex-1 text-left">
-                  <strong>{unreadNotifications.length} nouveau{unreadNotifications.length > 1 ? "x" : ""} message{unreadNotifications.length > 1 ? "s" : ""}</strong>
-                </span>
-                <ChevronRight size={18} className="text-slate-400 shrink-0" />
-              </button>
-            )}
-
-            <section className="client-stat-grid client-enter client-enter-d2" aria-label="Accès rapides">
-              <MenuRow icon={PackageCheck} label="Disponibles" count={disponibles.length} to="disponibles" tone="available" description="Colis prêts au retrait" />
-              <MenuRow icon={ScanLine} label="Réceptions" count={receptionsAll.length} to="receptions" tone="receive" description="Colis enregistrés" />
-              <MenuRow icon={ReceiptText} label="Factures" count={invs.length} to="factures" tone="invoice" description="Documents disponibles" />
-              <MenuRow icon={Route} label="Historique" count={historique.length} to="historique" tone="history" description="Vos derniers envois" />
-            </section>
-
-            {activePackage && (
-              <section className="client-shipment-card client-enter client-enter-d3">
-                <div className="client-shipment-heading">
-                  <div>
-                    <span className="client-status-label">{activePackage.status || "En cours"}</span>
-                    <h2>{activePackage.tracking_number || activePackage.tracking_manual || "Colis en cours"}</h2>
-                    <p className="client-shipment-route">{activeShipmentRoute}</p>
-                  </div>
-                  <button onClick={() => { setDetail(activePackage); setView("receptions"); }} className="client-shipment-map" aria-label="Voir la carte et le suivi">
-                    <Map size={21} />
-                  </button>
-                </div>
-                <div className={`client-route-progress client-route-stage-${journeyStage}`} aria-label="Avancement de votre colis">
-                  <span className="client-route-stop client-route-stop-start"><b><Package size={15} /></b><small>Miami</small><em>{activePackage.created_date ? dateFr(activePackage.created_date) : "Départ"}</em></span>
-                  <span className="client-route-stop client-route-stop-middle"><b><Truck size={15} /></b><small>Port-au-Prince</small><em>{journeyStage === 1 ? "En transit" : "À venir"}</em></span>
-                  <span className="client-route-stop client-route-stop-end"><b><MapPin size={15} /></b><small>Agence</small><em>À venir</em></span>
-                </div>
-                <button onClick={() => { setDetail(activePackage); setView("receptions"); }} className="client-follow-button">
-                  Voir le suivi <ChevronRight size={18} />
-                </button>
-              </section>
-            )}
-
-            <section className="client-notifications-preview client-enter client-enter-d4">
-              <div className="client-section-title"><h2>Notifications</h2><button onClick={openNotifications}>Voir tout</button></div>
-              {clientNotifications.length === 0 ? (
-                <div className="client-empty-notice"><Bell size={18} /> Aucune notification pour le moment.</div>
-              ) : clientNotifications.slice(0, 2).map((notice) => (
-                <button key={notice.id} onClick={() => openNotice(notice)} className="client-notification-row">
-                  <span className={`client-notice-icon client-notice-icon-${notice.kind}`}><NotificationIcon kind={notice.kind} /></span>
-                  <span className="min-w-0 flex-1 text-left"><strong>{notice.title}</strong><small>{notice.description}</small></span>
-                  <span className="client-notice-time">{notice.stamp}</span>
-                  {!readNoticeKeys.has(notice.key) && <span className="client-notice-unread-dot" aria-label="Non lu" />}
-                </button>
-              ))}
-            </section>
+            <ClientLogisticsDashboard
+              greetingName={greetingName}
+              destination={client.pickup_location || client.ville?.name || client.city || "Votre agence"}
+              balanceUsd={outstandingBalanceUsd}
+              activePackage={activePackage}
+              recentPackages={pkgs}
+              availableCount={disponibles.length}
+              receptionCount={receptionsAll.length}
+              invoiceCount={invs.length}
+              unreadNotifications={unreadNotifications.length}
+              onNavigate={(destination) => destination === "notifications" ? openNotifications() : setView(destination)}
+              onOpenTracking={setDetail}
+            />
 
             <button onClick={() => setView("infos")} className="client-help-link client-enter client-enter-d4">
-              <span><BookOpen size={19} /> Guide &amp; aide</span><ChevronRight size={17} />
+              <span><BookOpen size={19} /> Guide et aide</span><ChevronRight size={17} />
             </button>
 
             {retraits.length > 0 && (
@@ -1081,50 +961,13 @@ export default function EspaceClientPage() {
 
       {/* ══ DETAY KOLI ══ */}
       {detail && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4"
-          onClick={() => setDetail(null)}>
-          <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[88vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b border-line px-4 py-3 flex items-center justify-between">
-              <h2 className="text-sm font-bold text-ink">Détails du colis</h2>
-              <button onClick={() => setDetail(null)} className="text-slate-400 hover:text-navy"><X size={19} /></button>
-            </div>
-            <div className="p-4 space-y-3">
-              {/* SUIVI — kote koli a ye, etap pa etap */}
-              <div className="rounded-xl bg-mist p-4">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-mute mb-3">Suivi du colis</p>
-                <SuiviVertical p={detail} />
-              </div>
-
-              <div className="divide-y divide-line">
-                {([
-                  ["Tracking ID", detail.tracking_number],
-                  ["Tracking Number", detail.tracking_manual],
-                  ["Contenu", detail.content],
-                  ["Poids", Number(detail.weight) > 0 ? `${Number(detail.weight).toFixed(2)} lb` : ""],
-                  ["Quantité", detail.quantity ? String(detail.quantity) : ""],
-                  ["Statut", detail.status],
-                  ["Date de réception", detail.received_at ? dateFr(detail.received_at) : ""],
-                  ["Prix", Number(detail.price_usd) > 0 ? usd(detail.price_usd) : ""],
-                  ["Taxes", Number(detail.tax_usd) > 0 ? usd(detail.tax_usd) : ""],
-                  ["Total", Number(detail.total_usd) > 0 ? usd(detail.total_usd) : ""],
-                  ["Facturé", isDone(detail) ? "Oui" : "Non"]
-                ] as const).map(([k, v]) => (
-                  <div key={k} className="flex justify-between gap-4 py-2.5">
-                    <span className="text-mute text-[13px] shrink-0">{k}</span>
-                    <span className="font-semibold text-[13px] text-ink text-right break-all">
-                      {String(v ?? "").trim() || "—"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <a href={waPkgLink(detail, client.customer_code)} target="_blank" rel="noreferrer"
-                className="btn btn-wa w-full justify-center">
-                <WhatsAppIcon size={15} /> Poser une question sur ce colis
-              </a>
-            </div>
-          </div>
-        </div>
+        <ClientTrackingDetails
+          pkg={detail}
+          customerName={non || client.customer_code}
+          destination={client.pickup_location || client.ville?.name || client.city || "Votre agence"}
+          onClose={() => setDetail(null)}
+          onContact={() => window.open(waPkgLink(detail, client.customer_code), "_blank", "noopener,noreferrer")}
+        />
       )}
 
       {/* ══ Modal: chanje modpas ══ */}
