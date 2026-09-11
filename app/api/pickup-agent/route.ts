@@ -29,7 +29,12 @@ type ZoneInvoice = {
 };
 type ZoneCustomer = { customer_code: string; fullname: string | null; surname: string | null };
 type CustomerBalance = { usd: number; htg: number; invoiceId: string; invoiceNumber: string };
-type ZonePayment = { invoice_id: string; payment_method: string | null; recorded_by_role: string | null; created_at: string };
+type ZonePayment = {
+  invoice_id: string; amount: number | null; currency: string | null;
+  amount_usd: number | null; amount_htg: number | null;
+  payment_method: string | null; payment_reference: string | null;
+  recorded_by_role: string | null; created_at: string;
+};
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 const money = (value: unknown) => Math.round(Number(value ?? 0) * 100) / 100;
@@ -169,7 +174,7 @@ export async function GET(req: Request) {
     let paymentsByInvoice = new Map<string, ZonePayment[]>();
     if (issuedInvoiceIds.length) {
       const paymentsResult = await db.from("invoice_payments")
-        .select("invoice_id, payment_method, recorded_by_role, created_at")
+        .select("invoice_id, amount, currency, amount_usd, amount_htg, payment_method, payment_reference, recorded_by_role, created_at")
         .in("invoice_id", issuedInvoiceIds).order("created_at", { ascending: true });
       if (paymentsResult.error) throw paymentsResult.error;
       for (const payment of (paymentsResult.data ?? []) as ZonePayment[]) {
@@ -262,8 +267,35 @@ export async function GET(req: Request) {
       payment_paid_htg: money(invoice.payment_paid_htg), delivery_status: deliveryStatus, delivered_packages_count: delivery.delivered, has_pdf: Boolean(invoice.has_pdf), created_at: code(invoice.created_at)
     }; });
 
+    // Rapò ajan an pa konte peman administratè a kòm lajan ajan an resevwa.
+    // Li montre sèlman encaissements ki soti nan point de retrait sa a, pandan
+    // lis soldes la rete kalkile sou tout fakti finalisées kliyan zòn nan.
+    const agentPayments = Array.from(paymentsByInvoice.entries()).flatMap(([invoiceId, payments]) => {
+      const invoice = invoiceMap.get(invoiceId);
+      if (!invoice) return [];
+      return payments
+        .filter((payment) => code(payment.recorded_by_role) === "agent_retrait")
+        .map((payment) => ({
+          invoice_id: invoiceId, invoice_number: code(invoice.invoice_number),
+          customer_code: code(invoice.customer_code), customer_name: customerName(customerByCode.get(code(invoice.customer_code))),
+          amount: money(payment.amount), currency: code(payment.currency),
+          amount_usd: money(payment.amount_usd), amount_htg: money(payment.amount_htg),
+          payment_method: code(payment.payment_method), payment_reference: code(payment.payment_reference), created_at: code(payment.created_at)
+        }));
+    }).sort((left, right) => String(right.created_at).localeCompare(String(left.created_at)));
+    const customerBalances = Array.from(balanceByCustomer.entries()).map(([customerCode, balance]) => {
+      const unpaidInvoices = issuedInvoices.filter((invoice) => code(invoice.customer_code) === customerCode && invoiceRemainingAmounts(invoice).remainingUsd > 0.01);
+      return {
+        customer_code: customerCode, customer_name: customerName(customerByCode.get(customerCode)),
+        balance_usd: balance.usd, balance_htg: balance.htg,
+        invoice_id: balance.invoiceId, invoice_number: balance.invoiceNumber,
+        invoice_count: unpaidInvoices.length
+      };
+    }).sort((left, right) => right.balance_usd - left.balance_usd || left.customer_code.localeCompare(right.customer_code, "fr-CA"));
+
     return NextResponse.json({ ok: true, agent: { name: agentName(agent), username: agent.username }, zone: { name: zoneName },
-      packages: packageCards, invoices: invoiceCards, bons: bonCards });
+      packages: packageCards, invoices: invoiceCards, bons: bonCards,
+      report: { agent_payments: agentPayments, customer_balances: customerBalances } });
   } catch (error) {
     console.error("[pickup-agent:get]", error);
     return NextResponse.json({ ok: false, reason: "Impossible de charger les opérations de votre zone." }, { status: 500 });
