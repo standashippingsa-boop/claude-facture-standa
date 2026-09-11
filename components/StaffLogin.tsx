@@ -2,27 +2,31 @@
 /*
  * STANDA COMMERCIAL — Koneksyon PÈSONÈL (Admin ak Employé)
  * ════════════════════════════════════════════════════════
- * Admin ak Employé itilize MENM otantifikasyon an (staffEmail). Sa k chanje
- * se WÒL la, epi wòl la soti nan tab `staff` — pa nan paj koneksyon an.
- * Donk yon sèl konpozan, de lyen: /admin-login ak /employe. Zewo dwaplikaj.
+ * Chak pòt antre mande yon wòl presi. Nou ka re-itilize fòm lan, men yon
+ * administratè pa ka pase pa pòt anplwaye a, ni yon ajan retrè pa ka pase
+ * pa pòt administrasyon an.
  */
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User } from "lucide-react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import { staffEmail } from "@/lib/authx";
+import { getMyStaff, staffEmail } from "@/lib/authx";
+import type { StaffRole } from "@/lib/types";
 import PasswordInput from "@/components/PasswordInput";
 
 export default function StaffLogin({
   title,
   subtitle,
-  destination = "/dashboard"
+  destination = "/dashboard",
+  requiredRole
 }: {
   title: string;
   subtitle: string;
   /** Espas travay ki dwe louvri apre koneksyon (ajan remiz -> /espace-remise). */
   destination?: string;
+  /** Wòl ki gen dwa sèvi ak pòt antre sa a. */
+  requiredRole: StaffRole;
 }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -51,6 +55,19 @@ export default function StaffLogin({
         } else {
           setErr("Nom d'utilisateur ou mot de passe incorrect. Vérifiez votre saisie puis réessayez.");
         }
+        return;
+      }
+      const staff = await getMyStaff();
+      if (!staff || staff.role !== requiredRole) {
+        // Pa kenbe sesyon yon moun ki eseye antre nan move pòt la. Sa evite
+        // yon administratè/anplwaye/ajan kontinye sou yon espas ki pa pou li.
+        await supabase.auth.signOut({ scope: "local" });
+        const roleName = requiredRole === "admin"
+          ? "administration"
+          : requiredRole === "employe"
+            ? "employés"
+            : "point de retrait";
+        setErr(`Ce lien est réservé à l’espace ${roleName}. Utilisez le lien correspondant à votre fonction.`);
         return;
       }
       router.replace(destination);

@@ -3,5 +3,5 @@
 import StaffLogin from "@/components/StaffLogin";
 
 export default function AdminLoginPage() {
-  return <StaffLogin title="Administration" subtitle="Accès réservé à la direction" />;
+  return <StaffLogin title="Administration" subtitle="Accès réservé à la direction" destination="/dashboard" requiredRole="admin" />;
 }

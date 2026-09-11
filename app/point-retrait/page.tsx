@@ -9,6 +9,7 @@ export default function PointRetraitLoginPage() {
       title="Point de retrait"
       subtitle="Accès réservé aux agents de remise STANDA COMMERCIAL"
       destination="/espace-remise"
+      requiredRole="agent_retrait"
     />
   );
 }

@@ -3,5 +3,5 @@
 import StaffLogin from "@/components/StaffLogin";
 
 export default function EmployeLoginPage() {
-  return <StaffLogin title="Espace Employé" subtitle="Réservé au personnel STANDA COMMERCIAL" />;
+  return <StaffLogin title="Espace Employé" subtitle="Réservé au personnel STANDA COMMERCIAL" destination="/dashboard" requiredRole="employe" />;
 }
