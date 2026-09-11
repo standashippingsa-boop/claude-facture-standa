@@ -42,6 +42,7 @@ import {
   estimateForPackages, round2
 } from "@/lib/pricing";
 import { dateFr, usd } from "@/lib/utils";
+import { specialPackageInfo } from "@/lib/special-package";
 import Loader, { SavedToast, Spinner, SuccessCheck } from "@/components/Loader";
 import StatusBadge from "@/components/StatusBadge";
 import { StatusTimeline } from "@/components/StatusFlow";
@@ -441,6 +442,7 @@ export default function EspaceClientPage() {
 
   const PkgCard = ({ p, check }: { p: Pkg; check?: boolean }) => {
     const facture = Number(p.total_usd) > 0 && isDone(p);
+    const special = specialPackageInfo(p);
     return (
       <div className="relative">
         {check && (
@@ -453,6 +455,7 @@ export default function EspaceClientPage() {
             <div className="min-w-0 flex-1">
               <p className="font-mono text-[13px] font-bold text-ink truncate">{p.tracking_number || "—"}</p>
               {p.tracking_manual && <p className="font-mono text-[11px] text-mute truncate mt-0.5">{p.tracking_manual}</p>}
+              {special.isSpecial && <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800" title="Traitement particulier appliqué à ce colis">Colis spécial</span>}
             </div>
             {!check && <StatusBadge status={p.status} />}
           </div>

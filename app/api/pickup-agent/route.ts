@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
 import { invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
+import { specialPackageInfo } from "@/lib/special-package";
 
 /**
  * API isolée des points de retrait.
@@ -19,6 +20,7 @@ type Parcel = {
   customer_code: string; quantity: number | null; content: string | null;
   created_date: string | null; received_at: string | null; delivered_at: string | null; status: string;
   invoice_id: string | null; conduce_id: string | null; archived: boolean | null;
+  mcpack_data: Record<string, string> | null;
 };
 type ZoneInvoice = {
   id: string; invoice_number: string; customer_code: string; package_count: number | null;
@@ -148,12 +150,12 @@ export async function GET(req: Request) {
       // Un colis livré doit rester consultable dans l'historique et depuis son
       // numéro de facture, même si l'administration l'a archivé par la suite.
       // Les autres colis archivés restent, eux, invisibles pour l'agent.
-      let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id, archived")
+      let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id, archived, mcpack_data")
         .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       // Le site reste utilisable durant le très court délai entre le
       // déploiement et l'application de la migration Supabase.
       if (missingSchemaColumn(parcelResult.error, "delivered_at")) {
-        parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id, archived")
+        parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id, archived, mcpack_data")
           .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       }
       const invoiceResult = await db.from("invoices").select("id, invoice_number, customer_code, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
@@ -243,13 +245,17 @@ export async function GET(req: Request) {
       const customer = customerByCode.get(code(parcel.customer_code));
       const balance = balanceByCustomer.get(code(parcel.customer_code));
       const paymentStatus = invoice ? paymentStatusFromAmounts(invoice) : "Non facturé";
+      // Nous ne transmettons jamais la ligne Excel complète à l'agent :
+      // seulement le drapeau et la note ADIC. qui expliquent le traitement spécial.
+      const special = specialPackageInfo(parcel);
       return {
         id: code(parcel.id), tracking_number: code(parcel.tracking_number), tracking_manual: code(parcel.tracking_manual),
         customer_code: code(parcel.customer_code), customer_name: customerName(customer), quantity: Number(parcel.quantity ?? 1) || 1,
         content: code(parcel.content), created_date: code(parcel.created_date), received_at: code(parcel.received_at), delivered_at: code(parcel.delivered_at),
         status: code(parcel.status), invoice_id: invoice?.id ?? "", invoice_number: invoice?.invoice_number ?? "",
         invoice_payment_status: paymentStatus, invoice_payment_details: invoice ? paymentDetails(paymentStatus, paymentsByInvoice.get(invoice.id) ?? []) : "", customer_balance_usd: balance?.usd ?? 0,
-        customer_balance_htg: balance?.htg ?? 0, balance_invoice_id: balance?.invoiceId ?? "", balance_invoice_number: balance?.invoiceNumber ?? ""
+        customer_balance_htg: balance?.htg ?? 0, balance_invoice_id: balance?.invoiceId ?? "", balance_invoice_number: balance?.invoiceNumber ?? "",
+        is_special: special.isSpecial, special_reason: special.reason
       };
     });
     const invoiceCards = issuedInvoices.map((invoice) => {
