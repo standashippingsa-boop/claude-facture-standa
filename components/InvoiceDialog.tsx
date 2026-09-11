@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
-import { createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, saveInvoicePdfPath } from "@/lib/db";
-import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
+import { AlertTriangle, X } from "lucide-react";
+import { createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, notifyEmail, saveInvoicePdfPath } from "@/lib/db";
+import { computeInvoice, invoiceLineContent, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { FixedPriceMap, OrderFeeTier, SpecialArticle, TAX_THRESHOLD_LB } from "@/lib/pricing";
 import { InvoiceKind, Ville } from "@/lib/types";
 import { MapPin } from "lucide-react";
@@ -10,6 +10,7 @@ import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Client, Pkg } from "@/lib/types";
 import { htg, usd } from "@/lib/utils";
+import { specialPackageInfo } from "@/lib/special-package";
 import { Package } from "lucide-react";
 import { ShoppingBag } from "lucide-react";
 
@@ -89,6 +90,8 @@ export default function InvoiceDialog({
   const [articles, setArticles] = useState<SpecialArticle[]>([]);
   /** Chwa admin an pa koli: { [pkg.id]: article.id }. Vid = fakti pa liv. */
   const [fixedSel, setFixedSel] = useState<Record<string, string>>({});
+  /** Pri manyèl obligatwa pou chak colis spécial. */
+  const [specialPrices, setSpecialPrices] = useState<Record<string, string>>({});
   /** Kont santral: lis vil yo + vil ki chwazi pou fakti sa a. */
   const [centralCode, setCentralCode] = useState("");
   const [villes, setVilles] = useState<Ville[]>([]);
@@ -138,13 +141,32 @@ export default function InvoiceDialog({
   const villeChoisie = villes.find((v) => v.id === villeId) ?? null;
   const effClient = isCentral && villeChoisie ? { ...client, ville: villeChoisie } : client;
 
+  const specialPackages = pkgs.map((pkg) => ({ pkg, info: specialPackageInfo(pkg) }))
+    .filter(({ info }) => info.isSpecial);
+  const specialPackageIds = new Set(specialPackages.map(({ pkg }) => pkg.id));
+  const specialPriceValue = (pkgId: string) => Number(String(specialPrices[pkgId] ?? "").replace(",", "."));
+  const specialWithoutPrice = specialPackages.filter(({ pkg }) => {
+    const amount = specialPriceValue(pkg.id);
+    return !Number.isFinite(amount) || amount <= 0;
+  });
+
   /** Kat fòfè a: { [pkg.id]: { label, price } } — sèlman koli ki gen yon atik. */
   const fixedPrices: FixedPriceMap = {};
   for (const [pkgId, artId] of Object.entries(fixedSel)) {
+    if (specialPackageIds.has(pkgId)) continue;
     const a = articles.find((x) => x.id === artId);
     if (a) fixedPrices[pkgId] = { label: a.label, price: a.price };
   }
+  // Yon colis spécial toujou pran pri manyèl la: pwa ni katalòg default pa
+  // janm antre nan kalkil li. Yon pri vid vin 0 pou moteur a bloke fakti a.
+  for (const { pkg, info } of specialPackages) {
+    fixedPrices[pkg.id] = {
+      label: `Colis spécial${info.reason ? ` — ${info.reason}` : ""}`,
+      price: specialPriceValue(pkg.id)
+    };
+  }
   const fixedKey = JSON.stringify(fixedSel);
+  const specialPriceKey = JSON.stringify(specialPrices);
 
   // Rekalkile ak MOTEUR FINANCIER chak fwa yon opsyon chanje
   useEffect(() => {
@@ -161,7 +183,7 @@ export default function InvoiceDialog({
       orderFeeTiers: feeTiers
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, rate, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount, fixedKey, articles, villeId, centralCode,
+  }, [ready, rate, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount, fixedKey, specialPriceKey, articles, villeId, centralCode,
       kind, orderPurchase, orderDeposit, feeTiers]);
 
   /**
@@ -180,6 +202,10 @@ export default function InvoiceDialog({
 
   const generer = async () => {
     if (!comp) return;
+    if (specialWithoutPrice.length) {
+      setErr(`Prix manuel requis pour ${specialWithoutPrice.length} colis spécial${specialWithoutPrice.length > 1 ? "aux" : ""}.`);
+      return;
+    }
     if (!comp.ok) { setErr(comp.errors.join(" ")); return; }
     if (!verifyTotal(comp)) { setErr("Erreur de calcul détectée. Facture bloquée."); return; }
     setBusy(true); setErr(null);
@@ -188,12 +214,22 @@ export default function InvoiceDialog({
       const items = comp.lines.map((l) => ({
         invoice_id: inv.id, tracking_number: l.pkg.tracking_number,
         tracking_manual: l.pkg.tracking_manual ?? "",
-        weight: l.weight, content: l.pkg.content, price: l.amount, tax: 0, total: l.amount,
+        weight: l.weight, content: invoiceLineContent(l), price: l.amount, tax: 0, total: l.amount,
         is_small: l.isSmall, per_lb: l.perLb, fixed_label: l.isFixed ? l.fixedLabel : ""
       }));
       const pdf = await generateUploadDownload(inv, items, footer, { download: true });
       if (pdf.path) { await saveInvoicePdfPath(inv.id, pdf.path); inv.pdf_path = pdf.path; inv.has_pdf = true; }
       const how = await sendInvoicePdfWhatsApp(inv, pdf.blob, pdf.filename);
+      // Notification push — kanal apa, pa dwe janm bloke oswa anile fakti a
+      // si l echwe (kliyan an deja gen PDF la sou WhatsApp kanmenm).
+      notifyEmail({
+        type: "facture",
+        client: {
+          name: [client.fullname, client.surname].filter(Boolean).join(" ") || client.customer_code,
+          code: client.customer_code, email: client.email ?? undefined
+        },
+        packages: items.map((it) => ({ tracking_number: it.tracking_number, tracking_manual: it.tracking_manual }))
+      }).catch(() => undefined);
       onDone(
         `Facture ${inv.invoice_number} créée (${items.length} colis → Facturé, taux ${rate.toFixed(2)}). ` +
         (how === "file" ? "PDF pataje sou WhatsApp."
@@ -326,8 +362,39 @@ export default function InvoiceDialog({
         </div>
         )}
 
+        {/* COLIS SPÉCIAUX — prix manuel obligatoire, jamais au poids */}
+        {specialPackages.length > 0 && (
+          <section className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+            <p className="flex items-center gap-1.5 text-xs font-bold uppercase text-amber-900">
+              <AlertTriangle size={14} /> {specialPackages.length} colis spécial{specialPackages.length > 1 ? "aux" : ""} à tarifer
+            </p>
+            <p className="mt-1 text-[12px] leading-relaxed text-amber-900">
+              Le prix au poids ne s&apos;applique pas à ces colis. Saisissez le montant à facturer pour chacun avant de générer le PDF.
+            </p>
+            <div className="mt-3 divide-y divide-amber-200">
+              {specialPackages.map(({ pkg, info }) => (
+                <label key={pkg.id} className="flex items-center gap-2 py-2.5 text-sm">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-mono text-[12px] font-bold text-amber-950">* {pkg.tracking_number}</span>
+                    <span className="mt-0.5 block text-[11px] leading-relaxed text-amber-800">{info.reason || "Colis spécial"}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="text-xs font-bold text-amber-900">USD</span>
+                    <input type="number" inputMode="decimal" step="0.01" min="0.01" required
+                      aria-label={`Prix manuel pour ${pkg.tracking_number}`}
+                      placeholder="0.00" className="input !w-24 !py-1 text-right font-bold"
+                      value={specialPrices[pkg.id] ?? ""}
+                      onChange={(event) => setSpecialPrices((previous) => ({ ...previous, [pkg.id]: event.target.value }))} />
+                  </span>
+                </label>
+              ))}
+            </div>
+            {specialWithoutPrice.length > 0 && <p className="mt-2 text-[11px] font-bold text-red-700">Prix manuel requis pour chaque colis spécial.</p>}
+          </section>
+        )}
+
         {/* ARTICLES À PRIX FIXE — koli ki pa fakti pa liv */}
-        {articles.length > 0 && (
+        {articles.length > 0 && pkgs.some((pkg) => !specialPackageIds.has(pkg.id)) && (
           <div className="border border-line rounded-lg p-3 mb-3">
             <p className="text-xs font-bold text-navy uppercase mb-1 flex items-center gap-1.5">
               <Package size={13} /> Articles à prix fixe
@@ -337,7 +404,7 @@ export default function InvoiceDialog({
               c&apos;est le forfait qui s&apos;applique.
             </p>
             <div className="max-h-44 overflow-y-auto divide-y divide-line">
-              {pkgs.map((p) => (
+              {pkgs.filter((pkg) => !specialPackageIds.has(pkg.id)).map((p) => (
                 <div key={p.id} className="flex items-center gap-2 py-1.5">
                   <div className="min-w-0 flex-1">
                     <p className="font-mono text-[11px] font-semibold text-ink truncate">{p.tracking_number}</p>

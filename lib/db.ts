@@ -6,10 +6,10 @@ import {
   BonRemiseRecord, McpackInvoice, McpackInvoiceConduce, Pkg, Ville
 , Retrait, RetraitStatus, CONDUCE_ARRIVAL_STATUS, shouldPromoteOnConduce } from "./types";
 import { McpackRow } from "./xlsx";
-import { specialPackageInfo, withSpecialPackageMetadata, SPECIAL_PACKAGE_FLAG, SPECIAL_PACKAGE_REASON } from "./special-package";
+import { specialPackageInfo, withManualSpecialPackageMetadata, withSpecialPackageMetadata, ManualSpecialPackageKind, SPECIAL_PACKAGE_FLAG, SPECIAL_PACKAGE_REASON, SPECIAL_PACKAGE_SOURCE } from "./special-package";
 import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
-import { computeInvoice, InvoiceComputation, verifyTotal } from "./invoice-engine";
+import { computeInvoice, invoiceLineContent, InvoiceComputation, verifyTotal } from "./invoice-engine";
 
 const asNum = <T extends Record<string, any>>(r: T, keys: string[]): T => {
   keys.forEach((k) => (r[k as keyof T] = Number(r[k]) as any));
@@ -996,6 +996,8 @@ export async function importConduceExcelRows(
 
     if (existing) {
       const patch: Record<string, unknown> = {};
+      const existingMetadata = (existing.mcpack_data ?? {}) as Record<string, string>;
+      const isManualSpecial = existingMetadata[SPECIAL_PACKAGE_SOURCE] === "manual";
       if (existing.conduce_id !== conduceId) { patch.conduce_id = conduceId; linked++; }
       // STATUT OTOMATIK -> "Arrivé en Haïti" (jamè an aryè)
       if (shouldPromoteOnConduce(existing.status, existing.invoice_id)) {
@@ -1004,18 +1006,20 @@ export async function importConduceExcelRows(
       if (r.tracking_number && !existing.tracking_manual) patch.tracking_manual = r.tracking_number;
       if (r.weight) patch.weight = r.weight;
       if (r.content) patch.content = r.content;
-      if (r.is_special) {
+      if (r.is_special && !isManualSpecial) {
         patch.mcpack_data = {
-          ...((existing.mcpack_data ?? {}) as Record<string, string>),
+          ...existingMetadata,
           [SPECIAL_PACKAGE_FLAG]: "true",
           [SPECIAL_PACKAGE_REASON]: r.special_reason || "Note ADIC. signalée dans la ligne Excel.",
+          [SPECIAL_PACKAGE_SOURCE]: "mcpack",
         };
-      } else if ((existing.mcpack_data as Record<string, string> | null)?.[SPECIAL_PACKAGE_FLAG] === "true") {
+      } else if (!r.is_special && !isManualSpecial && existingMetadata[SPECIAL_PACKAGE_FLAG] === "true") {
         // Yon re-enpòtasyon Conduce se referans lan: si ADIC. vin vid/`--`,
         // retire ansyen drapo a olye li kontinye bay yon fo colis spécial.
         const metadata = { ...((existing.mcpack_data ?? {}) as Record<string, string>) };
         delete metadata[SPECIAL_PACKAGE_FLAG];
         delete metadata[SPECIAL_PACKAGE_REASON];
+        delete metadata[SPECIAL_PACKAGE_SOURCE];
         patch.mcpack_data = metadata;
       }
       if (Object.keys(patch).length) await supabase.from("packages").update(patch).eq("id", existing.id);
@@ -1030,6 +1034,7 @@ export async function importConduceExcelRows(
         mcpack_data: r.is_special ? {
           [SPECIAL_PACKAGE_FLAG]: "true",
           [SPECIAL_PACKAGE_REASON]: r.special_reason || "Note ADIC. signalée dans la ligne Excel.",
+          [SPECIAL_PACKAGE_SOURCE]: "mcpack",
         } : {}
       });
       created++; linked++;
@@ -1257,6 +1262,36 @@ export async function updatePackagePrice(id: string, priceUsd: number, taxUsd: n
   }).eq("id", id);
   if (error) throw error;
 }
+
+/**
+ * Marquage manuel d'un colis spécial. Les métadonnées restent dans `mcpack_data`
+ * afin que le signe, la raison et le prix de facture restent synchronisés dans
+ * les vues admin, employé, client et point de retrait.
+ */
+export async function markPackageSpecial(
+  id: string,
+  kind: ManualSpecialPackageKind,
+  note: string,
+  who = ""
+): Promise<Record<string, string>> {
+  const { data: pkg, error: readError } = await supabase.from("packages")
+    .select("id, tracking_number, customer_code, invoice_id, mcpack_data").eq("id", id).maybeSingle();
+  if (readError) throw readError;
+  if (!pkg) throw new Error("Colis introuvable.");
+  if (pkg.invoice_id) throw new Error("Ce colis est déjà facturé. Annulez d'abord la facture avant de modifier son type.");
+  const metadata = withManualSpecialPackageMetadata(
+    (pkg.mcpack_data ?? {}) as Record<string, string>, kind, note
+  );
+  const { error } = await supabase.from("packages").update({ mcpack_data: metadata }).eq("id", id);
+  if (error) throw error;
+  await logAction(
+    "Colis spécial (manuel)",
+    `${kind}${String(note ?? "").trim() ? ` — ${String(note).trim()}` : ""}`,
+    String(pkg.tracking_number ?? ""), String(pkg.customer_code ?? "")
+  );
+  return metadata;
+}
+
 export async function setPackageStatus(id: string, status: string): Promise<void> {
   const { error } = await supabase.from("packages").update({ status }).eq("id", id);
   if (error) throw error;
@@ -1500,7 +1535,7 @@ export async function createInvoiceFromComputation(
     tracking_number: l.pkg.tracking_number,
     tracking_manual: l.pkg.tracking_manual ?? "",
     weight: l.weight,
-    content: l.pkg.content,
+    content: invoiceLineContent(l),
     price: l.amount,
     tax: 0,
     total: l.amount
@@ -1519,7 +1554,9 @@ export async function createInvoiceFromComputation(
       status: "Facturé", invoice_id: inv.id,
       invoiced_at: invoicedAt,
       price_usd: l.amount, tax_usd: 0,
-      price_htg: round2(l.amount * rate), tax_htg: 0
+      total_usd: l.amount,
+      price_htg: round2(l.amount * rate), tax_htg: 0,
+      total_htg: round2(l.amount * rate)
     }).eq("id", l.pkg.id)
   ));
   const failed = results.filter((r: any) => r?.error);
@@ -1987,10 +2024,10 @@ export async function getClientByAuthId(uid: string): Promise<Client | null> {
  * (anvan, wout la te louvri: nenpòt moun te ka fè sèvè a voye imèl).
  */
 export async function notifyEmail(payload: {
-  type: "recu_miami" | "disponible";
+  type: "recu_miami" | "disponible" | "facture";
   client: { name: string; code: string; ville?: string; email?: string };
   packages: Array<Record<string, unknown>>;
-}): Promise<{ ok?: boolean; skipped?: boolean; reason?: string; error?: string; id?: string }> {
+}): Promise<{ ok?: boolean; skipped?: boolean; reason?: string; error?: string; id?: string; pushSent?: number }> {
   const { data } = await supabase.auth.getSession();
   const res = await fetch("/api/notify", {
     method: "POST",
@@ -2063,6 +2100,14 @@ export async function getClientRetraits(code: string): Promise<Retrait[]> {
 export async function setRetraitStatus(id: string, status: RetraitStatus): Promise<void> {
   const { error } = await supabase.from("retraits").update({ status }).eq("id", id);
   if (error) throw error;
+}
+
+/** Konte sèlman ("En attente") — pou badge notifikasyon Sidebar, san chaje items yo. */
+export async function getPendingRetraitsCount(): Promise<number> {
+  const { count, error } = await supabase.from("retraits")
+    .select("id", { count: "exact", head: true }).eq("status", "En attente");
+  if (error) throw error;
+  return count ?? 0;
 }
 
 // ================= FUSION KONT KLIYAN (V7.2) =================
