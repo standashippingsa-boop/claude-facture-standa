@@ -193,7 +193,10 @@ export default function ConducesPage() {
   /** Jounen ki louvri a (si genyen). */
   const jour = openDay ? classeurs.find((c) => c.key === openDay) ?? null : null;
   const filteredConduces = useMemo(() => classeurs.flatMap((cl) => cl.rows), [classeurs]);
-  const selectableFilteredConduces = filteredConduces.filter((row) => !row.bonRemiseCreated && bonRemiseRegistryReady);
+  // "bonRemiseCreated" enfòmatif sèlman (badge) — yon Conduce ki gen colis
+  // pou plizyè vil rete seleksyonab apre yon premye Bon de remise, paske
+  // blokaj anti-doublon an fèt PA KOLI, pa pa Conduce.
+  const selectableFilteredConduces = filteredConduces.filter(() => bonRemiseRegistryReady);
   const selectedFilteredCount = selectableFilteredConduces.filter((row) => sel.has(row.id)).length;
   const allFilteredSelected = selectableFilteredConduces.length > 0 && selectableFilteredConduces.every((row) => sel.has(row.id));
   const selectAllFiltered = () => setSel((previous) => {
@@ -333,7 +336,7 @@ export default function ConducesPage() {
             { key: "to", label: "Jusqu'au", type: "date", value: toF, onChange: setToF },
             { key: "payment", label: "Pement MCPACK", type: "select", value: paymentF, onChange: setPaymentF, options: [{ value: "Non payé", label: "À payer" }, { value: "Payé", label: "Payé" }] },
             { key: "mcpack", label: "Facture MCPACK", type: "select", value: mcpackF, onChange: setMcpackF, options: [{ value: "Facturée", label: "Facturée · à payer" }, { value: "Payée", label: "Payée" }] },
-            { key: "bon", label: "Bon de remise", type: "select", value: bonF, onChange: setBonF, options: [{ value: "open", label: "Pas encore dans un bon" }, { value: "done", label: "Déjà dans un bon" }] },
+            { key: "bon", label: "Bon de remise", type: "select", value: bonF, onChange: setBonF, options: [{ value: "open", label: "Aucun colis remis" }, { value: "done", label: "Colis déjà remis" }] },
             { key: "special", label: "Colis spéciaux", type: "select", value: specialF, onChange: setSpecialF, options: [{ value: "yes", label: "Avec colis spéciaux" }, { value: "no", label: "Sans colis spéciaux" }] },
           ]} />
       )}
@@ -589,13 +592,16 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPa
         const p = r.count ? Math.round((r.facturedCount / r.count) * 100) : 0;
         const vide = r.count === 0;
         const done = r.count > 0 && r.facturedCount >= r.count;
-        const selectionBlocked = !bonRemiseRegistryReady || !!r.bonRemiseCreated;
+        // Yon Conduce ka gen colis pou plizyè vil: elle rete seleksyonab menm
+        // si li deja kontribye nan yon Bon — koli deja remis yo pa antre nan
+        // yon dezyèm (blokaj fèt pa koli nan lib/db.ts::createBonRemiseRecord).
+        const selectionBlocked = !bonRemiseRegistryReady;
         return (
           <div key={r.id} className="card p-3.5">
             <div className="flex items-start gap-2.5">
               <input type="checkbox" className="mt-1 w-4 h-4 shrink-0 accent-emerald-600 disabled:cursor-not-allowed"
                 checked={sel.has(r.id)} disabled={selectionBlocked} onChange={() => onSel(r.id)}
-                title={r.bonRemiseCreated ? "Cette Conduce est déjà dans un Bon de remise." : !bonRemiseRegistryReady ? "Le registre des Bons de remise doit être activé." : undefined}
+                title={!bonRemiseRegistryReady ? "Le registre des Bons de remise doit être activé." : r.bonRemiseCreated ? "Certains colis de cette Conduce sont déjà dans un autre Bon de remise ; ils seront exclus automatiquement." : undefined}
                 aria-label={`Sélectionner ${r.conduce_number}`} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -604,7 +610,7 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPa
                     {r.conduce_number}
                   </button>
                   <ConducePaymentControl conduce={r} invoiceStatus={r.mcpackInvoiceStatus} compact onChanged={onPaymentChanged} />
-                  {r.bonRemiseCreated && <span className="pill pill-green !px-2"><CheckCircle2 size={10} className="mr-0.5" />Déjà dans un bon</span>}
+                  {r.bonRemiseCreated && <span className="pill pill-green !px-2"><CheckCircle2 size={10} className="mr-0.5" />Colis déjà remis</span>}
                   {r.specialCount > 0 && <span className="pill pill-amber !px-2"><Sparkles size={10} className="mr-0.5" />{r.specialCount} spécial{r.specialCount > 1 ? "aux" : ""}</span>}
                 </div>
                 <p className="text-[11px] text-mute mt-0.5 truncate">
