@@ -151,6 +151,7 @@ export default function EspaceClientPage() {
   const [calcW, setCalcW] = useState("");
   const [showPushBanner, setShowPushBanner] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [retraitConfirmedCount, setRetraitConfirmedCount] = useState<number | null>(null);
 
   const load = async () => {
     const { data } = await supabase.auth.getUser();
@@ -279,7 +280,7 @@ export default function EspaceClientPage() {
       setRetraits(await getClientRetraits(client.customer_code));
       setSel(new Set());
       setMsg(null);
-      setToast(`Demande de retrait envoyée — ${chosen.length} colis`);
+      setRetraitConfirmedCount(chosen.length);
     } catch (e: unknown) { setMsg(safeMessage(e)); }
     finally { setBusy(false); }
   };
@@ -733,7 +734,7 @@ export default function EspaceClientPage() {
             {sel.size > 0 && (
               <div className="sticky bottom-24 z-20">
                 <button className="btn btn-brand w-full justify-center shadow-lift" onClick={notifierRetrait} disabled={busy}>
-                  <Bell size={15} /> Préparer mon retrait ({sel.size})
+                  {busy ? <Spinner size={15} /> : <Bell size={15} />} {busy ? "Envoi…" : `Préparer mon retrait (${sel.size})`}
                 </button>
               </div>
             )}
@@ -1141,6 +1142,23 @@ export default function EspaceClientPage() {
 
       {/* ══ ✅ CONFIRMATION (pwen 3) — apre chak anrejistreman reyisi ══ */}
       {toast && <SavedToast message={toast} onClose={() => setToast(null)} />}
+
+      {/* ══ Demande de retrait confirmée — gwo tchèk vèt ══ */}
+      {retraitConfirmedCount !== null && (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-navy/40 p-5"
+          onClick={() => setRetraitConfirmedCount(null)}>
+          <div className="card w-full max-w-xs p-7 text-center space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-center"><SuccessCheck size={88} /></div>
+            <h2 className="text-lg font-extrabold text-ink">Demande envoyée</h2>
+            <p className="text-sm text-mute leading-relaxed">
+              {retraitConfirmedCount} colis · notre équipe a été prévenue et prépare votre retrait à l&apos;agence.
+            </p>
+            <button className="btn btn-brand w-full justify-center mt-1" onClick={() => setRetraitConfirmedCount(null)}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ══ BARE NAVIGASYON ANBA ══ */}
       <nav className="client-bottom-nav fixed bottom-0 inset-x-0 z-40 border-t">

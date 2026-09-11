@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -7,6 +8,7 @@ import {
 } from "lucide-react";
 import Logo from "./Logo";
 import { supabase } from "@/lib/supabase";
+import { getPendingRetraitsCount } from "@/lib/db";
 import { Staff } from "@/lib/types";
 import { isAdminOnlyPath } from "@/lib/access";
 
@@ -49,6 +51,18 @@ export default function Sidebar({ staff }: { staff?: Staff | null }) {
   const isAdmin = staff?.role === "admin";
   const initials = (staff?.prenom || staff?.username || "S").slice(0, 2).toUpperCase();
 
+  /** Badge "Retraits" — demann kliyan an "En attente" k ap tann yon anplwaye. */
+  const [pendingRetraits, setPendingRetraits] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const check = () => getPendingRetraitsCount().then((n) => { if (!cancelled) setPendingRetraits(n); }).catch(() => undefined);
+    const onVisible = () => { if (document.visibilityState === "visible") check(); };
+    check();
+    const timer = setInterval(check, 30000);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { cancelled = true; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, []);
+
   return (
     <aside className="w-64 shrink-0 bg-navy text-white min-h-screen flex flex-col">
       {/* Logo */}
@@ -75,7 +89,14 @@ export default function Sidebar({ staff }: { staff?: Staff | null }) {
                     <Link key={href} href={href}
                       className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                         active ? "bg-white text-navy font-semibold shadow-sm" : "text-white/75 hover:bg-white/10 hover:text-white"}`}>
-                      <Icon size={17} className={active ? "text-navy" : ""} /> {label}
+                      <Icon size={17} className={active ? "text-navy" : ""} />
+                      <span className="flex-1">{label}</span>
+                      {href === "/retraits" && pendingRetraits > 0 && (
+                        <span className={`grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px] font-bold ${
+                          active ? "bg-navy text-white" : "bg-amber-400 text-navy"}`}>
+                          {pendingRetraits > 9 ? "9+" : pendingRetraits}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

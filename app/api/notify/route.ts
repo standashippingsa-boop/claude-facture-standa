@@ -44,7 +44,7 @@ interface NotifyPkg {
   fournisseur?: string;
 }
 interface NotifyBody {
-  type: "recu_miami" | "disponible";
+  type: "recu_miami" | "disponible" | "facture";
   client: { name: string; code: string; ville?: string; email?: string };
   packages: NotifyPkg[];
 }
@@ -329,6 +329,12 @@ function pushCopy(body: NotifyBody): { title: string; text: string } {
       text: plural ? `${n} colis ont été reçus à notre entrepôt.` : "Votre colis a été reçu à notre entrepôt."
     };
   }
+  if (body.type === "facture") {
+    return {
+      title: "Votre facture est prête",
+      text: plural ? `Une facture pour ${n} colis est disponible dans l'application.` : "Votre facture est disponible dans l'application."
+    };
+  }
   return {
     title: "Colis disponible",
     text: plural ? `${n} colis sont prêts à être retirés.` : "Votre colis est prêt à être retiré."
@@ -435,6 +441,10 @@ export async function POST(req: Request) {
     try { pushSent = await sendPush(adminConfig, body.client.code, pushCopy(body)); }
     catch { /* Push pa dwe janm fè wout la echwe */ }
   }
+
+  // "facture" se push sèlman — dokiman an deja voye pa WhatsApp (PDF).
+  // buildHtml pa gen modèl imèl pou tip sa a.
+  if (body.type === "facture") return NextResponse.json({ ok: true, pushSent });
 
   if (!key) return NextResponse.json({ skipped: true, code: "no_key", reason: "RESEND_API_KEY pa konfigire", pushSent });
   if (!body?.client?.email) return NextResponse.json({ skipped: true, code: "no_email", reason: "kliyan san imèl", pushSent });
