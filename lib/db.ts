@@ -375,10 +375,14 @@ export async function makeConducesAvailableForVille(
 }
 
 // ================= BONS DE REMISE =================
-// Yon Conduce ka antre nan yon sèl Bon de remise. Lyen an nan bazdone a se
-// gad prensipal la: li anpeche de navigatè/oswa de anplwaye kreye doublon.
+// Yon Conduce ka gen colis pou PLIZYÈ vil (Gonaïves AK Port-de-Paix pa
+// egzanp) — donk li ka antre nan PLIZYÈ Bon de remise, youn pa vil. Blokaj
+// anti-doublon an fèt PA KOLI (packages.bon_remise_id), pa pa Conduce: se
+// SÈLMAN yon koli ki deja sou yon Bon ki pa ka antre nan yon lòt.
+// bon_remise_conduces rete yon tab ENFÒMATIF (ki Conduce ki kontribye nan ki
+// Bon), itilize pou afichaj — li pa bloke okenn seleksyon ankò.
 
-/** ID Conduce ki deja sou yon Bon de remise — pou dezaktive yo nan seleksyon an. */
+/** ID Conduce ki gen omwen yon koli deja sou yon Bon de remise — enfòmatif (badge), pa yon blokaj. */
 export async function getBonRemiseConduceIds(): Promise<Set<string>> {
   const { data, error } = await supabase.from("bon_remise_conduces").select("conduce_id");
   if (error) throw error;
@@ -387,21 +391,23 @@ export async function getBonRemiseConduceIds(): Promise<Set<string>> {
 
 export async function createBonRemiseRecord(input: {
   bonNumber: string;
+  packageIds: string[];
   conduceIds: string[];
   packageCount: number;
   destination?: string;
   who?: string;
 }): Promise<BonRemiseRecord> {
+  const packageIds = Array.from(new Set(input.packageIds.map((id) => String(id ?? "").trim()).filter(Boolean)));
   const conduceIds = Array.from(new Set(input.conduceIds.map((id) => String(id ?? "").trim()).filter(Boolean)));
-  if (!conduceIds.length) throw new Error("Aucune Conduce valide pour ce Bon de remise.");
+  if (!packageIds.length) throw new Error("Aucun colis valide pour ce Bon de remise.");
 
-  // Chèk avan insert lan bay yon mesaj konprann. Constraint SQL la rete gad
-  // final la si de moun klike an menm tan.
+  // Chèk avan bay yon mesaj konprann. Filtè `is("bon_remise_id", null)` sou
+  // UPDATE pi ba a rete gad final la si de moun klike an menm tan.
   const { data: existing, error: existingError } = await supabase
-    .from("bon_remise_conduces").select("conduce_id").in("conduce_id", conduceIds);
+    .from("packages").select("id").in("id", packageIds).not("bon_remise_id", "is", null);
   if (existingError) throw existingError;
   if (existing?.length) {
-    throw new Error("Une Conduce sélectionnée est déjà dans un Bon de remise. Actualisez la page : aucun PDF n'a été créé.");
+    throw new Error(`${existing.length} colis sélectionné(s) ${existing.length > 1 ? "sont" : "est"} déjà dans un autre Bon de remise. Actualisez la page : aucun PDF n'a été créé.`);
   }
 
   const { data: bon, error } = await supabase.from("bons_remise").insert({
@@ -413,20 +419,31 @@ export async function createBonRemiseRecord(input: {
   }).select("*").single();
   if (error) throw error;
 
-  const { error: linksError } = await supabase.from("bon_remise_conduces").insert(
-    conduceIds.map((conduceId) => ({ bon_remise_id: bon.id, conduce_id: conduceId }))
-  );
-  if (linksError) {
-    // Rollback konpansatwa: pa kite yon Bon vid si lyen yo pa ka sove.
+  // Verouye chak koli — SÈLMAN si li poko sou yon lòt Bon. Si yon lòt moun
+  // te pran youn nan yo antre chèk la ak isit la, `locked` ap pi kout pase
+  // `packageIds` epi nou anile tout bagay.
+  const { data: locked, error: lockError } = await supabase
+    .from("packages").update({ bon_remise_id: bon.id })
+    .in("id", packageIds).is("bon_remise_id", null).select("id");
+  if (lockError || !locked || locked.length !== packageIds.length) {
+    // Rollback: efase Bon lan retire referans la sou koli nou te fin
+    // verouye yo (`on delete set null`) — okenn koli pa rete bloke pou granmesi.
     await supabase.from("bons_remise").delete().eq("id", bon.id);
-    if ((linksError as any).code === "23505") {
-      throw new Error("Une Conduce vient d'être ajoutée à un Bon de remise. Actualisez la page : aucun PDF n'a été créé.");
-    }
-    throw linksError;
+    if (lockError) throw lockError;
+    throw new Error("Un ou plusieurs colis viennent d'être ajoutés à un autre Bon de remise. Actualisez la page : aucun PDF n'a été créé.");
+  }
+
+  if (conduceIds.length) {
+    const { error: linksError } = await supabase.from("bon_remise_conduces").insert(
+      conduceIds.map((conduceId) => ({ bon_remise_id: bon.id, conduce_id: conduceId }))
+    );
+    // Enfòmatif sèlman (badge "Colis déjà remis" sou Conduce yo) — yon echèk
+    // isit la pa dwe fè tout kreyasyon Bon an rate; koli yo deja verouye.
+    if (linksError) console.error("[bon_remise_conduces]", linksError);
   }
 
   await logAction("Bon de remise créé",
-    `${bon.bon_number} — ${conduceIds.length} Conduce(s), ${input.packageCount} colis${input.destination ? ` · ${input.destination}` : ""}`,
+    `${bon.bon_number} — ${packageIds.length} colis, ${conduceIds.length} Conduce(s)${input.destination ? ` · ${input.destination}` : ""}`,
     "", "");
   return bon as BonRemiseRecord;
 }
@@ -1229,7 +1246,8 @@ export async function getClientPackages(code: string): Promise<Pkg[]> {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((p) =>
-    asNum(p, ["weight", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[];
+    asNum(p, ["weight", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"]))
+    .filter((p: Pkg) => !p.archived) as Pkg[];
 }
 /** Anrejistre pri a an USD epi kalkile ekivalan HTG ak taux aktyèl la */
 export async function updatePackagePrice(id: string, priceUsd: number, taxUsd: number, rate: number): Promise<void> {
@@ -1997,9 +2015,7 @@ export async function getClientPackagesAndInvoices(code: string) {
     supabase.from("packages").select("*").eq("customer_code", code).order("created_at", { ascending: false }),
     supabase.from("invoices").select("*").eq("customer_code", code).order("created_at", { ascending: false })
   ]);
-  // Yon achiv administratif pa dwe fè yon kliyan pèdi vizibilite sou yon
-  // colis. Statut colis la detèmine seksyon li (an route, disponible, livré).
-  return { pkgs: (p.data ?? []) as Pkg[], invs: (i.data ?? []) as Invoice[] };
+  return { pkgs: (p.data ?? []).filter((x: Pkg) => !x.archived) as Pkg[], invs: (i.data ?? []) as Invoice[] };
 }
 
 // ================= DEMANDES DE RETRAIT (v8) =================

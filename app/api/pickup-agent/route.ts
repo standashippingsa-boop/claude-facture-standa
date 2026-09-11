@@ -145,10 +145,9 @@ export async function GET(req: Request) {
     let parcels: Parcel[] = [];
     let invoices: ZoneInvoice[] = [];
     if (codes.length) {
-      // L'archivage administratif ne doit jamais retirer un colis de la vue
-      // de l'agent: il doit pouvoir contrôler tous les colis de ses clients,
-      // actifs, facturés ou déjà livrés. Le statut reste la seule source de
-      // vérité pour savoir dans quelle section il apparaît.
+      // Un colis livré doit rester consultable dans l'historique et depuis son
+      // numéro de facture, même si l'administration l'a archivé par la suite.
+      // Les autres colis archivés restent, eux, invisibles pour l'agent.
       let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id, archived")
         .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       // Le site reste utilisable durant le très court délai entre le
@@ -161,7 +160,8 @@ export async function GET(req: Request) {
         .in("customer_code", codes).order("created_at", { ascending: false }).limit(1000);
       if (parcelResult.error) throw parcelResult.error;
       if (invoiceResult.error) throw invoiceResult.error;
-      parcels = (parcelResult.data ?? []) as Parcel[];
+      parcels = ((parcelResult.data ?? []) as Parcel[])
+        .filter((parcel) => !parcel.archived || code(parcel.status) === "Livré");
       invoices = (invoiceResult.data ?? []) as ZoneInvoice[];
     }
 

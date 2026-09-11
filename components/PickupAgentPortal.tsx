@@ -240,11 +240,11 @@ export default function PickupAgentPortal() {
       {!loading && !data && <section className="mx-auto max-w-xl rounded-3xl border border-red-100 bg-white p-7 text-center shadow-sm"><ShieldCheck className="mx-auto mb-3 text-red-500" size={36} /><h1 className="text-xl font-extrabold text-[#0a2b61]">Accès à vérifier</h1><p className="mt-2 text-sm text-slate-600">{message?.text || "Impossible de préparer votre espace."}</p><button type="button" className="btn mt-5" onClick={() => void load()}>Réessayer</button></section>}
       {!loading && data && <>
         <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
-        <SideNavigation tab={tab} arrivalFilter={arrivalFilter} receivedMiami={receivedMiami.length} ready={ready.length} dossiers={dossiers.length} delivered={delivered.length} bons={data.bons.length} balanceCount={report.customer_balances.length} onHome={() => setTab("home")} onMiami={() => { setTab("arrivals"); setArrivalFilter("miami"); }} onReady={() => setTab("ready")} onDossiers={() => setTab("dossiers")} onHistory={() => setTab("history")} onBons={() => setTab("bons")} onReports={() => setTab("reports")} />
+        <SideNavigation tab={tab} incoming={incoming.length} ready={ready.length} dossiers={dossiers.length} delivered={delivered.length} bons={data.bons.length} balanceCount={report.customer_balances.length} onHome={() => setTab("home")} onArrivals={() => { setTab("arrivals"); setArrivalFilter("all"); }} onReady={() => setTab("ready")} onDossiers={() => setTab("dossiers")} onHistory={() => setTab("history")} onBons={() => setTab("bons")} onReports={() => setTab("reports")} />
         <div className="min-w-0 pb-20 lg:pb-0">
         {tab !== "home" && <section className="hidden">
           <Stat icon={<ClipboardCheck size={20} />} label="Dossiers clients" value={dossiers.length} tint="bg-emerald-50 text-emerald-700" active={tab === "dossiers"} onClick={() => setTab("dossiers")} />
-          <Stat icon={<PackageCheck size={20} />} label="Reçus à Miami" value={receivedMiami.length} tint="bg-cyan-50 text-cyan-700" active={tab === "arrivals" && arrivalFilter === "miami"} onClick={() => { setTab("arrivals"); setArrivalFilter("miami"); }} />
+          <Stat icon={<PackageCheck size={20} />} label="Colis à venir" value={incoming.length} tint="bg-cyan-50 text-cyan-700" active={tab === "arrivals"} onClick={() => { setTab("arrivals"); setArrivalFilter("all"); }} />
           <Stat icon={<Banknote size={20} />} label="Rapport" value={report.customer_balances.length} tint="bg-blue-50 text-[#0d3b7a]" active={tab === "reports"} onClick={() => setTab("reports")} />
           <Stat icon={<PackageCheck size={20} />} label="Disponibles" value={ready.length} tint="bg-orange-50 text-[#e85e19]" active={tab === "ready"} onClick={() => setTab("ready")} />
           <Stat icon={<CheckCircle2 size={20} />} label="Historique" value={delivered.length} tint="bg-indigo-50 text-indigo-700" active={tab === "history"} onClick={() => setTab("history")} />
@@ -252,7 +252,7 @@ export default function PickupAgentPortal() {
 
         <section className="rounded-3xl border border-white bg-white p-4 shadow-[0_10px_35px_rgba(17,54,110,0.07)] sm:p-5">
           {tab !== "home" && <div className="mb-4 flex flex-col gap-3">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h2 className="text-lg font-extrabold text-[#0a2b61]">Opérations — {data.zone.name}</h2><p className="text-xs text-slate-500">Colis, factures, paiements et bons de remise liés à votre zone.</p></div><form onSubmit={(event) => { event.preventDefault(); openDossier(); }} className="flex min-h-11 gap-2 md:w-[27rem]"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3"><Search size={17} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="Numéro de client, suivi ou facture" aria-label="Rechercher un dossier client" /></label><button type="submit" className="shrink-0 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white hover:bg-[#0f448f]">Dossier</button></form></div>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h2 className="text-lg font-extrabold text-[#0a2b61]">{tab === "arrivals" ? "Colis à venir" : `Opérations — ${data.zone.name}`}</h2><p className="text-xs text-slate-500">{tab === "arrivals" ? "Tous les colis non livrés de votre zone, avec leur code client." : "Colis, factures, paiements et bons de remise liés à votre zone."}</p></div><form onSubmit={(event) => { event.preventDefault(); openDossier(); }} className="flex min-h-11 gap-2 md:w-[27rem]"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3"><Search size={17} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="Numéro de client, suivi ou facture" aria-label="Rechercher un dossier client" /></label><button type="submit" className="shrink-0 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white hover:bg-[#0f448f]">Dossier</button></form></div>
             <p className="text-xs font-semibold text-emerald-700">Les statuts sont synchronisés automatiquement avec le système principal.</p>
             <nav className="hidden">{([
               ["dossiers", "Dossiers clients", dossiers.length],
@@ -277,7 +277,7 @@ export default function PickupAgentPortal() {
         </section>
         </div>
         </div>
-        <MobileNavigation tab={tab} arrivalFilter={arrivalFilter} moreOpen={mobileMoreOpen} onHome={() => { setTab("home"); setMobileMoreOpen(false); }} onMiami={() => { setTab("arrivals"); setArrivalFilter("miami"); setMobileMoreOpen(false); }} onReports={() => { setTab("reports"); setMobileMoreOpen(false); }} onReady={() => { setTab("ready"); setMobileMoreOpen(false); }} onToggleMore={() => setMobileMoreOpen((open) => !open)} onDossiers={() => { setTab("dossiers"); setMobileMoreOpen(false); }} onHistory={() => { setTab("history"); setMobileMoreOpen(false); }} onBons={() => { setTab("bons"); setMobileMoreOpen(false); }} />
+        <MobileNavigation tab={tab} moreOpen={mobileMoreOpen} onHome={() => { setTab("home"); setMobileMoreOpen(false); }} onArrivals={() => { setTab("arrivals"); setArrivalFilter("all"); setMobileMoreOpen(false); }} onReports={() => { setTab("reports"); setMobileMoreOpen(false); }} onReady={() => { setTab("ready"); setMobileMoreOpen(false); }} onToggleMore={() => setMobileMoreOpen((open) => !open)} onDossiers={() => { setTab("dossiers"); setMobileMoreOpen(false); }} onHistory={() => { setTab("history"); setMobileMoreOpen(false); }} onBons={() => { setTab("bons"); setMobileMoreOpen(false); }} />
       </>}
     </main>
   </div>;
@@ -328,16 +328,16 @@ function groupClientDossiers(packages: ZonePackage[], invoices: ZoneInvoice[]): 
   });
 }
 
-function SideNavigation({ tab, arrivalFilter, receivedMiami, ready, dossiers, delivered, bons, balanceCount, onHome, onMiami, onReady, onDossiers, onHistory, onBons, onReports }: {
-  tab: Tab; arrivalFilter: ArrivalFilter; receivedMiami: number; ready: number; dossiers: number; delivered: number; bons: number; balanceCount: number;
-  onHome: () => void; onMiami: () => void; onReady: () => void; onDossiers: () => void; onHistory: () => void; onBons: () => void; onReports: () => void;
+function SideNavigation({ tab, incoming, ready, dossiers, delivered, bons, balanceCount, onHome, onArrivals, onReady, onDossiers, onHistory, onBons, onReports }: {
+  tab: Tab; incoming: number; ready: number; dossiers: number; delivered: number; bons: number; balanceCount: number;
+  onHome: () => void; onArrivals: () => void; onReady: () => void; onDossiers: () => void; onHistory: () => void; onBons: () => void; onReports: () => void;
 }) {
   const Item = ({ label, count, icon, active, onClick }: { label: string; count?: number; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} className={cn("flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 text-left text-sm font-bold transition", active ? "bg-[#0b3270] text-white shadow-md shadow-blue-900/15" : "text-slate-600 hover:bg-slate-100 hover:text-[#0b3270]")}><span className={cn("grid h-8 w-8 place-items-center rounded-xl", active ? "bg-white/15" : "bg-sky-50 text-[#0b4d9b]")}>{icon}</span><span className="min-w-0 flex-1">{label}</span>{typeof count === "number" && <span className={cn("rounded-full px-2 py-0.5 text-xs", active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500")}>{count}</span>}</button>;
   return <aside className="sticky top-5 hidden h-fit rounded-3xl border border-white/80 bg-white/90 p-3 shadow-[0_14px_35px_rgba(25,74,145,0.08)] backdrop-blur lg:block">
     <p className="px-3 pb-2 pt-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Navigation</p>
     <div className="space-y-1">
       <Item label="Accueil" icon={<Home size={18} />} active={tab === "home"} onClick={onHome} />
-      <Item label="Reçu à Miami" count={receivedMiami} icon={<PackageCheck size={18} />} active={tab === "arrivals" && arrivalFilter === "miami"} onClick={onMiami} />
+      <Item label="Colis à venir" count={incoming} icon={<PackageCheck size={18} />} active={tab === "arrivals"} onClick={onArrivals} />
       <Item label="Rapport" count={balanceCount} icon={<Banknote size={18} />} active={tab === "reports"} onClick={onReports} />
       <Item label="À remettre" count={ready} icon={<ClipboardCheck size={18} />} active={tab === "ready"} onClick={onReady} />
       <Item label="Dossiers clients" count={dossiers} icon={<Search size={18} />} active={tab === "dossiers"} onClick={onDossiers} />
@@ -347,16 +347,16 @@ function SideNavigation({ tab, arrivalFilter, receivedMiami, ready, dossiers, de
   </aside>;
 }
 
-function MobileNavigation({ tab, arrivalFilter, moreOpen, onHome, onMiami, onReports, onReady, onToggleMore, onDossiers, onHistory, onBons }: {
-  tab: Tab; arrivalFilter: ArrivalFilter; moreOpen: boolean;
-  onHome: () => void; onMiami: () => void; onReports: () => void; onReady: () => void; onToggleMore: () => void; onDossiers: () => void; onHistory: () => void; onBons: () => void;
+function MobileNavigation({ tab, moreOpen, onHome, onArrivals, onReports, onReady, onToggleMore, onDossiers, onHistory, onBons }: {
+  tab: Tab; moreOpen: boolean;
+  onHome: () => void; onArrivals: () => void; onReports: () => void; onReady: () => void; onToggleMore: () => void; onDossiers: () => void; onHistory: () => void; onBons: () => void;
 }) {
   const NavButton = ({ label, icon, active, onClick }: { label: string; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} className={cn("flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-bold transition", active ? "bg-[#0b3270] text-white shadow-md shadow-blue-900/20" : "text-slate-500 hover:bg-slate-100")}><span>{icon}</span><span>{label}</span></button>;
   return <nav className="fixed inset-x-3 bottom-3 z-40 mx-auto max-w-xl lg:hidden" aria-label="Navigation de l’espace de remise">
     {moreOpen && <div className="absolute bottom-[4.6rem] right-0 grid w-56 gap-1 rounded-2xl border border-slate-100 bg-white p-2 shadow-xl"><button type="button" onClick={onDossiers} className="rounded-xl px-3 py-3 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Dossiers clients</button><button type="button" onClick={onHistory} className="rounded-xl px-3 py-3 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Colis remis</button><button type="button" onClick={onBons} className="rounded-xl px-3 py-3 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Bons de remise</button></div>}
     <div className="flex items-center gap-1 rounded-3xl border border-white bg-white/95 p-1.5 shadow-xl shadow-blue-950/15 backdrop-blur">
       <NavButton label="Accueil" icon={<Home size={19} />} active={tab === "home"} onClick={onHome} />
-      <NavButton label="Miami" icon={<PackageCheck size={19} />} active={tab === "arrivals" && arrivalFilter === "miami"} onClick={onMiami} />
+      <NavButton label="À venir" icon={<PackageCheck size={19} />} active={tab === "arrivals"} onClick={onArrivals} />
       <NavButton label="Rapport" icon={<Banknote size={19} />} active={tab === "reports"} onClick={onReports} />
       <NavButton label="À remettre" icon={<ClipboardCheck size={19} />} active={tab === "ready"} onClick={onReady} />
       <NavButton label="Plus" icon={<MoreHorizontal size={20} />} active={moreOpen || tab === "dossiers" || tab === "history" || tab === "bons"} onClick={onToggleMore} />
@@ -390,10 +390,13 @@ function PackagesView({ groups, tab, expanded, onExpand, selectedPackageIds, con
   const emptyText = tab === "arrivals" ? "Aucun colis à venir ne correspond à la recherche." : tab === "ready" ? "Aucun colis facturé n’est disponible à remettre." : "Aucun colis remis ne correspond à la recherche.";
   if (!groups.length) return <Empty text={emptyText} />;
   return <div className="grid gap-4 lg:grid-cols-2">{groups.map((group) => {
-    const open = expanded === group.customerCode;
+    // Dans « Colis à venir », chaque tracking doit être visible avec son
+    // code client sans exiger une seconde action de l'agent.
+    const alwaysOpen = tab === "arrivals";
+    const open = alwaysOpen || expanded === group.customerCode;
     const hasBalance = tab === "ready" && group.balanceUsd > 0.01;
     return <article key={group.customerCode} className={cn("overflow-hidden rounded-2xl border bg-white", hasBalance ? "border-amber-300" : "border-slate-200")}>
-      <button type="button" onClick={() => onExpand(open ? null : group.customerCode)} className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-slate-50"><div><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Code client</p><p className="mt-0.5 text-xl font-black tracking-tight text-[#0a2b61]">{group.customerCode} {group.customerName && <span className="ml-1 text-sm font-semibold text-slate-500">· {group.customerName}</span>}</p><p className="mt-1 text-sm font-semibold text-slate-600">{group.packages.length} colis · {quantityTotal(group.packages)} article{quantityTotal(group.packages) > 1 ? "s" : ""}</p></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a]"><ChevronDown size={20} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span></button>
+      <button type="button" onClick={() => { if (!alwaysOpen) onExpand(open ? null : group.customerCode); }} className={cn("flex w-full items-center justify-between gap-3 p-4 text-left", alwaysOpen ? "cursor-default" : "hover:bg-slate-50")}><div><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Code client</p><p className="mt-0.5 text-xl font-black tracking-tight text-[#0a2b61]">{group.customerCode} {group.customerName && <span className="ml-1 text-sm font-semibold text-slate-500">· {group.customerName}</span>}</p><p className="mt-1 text-sm font-semibold text-slate-600">{group.packages.length} colis · {quantityTotal(group.packages)} article{quantityTotal(group.packages) > 1 ? "s" : ""}</p></div>{!alwaysOpen && <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a]"><ChevronDown size={20} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span>}</button>
       {open && <div className="space-y-3 border-t border-slate-100 bg-slate-50/70 p-3">{hasBalance && <BalanceNotice balanceUsd={group.balanceUsd} balanceHtg={group.balanceHtg} invoiceNumber={group.balanceInvoiceNumber} onPay={group.balanceInvoiceId ? () => onStartPayment(group.balanceInvoiceId) : undefined} />}{group.packages.map((item) => <PackageCard key={item.id} item={item} ready={tab === "ready"} delivered={tab === "history"} selected={selectedPackageIds.includes(item.id)} confirmed={confirmedParcelIds.includes(item.id)} releasing={releasing} onToggleSelection={() => onToggleSelection(item)} onStartPayment={() => onStartPayment(item.invoice_id)} onOpenInvoice={() => { if (item.invoice_id) onOpenInvoice(item.invoice_id); }} />)}{tab === "ready" && !hasBalance && <BatchRemiseAction customerCode={group.customerCode} available={group.packages} selectedPackageIds={selectedPackageIds} busy={releasing} onSelectAll={() => onSelectCustomerPackages(group.customerCode, group.packages.filter((item) => isReadyForPickup(item) && item.invoice_payment_status === "Payé" && item.customer_balance_usd <= 0.01).map((item) => item.id))} onConfirm={onConfirmSelection} />}</div>}
     </article>;
   })}</div>;

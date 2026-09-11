@@ -180,6 +180,7 @@ export interface Pkg {
   proof_photo_at?: string | null;
   invoiced_at?: string | null;      // Archivage otomatik apre fakti
   conduce_id?: string | null;       // Modil Conduces — Single Source of Truth (filtè, pa dwaplikaj)
+  bon_remise_id?: string | null;    // Bon de remise ki deja gen koli sa a — blokaj se PA KOLI, pa pa Conduce
   selected?: boolean; // UI sèlman
 }
 

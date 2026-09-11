@@ -75,10 +75,12 @@ export default function BonRemisePage() {
       const [cs, tm, cc] = await Promise.all([getConduces(), getClientTarifMap(), getCentralAccountCode()]);
       setConduces(cs); setTarifMap(tm); setCentral(cc.toUpperCase());
       try {
+        // Enfòmatif sèlman (badge "Colis déjà remis") — yon Conduce ki gen
+        // colis pou plizyè vil rete SELEKSYONAB apre yon premye Bon, paske
+        // se PA KOLI (packages.bon_remise_id) blokaj anti-doublon an fèt.
         const used = await getBonRemiseConduceIds();
         setRecordedConduces(used);
         setRegistryReady(true);
-        setSelCond((previous) => new Set([...previous].filter((id) => !used.has(id))));
       } catch {
         // Pi pridan: pa kite kreye yon bon san registre ki pwoteje kont doublon.
         setRegistryReady(false);
@@ -92,23 +94,23 @@ export default function BonRemisePage() {
   useEffect(() => { load(); }, []);
 
   // Lè staff la te seleksyone Conduce filtre yo depi paj Conduces la, pote
-  // menm seleksyon an isit la. Conduce ki deja nan yon bon rete eskli.
+  // menm seleksyon an isit la.
   useEffect(() => {
     if (!conduces || !registryReady) return;
     const requested = new Set((searchParams.get("conduces") ?? "").split(",").filter(Boolean));
     if (!requested.size) return;
-    const valid = conduces.filter((conduce) => requested.has(conduce.id) && !recordedConduces.has(conduce.id));
+    const valid = conduces.filter((conduce) => requested.has(conduce.id));
     if (valid.length) setSelCond((previous) => new Set([...previous, ...valid.map((conduce) => conduce.id)]));
-  }, [conduces, recordedConduces, registryReady, searchParams]);
+  }, [conduces, registryReady, searchParams]);
 
-  /** Chaje koli yo chak fwa seleksyon conduce a chanje. */
+  /** Chaje koli yo chak fwa seleksyon conduce a chanje. Koli ki deja sou yon Bon pa antre. */
   useEffect(() => {
     const ids = Array.from(selCond);
     if (!ids.length) { setPkgs([]); setSel(new Set()); return; }
     let annule = false;
     setLoadingPkgs(true);
     getPackagesByConduceIds(ids)
-      .then((list) => { if (!annule) setPkgs(list); })
+      .then((list) => { if (!annule) setPkgs(list.filter((p) => !p.bon_remise_id)); })
       .catch(() => { if (!annule) setPkgs([]); })
       .finally(() => { if (!annule) setLoadingPkgs(false); });
     return () => { annule = true; };
@@ -202,7 +204,7 @@ export default function BonRemisePage() {
     try {
       const bonNumber = createBonRemiseNumber();
       const record = await createBonRemiseRecord({
-        bonNumber, conduceIds, packageCount: chosen.length, destination: ville, who: staffName,
+        bonNumber, packageIds: chosen.map((p) => p.id), conduceIds, packageCount: chosen.length, destination: ville, who: staffName,
       });
       recordId = record.id;
       const pdf = await generateBonRemise(chosen, tarifMap, {
@@ -252,23 +254,26 @@ export default function BonRemisePage() {
           {conduces.length === 0 && <p className="text-white/50 text-xs py-3">Aucune conduce.</p>}
           {conduces.map((c) => {
             const on = selCond.has(c.id);
+            // Enfòmatif sèlman: yon Conduce ka gen colis pou plizyè vil, li
+            // rete seleksyonab menm si li deja kontribye nan yon lòt Bon —
+            // koli ki deja remis yo ap eskli otomatikman nan Etap 3.
             const alreadyRecorded = recordedConduces.has(c.id);
-            const disabled = !registryReady || alreadyRecorded;
+            const disabled = !registryReady;
             return (
               <button key={c.id}
                 type="button"
                 disabled={disabled}
-                title={alreadyRecorded ? "Cette Conduce est déjà dans un Bon de remise." : !registryReady ? "Le registre des Bons de remise doit être activé." : undefined}
+                title={!registryReady ? "Le registre des Bons de remise doit être activé." : alreadyRecorded ? "Certains colis de cette Conduce sont déjà dans un autre Bon de remise ; ils seront exclus automatiquement." : undefined}
                 onClick={() => setSelCond((prev) => {
                   const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n;
                 })}
                 className={`text-left rounded-xl px-3 py-2.5 border transition ${
-                  on ? "bg-brand border-brand" : alreadyRecorded ? "bg-emerald-950/35 border-emerald-300/25 opacity-75 cursor-not-allowed" : "bg-white/5 border-white/10 hover:bg-white/10"}`}>
+                  on ? "bg-brand border-brand" : "bg-white/5 border-white/10 hover:bg-white/10"}`}>
                 <div className="flex items-center gap-2">
-                  <Truck size={14} className={on ? "text-white" : alreadyRecorded ? "text-emerald-300" : "text-white/50"} />
+                  <Truck size={14} className={on ? "text-white" : "text-white/50"} />
                   <span className="font-mono font-bold text-sm truncate">{c.conduce_number}</span>
                   {on && <span className="ml-auto grid place-items-center h-5 w-5 rounded-full bg-emerald-500 text-white"><CheckCircle2 size={13} /></span>}
-                  {alreadyRecorded && <span className="ml-auto text-[10px] font-bold text-emerald-200 inline-flex items-center gap-1"><CheckCircle2 size={12} />Déjà dans un bon</span>}
+                  {!on && alreadyRecorded && <span className="ml-auto text-[10px] font-bold text-emerald-300 inline-flex items-center gap-1"><CheckCircle2 size={12} />Colis déjà remis</span>}
                 </div>
                 <p className={`text-[11px] mt-0.5 truncate ${on ? "text-white/80" : "text-white/45"}`}>
                   {c.office || "—"} · {c.conduce_date ? dateFr(c.conduce_date) : dateFr(c.created_at)}

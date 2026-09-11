@@ -418,7 +418,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
       // constraint bazdone a bloke yon dezyèm PDF menm si ekran sa a louvri.
       if (conduceIds.length) {
         const record = await createBonRemiseRecord({
-          bonNumber, conduceIds, packageCount: selectedAll.length, who: staffName,
+          bonNumber, packageIds: selectedAll.map((p) => p.id), conduceIds, packageCount: selectedAll.length, who: staffName,
         });
         recordId = record.id;
       }
