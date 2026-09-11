@@ -655,6 +655,26 @@ select public._hard_policy('bon_remise_conduces', 'bon_remise_conduces_insert_st
 select public._hard_policy('bon_remise_conduces', 'bon_remise_conduces_update_staff', 'update', 'authenticated', 'public.is_staff()', 'public.is_staff()');
 select public._hard_policy('bon_remise_conduces', 'bon_remise_conduces_delete_staff', 'delete', 'authenticated', 'public.is_staff()', null);
 
+-- ABONNEMENTS NOTIFICATIONS PUSH — chaque client gère UNIQUEMENT son propre
+-- abonnement. L'envoi se fait côté serveur (/api/notify, clé service) qui
+-- contourne RLS pour lire les abonnements d'un customer_code donné.
+do $$ begin execute 'drop policy if exists "anon all push_subscriptions" on public.push_subscriptions';
+exception when undefined_table then null; end $$;
+select public._hard_policy('push_subscriptions', 'push_subscriptions_insert_own', 'insert', 'authenticated',
+  null,
+  'exists (select 1 from public.clients c where c.auth_user_id = auth.uid() '
+  || 'and (c.customer_code = push_subscriptions.customer_code or c.username = push_subscriptions.customer_code))');
+select public._hard_policy('push_subscriptions', 'push_subscriptions_update_own', 'update', 'authenticated',
+  'exists (select 1 from public.clients c where c.auth_user_id = auth.uid() '
+  || 'and (c.customer_code = push_subscriptions.customer_code or c.username = push_subscriptions.customer_code))',
+  'exists (select 1 from public.clients c where c.auth_user_id = auth.uid() '
+  || 'and (c.customer_code = push_subscriptions.customer_code or c.username = push_subscriptions.customer_code))');
+select public._hard_policy('push_subscriptions', 'push_subscriptions_delete_own', 'delete', 'authenticated',
+  'exists (select 1 from public.clients c where c.auth_user_id = auth.uid() '
+  || 'and (c.customer_code = push_subscriptions.customer_code or c.username = push_subscriptions.customer_code))',
+  null);
+select public._hard_policy('push_subscriptions', 'push_subscriptions_select_staff', 'select', 'authenticated', 'public.is_staff()', null);
+
 -- JOURNAL — piste d'audit. Lecture staff. Écriture : uniquement via la route
 -- serveur /api/audit-log (clé service, qui contourne RLS) -> aucune politique
 -- INSERT pour anon/authenticated.

@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import webpush from "web-push";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
+
+type SupabaseAdminConfig = NonNullable<ReturnType<typeof getSupabaseAdminConfig>>;
 
 /**
  * Email otomatik (Reçu à Miami / Disponible) via Resend (https://resend.com).
@@ -311,6 +314,60 @@ async function requireStaff(token: string): Promise<{ ok: true } | { ok: false; 
   return { ok: true };
 }
 
+/**
+ * Notifikasyon PUSH — kanal SEPARE de imèl la. Li pa depann ni de
+ * RESEND_API_KEY ni de yon adrès imèl kliyan; sèl bagay li bezwen se kle
+ * VAPID yo (Vercel > Environment Variables) ak omwen yon abònman aktif pou
+ * customer_code la nan `push_subscriptions`.
+ */
+function pushCopy(body: NotifyBody): { title: string; text: string } {
+  const n = body.packages?.length ?? 0;
+  const plural = n > 1;
+  if (body.type === "recu_miami") {
+    return {
+      title: "Colis reçu à Miami",
+      text: plural ? `${n} colis ont été reçus à notre entrepôt.` : "Votre colis a été reçu à notre entrepôt."
+    };
+  }
+  return {
+    title: "Colis disponible",
+    text: plural ? `${n} colis sont prêts à être retirés.` : "Votre colis est prêt à être retiré."
+  };
+}
+
+async function sendPush(config: SupabaseAdminConfig, customerCode: string, payload: { title: string; text: string }): Promise<number> {
+  const publicKey = process.env.VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  if (!publicKey || !privateKey || !customerCode) return 0;
+
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || "mailto:notifications@standacommercialsa.com",
+    publicKey, privateKey
+  );
+
+  const svc = createClient(config.url, config.key, { auth: { persistSession: false } });
+  const { data: subs } = await svc.from("push_subscriptions")
+    .select("id, endpoint, p256dh, auth").eq("customer_code", customerCode);
+  if (!subs?.length) return 0;
+
+  const message = JSON.stringify({ title: payload.title, body: payload.text, url: "/espace-client" });
+  let sent = 0;
+  await Promise.all(subs.map(async (s: { id: string; endpoint: string; p256dh: string; auth: string }) => {
+    try {
+      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, message);
+      sent++;
+    } catch (e: unknown) {
+      // Abònman ekspire/envalid (aparèy dezenstale, itilizatè dezabòne nan
+      // navigatè a) — netwaye l pou nou pa reeseye l pou granmesi.
+      const statusCode = (e as { statusCode?: number })?.statusCode;
+      if (statusCode === 404 || statusCode === 410) {
+        await svc.from("push_subscriptions").delete().eq("id", s.id);
+      }
+    }
+  }));
+  return sent;
+}
+
 interface ProbeBody { probe?: "diag" | "test"; token?: string; to?: string }
 
 export async function POST(req: Request) {
@@ -369,15 +426,25 @@ export async function POST(req: Request) {
   if (!notifyGate.ok) {
     return NextResponse.json({ ok: false, code: "auth", error: notifyGate.error }, { status: notifyGate.status });
   }
-  if (!key) return NextResponse.json({ skipped: true, code: "no_key", reason: "RESEND_API_KEY pa konfigire" });
-  if (!body?.client?.email) return NextResponse.json({ skipped: true, code: "no_email", reason: "kliyan san imèl" });
+
+  // Push la se yon kanal SEPARE: nou eseye l kanmenm si imèl la pa konfigire
+  // oswa kliyan an pa gen adrès imèl — youn pa dwe bloke lòt la.
+  const adminConfig = getSupabaseAdminConfig();
+  let pushSent = 0;
+  if (adminConfig && body?.client?.code) {
+    try { pushSent = await sendPush(adminConfig, body.client.code, pushCopy(body)); }
+    catch { /* Push pa dwe janm fè wout la echwe */ }
+  }
+
+  if (!key) return NextResponse.json({ skipped: true, code: "no_key", reason: "RESEND_API_KEY pa konfigire", pushSent });
+  if (!body?.client?.email) return NextResponse.json({ skipped: true, code: "no_email", reason: "kliyan san imèl", pushSent });
 
   try {
     const { subject, html } = buildHtml(body);
     const r = await sendViaResend(key, body.client.email, subject, html);
-    if (r.ok) return NextResponse.json({ ok: true, id: r.id });
-    return NextResponse.json({ ok: false, code: r.code, status: r.status, error: r.message }, { status: 200 });
+    if (r.ok) return NextResponse.json({ ok: true, id: r.id, pushSent });
+    return NextResponse.json({ ok: false, code: r.code, status: r.status, error: r.message, pushSent }, { status: 200 });
   } catch (e) {
-    return NextResponse.json({ ok: false, code: "exception", error: String(e) }, { status: 200 });
+    return NextResponse.json({ ok: false, code: "exception", error: String(e), pushSent }, { status: 200 });
   }
 }

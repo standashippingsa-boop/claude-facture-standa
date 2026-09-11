@@ -35,6 +35,7 @@ import {
   getClientRetraits, getSmallParcelConfig
 } from "@/lib/db";
 import { Agence, getAgences } from "@/lib/agences";
+import { isPushSupported, pushPermission, subscribeToPush } from "@/lib/push";
 import { Client, Invoice, Pkg, Retrait } from "@/lib/types";
 import { DEPOT } from "@/lib/depot";
 import { SUPPORT_PHONE } from "@/lib/branding";
@@ -148,6 +149,8 @@ export default function EspaceClientPage() {
   const [pwdBusy, setPwdBusy] = useState(false);
 
   const [calcW, setCalcW] = useState("");
+  const [showPushBanner, setShowPushBanner] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
 
   const load = async () => {
     const { data } = await supabase.auth.getUser();
@@ -179,6 +182,34 @@ export default function EspaceClientPage() {
     setLoading(false);
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [router]);
+
+  /**
+   * BANDO NOTIFIKASYON PUSH — kalkile SÈLMAN apre montaj (client-side), jamè
+   * pandan rann sèvè a: `Notification` pa egziste sou sèvè a, epi kalkile l
+   * nan kò render lan ta bay yon mismatch ant SSR ak premye rann navigatè a.
+   */
+  useEffect(() => {
+    if (!isPushSupported()) return;
+    let dismissed = false;
+    try { dismissed = window.localStorage.getItem("standa:push-banner-dismissed") === "1"; } catch { /* ignore */ }
+    setShowPushBanner(pushPermission() === "default" && !dismissed);
+  }, []);
+
+  const dismissPushBanner = () => {
+    setShowPushBanner(false);
+    try { window.localStorage.setItem("standa:push-banner-dismissed", "1"); } catch { /* ignore */ }
+  };
+
+  const activatePush = async () => {
+    if (!client?.customer_code || pushBusy) return;
+    setPushBusy(true);
+    try {
+      const r = await subscribeToPush(client.customer_code);
+      if (r.ok) { setToast("Notifications activées."); dismissPushBanner(); }
+      else if (r.reason === "denied") { setToast("Notifications refusées — activez-les depuis les réglages de votre navigateur si vous changez d'avis."); dismissPushBanner(); }
+      else setToast("Impossible d'activer les notifications pour le moment.");
+    } finally { setPushBusy(false); }
+  };
 
   /**
    * MIZAJOU OTOMATIK (pwen 4) — chanjman admin fè nan Paramètres (tarif, ti koli,
@@ -634,6 +665,28 @@ export default function EspaceClientPage() {
               onNavigate={(destination) => destination === "notifications" ? openNotifications() : setView(destination)}
               onOpenTracking={setDetail}
             />
+
+            {showPushBanner && (
+              <div className="card p-4 flex items-start gap-3 client-enter client-enter-d4">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-orange-50 text-orange-500">
+                  <BellRing size={19} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-ink">Recevoir une notification sur votre téléphone</p>
+                  <p className="text-xs text-mute mt-0.5 leading-relaxed">
+                    Soyez averti dès qu&apos;un colis change de statut (reçu, disponible…), sans avoir à ouvrir l&apos;application.
+                  </p>
+                  <div className="mt-2.5 flex gap-2">
+                    <button onClick={activatePush} disabled={pushBusy} className="btn btn-brand !text-xs !py-1.5">
+                      {pushBusy ? "Activation…" : "Activer"}
+                    </button>
+                    <button onClick={dismissPushBanner} className="btn btn-ghost border border-line !text-xs !py-1.5">
+                      Plus tard
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <button onClick={() => setView("infos")} className="client-help-link client-enter client-enter-d4">
               <span><BookOpen size={19} /> Guide et aide</span><ChevronRight size={17} />
