@@ -89,7 +89,7 @@ export default function PickupAgentPortal() {
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
       if (!token) { router.replace("/point-retrait"); return; }
-      const response = await fetch("/api/pickup-agent", { headers: { Authorization: "Bearer " + token } });
+      const response = await fetch("/api/pickup-agent", { cache: "no-store", headers: { Authorization: "Bearer " + token } });
       const json = await response.json();
       if (!response.ok || !json.ok) throw new Error(json.reason || "Chargement impossible.");
       setData(json as PortalData);
@@ -106,7 +106,7 @@ export default function PickupAgentPortal() {
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
     const refresh = () => void load(true);
-    const timer = window.setInterval(refresh, 10_000);
+    const timer = window.setInterval(refresh, 5_000);
     window.addEventListener("focus", refresh);
     return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
   }, [load]);

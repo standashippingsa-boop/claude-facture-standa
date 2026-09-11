@@ -145,9 +145,10 @@ export async function GET(req: Request) {
     let parcels: Parcel[] = [];
     let invoices: ZoneInvoice[] = [];
     if (codes.length) {
-      // Un colis livré doit rester consultable dans l'historique et depuis son
-      // numéro de facture, même si l'administration l'a archivé par la suite.
-      // Les autres colis archivés restent, eux, invisibles pour l'agent.
+      // L'archivage administratif ne doit jamais retirer un colis de la vue
+      // de l'agent: il doit pouvoir contrôler tous les colis de ses clients,
+      // actifs, facturés ou déjà livrés. Le statut reste la seule source de
+      // vérité pour savoir dans quelle section il apparaît.
       let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id, archived")
         .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       // Le site reste utilisable durant le très court délai entre le
@@ -160,8 +161,7 @@ export async function GET(req: Request) {
         .in("customer_code", codes).order("created_at", { ascending: false }).limit(1000);
       if (parcelResult.error) throw parcelResult.error;
       if (invoiceResult.error) throw invoiceResult.error;
-      parcels = ((parcelResult.data ?? []) as Parcel[])
-        .filter((parcel) => !parcel.archived || code(parcel.status) === "Livré");
+      parcels = (parcelResult.data ?? []) as Parcel[];
       invoices = (invoiceResult.data ?? []) as ZoneInvoice[];
     }
 
@@ -295,7 +295,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: true, agent: { name: agentName(agent), username: agent.username }, zone: { name: zoneName },
       packages: packageCards, invoices: invoiceCards, bons: bonCards,
-      report: { agent_payments: agentPayments, customer_balances: customerBalances } });
+      report: { agent_payments: agentPayments, customer_balances: customerBalances } }, {
+      headers: { "Cache-Control": "no-store, max-age=0" }
+    });
   } catch (error) {
     console.error("[pickup-agent:get]", error);
     return NextResponse.json({ ok: false, reason: "Impossible de charger les opérations de votre zone." }, { status: 500 });

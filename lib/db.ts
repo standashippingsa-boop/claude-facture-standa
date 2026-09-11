@@ -1229,8 +1229,7 @@ export async function getClientPackages(code: string): Promise<Pkg[]> {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((p) =>
-    asNum(p, ["weight", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"]))
-    .filter((p: Pkg) => !p.archived) as Pkg[];
+    asNum(p, ["weight", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[];
 }
 /** Anrejistre pri a an USD epi kalkile ekivalan HTG ak taux aktyèl la */
 export async function updatePackagePrice(id: string, priceUsd: number, taxUsd: number, rate: number): Promise<void> {
@@ -1998,7 +1997,9 @@ export async function getClientPackagesAndInvoices(code: string) {
     supabase.from("packages").select("*").eq("customer_code", code).order("created_at", { ascending: false }),
     supabase.from("invoices").select("*").eq("customer_code", code).order("created_at", { ascending: false })
   ]);
-  return { pkgs: (p.data ?? []).filter((x: Pkg) => !x.archived) as Pkg[], invs: (i.data ?? []) as Invoice[] };
+  // Yon achiv administratif pa dwe fè yon kliyan pèdi vizibilite sou yon
+  // colis. Statut colis la detèmine seksyon li (an route, disponible, livré).
+  return { pkgs: (p.data ?? []) as Pkg[], invs: (i.data ?? []) as Invoice[] };
 }
 
 // ================= DEMANDES DE RETRAIT (v8) =================
