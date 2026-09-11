@@ -18,7 +18,7 @@ type Parcel = {
   id: string; tracking_number: string | null; tracking_manual: string | null;
   customer_code: string; quantity: number | null; content: string | null;
   created_date: string | null; received_at: string | null; delivered_at: string | null; status: string;
-  invoice_id: string | null; conduce_id: string | null;
+  invoice_id: string | null; conduce_id: string | null; archived: boolean | null;
 };
 type ZoneInvoice = {
   id: string; invoice_number: string; customer_code: string; package_count: number | null;
@@ -140,19 +140,23 @@ export async function GET(req: Request) {
     let parcels: Parcel[] = [];
     let invoices: ZoneInvoice[] = [];
     if (codes.length) {
-      let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id")
-        .eq("archived", false).in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
+      // Un colis livré doit rester consultable dans l'historique et depuis son
+      // numéro de facture, même si l'administration l'a archivé par la suite.
+      // Les autres colis archivés restent, eux, invisibles pour l'agent.
+      let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id, archived")
+        .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       // Le site reste utilisable durant le très court délai entre le
       // déploiement et l'application de la migration Supabase.
       if (missingSchemaColumn(parcelResult.error, "delivered_at")) {
-        parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id")
-          .eq("archived", false).in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
+        parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id, archived")
+          .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       }
       const invoiceResult = await db.from("invoices").select("id, invoice_number, customer_code, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
         .in("customer_code", codes).order("created_at", { ascending: false }).limit(1000);
       if (parcelResult.error) throw parcelResult.error;
       if (invoiceResult.error) throw invoiceResult.error;
-      parcels = (parcelResult.data ?? []) as Parcel[];
+      parcels = ((parcelResult.data ?? []) as Parcel[])
+        .filter((parcel) => !parcel.archived || code(parcel.status) === "Livré");
       invoices = (invoiceResult.data ?? []) as ZoneInvoice[];
     }
 
