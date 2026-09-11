@@ -108,6 +108,9 @@ export function resolveAccess(path: string, role: AppRole | null): {
   if (role === "client") {
     // Kliyan ka al SÈLMAN nan espas kliyan an
     if (isClientPath(path)) return { allowed: true, redirect: null };
+    // Si kliyan an tape lyen ajan an, pa fè l retounen nan app kliyan an.
+    // Nou voye l sou pòt koneksyon ajan an, ki rete deyò PWA kliyan an.
+    if (isPickupAgentPath(path)) return { allowed: false, redirect: "/point-retrait" };
     return { allowed: false, redirect: "/espace-client" };
   }
 
@@ -115,14 +118,15 @@ export function resolveAccess(path: string, role: AppRole | null): {
   // lojistik/finans, menm si li tape URL yo dirèkteman.
   if (role === "agent_retrait") {
     if (isPickupAgentPath(path)) return { allowed: true, redirect: null };
+    if (isClientPath(path)) return { allowed: false, redirect: "/login" };
     return { allowed: false, redirect: "/espace-remise" };
   }
 
   // Staff (admin/employe) pa gen dwa nan espas kliyan an
-  if (isClientPath(path)) return { allowed: false, redirect: "/dashboard" };
+  if (isClientPath(path)) return { allowed: false, redirect: "/login" };
 
   // Espas remiz la se ekran ajan an sèlman.
-  if (isPickupAgentPath(path)) return { allowed: false, redirect: "/dashboard" };
+  if (isPickupAgentPath(path)) return { allowed: false, redirect: "/point-retrait" };
 
   // Admin: tout paj staff
   if (role === "admin") return { allowed: true, redirect: null };

@@ -1,8 +1,8 @@
 {
-  "name": "STANDA COMMERCIAL",
-  "short_name": "STANDA",
-  "description": "Système professionnel de gestion de colis.",
-  "id": "/",
+  "name": "STANDA Client",
+  "short_name": "STANDA Client",
+  "description": "Suivez vos colis et vos factures STANDA COMMERCIAL.",
+  "id": "/espace-client",
   "start_url": "/espace-client",
   "scope": "/espace-client",
   "display": "standalone",
@@ -46,36 +46,5 @@
       "purpose": "maskable"
     }
   ],
-  "shortcuts": [
-    {
-      "name": "Packages",
-      "url": "/packages",
-      "icons": [
-        {
-          "src": "/icons/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Clients",
-      "url": "/clients",
-      "icons": [
-        {
-          "src": "/icons/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Synchronisation",
-      "url": "/sync",
-      "icons": [
-        {
-          "src": "/icons/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    }
-  ]
+  "shortcuts": []
 }

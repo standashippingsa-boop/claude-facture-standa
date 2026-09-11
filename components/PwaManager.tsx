@@ -1,6 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { RefreshCw, X } from "lucide-react";
+
+const CLIENT_PWA_SCOPE = "/espace-client";
 
 /**
  * PWA Manager — STANDA COMMERCIAL (v3)
@@ -40,7 +43,16 @@ import { RefreshCw, X } from "lucide-react";
  * NÒT: ENSTALASYON app la jere pa <InstallGateway />.
  */
 export default function PwaManager() {
+  const pathname = usePathname();
   const [waitingSW, setWaitingSW] = useState<ServiceWorker | null>(null);
+  // Se app kliyan an sèlman ki gen dwa enstale / kontwole pa PWA a.
+  // Espas admin, employé ak pwen retrè yo rete paj navigatè apa.
+  const isClientPwaPage = pathname === "/login"
+    || pathname === "/inscription"
+    || pathname === "/reset-password"
+    || pathname === "/nouveau-mot-de-passe"
+    || pathname === "/espace-client"
+    || pathname.startsWith("/espace-client/");
 
   /**
    * Èske li san danje pou nou aplike mizajou a kounye a?
@@ -81,6 +93,7 @@ export default function PwaManager() {
   }, [waitingSW]);
 
   useEffect(() => {
+    if (!isClientPwaPage) return;
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
     /**
@@ -121,7 +134,16 @@ export default function PwaManager() {
     const register = async () => {
       try {
         // updateViaCache "none": script SW la pa janm soti nan cache HTTP
-        reg = await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
+        // Ansyen vèsyon yo te gen yon SW sou tout sit la (/). Nou retire l
+        // yon sèl fwa, epi nou kenbe nouvo a anba /espace-client sèlman.
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations
+          .filter((item) => new URL(item.scope).pathname === "/")
+          .map((item) => item.unregister()));
+        reg = await navigator.serviceWorker.register("/sw.js", {
+          scope: CLIENT_PWA_SCOPE,
+          updateViaCache: "none"
+        });
 
         // Yon vèsyon DEJA ap tann lè paj la fèk chaje -> aplike l tou swit.
         // Moun nan fèk rafrechi: pa gen travay an kou pou pèdi.
@@ -164,7 +186,7 @@ export default function PwaManager() {
       if (timer) clearInterval(timer);
       navigator.serviceWorker.removeEventListener("controllerchange", onCtrl);
     };
-  }, []);
+  }, [isClientPwaPage]);
 
   const doUpdate = () => {
     if (waitingSW) waitingSW.postMessage("SKIP_WAITING");
