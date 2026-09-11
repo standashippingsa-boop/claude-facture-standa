@@ -25,6 +25,7 @@ type ArrivalFilter = "all" | "miami" | "transit";
 type PaymentMethod = "Espèces" | "MonCash" | "NatCash" | "Zelle" | "Virement bancaire";
 type PaymentDraft = { invoiceId: string; amount: string; currency: "USD" | "HTG"; method: PaymentMethod; reference: string };
 type ClientDossier = { customerCode: string; customerName: string; packages: ZonePackage[]; invoices: ZoneInvoice[] };
+type DossierCounts = { active: ZonePackage[]; enRoute: number; available: number; latestActiveAt: number; latestActivityAt: number };
 type PackageGroup = { customerCode: string; customerName: string; packages: ZonePackage[]; balanceUsd: number; balanceHtg: number; balanceInvoiceId: string; balanceInvoiceNumber: string };
 
 const DONE = "Livré";
@@ -37,6 +38,29 @@ const quantityTotal = (items: ZonePackage[]) => items.reduce((total, item) => to
 const packageReference = (item: ZonePackage) => item.tracking_manual || item.tracking_number || "Colis sans numéro de suivi";
 const isReadyForPickup = (item: ZonePackage) => READY_STATUSES.has(item.status) && Boolean(item.invoice_id);
 const cn = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" ");
+
+/**
+ * Les compteurs d'un dossier viennent uniquement de lignes `packages` uniques
+ * reçues de l'API de la zone. Une facture ou un historique ne gonfle jamais
+ * les chiffres affichés ici.
+ */
+function dossierCounts(dossier: ClientDossier): DossierCounts {
+  const active = dossier.packages.filter((item) => item.status !== DONE);
+  const timestamp = (item: ZonePackage) => {
+    const value = item.delivered_at || item.received_at || item.created_date;
+    const parsed = value ? Date.parse(value) : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+  const latest = (items: ZonePackage[]) => items.reduce((mostRecent, item) => Math.max(mostRecent, timestamp(item)), 0);
+  const available = active.filter(isReadyForPickup).length;
+  return {
+    active,
+    enRoute: active.length - available,
+    available,
+    latestActiveAt: latest(active),
+    latestActivityAt: latest(dossier.packages)
+  };
+}
 
 export default function PickupAgentPortal() {
   const router = useRouter();
@@ -289,10 +313,15 @@ function groupClientDossiers(packages: ZonePackage[], invoices: ZoneInvoice[]): 
   };
   for (const item of packages) ensure(item.customer_code, item.customer_name).packages.push(item);
   for (const invoice of invoices) ensure(invoice.customer_code, invoice.customer_name).invoices.push(invoice);
-  return Array.from(byCustomer.values()).filter((dossier) => dossier.packages.some((item) => item.status !== DONE)).sort((left, right) => {
-    const leftActive = left.packages.filter((item) => item.status !== DONE).length;
-    const rightActive = right.packages.filter((item) => item.status !== DONE).length;
-    return rightActive - leftActive || (left.customerName + " " + left.customerCode).localeCompare(right.customerName + " " + right.customerCode, "fr-CA");
+  return Array.from(byCustomer.values()).sort((left, right) => {
+    const leftCounts = dossierCounts(left);
+    const rightCounts = dossierCounts(right);
+    // Priorité absolue : le nombre exact de colis encore actifs.
+    // À égalité, le dossier avec l'activité la plus récente reste au-dessus.
+    return rightCounts.active.length - leftCounts.active.length
+      || rightCounts.latestActiveAt - leftCounts.latestActiveAt
+      || rightCounts.latestActivityAt - leftCounts.latestActivityAt
+      || (left.customerName + " " + left.customerCode).localeCompare(right.customerName + " " + right.customerCode, "fr-CA");
   });
 }
 
@@ -376,15 +405,16 @@ function ClientDossiersView({ dossiers, expanded, onExpand, selectedPackageIds, 
   if (!dossiers.length) return <Empty text="Aucun dossier client ne correspond à la recherche." />;
   return <div className="grid gap-4 lg:grid-cols-2">{dossiers.map((dossier) => {
     const open = expanded === dossier.customerCode;
-    const miami = dossier.packages.filter((item) => item.status === "Reçu à Miami");
-    const available = dossier.packages.filter(isReadyForPickup);
-    const transit = dossier.packages.filter((item) => item.status !== DONE && item.status !== "Reçu à Miami" && !isReadyForPickup(item));
+    const counts = dossierCounts(dossier);
+    const miami = counts.active.filter((item) => item.status === "Reçu à Miami");
+    const available = counts.active.filter(isReadyForPickup);
+    const transit = counts.active.filter((item) => item.status !== "Reçu à Miami" && !isReadyForPickup(item));
     const balanceSource = dossier.invoices[0] ?? dossier.packages[0];
     const balanceUsd = balanceSource?.customer_balance_usd ?? 0;
     const balanceHtg = balanceSource?.customer_balance_htg ?? 0;
     const balanceInvoice = dossier.invoices.find((invoice) => invoice.payment_status !== "Payé");
     return <article id={"dossier-" + dossier.customerCode} key={dossier.customerCode} className={cn("scroll-mt-6 overflow-hidden rounded-2xl border bg-white", balanceUsd > 0.01 ? "border-amber-300" : "border-slate-200")}>
-      <button type="button" onClick={() => onExpand(open ? null : dossier.customerCode)} className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-slate-50"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Dossier client</p><h3 className="mt-0.5 truncate text-xl font-black text-[#0a2b61]">{dossier.customerCode}{dossier.customerName && <span className="ml-1 text-sm font-semibold text-slate-500">· {dossier.customerName}</span>}</h3><div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold"><span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">En route : {miami.length + transit.length}</span><span className="rounded-lg bg-orange-50 px-2 py-1 text-orange-700">Disponibles : {available.length}</span></div></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a]"><ChevronDown size={20} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span></button>
+      <button type="button" onClick={() => onExpand(open ? null : dossier.customerCode)} className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-slate-50"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Dossier client</p><h3 className="mt-0.5 truncate text-xl font-black text-[#0a2b61]">{dossier.customerCode}{dossier.customerName && <span className="ml-1 text-sm font-semibold text-slate-500">· {dossier.customerName}</span>}</h3><div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold"><span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">En route : {counts.enRoute}</span><span className="rounded-lg bg-orange-50 px-2 py-1 text-orange-700">Disponibles : {counts.available}</span></div></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a]"><ChevronDown size={20} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span></button>
       {open && <div className="space-y-4 border-t border-slate-100 bg-slate-50/70 p-3">
         {balanceUsd > 0.01 && <BalanceNotice balanceUsd={balanceUsd} balanceHtg={balanceHtg} invoiceNumber={balanceInvoice?.invoice_number ?? ""} onPay={balanceInvoice ? () => onStartPayment(balanceInvoice.id) : undefined} />}
         <DossierSection title="Colis reçus à Miami" subtitle="Colis arrivés à Miami et non encore facturés." packages={miami} />
