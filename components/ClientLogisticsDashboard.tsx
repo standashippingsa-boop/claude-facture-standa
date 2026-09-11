@@ -2,19 +2,20 @@
 
 import { useState } from "react";
 import {
-  BarChart3, Check, ChevronLeft, ChevronRight, Clipboard, MessageCircle,
+  BarChart3, Check, ChevronLeft, ChevronRight, Clipboard, Handshake, MessageCircle,
   Navigation, Package, PackageCheck, Search,
   Send, Truck, WalletCards
 } from "lucide-react";
 import type { Pkg } from "@/lib/types";
 import { dateFr, usd } from "@/lib/utils";
 
-export type ClientDashboardDestination = "adresse" | "disponibles" | "receptions" | "factures" | "calc" | "notifications";
+export type ClientDashboardDestination = "adresse" | "disponibles" | "receptions" | "historique" | "retraits" | "factures" | "calc" | "notifications";
 
 type DashboardProps = {
-  greetingName: string;
+  clientName: string;
   destination: string;
   balanceUsd: number;
+  estimatedUsd: number;
   activePackage: Pkg | null;
   recentPackages: Pkg[];
   availableCount: number;
@@ -39,16 +40,17 @@ const shipmentLabel = (pkg: Pkg | null) => {
   return pkg.status || "En cours";
 };
 
-function QuickAction({ icon: Icon, label, tone, onClick }: { icon: typeof Truck; label: string; tone: "orange" | "blue" | "cyan" | "purple"; onClick: () => void }) {
+function QuickAction({ icon: Icon, label, hint, tone, onClick }: { icon: typeof Truck; label: string; hint: string; tone: "orange" | "blue" | "cyan" | "purple"; onClick: () => void }) {
   const tones = {
     orange: "bg-orange-100 text-orange-600",
     blue: "bg-blue-100 text-blue-600",
     cyan: "bg-cyan-100 text-cyan-700",
     purple: "bg-violet-100 text-violet-600"
   };
-  return <button type="button" onClick={onClick} className="group flex min-h-28 flex-col items-center justify-center gap-2 rounded-3xl bg-white px-2 text-center shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-md">
+  return <button type="button" onClick={onClick} className="group flex min-h-28 flex-col items-center justify-center gap-1.5 rounded-3xl bg-white px-2 text-center shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-md">
     <span className={`grid h-11 w-11 place-items-center rounded-2xl ${tones[tone]} transition group-hover:scale-105`}><Icon size={22} /></span>
     <span className="text-xs font-extrabold text-slate-700">{label}</span>
+    <span className="text-[10px] font-medium leading-tight text-slate-400">{hint}</span>
   </button>;
 }
 
@@ -57,14 +59,23 @@ function ShipmentProgress({ stage }: { stage: number }) {
   return <div className="mt-5"><div className="relative flex items-center justify-between before:absolute before:left-[12%] before:right-[12%] before:top-3 before:h-1 before:rounded-full before:bg-slate-200"><span className="absolute left-[12%] top-3 h-1 rounded-full bg-blue-600 transition-all duration-700" style={{ width: stage === 0 ? "0%" : stage === 1 ? "38%" : "76%" }} />{steps.map((label, index) => <div key={label} className="relative z-10 flex flex-col items-center gap-2"><span className={`grid h-7 w-7 place-items-center rounded-full border-2 ${index <= stage ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-300"}`}>{index < stage ? <Check size={14} strokeWidth={3} /> : index + 1}</span><span className={`text-[10px] font-bold ${index <= stage ? "text-slate-700" : "text-slate-400"}`}>{label}</span></div>)}</div></div>;
 }
 
-export function ClientLogisticsDashboard({ greetingName, destination, balanceUsd, activePackage, recentPackages, availableCount, receptionCount, invoiceCount, unreadNotifications, onNavigate, onOpenTracking }: DashboardProps) {
+export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, estimatedUsd, activePackage, recentPackages, availableCount, receptionCount, invoiceCount, unreadNotifications, onNavigate, onOpenTracking }: DashboardProps) {
   const stage = shipmentState(activePackage);
   return <section className="space-y-5">
-    {unreadNotifications > 0 && <button type="button" onClick={() => onNavigate("notifications")} className="flex w-full items-center gap-3 rounded-3xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-100 transition hover:shadow-md"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-orange-50 text-orange-500"><MessageCircle size={21} /></span><span className="min-w-0 flex-1"><b className="block text-sm text-slate-900">{unreadNotifications} nouveau{unreadNotifications > 1 ? "x" : ""} message{unreadNotifications > 1 ? "s" : ""}</b><small className="mt-0.5 block text-xs text-slate-500">Consultez vos notifications STANDA</small></span><ChevronRight className="text-slate-400" size={19} /></button>}
+    {unreadNotifications > 0 && <button type="button" onClick={() => onNavigate("notifications")} className="flex w-full items-center gap-3 rounded-3xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-100 transition hover:shadow-md"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-orange-50 text-orange-500"><MessageCircle size={21} /></span><span className="min-w-0 flex-1"><b className="block text-sm text-slate-900">{unreadNotifications} nouveau{unreadNotifications > 1 ? "x" : ""} message{unreadNotifications > 1 ? "s" : ""}</b><small className="mt-0.5 block text-xs text-slate-500">Consultez vos notifications</small></span><ChevronRight className="text-slate-400" size={19} /></button>}
 
-    <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-blue-600 to-sky-400 p-5 text-white shadow-md shadow-blue-600/20"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-blue-100">Solde de factures</p><p className="mt-2 text-3xl font-black tracking-tight">{usd(balanceUsd)}</p><p className="mt-1 text-xs text-blue-100">Montant restant à régler</p></div><button type="button" onClick={() => onNavigate("factures")} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-white/15 px-3 text-xs font-bold ring-1 ring-white/20 transition hover:bg-white/25"><BarChart3 size={16} />Voir le statut</button></div><div className="mt-5 rounded-2xl bg-white/10 px-3 py-2 text-xs font-semibold text-blue-50">Bonjour, {greetingName}. Vos informations sont à jour.</div></section>
+    <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-blue-600 to-sky-400 p-5 text-white shadow-md shadow-blue-600/20">
+      <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-blue-100">Solde de factures</p><p className="mt-2 text-3xl font-black tracking-tight">{usd(balanceUsd)}</p><p className="mt-1 text-xs text-blue-100">Montant restant à régler</p></div><button type="button" onClick={() => onNavigate("factures")} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-white/15 px-3 text-xs font-bold ring-1 ring-white/20 transition hover:bg-white/25"><BarChart3 size={16} />Voir le statut</button></div>
+      {estimatedUsd > 0 && <div className="mt-4 flex items-center justify-between rounded-2xl bg-white/10 px-3 py-2 text-xs font-semibold text-blue-50"><span>Estimation des colis en cours</span><span className="text-sm font-extrabold text-white">{usd(estimatedUsd)}</span></div>}
+      <div className="mt-3 rounded-2xl bg-white/10 px-3 py-2 text-xs font-semibold text-blue-50">Bonjour {clientName}, toutes vos informations sont à jour.</div>
+    </section>
 
-    <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-black tracking-tight text-slate-900">Actions rapides</h2><span className="text-xs font-semibold text-slate-400">STANDA COMMERCIAL</span></div><div className="grid grid-cols-4 gap-2.5"><QuickAction icon={Send} label="Expédier" tone="orange" onClick={() => onNavigate("adresse")} /><QuickAction icon={PackageCheck} label="Retrait" tone="blue" onClick={() => onNavigate("disponibles")} /><QuickAction icon={Search} label="Suivre" tone="cyan" onClick={() => activePackage ? onOpenTracking(activePackage) : onNavigate("receptions")} /><QuickAction icon={WalletCards} label="Tarifs" tone="purple" onClick={() => onNavigate("calc")} /></div></section>
+    <section><h2 className="mb-3 text-lg font-black tracking-tight text-slate-900">Vos colis</h2><div className="grid grid-cols-4 gap-2.5">
+      <QuickAction icon={Truck} label="Miami" hint="Colis reçus" tone="orange" onClick={() => onNavigate("receptions")} />
+      <QuickAction icon={PackageCheck} label="Disponible" hint="Prêts à retirer" tone="blue" onClick={() => onNavigate("disponibles")} />
+      <QuickAction icon={Clipboard} label="Historique" hint="Colis livrés" tone="cyan" onClick={() => onNavigate("historique")} />
+      <QuickAction icon={Handshake} label="Retrait" hint="Vos demandes" tone="purple" onClick={() => onNavigate("retraits")} />
+    </div></section>
 
     <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-black tracking-tight text-slate-900">Envoi en cours</h2>{activePackage && <button type="button" onClick={() => onOpenTracking(activePackage)} className="text-xs font-bold text-blue-600">Détails</button>}</div>{activePackage ? <article className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Numéro de suivi</p><p className="mt-1 truncate font-mono text-lg font-black text-slate-900">#{activePackage.tracking_number || activePackage.tracking_manual}</p></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${stage === 2 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>{shipmentLabel(activePackage)}</span></div><ShipmentProgress stage={stage} /><div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-xs"><div><p className="text-slate-400">Destination</p><p className="mt-1 font-bold text-slate-700">{destination || "Votre agence"}</p></div><div className="text-right"><p className="text-slate-400">Mise à jour</p><p className="mt-1 font-bold text-slate-700">{activePackage.received_at ? dateFr(activePackage.received_at) : "En cours"}</p></div></div><button type="button" onClick={() => onOpenTracking(activePackage)} className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 text-sm font-black text-white shadow-sm transition hover:bg-blue-700">Voir le suivi <ChevronRight size={17} /></button></article> : <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-500">Aucun colis actif pour le moment.</div>}</section>
 

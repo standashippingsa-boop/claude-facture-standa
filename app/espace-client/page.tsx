@@ -26,7 +26,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, ChevronDown, ChevronLeft,
   ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
-  MessageCircle, Package, PackageCheck, ReceiptText, RefreshCw, Route, Truck, X
+  MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, ShieldCheck, Store, Truck, X
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";
@@ -34,6 +34,7 @@ import {
   createRetrait, getClientByAuthId, getClientPackagesAndInvoices,
   getClientRetraits, getSmallParcelConfig
 } from "@/lib/db";
+import { Agence, getAgences } from "@/lib/agences";
 import { Client, Invoice, Pkg, Retrait } from "@/lib/types";
 import { DEPOT } from "@/lib/depot";
 import { SUPPORT_PHONE } from "@/lib/branding";
@@ -50,7 +51,7 @@ import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import { openSecureDocument } from "@/lib/secure-document";
 import { ClientLogisticsDashboard, ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
 
-type View = "home" | "disponibles" | "receptions" | "factures" | "historique" | "notifications" | "adresse" | "calc" | "infos";
+type View = "home" | "disponibles" | "receptions" | "factures" | "historique" | "retraits" | "notifications" | "adresse" | "calc" | "infos";
 type NoticeKind = "available" | "invoice" | "pickup" | "shipment";
 type ClientNotice = {
   id: string;
@@ -123,6 +124,7 @@ export default function EspaceClientPage() {
   const [pkgs, setPkgs] = useState<Pkg[]>([]);
   const [invs, setInvs] = useState<Invoice[]>([]);
   const [retraits, setRetraits] = useState<Retrait[]>([]);
+  const [agences, setAgences] = useState<Agence[]>([]);
   const [smallCfg, setSmallCfg] = useState<SmallParcelConfig>(DEFAULT_SMALL_PARCEL);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [authUserMetadata, setAuthUserMetadata] = useState<Record<string, unknown>>({});
@@ -160,12 +162,13 @@ export default function EspaceClientPage() {
     setReadNoticeKeys(mergedReads);
     saveLocalReadKeys(userId, mergedReads);
 
-    const [c, cfg] = await Promise.all([
+    const [c, cfg, ag] = await Promise.all([
       getClientByAuthId(userId),
-      getSmallParcelConfig()
+      getSmallParcelConfig(),
+      getAgences().catch(() => [])
     ]);
 
-    setClient(c); setSmallCfg(cfg);
+    setClient(c); setSmallCfg(cfg); setAgences(ag);
     if (c?.customer_code) {
       const [{ pkgs: p, invs: i }, rs] = await Promise.all([
         getClientPackagesAndInvoices(c.customer_code),
@@ -297,7 +300,8 @@ export default function EspaceClientPage() {
   const estimation = (list: Pkg[]) =>
     estimateForPackages(list.map((p) => Number(p.weight) || 0), client.account_type, client.ville, smallCfg);
 
-  const greetingName = non.split(/\s+/)[0] || client.customer_code;
+  const clientName = non || client.customer_code;
+  const estimatedTransitUsd = estimation(receptionsAll)?.total ?? 0;
   const activePackage = autres.find((p) => ["En transit", "Arrivé en Haïti", "En route vers agence"].includes(p.status))
     ?? autres[0]
     ?? disponibles[0]
@@ -440,6 +444,53 @@ export default function EspaceClientPage() {
     );
   };
 
+  /** Lis demann retrait yo — sèvi ni sou Akèy (rezime), ni sou paj Retrait la. */
+  const RetraitsList = () => (
+    <>
+      {retraits.map((r) => {
+        const open = openRetrait === r.id;
+        return (
+          <div key={r.id} className="card overflow-hidden">
+            <button className="w-full p-4 flex items-center justify-between gap-3 text-left"
+              onClick={() => setOpenRetrait(open ? null : r.id)}>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-ink">
+                  {r.package_count} colis · {Number(r.total_weight).toFixed(2)} lb
+                </p>
+                <p className="text-xs text-mute mt-0.5">{dateFr(r.created_at)}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={`pill ${r.status === "Remis" ? "pill-green" : r.status === "Préparé" ? "pill-blue" : "pill-amber"}`}>
+                  <span className="pill-dot" /> {r.status}
+                </span>
+                <ChevronDown size={15} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+              </div>
+            </button>
+            {open && (
+              <div className="border-t border-line divide-y divide-line">
+                {(r.items ?? []).length === 0
+                  ? <p className="px-4 py-3 text-xs text-mute">Le détail des colis n&apos;est pas disponible.</p>
+                  : (r.items ?? []).map((it, i) => (
+                    <div key={it.id ?? i} className="px-4 py-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-mono text-[12px] font-bold text-ink truncate">{it.tracking_number || "—"}</p>
+                        <span className="text-[12px] font-semibold text-ink shrink-0">
+                          {Number(it.weight) > 0 ? `${Number(it.weight).toFixed(2)} lb` : "—"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-mute truncate mt-0.5">
+                        {it.tracking_manual || "—"} · {it.content || "—"}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+
   const PkgCard = ({ p, check }: { p: Pkg; check?: boolean }) => {
     const facture = Number(p.total_usd) > 0 && isDone(p);
     const special = specialPackageInfo(p);
@@ -500,7 +551,7 @@ export default function EspaceClientPage() {
 
   // ── Bare navigasyon anba ────────────────────────────────────────────────
   const NavBtn = ({ icon: Icon, label, to, href }: {
-    icon: typeof Package; label: string; to?: View; href?: string;
+    icon: typeof FileText; label: string; to?: View; href?: string;
   }) => {
     const active = to && view === to;
     const cls = `client-nav-item flex-1 flex flex-col items-center gap-0.5 py-2 ${active ? "text-navy" : "text-slate-400"}`;
@@ -518,12 +569,13 @@ export default function EspaceClientPage() {
         <div className="client-header-inner mx-auto flex h-[78px] items-center gap-2.5 px-4">
           <div className="relative flex min-w-0 flex-1 items-center gap-3">
             <button aria-label="Mon compte" onClick={() => setMenuOpen((v) => !v)}
-              className="client-header-profile">
-              {(greetingName.slice(0, 2) || "MC").toUpperCase()}
+              className="client-header-profile p-1.5" style={{ background: "#fff" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-full w-full object-contain" />
             </button>
             <div className="min-w-0">
-              <p className="truncate text-sm font-extrabold text-white">Bonjour, {greetingName}</p>
-              <p className="mt-0.5 truncate text-[11px] font-medium tracking-wide text-white/70">{client.customer_code} · STANDA COMMERCIAL</p>
+              <p className="truncate text-sm font-extrabold text-white">{clientName}</p>
+              <p className="mt-0.5 truncate text-[11px] font-medium tracking-wide text-white/70">{client.customer_code}</p>
             </div>
             {menuOpen && (
               <>
@@ -569,9 +621,10 @@ export default function EspaceClientPage() {
         {view === "home" && (
           <>
             <ClientLogisticsDashboard
-              greetingName={greetingName}
+              clientName={clientName}
               destination={client.pickup_location || client.ville?.name || client.city || "Votre agence"}
               balanceUsd={outstandingBalanceUsd}
+              estimatedUsd={estimatedTransitUsd}
               activePackage={activePackage}
               recentPackages={pkgs}
               availableCount={disponibles.length}
@@ -588,50 +641,23 @@ export default function EspaceClientPage() {
 
             {retraits.length > 0 && (
               <section className="space-y-2 pt-1 client-enter client-enter-d4">
-                <h2 className="h-sec">Vos demandes de retrait</h2>
-                {retraits.map((r) => {
-                  const open = openRetrait === r.id;
-                  return (
-                    <div key={r.id} className="card overflow-hidden">
-                      <button className="w-full p-4 flex items-center justify-between gap-3 text-left"
-                        onClick={() => setOpenRetrait(open ? null : r.id)}>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-ink">
-                            {r.package_count} colis · {Number(r.total_weight).toFixed(2)} lb
-                          </p>
-                          <p className="text-xs text-mute mt-0.5">{dateFr(r.created_at)}</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className={`pill ${r.status === "Remis" ? "pill-green" : r.status === "Préparé" ? "pill-blue" : "pill-amber"}`}>
-                            <span className="pill-dot" /> {r.status}
-                          </span>
-                          <ChevronDown size={15} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
-                        </div>
-                      </button>
-                      {open && (
-                        <div className="border-t border-line divide-y divide-line">
-                          {(r.items ?? []).length === 0
-                            ? <p className="px-4 py-3 text-xs text-mute">Le détail des colis n&apos;est pas disponible.</p>
-                            : (r.items ?? []).map((it, i) => (
-                              <div key={it.id ?? i} className="px-4 py-2.5">
-                                <div className="flex items-center justify-between gap-3">
-                                  <p className="font-mono text-[12px] font-bold text-ink truncate">{it.tracking_number || "—"}</p>
-                                  <span className="text-[12px] font-semibold text-ink shrink-0">
-                                    {Number(it.weight) > 0 ? `${Number(it.weight).toFixed(2)} lb` : "—"}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-mute truncate mt-0.5">
-                                  {it.tracking_manual || "—"} · {it.content || "—"}
-                                </p>
-                              </div>
-                            ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                <div className="flex items-center justify-between">
+                  <h2 className="h-sec">Vos demandes de retrait</h2>
+                  <button onClick={() => setView("retraits")} className="text-xs font-bold text-blue-600">Voir tout</button>
+                </div>
+                <RetraitsList />
               </section>
             )}
+          </>
+        )}
+
+        {/* ═══════════ RETRAIT ═══════════ */}
+        {view === "retraits" && (
+          <>
+            <SubHeader title="Retrait" sub="Vos demandes de retrait en agence" />
+            {retraits.length === 0
+              ? <Empty t="Aucune demande de retrait pour le moment. Sélectionnez vos colis disponibles pour en créer une." />
+              : <div className="space-y-2"><RetraitsList /></div>}
           </>
         )}
 
@@ -665,7 +691,7 @@ export default function EspaceClientPage() {
         {/* ═══════════ RÉCEPTIONS ═══════════ */}
         {view === "receptions" && (
           <>
-            <SubHeader title="Réceptions" sub="Colis reçus · en attente de facturation" />
+            <SubHeader title="Miami" sub="Colis reçus à notre entrepôt · en attente de facturation" />
             {receptionsAll.length === 0 ? <Empty t="Aucun colis reçu pour le moment." /> : (
               <>
                 <Totaux list={receptionsAll} />
@@ -783,6 +809,22 @@ export default function EspaceClientPage() {
               </ol>
             </div>
 
+            {/* Délai */}
+            <div className="card p-5">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+                <Clock size={15} /> Délai de livraison
+              </h2>
+              <p className="text-[12px] text-mute mt-2 leading-relaxed">
+                Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement <b>entre 3 et 7 jours ouvrables</b> pour qu&apos;il arrive à votre agence en Haïti.
+              </p>
+              <p className="text-[12px] text-mute mt-2 leading-relaxed">
+                Un <b>jour ouvrable</b> va du lundi au vendredi — les samedis et dimanches ne comptent pas dans ce délai. Un colis reçu un vendredi peut donc arriver le mardi ou mercredi suivant sans retard de notre part.
+              </p>
+              <p className="text-[11px] text-mute mt-2 leading-relaxed">
+                Ce délai peut varier selon la douane et le volume de colis. Suivez chaque étape directement dans l&apos;application, sans avoir à nous contacter.
+              </p>
+            </div>
+
             {/* Adrès la — jan pou w ekri l */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
@@ -810,6 +852,29 @@ export default function EspaceClientPage() {
               </button>
             </div>
 
+            {/* Nos agences */}
+            <div className="card p-5">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+                <Store size={15} /> Nos agences
+              </h2>
+              <p className="text-[12px] text-mute mt-2 leading-relaxed">
+                Retirez votre colis dans le point de retrait le plus proche de vous.
+              </p>
+              {agences.length === 0 ? (
+                <p className="text-[12px] text-mute mt-3">Contactez-nous sur WhatsApp pour connaître l&apos;agence la plus proche de vous.</p>
+              ) : (
+                <div className="mt-3 divide-y divide-line">
+                  {agences.map((a) => (
+                    <div key={a.id ?? a.nom} className="py-2.5">
+                      <p className="text-[13px] font-bold text-ink">{a.nom}</p>
+                      <p className="text-[12px] text-mute mt-0.5">{a.adresse}</p>
+                      {a.horaire_1 && <p className="text-[11px] text-mute mt-0.5">{a.horaire_1}{a.horaire_2 ? ` · ${a.horaire_2}` : ""}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Tarif */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
@@ -830,6 +895,26 @@ export default function EspaceClientPage() {
               <button onClick={() => setView("calc")} className="btn btn-ghost border border-line w-full justify-center mt-3 !text-xs">
                 <Calculator size={14} /> Ouvrir le calculateur
               </button>
+            </div>
+
+            {/* Nos principes */}
+            <div className="card p-5">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+                <ShieldCheck size={15} /> Nos principes
+              </h2>
+              <ul className="mt-3 space-y-2 text-[12px] text-mute leading-relaxed">
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span><b>Transparence</b> — le prix final correspond toujours au poids réel pesé à l&apos;entrepôt, jamais à une estimation imposée.</span></li>
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span><b>Sécurité</b> — chaque colis est suivi de sa réception à Miami jusqu&apos;à sa remise à votre agence.</span></li>
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span><b>Rapidité</b> — vos colis sont acheminés régulièrement vers Haïti, sans attendre un plein chargement.</span></li>
+                <li className="flex gap-2"><span className="text-navy">•</span>
+                  <span><b>Proximité</b> — une équipe joignable par téléphone et WhatsApp pour répondre à vos questions.</span></li>
+              </ul>
+              <a href={`tel:${WA_NUM}`} className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-line px-3 py-2.5 text-[13px] font-bold text-navy">
+                <Phone size={15} /> {SUPPORT_PHONE}
+              </a>
             </div>
 
             {/* Atik entèdi */}
@@ -1011,9 +1096,10 @@ export default function EspaceClientPage() {
           <NavBtn icon={MapPin} label="Adresse" to="adresse" />
           <button onClick={() => setView("home")} aria-label="Accueil"
             className="flex-1 flex flex-col items-center -mt-5">
-            <span className={`client-bottom-home w-14 h-14 rounded-full grid place-items-center
-              ${view === "home" ? "bg-navy text-white" : "bg-navy-light text-white"}`}>
-              <Package size={24} />
+            <span className={`client-bottom-home w-14 h-14 rounded-full grid place-items-center p-2
+              ${view === "home" ? "ring-2 ring-navy" : ""}`} style={{ background: "#fff" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="Accueil" className="h-full w-full object-contain" />
             </span>
             <span className="text-[10px] font-semibold text-navy mt-0.5">Accueil</span>
           </button>
