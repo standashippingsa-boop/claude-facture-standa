@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calculator, ClipboardList, FileText, FileSpreadsheet, Archive, Camera, CheckCircle2, Lock, Package, PackageCheck, Puzzle, Receipt, Pencil, RotateCcw, MessageCircle, Trash2 } from "lucide-react";
+import { AlertTriangle, Calculator, ClipboardList, FileText, FileSpreadsheet, Archive, Camera, CheckCircle2, Lock, Package, PackageCheck, Puzzle, Receipt, Pencil, RotateCcw, MessageCircle, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import WhatsAppQueue from "@/components/WhatsAppQueue";
@@ -12,7 +12,7 @@ import { usePackageSelection } from "@/lib/selection";
 import {
   ClientTarifInfo, archivePackage, unarchivePackage, getClient, getClientTarifMap,
   getConduces, getPackages, getPackagesPage, getAllPackagesMatching, detachPackagesFromInvoice, hardDeletePackage, getSettings, getUsdRate,
-  createBonRemiseRecord, deleteBonRemiseRecord, saveBonRemisePdf, saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice, notifyEmail
+  createBonRemiseRecord, deleteBonRemiseRecord, markPackageSpecial, saveBonRemisePdf, saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice, notifyEmail
 } from "@/lib/db";
 import { computePrice, round2 } from "@/lib/pricing";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
@@ -21,7 +21,7 @@ import { dateFr, htg, parseMcpackDate, usd } from "@/lib/utils";
 import { createBonRemiseNumber, generateBonRemise } from "@/lib/bonremise";
 import { exportPackagesPdf } from "@/lib/listpdf";
 import { exportPackagesExcel } from "@/lib/listexcel";
-import { specialPackageInfo } from "@/lib/special-package";
+import { MANUAL_SPECIAL_PACKAGE_KINDS, specialPackageInfo, type ManualSpecialPackageKind } from "@/lib/special-package";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import { useRole } from "@/lib/authx";
 import { useRememberListContext, withReturnTo } from "@/lib/list-context";
@@ -74,6 +74,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [showWaQueue, setShowWaQueue] = useState(false);
+  const [specialEditor, setSpecialEditor] = useState<Pkg | null>(null);
   const { role, staff } = useRole();
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
   const [showArchived, setShowArchived] = useState(false);
@@ -463,6 +464,19 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   /** Ouvri fenèt fakti pataje a (menm workflow ak tout lòt paj). */
   const [invClient, setInvClient] = useState<Client | null>(null);
 
+  const saveManualSpecial = async (kind: ManualSpecialPackageKind, note: string) => {
+    if (!specialEditor) return;
+    setBusy(true);
+    try {
+      const metadata = await markPackageSpecial(specialEditor.id, kind, note, staffName);
+      setPkgs((previous) => previous.map((pkg) => pkg.id === specialEditor.id ? { ...pkg, mcpack_data: metadata } : pkg));
+      setNotice(`Colis ${specialEditor.tracking_number} marqué spécial — ${kind}. Le prix sera demandé lors de la facturation.`);
+      setSpecialEditor(null);
+    } catch (error: any) {
+      setNotice("Erreur : " + (error?.message ?? "impossible de marquer ce colis."));
+    } finally { setBusy(false); }
+  };
+
   const ouvriFacture = async () => {
     if (!selected.length) return;
     const code = selected[0].customer_code;
@@ -634,7 +648,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
                   onMouseEnter={(e) => showTip(p, e)}
                   onMouseMove={(e) => showTip(p, e)}
                   onMouseLeave={() => setHover(null)}>
-                  {p.tracking_number}
+                  {special.isSpecial && <span className="mr-1 font-black text-amber-700" title="Colis spécial">*</span>}{p.tracking_number}
                 </td>
                 <td className="tdc">
                   {!p.tracking_manual ? (
@@ -673,7 +687,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
                   <div className="min-w-0 space-y-0.5">
                     <div className="flex items-center gap-1 min-w-0">
                       {special.isSpecial && (
-                        <span className="shrink-0 rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[9px] font-bold" title="Colis spécial signalé dans le fichier MCPACK">* Spécial</span>
+                        <span className="shrink-0 rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[9px] font-bold" title={special.source === "manual" ? "Colis spécial marqué manuellement" : "Colis spécial signalé dans le fichier MCPACK"}>* Spécial</span>
                       )}
                       <span className="truncate">{p.content}</span>
                     </div>
@@ -717,6 +731,13 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
                   </div>
                 </td>
                 <td className="tdc whitespace-nowrap">
+                  {!p.invoice_id && (
+                    <button className={`mr-1 ${special.isSpecial ? "text-amber-600 hover:text-amber-800" : "text-slate-400 hover:text-amber-700"}`}
+                      title={special.isSpecial ? "Modifier le marquage spécial" : "Marquer comme colis spécial"}
+                      onClick={() => setSpecialEditor(p)}>
+                      <AlertTriangle size={14} />
+                    </button>
+                  )}
                   {p.status !== "Disponible" && p.status !== "Facturé" && (
                     <button className="text-emerald-600 hover:text-emerald-800 mr-1"
                       title="Marquer Disponible (san email — sèvi ak seleksyon an pou voye email)"
@@ -762,6 +783,12 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
         <div className="flex gap-2 flex-wrap items-center md:ml-auto">
           {selectedAll.length > 0 && (
             <>
+              {selectedAll.length === 1 && !selectedAll[0].invoice_id && (
+                <button className="btn btn-ghost border border-amber-200 !text-amber-800 hover:!bg-amber-50"
+                  onClick={() => setSpecialEditor(selectedAll[0])} disabled={busy}>
+                  <AlertTriangle size={15} /> {specialPackageInfo(selectedAll[0]).isSpecial ? "Modifier spécial" : "Marquer spécial"}
+                </button>
+              )}
               <select className="input !w-44 !py-2" value={bulkStatus}
                 onChange={(e) => setBulkStatus(e.target.value)}>
                 <option value="">— Statut... —</option>
@@ -820,6 +847,15 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
         />
       )}
 
+      {specialEditor && (
+        <SpecialPackageEditor
+          pkg={specialEditor}
+          busy={busy}
+          onClose={() => !busy && setSpecialEditor(null)}
+          onSave={saveManualSpecial}
+        />
+      )}
+
       {/* ===== Tooltip modèn koli (pwen #2) ===== */}
       {hover && (() => {
         const p = hover.p;
@@ -870,6 +906,86 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
       })()}
 
       {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
+    </div>
+  );
+}
+
+/**
+ * Fenèt administratif pou yon signalement fait par l'équipe STANDA.
+ * Li rete volontairement au niveau du colis : yon tarif manuel pa kapab
+ * parèt sou yon lòt tracking lè admin an fin make li.
+ */
+function SpecialPackageEditor({
+  pkg, busy, onClose, onSave
+}: {
+  pkg: Pkg;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (kind: ManualSpecialPackageKind, note: string) => Promise<void>;
+}) {
+  const existing = specialPackageInfo(pkg);
+  const initialKind = MANUAL_SPECIAL_PACKAGE_KINDS.includes(existing.kind as ManualSpecialPackageKind)
+    ? existing.kind as ManualSpecialPackageKind
+    : "Autre";
+  const manualPrefix = `${initialKind} —`;
+  const initialNote = existing.source === "manual" && existing.reason.startsWith(manualPrefix)
+    ? existing.reason.slice(manualPrefix.length).trim()
+    : existing.source === "manual" ? existing.reason : "";
+  const [kind, setKind] = useState<ManualSpecialPackageKind>(initialKind);
+  const [note, setNote] = useState(initialNote);
+  const [formError, setFormError] = useState("");
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const cleanNote = note.trim();
+    if (kind === "Autre" && !cleanNote) {
+      setFormError("Précisez ce qui rend ce colis spécial.");
+      return;
+    }
+    setFormError("");
+    await onSave(kind, cleanNote);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <form className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" onSubmit={submit} onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start gap-3">
+          <span className="rounded-xl bg-amber-100 p-2 text-amber-800"><AlertTriangle size={19} /></span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-extrabold text-navy">Marquer comme colis spécial</h2>
+            <p className="mt-0.5 break-all font-mono text-xs font-bold text-slate-600">{pkg.tracking_number}</p>
+          </div>
+          <button type="button" className="text-sm font-semibold text-slate-500 hover:text-slate-800" onClick={onClose} disabled={busy}>Fermer</button>
+        </div>
+
+        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
+          Un <b>*</b> apparaîtra devant ce colis. Lors de la facturation, le système demandera un prix manuel et n&apos;appliquera jamais le tarif au poids.
+        </p>
+
+        <label className="mt-4 block text-sm font-bold text-navy">
+          Type de colis
+          <select className="input mt-1.5 w-full" value={kind} onChange={(event) => setKind(event.target.value as ManualSpecialPackageKind)} disabled={busy}>
+            {MANUAL_SPECIAL_PACKAGE_KINDS.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+
+        <label className="mt-3 block text-sm font-bold text-navy">
+          Note explicative {kind === "Autre" && <span className="text-red-600">(obligatoire)</span>}
+          <textarea className="input mt-1.5 min-h-24 w-full resize-y" value={note}
+            placeholder={kind === "Téléphone" ? "Ex. iPhone 15 Pro, 256 Go" : "Ex. description ou raison du tarif spécial"}
+            onChange={(event) => setNote(event.target.value)} disabled={busy} required={kind === "Autre"} />
+        </label>
+        <p className="mt-1 text-[11px] text-slate-500">Cette note sera imprimée sur la ligne de facture et conservée dans l&apos;historique.</p>
+
+        {formError && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{formError}</p>}
+
+        <div className="mt-5 flex gap-3">
+          <button type="submit" className="btn flex-1 !bg-amber-600 hover:!bg-amber-700" disabled={busy}>
+            {busy ? "Enregistrement..." : "Enregistrer le colis spécial"}
+          </button>
+          <button type="button" className="btn btn-ghost border border-line" onClick={onClose} disabled={busy}>Annuler</button>
+        </div>
+      </form>
     </div>
   );
 }

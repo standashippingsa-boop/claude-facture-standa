@@ -83,6 +83,16 @@ export interface InvoiceLine {
   amount: number;                            // montan liy lan (USD)
 }
 
+/**
+ * Le PDF et l'historique gardent la note d'un colis spécial avec sa ligne de
+ * facture. Ainsi, une tarification manuelle reste explicable après émission.
+ */
+export function invoiceLineContent(line: InvoiceLine): string {
+  const content = String(line.pkg.content ?? "").trim();
+  if (!line.isFixed || !line.fixedLabel.startsWith("Colis spécial")) return content;
+  return [content, line.fixedLabel].filter(Boolean).join(" — ");
+}
+
 export interface InvoiceComputation {
   ok: boolean;
   errors: string[];                          // rezon si validasyon echwe
