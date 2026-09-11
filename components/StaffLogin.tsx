@@ -10,7 +10,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User } from "lucide-react";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, setAuthRealm, supabase } from "@/lib/supabase";
 import { getMyStaff, staffEmail } from "@/lib/authx";
 import type { StaffRole } from "@/lib/types";
 import PasswordInput from "@/components/PasswordInput";
@@ -45,6 +45,9 @@ export default function StaffLogin({
       setErr("Le service de connexion n'est pas configuré sur cet ordinateur. Ajoutez les clés publiques Supabase dans le fichier .env.local, puis redémarrez l'application.");
       return;
     }
+    // Chwazi espas sa a anvan Supabase ekri sesyon an. Sa pèmèt chak pòt
+    // (admin, employé, point de retrait) kenbe pwòp sesyon pa li.
+    setAuthRealm(requiredRole);
     setBusy(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email: staffEmail(u), password: p });

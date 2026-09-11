@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, MapPin, PackageCheck, ShieldCheck, User } from "lucide-react";
 import { clientSignInErrorMessage, signInClientWithCode } from "@/lib/authx";
+import { setAuthRealm } from "@/lib/supabase";
 import { normalizeMcCode } from "@/lib/utils";
 import { SUPPORT_PHONE } from "@/lib/branding";
 import PasswordInput from "@/components/PasswordInput";
@@ -39,6 +40,7 @@ function LoginInner() {
     if (!raw) { setErr("Saisissez votre code MC (exemple : MC-36191)."); return; }
     if (!pass) { setErr("Saisissez votre mot de passe."); return; }
 
+    setAuthRealm("client");
     setBusy(true);
     try {
       const result = await signInClientWithCode(raw, pass);

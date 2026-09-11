@@ -22,6 +22,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, Lock, MessageCircle, User } from "lucide-react";
 import { clientSignInErrorMessage, signInClientWithCode } from "@/lib/authx";
+import { setAuthRealm } from "@/lib/supabase";
 import { normalizeMcCode } from "@/lib/utils";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 import AuthBackdrop from "@/components/AuthBackdrop";
@@ -48,6 +49,7 @@ export default function AppConnexionPage() {
     if (!raw) { setErr("Saisissez votre code MC (exemple : MC-36191)."); return; }
     if (!pass) { setErr("Saisissez votre mot de passe."); return; }
 
+    setAuthRealm("client");
     setBusy(true);
     try {
       const result = await signInClientWithCode(raw, pass);
