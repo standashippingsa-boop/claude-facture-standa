@@ -301,6 +301,79 @@ export async function getPackagesByConduceIds(conduceIds: string[]): Promise<Pkg
   return out;
 }
 
+/** Rezilta aksyon "Rendre disponible" sou tout Conduces yon menm classeur. */
+export interface ConduceAvailabilityResult {
+  cityName: string;
+  available: number;
+  priced: number;
+  alreadyAvailable: number;
+  skippedLocked: number;
+  customersInCity: number;
+}
+
+/**
+ * Rann colis yon jounen disponib nan YON vil presi.
+ *
+ * Yon classeur ka genyen colis pou plizyè vil. Nou pa janm chanje vil kliyan
+ * an isit la: nou pran sèlman kliyan ki DEJA asosye ak vil admin an chwazi a.
+ * Konsa ajan point de retrait la resevwa egzakteman menm colis yo, e tarif ki
+ * sove sou colis la sèvi ak menm vil la nan Admin, Employé ak kont kliyan an.
+ */
+export async function makeConducesAvailableForVille(
+  conduceIds: string[], villeId: string, who = ""
+): Promise<ConduceAvailabilityResult> {
+  const ids = Array.from(new Set(conduceIds.filter(Boolean)));
+  const zoneId = String(villeId ?? "").trim();
+  if (!ids.length) throw new Error("Aucune Conduce dans ce classeur.");
+  if (!zoneId) throw new Error("Choisissez une ville.");
+
+  const [{ data: ville, error: villeError }, { data: clientRows, error: clientError }, rate] = await Promise.all([
+    supabase.from("villes").select("id,name,price_personal,price_business,tax_personal,tax_business,fixed_fee,active").eq("id", zoneId).maybeSingle(),
+    supabase.from("clients").select("customer_code,account_type").eq("ville_id", zoneId).neq("customer_code", ""),
+    getUsdRate(),
+  ]);
+  if (villeError) throw villeError;
+  if (clientError) throw clientError;
+  if (!ville || !ville.active) throw new Error("Cette ville est introuvable ou désactivée dans Paramètres.");
+
+  const accountByCode = new Map<string, AccountType>();
+  for (const client of (clientRows ?? []) as Array<{ customer_code?: string; account_type?: AccountType }>) {
+    const code = String(client.customer_code ?? "").trim();
+    if (code) accountByCode.set(code, client.account_type ?? "Personnel");
+  }
+  const all = await getPackagesByConduceIds(ids);
+  const zonePackages = all.filter((pkg) => accountByCode.has(pkg.customer_code));
+  let available = 0, priced = 0, alreadyAvailable = 0, skippedLocked = 0;
+
+  for (const pkg of zonePackages) {
+    // Yon koli deja fakti/livre pa dwe janm retounen nan workflow disponible.
+    if (pkg.status === "Facturé" || pkg.status === "Livré" || pkg.invoice_id) {
+      skippedLocked++;
+      continue;
+    }
+    const price = computePrice(Number(pkg.weight) || 0, accountByCode.get(pkg.customer_code)!, ville as Ville);
+    if (!price) continue;
+    const priceUsd = price.price;
+    const patch = {
+      status: "Disponible",
+      price_usd: priceUsd, tax_usd: 0, total_usd: priceUsd,
+      price_htg: round2(priceUsd * rate), tax_htg: 0, total_htg: round2(priceUsd * rate),
+    };
+    const { error } = await supabase.from("packages").update(patch).eq("id", pkg.id);
+    if (error) throw error;
+    if (pkg.status === "Disponible") alreadyAvailable++;
+    else available++;
+    priced++;
+  }
+
+  await logAction(
+    "Colis rendus disponibles par ville",
+    `${ids.length} Conduce(s) → ${ville.name}: ${available} rendus disponibles, ${priced} tarifés, ${alreadyAvailable} déjà disponibles, ${skippedLocked} facturé(s)/livré(s) conservé(s) — par ${who || "système"}`,
+    "", ""
+  );
+  return { cityName: ville.name, available, priced, alreadyAvailable, skippedLocked, customersInCity: accountByCode.size };
+}
+
 // ================= BONS DE REMISE =================
 // Yon Conduce ka antre nan yon sèl Bon de remise. Lyen an nan bazdone a se
 // gad prensipal la: li anpeche de navigatè/oswa de anplwaye kreye doublon.

@@ -25,7 +25,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft, Boxes, CheckCircle2, ClipboardList, FileDown, Folder, FolderOpen, Trash2,
-  TrendingUp, Plus, Sparkles
+  TrendingUp, Plus, Sparkles, MapPin
 } from "lucide-react";
 import Loader from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
@@ -33,10 +33,10 @@ import FilterConsole from "@/components/FilterConsole";
 import ConducePaymentControl from "@/components/ConducePaymentControl";
 import McpackInvoiceWorkspace from "@/components/McpackInvoiceWorkspace";
 import { useRole } from "@/lib/authx";
-import { createPendingConduces, deleteConduce, deriveConduceStatus, getBonRemiseConduceIds, getConduces, getConduceStats, getMcpackInvoices, setConduceStatus } from "@/lib/db";
+import { createPendingConduces, deleteConduce, deriveConduceStatus, getBonRemiseConduceIds, getConduces, getConduceStats, getMcpackInvoices, getVilles, makeConducesAvailableForVille, setConduceStatus } from "@/lib/db";
 import { PROFIT_PER_LB, estimateProfit } from "@/lib/pricing";
 import { usd } from "@/lib/utils";
-import type { Conduce, McpackInvoiceStatus } from "@/lib/types";
+import type { Conduce, McpackInvoiceStatus, Ville } from "@/lib/types";
 import { useRememberListContext, withReturnTo } from "@/lib/list-context";
 
 interface Row extends Conduce {
@@ -65,6 +65,7 @@ export default function ConducesPage() {
   const pathname = usePathname() ?? "/conduces";
   const { staff } = useRole();
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [villes, setVilles] = useState<Ville[]>([]);
   const [search, setSearch] = useState("");
   const [officeF, setOfficeF] = useState("");
   const [fromF, setFromF] = useState("");
@@ -82,6 +83,9 @@ export default function ConducesPage() {
   const [adding, setAdding] = useState(false);
   const [newConduceNumber, setNewConduceNumber] = useState("");
   const [creating, setCreating] = useState(false);
+  const [availabilityFolder, setAvailabilityFolder] = useState<Classeur | null>(null);
+  const [availabilityVilleId, setAvailabilityVilleId] = useState("");
+  const [availabilityBusy, setAvailabilityBusy] = useState(false);
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
   useRememberListContext("conduces", {
     search, officeF, fromF, toF, paymentF, mcpackF, bonF, specialF, tab, openDay,
@@ -97,7 +101,8 @@ export default function ConducesPage() {
 
   const load = async () => {
     try {
-      const [list, mcpackInvoices] = await Promise.all([getConduces(), getMcpackInvoices()]);
+      const [list, mcpackInvoices, cityRows] = await Promise.all([getConduces(), getMcpackInvoices(), getVilles()]);
+      setVilles(cityRows.filter((city) => city.active));
       let recordedBonRemiseConduces = new Set<string>();
       try {
         recordedBonRemiseConduces = await getBonRemiseConduceIds();
@@ -260,6 +265,31 @@ export default function ConducesPage() {
     } finally { setCreating(false); }
   };
 
+  /** Ouvre le choix de ville pour un classeur; aucune ville n'est présélectionnée. */
+  const openAvailability = (cl: Classeur) => {
+    setAvailabilityFolder(cl);
+    setAvailabilityVilleId("");
+  };
+  const makeAvailable = async () => {
+    if (!availabilityFolder || !availabilityVilleId) return;
+    setAvailabilityBusy(true);
+    try {
+      const result = await makeConducesAvailableForVille(
+        availabilityFolder.rows.map((row) => row.id), availabilityVilleId, staffName
+      );
+      setNotice(
+        `${result.available} colis de ${result.cityName} rendus disponibles et ${result.priced} tarifés.` +
+        (result.alreadyAvailable ? ` ${result.alreadyAvailable} déjà disponible(s) ont été recalculé(s).` : "") +
+        (result.skippedLocked ? ` ${result.skippedLocked} colis facturé(s) ou livré(s) n'ont pas été touché(s).` : "") +
+        (!result.customersInCity ? ` Aucun client n'est associé à ${result.cityName}.` : "")
+      );
+      setAvailabilityFolder(null);
+      await load();
+    } catch (e: unknown) {
+      setNotice((e as Error)?.message ?? "Impossible de rendre ces colis disponibles.");
+    } finally { setAvailabilityBusy(false); }
+  };
+
   if (rows === null) return <Loader inline />;
 
   return (
@@ -374,7 +404,7 @@ export default function ConducesPage() {
           <JourOuvert cl={jour} sel={sel} onSel={toggleSel}
             onOpenConduce={(id) => router.push(withReturnTo(`/conduces/${id}`, pathname))}
             onDelete={supprimer} onDeleteDay={() => supprimerJour(jour)} onPaymentChanged={onPaymentChanged}
-            bonRemiseRegistryReady={bonRemiseRegistryReady} />
+            bonRemiseRegistryReady={bonRemiseRegistryReady} onMakeAvailable={() => openAvailability(jour)} />
         </>
       ) : classeurs.length === 0 ? (
         <div className="card p-10 sm:p-12 text-center">
@@ -402,6 +432,37 @@ export default function ConducesPage() {
         <div className="card px-4 py-3 flex items-start gap-2">
           <p className="text-sm text-navy flex-1">{notice}</p>
           <button onClick={() => setNotice(null)} className="text-slate-400 hover:text-ink shrink-0">✕</button>
+        </div>
+      )}
+
+      {availabilityFolder && (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-navy/35 p-4" role="dialog" aria-modal="true" aria-label="Rendre les colis disponibles">
+          <div className="card w-full max-w-md p-5 shadow-lift">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-navy"><MapPin size={20} /></span>
+              <div className="min-w-0">
+                <h2 className="text-base font-extrabold text-navy">Rendre disponible par ville</h2>
+                <p className="mt-1 text-xs text-mute">Classeur du {availabilityFolder.label} · {availabilityFolder.count} colis</p>
+              </div>
+            </div>
+            <p className="mt-4 text-sm text-ink">
+              Choisissez le point de retrait. Seuls les colis des clients déjà associés à cette ville passeront à <b>Disponible</b> et recevront le tarif de cette ville.
+            </p>
+            <label className="mt-4 block text-xs font-bold uppercase tracking-wide text-mute">
+              Ville de destination
+              <select className="input mt-1" value={availabilityVilleId} onChange={(e) => setAvailabilityVilleId(e.target.value)} disabled={availabilityBusy}>
+                <option value="">— Choisir une ville —</option>
+                {villes.map((city) => <option key={city.id} value={city.id}>{city.name}</option>)}
+              </select>
+            </label>
+            {!villes.length && <p className="mt-2 text-xs text-amber-700">Aucune ville active dans Paramètres.</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button className="btn btn-ghost" onClick={() => setAvailabilityFolder(null)} disabled={availabilityBusy}>Annuler</button>
+              <button className="btn btn-brand" onClick={makeAvailable} disabled={availabilityBusy || !availabilityVilleId}>
+                <CheckCircle2 size={15} /> {availabilityBusy ? "Application…" : "Rendre disponible"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -479,10 +540,10 @@ function ClasseurTile({ cl, onOpen }: { cl: Classeur; onOpen: () => void }) {
 }
 
 /** JOUNEN LOUVRI — conduces jounen an, youn anba lòt, ak rezime jounen an. */
-function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPaymentChanged, bonRemiseRegistryReady }: {
+function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPaymentChanged, bonRemiseRegistryReady, onMakeAvailable }: {
   cl: Classeur; sel: Set<string>; onSel: (id: string) => void; onOpenConduce: (id: string) => void;
   onDelete: (r: Row) => void; onDeleteDay: () => void; onPaymentChanged: (next: Conduce) => void;
-  bonRemiseRegistryReady: boolean;
+  bonRemiseRegistryReady: boolean; onMakeAvailable: () => void;
 }) {
   const pct = cl.count ? Math.round((cl.facturedCount / cl.count) * 100) : 0;
 
@@ -510,10 +571,16 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPa
               <span className="text-xs font-bold text-navy tabular-nums shrink-0">{pct}%</span>
             </div>
           </div>
-          <button onClick={onDeleteDay} title="Supprimer toutes les conduces de cette journée"
-            className="shrink-0 text-slate-300 hover:text-red-600 p-1.5">
-            <Trash2 size={16} />
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <button onClick={onMakeAvailable} disabled={!cl.count} title="Rendre les colis de cette journée disponibles dans une ville"
+              className="btn btn-brand !px-2.5 !py-1.5 text-xs disabled:opacity-40">
+              <MapPin size={14} /> Disponible
+            </button>
+            <button onClick={onDeleteDay} title="Supprimer toutes les conduces de cette journée"
+              className="text-slate-300 hover:text-red-600 p-1.5">
+              <Trash2 size={16} />
+            </button>
+          </div>
         </div>
       </div>
 
