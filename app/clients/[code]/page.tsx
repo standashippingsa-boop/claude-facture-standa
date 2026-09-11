@@ -20,6 +20,7 @@ import { Client, INTERNAL_STATUSES, Invoice, Pkg } from "@/lib/types";
 import { dateFr, parseMcpackDate, usd } from "@/lib/utils";
 import { returnToOr, useRememberListContext } from "@/lib/list-context";
 import { openSecureDocument } from "@/lib/secure-document";
+import { specialPackageInfo } from "@/lib/special-package";
 
 type SelPkg = Pkg & { selected?: boolean };
 
@@ -98,7 +99,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     const q = search.trim().toLowerCase();
     if (statusF && p.status !== statusF) return false;
     if (dateF && !String(p.created_date ?? "").includes(dateF)) return false;
-    const special = /^\*\s*COLIS\s+SP[ÉE]CIAL/i.test(String(p.content ?? ""));
+    const special = specialPackageInfo(p).isSpecial;
     if (specialF === "special" && !special) return false;
     if (specialF === "regular" && special) return false;
     if (minWeight && (Number(p.weight) || 0) < Number(minWeight)) return false;
@@ -328,14 +329,24 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           <tbody>
             {visible.length === 0 ? (
               <tr><td colSpan={9} className="text-center py-8 text-slate-400">Pa gen koli aktif.</td></tr>
-            ) : visible.map((p, i) => (
+            ) : visible.map((p, i) => {
+              const special = specialPackageInfo(p);
+              return (
               <tr key={p.id} className={`${i % 2 ? "bg-mist" : ""} ${sel.has(p.id) ? "!bg-blue-50" : ""}`}>
                 <td className="tdc"><input type="checkbox" checked={sel.has(p.id)} onChange={() => toggle(p.id)} /></td>
                 <td className="tdc font-mono text-[11px]">{p.tracking_number}</td>
                 <td className="tdc font-mono text-[11px]">{p.tracking_manual || <span className="text-slate-300">—</span>}</td>
                 <td className="tdc whitespace-nowrap">{p.created_date}</td>
                 <td className="tdc text-right">{p.weight}</td>
-                <td className="tdc max-w-[110px] truncate" title={p.content}>{p.content}</td>
+                <td className="tdc max-w-[180px]" title={special.isSpecial ? `${p.content}\nRaison : ${special.reason}` : p.content}>
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-center gap-1">
+                      {special.isSpecial && <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">* Spécial</span>}
+                      <span className="truncate">{p.content}</span>
+                    </div>
+                    {special.isSpecial && <p className="truncate text-[10px] text-amber-800" title={special.reason}>Raison : {special.reason}</p>}
+                  </div>
+                </td>
                 <td className="tdc text-right">{usd(p.price_usd)}</td>
                 <td className="tdc text-right font-semibold">{usd(p.total_usd)}</td>
                 <td className="tdc"><StatusBadge status={p.status} /></td>
@@ -347,7 +358,8 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
                   )}
                 </td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </section>

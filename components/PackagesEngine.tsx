@@ -21,6 +21,7 @@ import { dateFr, htg, parseMcpackDate, usd } from "@/lib/utils";
 import { createBonRemiseNumber, generateBonRemise } from "@/lib/bonremise";
 import { exportPackagesPdf } from "@/lib/listpdf";
 import { exportPackagesExcel } from "@/lib/listexcel";
+import { specialPackageInfo } from "@/lib/special-package";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import { useRole } from "@/lib/authx";
 import { useRememberListContext, withReturnTo } from "@/lib/list-context";
@@ -47,11 +48,6 @@ function pkgSources(p: Pkg): SrcKey[] {
     else if (m.includes("extension")) out.push("extension");
   }
   return out;
-}
-
-/** Marque visible des colis notés `*` dans l'export MCPACK d'une Conduce. */
-function isSpecialConducePackage(p: Pkg): boolean {
-  return /^\*\s*COLIS\s+SP[ÉE]CIAL/i.test(String(p.content ?? ""));
 }
 
 export default function PackagesEngine({ conduceId, hideHeader = false }: { conduceId?: string; hideHeader?: boolean } = {}) {
@@ -276,7 +272,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
         if (invoiceF === "not_invoiced" && p.invoice_id) return false;
         if (verifiedF === "verified" && !p.verified) return false;
         if (verifiedF === "not_verified" && p.verified) return false;
-        const special = isSpecialConducePackage(p);
+        const special = specialPackageInfo(p).isSpecial;
         if (specialF === "special" && !special) return false;
         if (specialF === "regular" && special) return false;
         if (minWeight && (Number(p.weight) || 0) < Number(minWeight)) return false;
@@ -611,7 +607,9 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
               <tr><td colSpan={hideHeader ? 13 : 14} className="text-center py-10 text-mute">
                 Aucun colis. Utilisez <a href="/sync" className="text-navy underline font-semibold">Synchronisation MCPACK</a>.
               </td></tr>
-            ) : pageRows.map((p, i) => (
+            ) : pageRows.map((p, i) => {
+              const special = specialPackageInfo(p);
+              return (
               <tr key={p.id} className={`${p.received_at ? "!bg-emerald-50" : i % 2 ? "bg-mist" : ""} ${sel.has(p.id) ? "!bg-blue-50" : ""}`}
                 title={p.received_at ? `Reçu chez MCPACK — ${p.received_method}` : "En attente de réception"}>
                 <td className="tdc">
@@ -671,12 +669,15 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
                   )}
                 </td>
                 <td className="tdc text-right">{p.weight}</td>
-                <td className="tdc max-w-[120px]" title={p.content}>
-                  <div className="flex items-center gap-1 min-w-0">
-                    {isSpecialConducePackage(p) && (
-                      <span className="shrink-0 rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[9px] font-bold" title="Colis spécial signalé dans la Conduce MCPACK">* Spécial</span>
-                    )}
-                    <span className="truncate">{p.content}</span>
+                <td className="tdc max-w-[180px]" title={special.isSpecial ? `${p.content}\nRaison : ${special.reason}` : p.content}>
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-1 min-w-0">
+                      {special.isSpecial && (
+                        <span className="shrink-0 rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[9px] font-bold" title="Colis spécial signalé dans le fichier MCPACK">* Spécial</span>
+                      )}
+                      <span className="truncate">{p.content}</span>
+                    </div>
+                    {special.isSpecial && <p className="truncate text-[10px] text-amber-800" title={special.reason}>Raison : {special.reason}</p>}
                   </div>
                 </td>
                 <td className="tdc text-right">{usd(p.price_usd)}</td>
@@ -736,7 +737,8 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
                   )}
                 </td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
         <Pagination page={page} pages={pages} onPage={setPage} />
@@ -822,6 +824,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
       {hover && (() => {
         const p = hover.p;
         const jrs = joursDepot(p);
+        const special = specialPackageInfo(p);
         const rows: [string, React.ReactNode][] = [
           ["Code Client", <span className="font-bold text-navy">{p.customer_code}</span>],
           ["Nom Client", p.customer_name || "—"],
@@ -830,6 +833,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
           ["Tracking Number", <span className="font-mono">{p.tracking_manual || "—"}</span>],
           ["Poids", `${Number(p.weight || 0)} lb`],
           ["Contenu", p.content || "—"],
+          ...(special.isSpecial ? [["Colis spécial", <span className="text-amber-800" title={special.reason}>{special.reason}</span>] as [string, React.ReactNode]] : []),
           ["Statut", <StatusBadge status={p.status} />],
           ["Date création", dateFr(p.created_date) || "—"],
           ["Date réception", p.received_at ? dateFr(p.received_at) : "—"],

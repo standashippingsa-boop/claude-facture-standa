@@ -28,6 +28,7 @@ import type { Conduce, Pkg } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
 import { useRole } from "@/lib/authx";
 import { useRememberListContext } from "@/lib/list-context";
+import { specialPackageInfo } from "@/lib/special-package";
 
 /** Vil "flexib" pou kont santral la — pa gen vil fiks. */
 const CENTRAL_VILLE = "— Compte central —";
@@ -147,7 +148,7 @@ export default function BonRemisePage() {
       if (customerF && p.customer_code !== customerF) return false;
       if (statusF && p.status !== statusF) return false;
       if (dateF && !String(p.created_date ?? "").includes(dateF)) return false;
-      const special = /^\*\s*COLIS\s+SP[ÉE]CIAL/i.test(String(p.content ?? ""));
+      const special = specialPackageInfo(p).isSpecial;
       if (specialF === "yes" && !special) return false;
       if (specialF === "no" && special) return false;
       if (minWeight && (Number(p.weight) || 0) < Number(minWeight)) return false;
@@ -326,6 +327,7 @@ export default function BonRemisePage() {
                   {filtered.map((p, i) => {
                     const on = sel.has(p.id);
                     const cen = isCentral(p);
+                    const special = specialPackageInfo(p);
                     return (
                       <tr key={p.id}
                         onClick={() => toggle(p.id)}
@@ -335,7 +337,12 @@ export default function BonRemisePage() {
                           <input type="checkbox" checked={on} onChange={() => toggle(p.id)} />
                         </td>
                         <td className="tdc font-mono text-navy font-semibold">{conduceOf[p.id] || "—"}</td>
-                        <td className="tdc font-mono">{p.tracking_number}</td>
+                        <td className="tdc font-mono">
+                          <div className="flex flex-col gap-0.5">
+                            <span>{p.tracking_number}</span>
+                            {special.isSpecial && <span className="w-fit rounded-full bg-amber-100 px-1.5 py-0.5 font-sans text-[9px] font-bold text-amber-800" title={`Raison : ${special.reason}`}>* Spécial</span>}
+                          </div>
+                        </td>
                         <td className="tdc font-mono text-mute">{p.tracking_manual || "—"}</td>
                         <td className="tdc font-semibold">{p.customer_code}</td>
                         <td className="tdc truncate max-w-[160px]">{p.customer_name}</td>

@@ -31,6 +31,7 @@
 import * as XLSX from "xlsx";
 import { normalizeMcCode, num } from "./utils";
 import { splitCliente } from "./xlsx";
+import { detectSpecialPackage } from "./special-package";
 
 export interface ConduceExcelRow {
   guia: string;              // Tracking ID (WR...) — kle prensipal
@@ -43,6 +44,8 @@ export interface ConduceExcelRow {
   quantity: number;
   /** MCPACK make telefon ak lòt atik sansib ak yon * oswa yon nòt espesyal. */
   is_special: boolean;
+  /** Rezon egzak ki soti nan liy Excel la — pa gen tèks envante. */
+  special_reason?: string;
 }
 
 /** Rezime ki nan dènye liy fichye a — sèvi pou verifye enpòtasyon an. */
@@ -85,9 +88,6 @@ function tireGuia(cell: string): string {
   const candidats = String(cell ?? "").toUpperCase().match(/[A-Z0-9-]{6,}/g) ?? [];
   return candidats.find((candidat) => /\d/.test(candidat)) ?? "";
 }
-
-const isSpecialText = (value: string) =>
-  /\*|t[ée]l[ée]phone|phone|celular|iphone|android|samsung|mobile|casier|casillero|sp[ée]cial/i.test(value);
 
 const joindreDetails = (values: string[]) => Array.from(new Set(
   values.map((value) => String(value ?? "").replace(/\s+/g, " ").trim()).filter(Boolean)
@@ -215,7 +215,13 @@ export function parseConduceFile(buf: ArrayBuffer): ConduceParseResult {
     // Si nòt espesyal la te antre apre Tracking la nan menm selil la, nou pa pèdi l.
     const guiaNotes = guiaAutresLignes.filter((ligne) => trackingValab(ligne) !== trackingValab(trackBrut));
     const details = joindreDetails([...contentParts, ...adicParts, ...guiaNotes]);
-    const is_special = isSpecialText([brut, ...contentParts, ...adicParts, ...guiaNotes].join(" "));
+    const special = detectSpecialPackage(details, {
+      "Note Excel": joindreDetails(adicParts),
+      "Guía / Tracking": joindreDetails(guiaNotes),
+      // Rekou: si `*` a nan yon kolòn nou pa konnen, kopi liy lan bay prèv la.
+      "Ligne Excel": brut,
+    });
+    const is_special = special.isSpecial;
 
     rows.push({
       guia,
@@ -228,7 +234,8 @@ export function parseConduceFile(buf: ArrayBuffer): ConduceParseResult {
         ? joindreDetails(["* COLIS SPÉCIAL", details])
         : details,
       quantity: cCant >= 0 ? (num(parts(r[cCant] ?? "")[0] ?? "") || 1) : 1,
-      is_special
+      is_special,
+      special_reason: special.reason,
     });
   }
 

@@ -139,6 +139,17 @@ export default function ConduceManualPaste({
                 <span className="pill pill-gray"><span className="pill-dot" />{excelWeight.toFixed(2)} lb au total</span>
                 {excelSpecial > 0 && <span className="pill pill-amber"><span className="pill-dot" />{excelSpecial} colis spécial{excelSpecial > 1 ? "aux" : ""}</span>}
               </div>
+              {excelSpecial > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+                  <p className="font-bold">Colis spéciaux détectés — raison copiée du fichier Excel</p>
+                  <ul className="mt-1.5 space-y-1">
+                    {excelRows.filter((row) => row.is_special).slice(0, 8).map((row) => (
+                      <li key={row.guia}><span className="font-mono font-semibold">{row.guia}</span> — {row.special_reason || "Signal spécial dans la ligne Excel."}</li>
+                    ))}
+                  </ul>
+                  {excelSpecial > 8 && <p className="mt-1 text-amber-800">Et {excelSpecial - 8} autre(s) colis spécial(aux).</p>}
+                </div>
+              )}
               <button className="btn btn-brand" onClick={confirmerExcel} disabled={busy}>
                 <CheckCircle2 size={15} /> Importer dans cette conduce ({excelRows.length})
               </button>

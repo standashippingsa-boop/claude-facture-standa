@@ -6,6 +6,7 @@ import {
   BonRemiseRecord, McpackInvoice, McpackInvoiceConduce, Pkg, Ville
 , Retrait, RetraitStatus, CONDUCE_ARRIVAL_STATUS, shouldPromoteOnConduce } from "./types";
 import { McpackRow } from "./xlsx";
+import { specialPackageInfo, withSpecialPackageMetadata, SPECIAL_PACKAGE_FLAG, SPECIAL_PACKAGE_REASON } from "./special-package";
 import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "./invoice-engine";
@@ -122,8 +123,13 @@ function applyPackagesFilters(q: any, f: PackagesQueryFilters) {
   else if (f.invoiceState === "not_invoiced") q = q.is("invoice_id", null);
   if (f.verifiedState === "verified") q = q.eq("verified", true);
   else if (f.verifiedState === "not_verified") q = q.or("verified.is.null,verified.eq.false");
-  if (f.specialState === "special") q = q.ilike("content", "%COLIS SP%");
-  else if (f.specialState === "regular") q = q.not("content", "ilike", "%COLIS SP%");
+  // Nouvo import yo kenbe siy espesyal la nan JSON; ansyen Conduce yo te
+  // genyen li nan deskripsyon an. Nou sipòte toude san kraze ansyen done yo.
+  if (f.specialState === "special") q = q.or(`content.ilike.%COLIS SP%,mcpack_data->>${SPECIAL_PACKAGE_FLAG}.eq.true`);
+  else if (f.specialState === "regular") {
+    q = q.not("content", "ilike", "%COLIS SP%")
+      .or(`mcpack_data->>${SPECIAL_PACKAGE_FLAG}.is.null,mcpack_data->>${SPECIAL_PACKAGE_FLAG}.neq.true`);
+  }
   if (Number.isFinite(f.minWeight)) q = q.gte("weight", Number(f.minWeight));
   if (Number.isFinite(f.maxWeight)) q = q.lte("weight", Number(f.maxWeight));
   const s = (f.search ?? "").replace(/[(),]/g, "").trim();
@@ -758,7 +764,7 @@ export async function getConduceStats(conduceId: string): Promise<{
   disponibleCount: number; livreCount: number; specialCount: number;
 }> {
   const { data } = await supabase.from("packages")
-    .select("weight, invoice_id, total_usd, verified, archived, status, content").eq("conduce_id", conduceId);
+    .select("weight, invoice_id, total_usd, verified, archived, status, content, mcpack_data").eq("conduce_id", conduceId);
   const rows = (data ?? []).filter((r: any) => !r.archived);
   return {
     count: rows.length,
@@ -770,8 +776,8 @@ export async function getConduceStats(conduceId: string): Promise<{
     disponibleCount: rows.filter((r: any) => ["Disponible", "Facturé", "Livré"].includes(r.status)).length,
     livreCount: rows.filter((r: any) => r.status === "Livré").length,
     // Fichye Conduce MCPACK yo make ka sa yo ak `*`/nòt espesyal.
-    // Parser la konsève yo ak prefiks sa a; kalkil la rete fyab menm apre re-import.
-    specialCount: rows.filter((r: any) => /^\*\s*COLIS\s+SP[ÉE]CIAL/i.test(String(r.content ?? ""))).length,
+    // Parser la konsève prèv orijinal la; ansyen enpòtasyon yo rete sipòte.
+    specialCount: rows.filter((r: any) => specialPackageInfo(r).isSpecial).length,
   };
 }
 
@@ -883,7 +889,7 @@ export async function linkPackagesToConduce(
 export async function importConduceExcelRows(
   conduceId: string, conduceNumber: string,
   rows: { guia: string; tracking_number: string; customer_code: string; customer_name: string;
-           office: string; weight: number; content: string; quantity: number; is_special?: boolean }[],
+           office: string; weight: number; content: string; quantity: number; is_special?: boolean; special_reason?: string }[],
   who = ""
 ): Promise<{ created: number; updated: number; linked: number; special: number; totalWeight: number }> {
   let created = 0, updated = 0, linked = 0;
@@ -896,7 +902,7 @@ export async function importConduceExcelRows(
     if (r.office && !officeSeen) officeSeen = r.office;
 
     const { data: existing } = await supabase.from("packages")
-      .select("id, conduce_id, tracking_manual, status, invoice_id").eq("tracking_number", r.guia).maybeSingle();
+      .select("id, conduce_id, tracking_manual, status, invoice_id, mcpack_data").eq("tracking_number", r.guia).maybeSingle();
 
     if (existing) {
       const patch: Record<string, unknown> = {};
@@ -908,6 +914,13 @@ export async function importConduceExcelRows(
       if (r.tracking_number && !existing.tracking_manual) patch.tracking_manual = r.tracking_number;
       if (r.weight) patch.weight = r.weight;
       if (r.content) patch.content = r.content;
+      if (r.is_special) {
+        patch.mcpack_data = {
+          ...((existing.mcpack_data ?? {}) as Record<string, string>),
+          [SPECIAL_PACKAGE_FLAG]: "true",
+          [SPECIAL_PACKAGE_REASON]: r.special_reason || "Signal spécial détecté dans la ligne Excel.",
+        };
+      }
       if (Object.keys(patch).length) await supabase.from("packages").update(patch).eq("id", existing.id);
       updated++;
     } else {
@@ -916,7 +929,11 @@ export async function importConduceExcelRows(
         customer_code: r.customer_code, customer_name: r.customer_name || r.customer_code,
         weight: r.weight || 0, content: r.content || "", quantity: r.quantity || 1,
         status: CONDUCE_ARRIVAL_STATUS, conduce_id: conduceId,
-        received_at: now, received_method: "Import Conduce Excel", src_extension: true
+        received_at: now, received_method: "Import Conduce Excel", src_extension: true,
+        mcpack_data: r.is_special ? {
+          [SPECIAL_PACKAGE_FLAG]: "true",
+          [SPECIAL_PACKAGE_REASON]: r.special_reason || "Signal spécial détecté dans la ligne Excel.",
+        } : {}
       });
       created++; linked++;
     }
@@ -1251,7 +1268,7 @@ export async function commitSync(
           quantity: r.quantity,
           content: r.content,
           created_date: r.created_date,
-          mcpack_data: r.extra ?? {},
+          mcpack_data: withSpecialPackageMetadata(r.content, r.extra ?? {}),
           fob: r.fob || 0,
           tracking_manual: "",                       // admin antre l manyèlman — sync pa janm efase l
           status_mcpack: r.status_raw?.trim() || "", // statut MCPACK orijinal (enfòmatif)

@@ -20,6 +20,7 @@ import { Conduce, Invoice, Pkg } from "@/lib/types";
 import { usd, dateFr } from "@/lib/utils";
 import { usePackageSelection } from "@/lib/selection";
 import { useRememberListContext, withReturnTo } from "@/lib/list-context";
+import { specialPackageInfo } from "@/lib/special-package";
 
 const PER_PAGE = 25;
 
@@ -77,7 +78,7 @@ export default function HistoriquePage() {
       if (invoiceF === "not_invoiced" && p.invoice_id) return false;
       if (verifiedF === "verified" && !p.verified) return false;
       if (verifiedF === "not_verified" && p.verified) return false;
-      const special = /^\*\s*COLIS\s+SP[ÉE]CIAL/i.test(String(p.content ?? ""));
+      const special = specialPackageInfo(p).isSpecial;
       if (specialF === "special" && !special) return false;
       if (specialF === "regular" && special) return false;
       if (minWeight && (Number(p.weight) || 0) < Number(minWeight)) return false;
@@ -175,6 +176,7 @@ export default function HistoriquePage() {
               <tr><td colSpan={13} className="text-center py-10 text-mute">Aucun colis dans les archives.</td></tr>
             ) : rows.map((p, i) => {
               const inv = p.invoice_id ? invoices.get(p.invoice_id) : null;
+              const special = specialPackageInfo(p);
               return (
                 <tr key={p.id} className={i % 2 ? "bg-mist" : ""}>
                   <td className="td"><input type="checkbox" className="accent-emerald-600" checked={sel.has(p.id)} onChange={() => sel.toggle(snap(p))} /></td>
@@ -193,7 +195,15 @@ export default function HistoriquePage() {
                   <td className="td text-xs">{p.conduce_id ? (conduceMap.get(p.conduce_id) ?? "—") : "—"}</td>
                   <td className="td">{p.created_date}</td>
                   <td className="td">{p.weight}</td>
-                  <td className="td">{p.content}</td>
+                  <td className="td max-w-[190px]" title={special.isSpecial ? `${p.content}\nRaison : ${special.reason}` : p.content}>
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-1">
+                        {special.isSpecial && <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">* Spécial</span>}
+                        <span className="truncate">{p.content}</span>
+                      </div>
+                      {special.isSpecial && <p className="truncate text-[10px] text-amber-800" title={special.reason}>Raison : {special.reason}</p>}
+                    </div>
+                  </td>
                   <td className="td text-right font-semibold">{usd(p.total_usd)}</td>
                   <td className="td">
                     <div className="flex items-center gap-1">
