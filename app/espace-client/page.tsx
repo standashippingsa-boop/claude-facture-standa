@@ -37,7 +37,7 @@ import {
 } from "@/lib/db";
 import { Agence, getAgences } from "@/lib/agences";
 import { isPushSupported, pushPermission, subscribeToPush } from "@/lib/push";
-import { Client, Invoice, Pkg, Retrait } from "@/lib/types";
+import { Client, Invoice, INTERNAL_STATUSES, Pkg, Retrait } from "@/lib/types";
 import { DEPOT } from "@/lib/depot";
 import { SUPPORT_PHONE } from "@/lib/branding";
 import {
@@ -334,7 +334,17 @@ export default function EspaceClientPage() {
   const historique = pkgs.filter(isDelivered);
   const receptionsAll = pkgs.filter((p) => !isDelivered(p));
   const disponibles = receptionsAll.filter((p) => p.status === "Disponible" || p.status === "Facturé");
-  const autres = receptionsAll.filter((p) => p.status !== "Disponible" && p.status !== "Facturé");
+  // Yon koli facturé pa dwe parèt nan "Miami" — l ap parèt SÈLMAN nan "Disponible".
+  const nonFactures = disponibles.filter((p) => !isInvoiced(p));
+  // "Arrivé en Haïti" (ak pi lwen) parèt ANLÈ "Reçu à Miami" — pwogrè a
+  // detèmine lòd la tout tan, pa dat kreyasyon an.
+  const progressRank = (status: string) => {
+    const idx = INTERNAL_STATUSES.indexOf(status as (typeof INTERNAL_STATUSES)[number]);
+    return idx < 0 ? -1 : idx;
+  };
+  const autres = receptionsAll
+    .filter((p) => p.status !== "Disponible" && p.status !== "Facturé")
+    .sort((a, b) => progressRank(b.status) - progressRank(a.status));
 
   const poidsDe = (list: Pkg[]) => round2(list.reduce((s, p) => s + (Number(p.weight) || 0), 0));
   const estimation = (list: Pkg[]) =>
@@ -358,7 +368,6 @@ export default function EspaceClientPage() {
   // evènman ki "efase" yon ansyen. Se konsa mesaj yo pa disparèt.
   const clientNotifications: ClientNotice[] = [];
 
-  const nonFactures = disponibles.filter((pkg) => !isInvoiced(pkg));
   if (nonFactures.length > 0) {
     clientNotifications.push({
       id: "available",
@@ -697,7 +706,7 @@ export default function EspaceClientPage() {
               activePackage={activePackage}
               recentPackages={pkgs}
               availableCount={disponibles.length}
-              receptionCount={receptionsAll.length}
+              receptionCount={nonFactures.length + autres.length}
               retraitCount={retraits.filter((r) => r.status !== "Remis").length}
               invoiceCount={invs.length}
               unreadNotifications={unreadNotifications.length}
@@ -785,16 +794,16 @@ export default function EspaceClientPage() {
         {view === "receptions" && (
           <>
             <SubHeader title="Miami" sub="Colis reçus à notre entrepôt · en attente de facturation" />
-            {receptionsAll.length === 0 ? <Empty t="Aucun colis reçu pour le moment." /> : (
+            {(nonFactures.length + autres.length) === 0 ? <Empty t="Aucun colis reçu pour le moment." /> : (
               <>
-                <Totaux list={receptionsAll} />
+                <Totaux list={[...nonFactures, ...autres]} />
                 <div className="space-y-3">
-                  {disponibles.length > 0 && (
+                  {nonFactures.length > 0 && (
                     <p className="text-[11px] font-bold uppercase tracking-wide text-brand-dark pt-1">
-                      Disponibles ({disponibles.length})
+                      Disponibles ({nonFactures.length})
                     </p>
                   )}
-                  {disponibles.map((p) => <PkgCard key={p.id} p={p} />)}
+                  {nonFactures.map((p) => <PkgCard key={p.id} p={p} />)}
                   {autres.length > 0 && (
                     <p className="text-[11px] font-bold uppercase tracking-wide text-mute pt-2">
                       En cours ({autres.length})
