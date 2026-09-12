@@ -35,7 +35,7 @@ type ZoneInvoice = {
 type ZoneCustomer = { customer_code: string; fullname: string | null; surname: string | null };
 type CustomerBalance = { usd: number; htg: number; invoiceId: string; invoiceNumber: string };
 type ZonePayment = {
-  invoice_id: string; amount: number | null; currency: string | null;
+  id: string; invoice_id: string; amount: number | null; currency: string | null;
   amount_usd: number | null; amount_htg: number | null;
   payment_method: string | null; payment_reference: string | null;
   recorded_by_role: string | null; created_at: string;
@@ -224,7 +224,7 @@ export async function GET(req: Request) {
     let paymentsByInvoice = new Map<string, ZonePayment[]>();
     if (issuedInvoiceIds.length) {
       const paymentsResult = await db.from("invoice_payments")
-        .select("invoice_id, amount, currency, amount_usd, amount_htg, payment_method, payment_reference, recorded_by_role, created_at")
+        .select("id, invoice_id, amount, currency, amount_usd, amount_htg, payment_method, payment_reference, recorded_by_role, created_at")
         .in("invoice_id", issuedInvoiceIds).order("created_at", { ascending: true });
       if (paymentsResult.error) throw paymentsResult.error;
       for (const payment of (paymentsResult.data ?? []) as ZonePayment[]) {
@@ -324,7 +324,7 @@ export async function GET(req: Request) {
       return payments
         .filter((payment) => code(payment.recorded_by_role) === "agent_retrait")
         .map((payment) => ({
-          invoice_id: invoiceId, invoice_number: code(invoice.invoice_number),
+          id: code(payment.id), invoice_id: invoiceId, invoice_number: code(invoice.invoice_number),
           customer_code: code(invoice.customer_code), customer_name: customerName(customerByCode.get(code(invoice.customer_code))),
           amount: money(payment.amount), currency: code(payment.currency),
           amount_usd: money(payment.amount_usd), amount_htg: money(payment.amount_htg),

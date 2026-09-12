@@ -25,7 +25,10 @@ const ACTION_STYLES: Record<string, string> = {
   "Changement Statut": "bg-orange-100 text-orange-700",
   "Modification Prix": "bg-pink-100 text-pink-700",
   "Facturation": "bg-navy/10 text-navy",
-  "Activation Client": "bg-teal-100 text-teal-700"
+  "Activation Client": "bg-teal-100 text-teal-700",
+  "Paiement client reçu": "bg-emerald-100 text-emerald-800",
+  "Colis remis": "bg-sky-100 text-sky-800",
+  "Bon de remise reçu": "bg-blue-100 text-blue-800"
 };
 
 /** Rezime lizib yon User-Agent brit — pou tooltip Audit Log Enterprise. */

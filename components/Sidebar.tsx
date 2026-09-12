@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Inbox, LayoutDashboard, LogOut, Users, Package, FileText, History,
-  RefreshCw, Settings, ClipboardList, Truck, FileDown, MessageSquareText, MapPinned
+  RefreshCw, Settings, ClipboardList, Truck, FileDown, MessageSquareText, MapPinned, ChartNoAxesCombined
 } from "lucide-react";
 import Logo from "./Logo";
 import { supabase } from "@/lib/supabase";
@@ -28,7 +28,8 @@ const groups: { title: string; items: { href: string; label: string; icon: typeo
     items: [
       { href: "/invoices", label: "Factures", icon: FileText },
       { href: "/bon-remise", label: "Bon de Remise", icon: FileDown },
-      { href: "/retraits", label: "Retraits", icon: Inbox }
+      { href: "/retraits", label: "Retraits", icon: Inbox },
+      { href: "/rapports-financiers", label: "Rapports financiers", icon: ChartNoAxesCombined }
     ]
   },
   {
