@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Banknote, Check, CheckCircle2, ChevronDown, ChevronUp, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
+import { AlertTriangle, Banknote, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { openSecureDocument } from "@/lib/secure-document";
 import { packageProgressPriority, sortPackagesAvailableFirst } from "@/lib/utils";
@@ -74,7 +74,6 @@ export default function PickupAgentPortal() {
   const router = useRouter();
   const [data, setData] = useState<PortalData | null>(null);
   const [tab, setTab] = useState<Tab>("home");
-  const [showScrollTop, setShowScrollTop] = useState(false);
   const [arrivalFilter, setArrivalFilter] = useState<ArrivalFilter>("all");
   const [search, setSearch] = useState("");
   const [focusedPackageId, setFocusedPackageId] = useState<string | null>(null);
@@ -120,13 +119,6 @@ export default function PickupAgentPortal() {
     window.addEventListener("focus", refresh);
     return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
   }, [load]);
-  useEffect(() => {
-    const updateScrollButton = () => setShowScrollTop(window.scrollY > 420);
-    updateScrollButton();
-    window.addEventListener("scroll", updateScrollButton, { passive: true });
-    return () => window.removeEventListener("scroll", updateScrollButton);
-  }, []);
-
   const packages = data?.packages ?? [];
   const invoices = data?.invoices ?? [];
   const report = data?.report ?? { agent_payments: [] as AgentPayment[], customer_balances: [] as CustomerBalanceReport[] };
@@ -340,7 +332,6 @@ export default function PickupAgentPortal() {
         </div>
         </div>
         <MobileNavigation tab={tab} moreOpen={mobileMoreOpen} onHome={() => { setTab("home"); setMobileMoreOpen(false); }} onArrivals={() => { setTab("arrivals"); setArrivalFilter("all"); setMobileMoreOpen(false); }} onReports={() => { setTab("reports"); setMobileMoreOpen(false); }} onReady={() => { setTab("ready"); setMobileMoreOpen(false); }} onToggleMore={() => setMobileMoreOpen((open) => !open)} onDossiers={() => { setTab("dossiers"); setMobileMoreOpen(false); }} onHistory={() => { setTab("history"); setMobileMoreOpen(false); }} onBons={() => { setTab("bons"); setMobileMoreOpen(false); }} />
-        {tab === "dossiers" && showScrollTop && <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="fixed bottom-20 right-3 z-30 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0b3270] px-4 text-sm font-black text-white shadow-lg shadow-blue-950/25 transition hover:bg-[#154b91] md:bottom-6 md:right-6"><ChevronUp size={18} />Retour en haut</button>}
       </>}
     </main>
   </div>;

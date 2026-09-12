@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Loader from "./Loader";
+import ScrollToTopButton from "./ScrollToTopButton";
 import { getMyStaff } from "@/lib/authx";
 import { getClientByAuthId } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
@@ -57,14 +58,14 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   // Kliyan ak ajan remiz: chak gen pwòp entèfas mobil li, san sidebar staff.
   if (role === "client" || role === "agent_retrait" || isClientPath(path) || isPickupAgentPath(path)) {
-    return <main className="min-h-screen">{children}</main>;
+    return <main className="min-h-screen">{children}<ScrollToTopButton /></main>;
   }
 
   // Staff: sidebar + kontni
   return (
     <div className="flex">
       <Sidebar staff={staff} />
-      <main className="flex-1 min-w-0 p-6">{children}</main>
+      <main className="flex-1 min-w-0 p-6">{children}<ScrollToTopButton /></main>
     </div>
   );
 }
