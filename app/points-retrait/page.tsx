@@ -5,7 +5,7 @@ import { Banknote, CheckCircle2, CircleDollarSign, ClipboardList, PackageCheck, 
 import { getClients, getInvoices, getPackages, getVilles } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Client, Invoice, Pkg, Ville } from "@/lib/types";
-import { dateFr } from "@/lib/utils";
+import { dateFr, sortPackagesAvailableFirst } from "@/lib/utils";
 import { invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 
 type PaymentMethod = "Espèces" | "MonCash" | "NatCash" | "Zelle" | "Virement bancaire";
@@ -88,7 +88,7 @@ export default function PointsRetraitPage() {
   }, [zoneInvoices]);
 
   const delivered = zonePackages.filter((item) => item.status === "Livré");
-  const remaining = zonePackages.filter((item) => item.status !== "Livré");
+  const remaining = sortPackagesAvailableFirst(zonePackages.filter((item) => item.status !== "Livré"));
   const paid = zoneInvoices.filter((invoice) => paymentStatusFromAmounts(invoice) === "Payé");
   const partial = zoneInvoices.filter((invoice) => paymentStatusFromAmounts(invoice) === "Payé partiel");
   const paymentLabelByInvoice = useMemo(() => {

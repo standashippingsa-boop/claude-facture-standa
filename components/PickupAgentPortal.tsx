@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Banknote, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { openSecureDocument } from "@/lib/secure-document";
+import { sortPackagesAvailableFirst } from "@/lib/utils";
 import Logo from "@/components/Logo";
 
 type ZonePackage = {
@@ -325,7 +326,7 @@ function groupPackages(items: ZonePackage[]): PackageGroup[] {
   return Array.from(byCustomer, ([customerCode, customerPackages]) => {
     // La réponse de l'API est déjà récente d'abord, mais ce tri local garde
     // ce comportement fiable après une recherche, un filtre ou un rafraîchissement.
-    const packages = [...customerPackages].sort((left, right) => packageActivityAt(right) - packageActivityAt(left));
+    const packages = sortPackagesAvailableFirst(customerPackages);
     return {
       customerCode,
       packages,
@@ -334,7 +335,7 @@ function groupPackages(items: ZonePackage[]): PackageGroup[] {
       balanceHtg: packages[0]?.customer_balance_htg ?? 0,
       balanceInvoiceId: packages[0]?.balance_invoice_id ?? "",
       balanceInvoiceNumber: packages[0]?.balance_invoice_number ?? "",
-      latestActivityAt: packageActivityAt(packages[0])
+      latestActivityAt: Math.max(...customerPackages.map(packageActivityAt))
     };
   }).sort((left, right) => right.latestActivityAt - left.latestActivityAt
     || right.packages.length - left.packages.length
@@ -523,7 +524,7 @@ function ClientDossiersView({ dossiers, expanded, onExpand, selectedPackageIds, 
     const open = expanded === dossier.customerCode;
     const counts = dossierCounts(dossier);
     const miami = counts.active.filter((item) => item.status === "Reçu à Miami");
-    const available = counts.active.filter(isReadyForPickup);
+    const available = sortPackagesAvailableFirst(counts.active.filter(isReadyForPickup));
     const transit = counts.active.filter((item) => item.status !== "Reçu à Miami" && !isReadyForPickup(item));
     const balanceSource = dossier.invoices[0] ?? dossier.packages[0];
     const balanceUsd = balanceSource?.customer_balance_usd ?? 0;
@@ -533,10 +534,10 @@ function ClientDossiersView({ dossiers, expanded, onExpand, selectedPackageIds, 
       <button type="button" onClick={() => onExpand(open ? null : dossier.customerCode)} className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-slate-50"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Dossier client</p><h3 className="mt-0.5 truncate text-xl font-black text-[#0a2b61]">{dossier.customerCode}{dossier.customerName && <span className="ml-1 text-sm font-semibold text-slate-500">· {dossier.customerName}</span>}</h3><div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold"><span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">En route : {counts.enRoute}</span><span className="rounded-lg bg-orange-50 px-2 py-1 text-orange-700">Disponibles : {counts.available}</span></div></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a]"><ChevronDown size={20} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span></button>
       {open && <div className="space-y-4 border-t border-slate-100 bg-slate-50/70 p-3">
         {balanceUsd > 0.01 && <BalanceNotice balanceUsd={balanceUsd} balanceHtg={balanceHtg} invoiceNumber={balanceInvoice?.invoice_number ?? ""} onPay={balanceInvoice ? () => onStartPayment(balanceInvoice.id) : undefined} />}
-        <DossierSection title="Colis reçus à Miami" subtitle="Colis arrivés à Miami et non encore facturés." packages={miami} />
-        <DossierSection title="Colis en transit ou en traitement" subtitle="Colis sans facture client finalisée." packages={transit} />
         <DossierSection title="Colis disponibles et facturés" subtitle="Sélectionnez tous les colis que vous remettez, puis confirmez une seule fois." packages={available} tone="orange" renderPackage={(item) => <PackageCard item={item} ready delivered={false} selected={selectedPackageIds.includes(item.id)} confirmed={confirmedParcelIds.includes(item.id)} releasing={releasing} onToggleSelection={() => onToggleSelection(item)} onStartPayment={() => onStartPayment(item.invoice_id)} onOpenInvoice={() => { if (item.invoice_id) onOpenInvoice(item.invoice_id); }} />} />
         {available.length > 0 && balanceUsd <= 0.01 && <BatchRemiseAction customerCode={dossier.customerCode} available={available} selectedPackageIds={selectedPackageIds} busy={releasing} onSelectAll={() => onSelectCustomerPackages(dossier.customerCode, available.filter((item) => isReadyForPickup(item) && item.invoice_payment_status === "Payé" && item.customer_balance_usd <= 0.01).map((item) => item.id))} onConfirm={onConfirmSelection} />}
+        <DossierSection title="Colis reçus à Miami" subtitle="Colis arrivés à Miami et non encore facturés." packages={miami} />
+        <DossierSection title="Colis en transit ou en traitement" subtitle="Colis sans facture client finalisée." packages={transit} />
         <DossierInvoices invoices={dossier.invoices} onOpenInvoice={onOpenInvoice} />
       </div>}
     </article>;

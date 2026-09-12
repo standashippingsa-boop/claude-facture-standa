@@ -17,7 +17,7 @@ import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
 import { computePrice, round2 } from "@/lib/pricing";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import { Client, INTERNAL_STATUSES, Invoice, Pkg } from "@/lib/types";
-import { dateFr, parseMcpackDate, usd } from "@/lib/utils";
+import { dateFr, sortPackagesAvailableFirst, usd } from "@/lib/utils";
 import { returnToOr, useRememberListContext } from "@/lib/list-context";
 import { openSecureDocument } from "@/lib/secure-document";
 import { specialPackageInfo } from "@/lib/special-package";
@@ -87,14 +87,14 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     setClient(c); setRate(r);
     if (s.invoice_footer) setFooter(s.invoice_footer);
     const { pkgs: p, invs: i } = await getClientPackagesAndInvoices(decoded);
-    setPkgs(p.slice().sort((a, b) => parseMcpackDate(b.created_date) - parseMcpackDate(a.created_date)));
+    setPkgs(sortPackagesAvailableFirst(p));
     setInvs(i);
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [decoded]);
   // Kenbe panèl seleksyon global la enfòme (DWE anvan nenpòt return kondisyonèl)
   useEffect(() => { if (pkgs.length) sel.hydrate(pkgs.map(snap)); /* eslint-disable-next-line */ }, [pkgs]);
 
-  const visible = pkgs.filter((p) => {
+  const visible = sortPackagesAvailableFirst(pkgs.filter((p) => {
     if (p.status === "Livré") return false;
     const q = search.trim().toLowerCase();
     if (statusF && p.status !== statusF) return false;
@@ -105,7 +105,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     if (minWeight && (Number(p.weight) || 0) < Number(minWeight)) return false;
     if (maxWeight && (Number(p.weight) || 0) > Number(maxWeight)) return false;
     return !q || [p.tracking_number, p.tracking_manual, p.content, p.status].some((value) => String(value ?? "").toLowerCase().includes(q));
-  });
+  }));
   const livres = pkgs.filter((p) => p.status === "Livré");
   // SÉLECTION GLOBALE — pataje ak Packages/Conduces (li travèse kliyan yo)
   const snap = (p: SelPkg) => ({

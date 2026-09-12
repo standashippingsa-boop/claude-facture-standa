@@ -38,6 +38,29 @@ export function parseMcpackDate(s?: string | null): number {
 }
 
 /**
+ * Lis operasyon yo toujou mete koli ki deja Disponib an premye. Lè de koli
+ * gen menm priyorite a, dènye aktivite a rete anwo pou ansyen dosye yo desann.
+ */
+type PackageListRow = {
+  status?: string | null;
+  created_date?: string | null;
+  received_at?: string | null;
+  delivered_at?: string | null;
+};
+
+export function sortPackagesAvailableFirst<T extends PackageListRow>(items: T[]): T[] {
+  return [...items].sort((left, right) => {
+    const priority = (item: PackageListRow) => item.status === "Disponible" ? 0 : 1;
+    const priorityDifference = priority(left) - priority(right);
+    if (priorityDifference) return priorityDifference;
+
+    const activityAt = (item: PackageListRow) =>
+      parseMcpackDate(item.delivered_at || item.received_at || item.created_date);
+    return activityAt(right) - activityAt(left);
+  });
+}
+
+/**
  * Nòmalize yon Customer Code: "25487" -> "MC-25487", "mc-25487" -> "MC-25487".
  * Kle inik kliyan an — menm fòma toupatou (clients, packages, invoices, retraits).
  */

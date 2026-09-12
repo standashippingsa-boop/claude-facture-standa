@@ -17,7 +17,7 @@ import {
 import { computePrice, round2 } from "@/lib/pricing";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { Client, Conduce, INTERNAL_STATUSES, Pkg } from "@/lib/types";
-import { dateFr, htg, parseMcpackDate, usd } from "@/lib/utils";
+import { dateFr, htg, parseMcpackDate, sortPackagesAvailableFirst, usd } from "@/lib/utils";
 import { createBonRemiseNumber, generateBonRemise } from "@/lib/bonremise";
 import { exportPackagesPdf } from "@/lib/listpdf";
 import { exportPackagesExcel } from "@/lib/listexcel";
@@ -163,7 +163,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
   const load = async () => {
     await loadSide();
     const p = await getPackages(undefined, showArchived, conduceId);
-    setPkgs(p);
+    setPkgs(sortPackagesAvailableFirst(p));
     setTotal(p.length);
   };
 
@@ -178,7 +178,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
         minWeight: minWeight ? Number(minWeight) : undefined, maxWeight: maxWeight ? Number(maxWeight) : undefined,
         includeArchived: showArchived, conduceId: conduceId || conduceF
       }, pageNum, PER_PAGE);
-      setPkgs(rows);
+      setPkgs(sortPackagesAvailableFirst(rows));
       setTotal(t);
     } catch (e: any) {
       setNotice("Erè bazdone: " + e.message);
@@ -199,7 +199,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
         minWeight: minWeight ? Number(minWeight) : undefined, maxWeight: maxWeight ? Number(maxWeight) : undefined,
         includeArchived: showArchived, conduceId: conduceId || conduceF
       }, 3000);
-      setPkgs(rows);
+      setPkgs(sortPackagesAvailableFirst(rows));
       sel.add(rows.map(snap));
       setTotal(rows.length);
       setFullyLoaded(true);
@@ -218,7 +218,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
         await loadSide();
         if (fullyLoaded) {
           const p = await getPackages(undefined, showArchived, conduceId);
-          setPkgs(p);
+          setPkgs(sortPackagesAvailableFirst(p));
           setTotal(p.length);
         } else {
           await fetchServerPage(1);
@@ -255,9 +255,9 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
 
   const filtered = useMemo(() => {
     // Vi global paginée (sèvè a): pkgs se DEJA sèlman paj aktyèl la, filtre+triye kote sèvè a.
-    if (!fullyLoaded) return pkgs;
+    if (!fullyLoaded) return sortPackagesAvailableFirst(pkgs);
     const q = search.trim().toLowerCase();
-    return pkgs
+    const matching = pkgs
       // Koli livré yo pa parèt isit la — yo rete nan Historique (anyen pa efase)
       // V8.5: koli Facturé yo kite lis aktif la — yo nan Historique
       .filter((p) => p.status !== "Livré" && p.status !== "Facturé")
@@ -287,11 +287,9 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
           || (info?.fullname ?? "").toLowerCase().includes(q)
           || (info?.phone ?? "").toLowerCase().includes(q)
           || (info?.ville?.name ?? "").toLowerCase().includes(q);
-      })
-      // Tri otomatik: koli ki fèk rive yo anlè, pi ansyen yo anba —
-      // rete konsa apre chak import MCPACK
-      .slice()
-      .sort((a, b) => parseMcpackDate(b.created_date) - parseMcpackDate(a.created_date));
+      });
+    // Koli Disponib yo toujou an premye. Nan chak gwoup, dènye koli yo rete anlè.
+    return sortPackagesAvailableFirst(matching);
   }, [pkgs, search, status, source, dateF, cityF, customerF, conduceF, invoiceF, verifiedF, specialF, minWeight, maxWeight, showArchived, tarifMap, fullyLoaded]);
 
   const pages = fullyLoaded
