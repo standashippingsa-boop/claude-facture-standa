@@ -472,7 +472,7 @@ function SpecialPackageNotice({ item, compact = false }: { item: ZonePackage; co
   if (!item.is_special) return null;
   return <div className={cn("rounded-lg border border-amber-200 bg-amber-50 text-amber-900", compact ? "mt-1 inline-flex items-center gap-1 px-2 py-1 text-[11px] font-bold" : "mt-2 p-2.5 text-xs") }>
     <span className="inline-flex items-center gap-1 font-black"><AlertTriangle size={compact ? 13 : 15} />Colis spécial</span>
-    {!compact && item.special_reason && <p className="mt-1 leading-relaxed text-amber-800"><span className="font-bold">Note MCPACK :</span> {item.special_reason}</p>}
+    {!compact && item.special_reason && <p className="mt-1 leading-relaxed text-amber-800"><span className="font-bold">Note :</span> {item.special_reason}</p>}
   </div>;
 }
 
