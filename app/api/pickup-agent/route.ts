@@ -4,6 +4,8 @@ import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
 import { invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 import { specialPackageInfo } from "@/lib/special-package";
+import { computePrice, round2 } from "@/lib/pricing";
+import type { AccountType, Ville } from "@/lib/types";
 
 /**
  * API isolée des points de retrait.
@@ -126,6 +128,51 @@ async function customerBelongsToZone(db: any, customerCode: string, villeId: str
   return result.data?.ville_id === villeId;
 }
 
+/**
+ * Une demande de retrait devient « Remis » seulement quand tous les colis
+ * initialement demandés ont réellement le statut Livré. Les rapprochements se
+ * font avec les deux numéros de suivi, puisque les anciennes demandes peuvent
+ * contenir la Guía ou le Tracking Number.
+ */
+async function completePreparedRetraits(db: any, customerCode: string) {
+  try {
+    const requests = await db.from("retraits").select("id")
+      .eq("customer_code", customerCode).eq("status", "Préparé");
+    if (requests.error || !requests.data?.length) return 0;
+    const requestIds: string[] = requests.data.map((row: { id: string }) => code(row.id)).filter(Boolean);
+    const items = await db.from("retrait_items").select("retrait_id, tracking_number, tracking_manual")
+      .in("retrait_id", requestIds);
+    const parcels = await db.from("packages").select("tracking_number, tracking_manual, status")
+      .eq("customer_code", customerCode).limit(5000);
+    if (items.error || parcels.error) return 0;
+
+    const normaliseTracking = (value: unknown) => code(value).toUpperCase();
+    const deliveredTrackings = new Set((parcels.data ?? [])
+      .filter((parcel: { status?: string }) => code(parcel.status) === "Livré")
+      .flatMap((parcel: { tracking_number?: string | null; tracking_manual?: string | null }) => [parcel.tracking_number, parcel.tracking_manual]
+        .map(normaliseTracking).filter(Boolean)));
+    const byRequest = new Map<string, Array<{ tracking_number?: string | null; tracking_manual?: string | null }>>();
+    for (const item of items.data ?? []) {
+      const requestId = code(item.retrait_id);
+      if (requestId) byRequest.set(requestId, [...(byRequest.get(requestId) ?? []), item]);
+    }
+    const completedIds = requestIds.filter((requestId) => {
+      const requestItems = byRequest.get(requestId) ?? [];
+      return requestItems.length > 0 && requestItems.every((item) =>
+        [item.tracking_number, item.tracking_manual].map(normaliseTracking).filter(Boolean)
+          .some((tracking) => deliveredTrackings.has(tracking)));
+    });
+    if (!completedIds.length) return 0;
+    const update = await db.from("retraits").update({ status: "Remis" }).in("id", completedIds).eq("status", "Préparé");
+    return update.error ? 0 : completedIds.length;
+  } catch (error) {
+    // La remise du colis est déjà enregistrée. Un problème de synchronisation
+    // de l'affichage ne doit jamais annuler la remise validée par l'agent.
+    console.error("[pickup-agent:retraits]", error);
+    return 0;
+  }
+}
+
 async function writeAudit(db: any, req: Request, agent: Agent, action: string, details: string, packageRef = "", customerCode = "") {
   try {
     const { error } = await db.from("journal").insert(auditRow(req, agent, action, details, packageRef, customerCode));
@@ -197,20 +244,30 @@ export async function GET(req: Request) {
         invoiceId: current?.invoiceId || code(invoice.id), invoiceNumber: current?.invoiceNumber || code(invoice.invoice_number)
       });
     }
-    let bons: Array<{ id: string; bon_number: string; destination: string; package_count: number; created_at: string; pdf_path: string | null }> = [];
+    let bons: Array<{
+      id: string; bon_number: string; destination: string; package_count: number; created_at: string;
+      pdf_path: string | null; received_at: string | null; received_by: string | null;
+    }> = [];
     // La destination écrite sur le Bon est la seule référence de zone. Une
     // Conduce peut mélanger plusieurs villes; ses liens ne doivent jamais
     // faire apparaître un Bon Port-de-Paix dans l'espace de Gonaïves.
-    const destinationBons = await db.from("bons_remise")
-      .select("id, bon_number, destination, package_count, created_at, pdf_path")
+    let destinationBons = await db.from("bons_remise")
+      .select("id, bon_number, destination, package_count, created_at, pdf_path, received_at, received_by")
       .ilike("destination", zoneName).order("created_at", { ascending: false });
+    // Le site reste utilisable durant le très court délai entre le
+    // déploiement et l'application de la migration Supabase (received_at).
+    if (missingSchemaColumn(destinationBons.error, "received_at")) {
+      destinationBons = await db.from("bons_remise")
+        .select("id, bon_number, destination, package_count, created_at, pdf_path")
+        .ilike("destination", zoneName).order("created_at", { ascending: false });
+    }
     if (destinationBons.error && !String(destinationBons.error.message ?? "").includes("does not exist")) throw destinationBons.error;
     bons = (destinationBons.data ?? []) as typeof bons;
 
     const bonCards = bons.map((bon) => ({
         id: code(bon.id), bon_number: code(bon.bon_number), destination: code(bon.destination),
         package_count: Number(bon.package_count ?? 0), created_at: code(bon.created_at),
-        has_pdf: Boolean(bon.pdf_path)
+        has_pdf: Boolean(bon.pdf_path), received_at: code(bon.received_at), received_by: code(bon.received_by)
       }));
 
     const deliveryByInvoice = new Map<string, { total: number; delivered: number }>();
@@ -252,7 +309,7 @@ export async function GET(req: Request) {
       return {
       id: code(invoice.id), invoice_number: code(invoice.invoice_number), customer_code: customerCode,
       customer_name: customerName(customerByCode.get(customerCode)), customer_balance_usd: balance?.usd ?? 0, customer_balance_htg: balance?.htg ?? 0,
-      package_count: Number(invoice.package_count ?? 0), amount_due_usd: amounts.payableUsd, amount_due_htg: amounts.payableHtg,
+      package_count: Number(invoice.package_count ?? 0), grand_total_usd: amounts.grandTotalUsd, deposit_usd: amounts.depositUsd, amount_due_usd: amounts.payableUsd, amount_due_htg: amounts.payableHtg,
       amount_label: amounts.hasDeposit ? "Solde à payer selon la facture" : "Total de la facture", payment_status: paymentStatusFromAmounts(invoice), payment_details: paymentDetails(paymentStatusFromAmounts(invoice), paymentsByInvoice.get(invoice.id) ?? []), payment_paid_usd: money(invoice.payment_paid_usd),
       payment_paid_htg: money(invoice.payment_paid_htg), delivery_status: deliveryStatus, delivered_packages_count: delivery.delivered, has_pdf: Boolean(invoice.has_pdf), created_at: code(invoice.created_at)
     }; });
@@ -431,8 +488,9 @@ export async function POST(req: Request) {
       if ((update.data ?? []).length !== packageIds.length) {
         return NextResponse.json({ ok: false, reason: "Un colis vient déjà d'être traité. Actualisez la liste." }, { status: 409 });
       }
+      const completedRetraits = await completePreparedRetraits(db, customerCode);
       const references = selected.map((parcel) => code(parcel.tracking_manual || parcel.tracking_number)).filter(Boolean).slice(0, 5).join(", ");
-      await writeAudit(db, req, agent, "Remise groupée", `${packageIds.length} colis remis au point de retrait ${zoneName}`, references, customerCode);
+      await writeAudit(db, req, agent, "Remise groupée", `${packageIds.length} colis remis au point de retrait ${zoneName}${completedRetraits ? ` · ${completedRetraits} demande(s) clôturée(s)` : ""}`, references, customerCode);
       return NextResponse.json({ ok: true, package_ids: packageIds });
     }
 
@@ -486,8 +544,9 @@ export async function POST(req: Request) {
       }
       if (update.error) throw update.error;
       if (!update.data) return NextResponse.json({ ok: false, reason: "Ce colis vient déjà d'être traité. Actualisez la liste." }, { status: 409 });
+      const completedRetraits = await completePreparedRetraits(db, parcel.customer_code);
       const ref = code(parcel.tracking_manual || parcel.tracking_number);
-      await writeAudit(db, req, agent, "Remise colis", `Colis remis au point de retrait ${zoneName}`, ref, parcel.customer_code);
+      await writeAudit(db, req, agent, "Remise colis", `Colis remis au point de retrait ${zoneName}${completedRetraits ? ` · ${completedRetraits} demande(s) clôturée(s)` : ""}`, ref, parcel.customer_code);
       return NextResponse.json({ ok: true, package_id: packageId });
     }
 

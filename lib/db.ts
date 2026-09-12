@@ -109,8 +109,9 @@ export interface PackagesQueryFilters {
 }
 
 function applyPackagesFilters(q: any, f: PackagesQueryFilters) {
-  // Menm règ ak vi aktif la: Livré ak Facturé rete nan Historique
-  q = q.neq("status", "Livré").neq("status", "Facturé");
+  // Yon koli facturé rete aktif: li dwe vizib jouk point de retrait la
+  // konfime remise a. Se « Livré » sèlman ki antre nan historique.
+  q = q.neq("status", "Livré");
   if (!f.includeArchived) q = q.eq("archived", false);
   if (f.conduceId) q = q.eq("conduce_id", f.conduceId);
   if (f.clientCodes?.length) q = q.in("customer_code", f.clientCodes);
@@ -2054,7 +2055,9 @@ export async function getClientPackagesAndInvoices(code: string) {
     supabase.from("packages").select("*").eq("customer_code", code).order("created_at", { ascending: false }),
     supabase.from("invoices").select("*").eq("customer_code", code).order("created_at", { ascending: false })
   ]);
-  return { pkgs: (p.data ?? []).filter((x: Pkg) => !x.archived) as Pkg[], invs: (i.data ?? []) as Invoice[] };
+  // Yon colis livré rete vizib pou kliyan an nan historique, menm si ekip la
+  // te achive ansyen dosye operasyonèl la apre remise a.
+  return { pkgs: (p.data ?? []).filter((x: Pkg) => !x.archived || x.status === "Livré") as Pkg[], invs: (i.data ?? []) as Invoice[] };
 }
 
 // ================= DEMANDES DE RETRAIT (v8) =================

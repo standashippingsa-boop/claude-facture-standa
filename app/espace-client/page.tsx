@@ -8,7 +8,8 @@
  * LOJIK KOLI
  *   RÉCEPTIONS  = tout koli ki rive epi ki POKO fakti (Disponibles anlè).
  *   DISPONIBLES = sou-ansanm Réceptions.
- *   Fakti/Livre -> soti nan toude -> ale nan HISTORIQUE.
+ *   FACTURÉS = rete sou fakti kliyan an jouk remise a konfime.
+ *   LIVRÉS = soti nan lis aktif yo pou ale nan HISTORIQUE.
  *
  * PRI (V12) — règ STANDA:
  *   • Koli ki DEJA fakti  -> pri REYÈL admin nan fikse a (total_usd). Pa gen devinèt.
@@ -45,6 +46,7 @@ import {
 } from "@/lib/pricing";
 import { dateFr, usd } from "@/lib/utils";
 import { specialPackageInfo } from "@/lib/special-package";
+import { invoicePayableAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 import Loader, { SavedToast, Spinner, SuccessCheck } from "@/components/Loader";
 import StatusBadge from "@/components/StatusBadge";
 import { StatusTimeline } from "@/components/StatusFlow";
@@ -115,8 +117,9 @@ function waPkgLink(p: Pkg, code: string): string {
   return `https://wa.me/${WA_NUM}?text=${encodeURIComponent(msg)}`;
 }
 
-/** Yon koli "fini" (fakti oswa livre) -> li ale nan Historique. */
-const isDone = (p: Pkg) => p.status === "Facturé" || p.status === "Livré" || !!p.invoice_id;
+/** Yon fakti prepare koli a pou remise; se livrezon ki fè li antre nan historique. */
+const isInvoiced = (p: Pkg) => p.status === "Facturé" || Boolean(p.invoice_id);
+const isDelivered = (p: Pkg) => p.status === "Livré";
 
 export default function EspaceClientPage() {
   // ── HOOKS (tout ansanm, anvan tout return) ──────────────────────────────
@@ -136,6 +139,7 @@ export default function EspaceClientPage() {
   const [view, setView] = useState<View>("home");
   const [detail, setDetail] = useState<Pkg | null>(null);
   const [openRetrait, setOpenRetrait] = useState<string | null>(null);
+  const [openInvoiceId, setOpenInvoiceId] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -323,8 +327,10 @@ export default function EspaceClientPage() {
   }
 
   // ── Klasman koli yo ─────────────────────────────────────────────────────
-  const historique = pkgs.filter(isDone);
-  const receptionsAll = pkgs.filter((p) => !isDone(p));
+  // Yon koli facturé rete vizib nan fakti li jouk ajan an konfime remise a.
+  // Li pa antre nan historique jis lè statut li vin « Livré ».
+  const historique = pkgs.filter(isDelivered);
+  const receptionsAll = pkgs.filter((p) => !isInvoiced(p) && !isDelivered(p));
   const disponibles = receptionsAll.filter((p) => p.status === "Disponible");
   const autres = receptionsAll.filter((p) => p.status !== "Disponible");
 
@@ -524,7 +530,7 @@ export default function EspaceClientPage() {
   );
 
   const PkgCard = ({ p, check }: { p: Pkg; check?: boolean }) => {
-    const facture = Number(p.total_usd) > 0 && isDone(p);
+    const facture = Number(p.total_usd) > 0 && isInvoiced(p);
     const special = specialPackageInfo(p);
     return (
       <div className="relative">
@@ -771,7 +777,7 @@ export default function EspaceClientPage() {
         {/* ═══════════ HISTORIQUE ═══════════ */}
         {view === "historique" && (
           <>
-            <SubHeader title="Historique" sub="Colis déjà facturés ou livrés" />
+            <SubHeader title="Historique" sub="Colis remis et confirmés" />
             {historique.length === 0 ? <Empty t="Aucun colis dans votre historique." /> : (
               <>
                 <Totaux list={historique} reel />
@@ -786,23 +792,38 @@ export default function EspaceClientPage() {
           <>
             <SubHeader title="Factures" sub={`${invs.length} facture${invs.length > 1 ? "s" : ""}`} />
             {invs.length === 0 ? <Empty t="Aucune facture pour le moment." /> : (
-              <div className="card divide-y divide-line">
-                {invs.map((f) => (
-                  <div key={f.id} className="flex items-center justify-between gap-3 p-4">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-navy">{f.invoice_number}</p>
-                      <p className="text-xs text-mute mt-0.5">
-                        {dateFr(f.created_at)} · {f.package_count} koli · {Number(f.total_weight).toFixed(2)} lb
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-extrabold text-ink">{usd(f.grand_total)}</p>
+              <div className="space-y-3">
+                {invs.map((f) => {
+                  const open = openInvoiceId === f.id;
+                  const invoicePackages = pkgs.filter((p) => p.invoice_id === f.id);
+                  const payable = invoicePayableAmounts(f);
+                  const paymentStatus = paymentStatusFromAmounts(f);
+                  const deliveredCount = invoicePackages.filter(isDelivered).length;
+                  const paymentTone = paymentStatus === "Payé" ? "bg-emerald-100 text-emerald-700" : paymentStatus === "Payé partiel" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-700";
+                  return <section key={f.id} className="card overflow-hidden">
+                    <button type="button" onClick={() => setOpenInvoiceId(open ? null : f.id)} className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-slate-50">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-bold text-navy">{f.invoice_number}</span>
+                        <span className="mt-0.5 block text-xs text-mute">{dateFr(f.created_at)} · {f.package_count} koli · {Number(f.total_weight).toFixed(2)} lb</span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${paymentTone}`}>{paymentStatus}</span>
+                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                      </span>
+                    </button>
+                    <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-3">
+                      <div><p className="text-[11px] text-mute">Total de la facture</p><p className="text-base font-extrabold text-ink">{usd(payable.grandTotalUsd)}</p></div>
                       {f.has_pdf || f.pdf_path || f.pdf_url
                         ? <button type="button" onClick={() => void openSecureDocument("invoice", f.id).catch(() => setToast("PDF indisponible. Réessayez plus tard."))} className="text-xs text-navy underline font-semibold">Télécharger le PDF</button>
-                        : <span className="text-xs text-slate-400">—</span>}
+                        : <span className="text-xs text-slate-400">PDF en préparation</span>}
                     </div>
-                  </div>
-                ))}
+                    {open && <div className="border-t border-line bg-slate-50/70 p-4">
+                      <div className="grid grid-cols-2 gap-2 text-xs"><div className="rounded-xl bg-white p-3"><p className="text-mute">Solde à payer</p><p className="mt-1 font-extrabold text-navy">{usd(payable.payableUsd)}</p></div><div className="rounded-xl bg-white p-3"><p className="text-mute">Remise</p><p className={`mt-1 font-extrabold ${deliveredCount === invoicePackages.length && invoicePackages.length ? "text-emerald-700" : "text-orange-700"}`}>{deliveredCount}/{invoicePackages.length} livré{deliveredCount > 1 ? "s" : ""}</p></div></div>
+                      <p className="mb-2 mt-4 text-xs font-bold uppercase tracking-wide text-slate-500">Colis facturés dans cette facture</p>
+                      {invoicePackages.length ? <div className="space-y-3">{invoicePackages.map((p) => <PkgCard key={p.id} p={p} />)}</div> : <p className="rounded-xl bg-white px-3 py-3 text-sm text-slate-500">Les colis de cette facture seront affichés ici après la synchronisation.</p>}
+                    </div>}
+                  </section>;
+                })}
               </div>
             )}
           </>

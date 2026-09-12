@@ -108,8 +108,17 @@ export default function RetraitsPage() {
   const apresFacture = async (message: string) => {
     const t = target;
     setTarget(null);
-    setToast(message);
     if (!t) return;
+    let preparationMessage = " Demande marquée « Préparé » pour l’agence.";
+    try {
+      // Dès que le PDF est créé, cette demande précise est prête à être remise
+      // au point de retrait. Rony ne reçoit que les colis liés à la facture.
+      await setRetraitStatus(t.retraitId, "Préparé");
+      setRetraits((previous) => previous.map((row) => row.id === t.retraitId ? { ...row, status: "Préparé" } : row));
+    } catch {
+      preparationMessage = " La facture est créée, mais le statut de la demande doit être actualisé.";
+    }
+    setToast(message + preparationMessage);
     const done = new Set(t.pkgs.map((p) => p.id));
     setLive((prev) => ({ ...prev, [t.retraitId]: (prev[t.retraitId] ?? []).filter((p) => !done.has(p.id)) }));
     setSel((prev) => ({ ...prev, [t.retraitId]: new Set() }));
