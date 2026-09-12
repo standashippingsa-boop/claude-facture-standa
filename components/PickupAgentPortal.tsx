@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Banknote, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
+import { AlertTriangle, Banknote, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { openSecureDocument } from "@/lib/secure-document";
 import Logo from "@/components/Logo";
@@ -20,7 +20,10 @@ type ZoneInvoice = {
   amount_label: string; payment_status: string; payment_details: string; payment_paid_usd: number;
   payment_paid_htg: number; delivery_status: string; delivered_packages_count: number; has_pdf: boolean; created_at: string;
 };
-type ZoneBon = { id: string; bon_number: string; destination: string; package_count: number; created_at: string; has_pdf: boolean };
+type ZoneBon = {
+  id: string; bon_number: string; destination: string; package_count: number; created_at: string;
+  has_pdf: boolean; received_at: string; received_by: string;
+};
 type AgentPayment = { invoice_id: string; invoice_number: string; customer_code: string; customer_name: string; amount: number; currency: string; amount_usd: number; amount_htg: number; payment_method: string; payment_reference: string; created_at: string };
 type CustomerBalanceReport = { customer_code: string; customer_name: string; balance_usd: number; balance_htg: number; invoice_id: string; invoice_number: string; invoice_count: number };
 type PortalData = { agent: { name: string; username: string }; zone: { name: string }; packages: ZonePackage[]; invoices: ZoneInvoice[]; bons: ZoneBon[]; report: { agent_payments: AgentPayment[]; customer_balances: CustomerBalanceReport[] } };
@@ -78,6 +81,9 @@ export default function PickupAgentPortal() {
   const [selectedPackageIds, setSelectedPackageIds] = useState<string[]>([]);
   const [releasing, setReleasing] = useState(false);
   const [confirmedParcelIds, setConfirmedParcelIds] = useState<string[]>([]);
+  const [selectedBonId, setSelectedBonId] = useState<string | null>(null);
+  const [bonBusy, setBonBusy] = useState(false);
+  const [bonConfirmedId, setBonConfirmedId] = useState<string | null>(null);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentDraft, setPaymentDraft] = useState<PaymentDraft>(emptyPaymentDraft);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -191,6 +197,25 @@ export default function PickupAgentPortal() {
     }
   };
 
+  const confirmBonRemise = async (bonId: string) => {
+    if (bonBusy) return;
+    setBonBusy(true);
+    setMessage(null);
+    try {
+      const result = await call({ action: "confirm_bon_remise", bon_remise_id: bonId });
+      setBonConfirmedId(bonId);
+      const text = result.alreadyConfirmed
+        ? "Ce bon a déjà été confirmé."
+        : `${result.updated} colis rendus disponibles${result.alreadyReady ? ` (${result.alreadyReady} l'étaient déjà)` : ""}.`;
+      setMessage({ type: "ok", text });
+      window.setTimeout(() => { setBonConfirmedId(null); setSelectedBonId(null); void load(); }, 1_400);
+    } catch (error) {
+      setMessage({ type: "error", text: error instanceof Error ? error.message : "Confirmation impossible." });
+    } finally {
+      setBonBusy(false);
+    }
+  };
+
   const recordPayment = async () => {
     const amount = Number(paymentDraft.amount);
     if (!paymentDraft.invoiceId || !Number.isFinite(amount) || amount <= 0) { setPaymentError("Entrez un montant valide."); return; }
@@ -265,7 +290,9 @@ export default function PickupAgentPortal() {
           </div>}
 
           {message && <Notice message={message} close={() => setMessage(null)} />}
-          {tab === "home" && <HomeDashboard search={search} onSearchChange={setSearch} onOpenDossier={openDossier} />}
+          {tab === "home" && <HomeDashboard search={search} onSearchChange={setSearch} onOpenDossier={openDossier}
+            bons={data.bons} selectedBonId={selectedBonId} onSelectBon={setSelectedBonId}
+            bonBusy={bonBusy} bonConfirmedId={bonConfirmedId} onConfirmBon={confirmBonRemise} />}
           {tab === "dossiers" && <ClientDossiersView dossiers={matchingDossiers} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onConfirmSelection={releaseSelectedPackages} onStartPayment={startPayment} onOpenInvoice={setSelectedInvoiceId} />}
           {tab === "arrivals" && <ArrivalFilters value={arrivalFilter} onChange={setArrivalFilter} allCount={incoming.length} miamiCount={receivedMiami.length} transitCount={inTransit.length} />}
           {(tab === "arrivals" || tab === "ready") && <PackagesView groups={groups} tab={tab} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onConfirmSelection={releaseSelectedPackages} onStartPayment={startPayment} onOpenInvoice={setSelectedInvoiceId} />}
@@ -373,8 +400,65 @@ function MobileNavigation({ tab, moreOpen, onHome, onArrivals, onReports, onRead
   </nav>;
 }
 
-function HomeDashboard({ search, onSearchChange, onOpenDossier }: { search: string; onSearchChange: (value: string) => void; onOpenDossier: () => void }) {
-  return <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#0b3270] via-[#1a5bc0] to-sky-400 p-6 text-white shadow-[0_20px_40px_rgba(20,76,160,0.23)] sm:p-8"><div className="max-w-xl"><div className="flex items-center gap-4"><Logo size={64} rounded="rounded-2xl" /><div><p className="text-xs font-black uppercase tracking-[0.18em] text-sky-100">STANDA COMMERCIAL</p><h2 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Rechercher un dossier client</h2></div></div><p className="mt-5 max-w-lg text-sm leading-6 text-white/85">Entrez le code du client OU un numéro de tracking / Guía (les 6 derniers chiffres suffisent) pour ouvrir le dossier, vérifier le paiement et remettre les colis.</p><form onSubmit={(event) => { event.preventDefault(); onOpenDossier(); }} className="mt-6 flex flex-col gap-2 sm:flex-row"><label className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-2xl bg-white px-4 text-[#0b3270] shadow-sm"><Search size={18} className="shrink-0 text-sky-600" /><input value={search} onChange={(event) => onSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none placeholder:font-medium placeholder:text-slate-400" placeholder="Code client ou tracking · ex. MC-3817 ou 481223" aria-label="Code client ou numéro de tracking" autoCapitalize="characters" /></label><button type="submit" disabled={!search.trim()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#ff6b1a] px-5 text-sm font-black text-white shadow-sm transition hover:bg-[#e85e19] disabled:cursor-not-allowed disabled:opacity-50"><Search size={18} />Ouvrir le dossier</button></form></div><div className="mt-8 grid gap-3 border-t border-white/20 pt-5 text-sm sm:grid-cols-2"><p className="rounded-2xl bg-white/10 p-3 font-semibold">Les colis livrés quittent les dossiers actifs et sont classés dans l’historique.</p><p className="rounded-2xl bg-white/10 p-3 font-semibold">Les statuts et les paiements sont synchronisés avec le système principal.</p></div></section>;
+function HomeDashboard({
+  search, onSearchChange, onOpenDossier, bons, selectedBonId, onSelectBon, bonBusy, bonConfirmedId, onConfirmBon
+}: {
+  search: string; onSearchChange: (value: string) => void; onOpenDossier: () => void;
+  bons: ZoneBon[]; selectedBonId: string | null; onSelectBon: (id: string) => void;
+  bonBusy: boolean; bonConfirmedId: string | null; onConfirmBon: (id: string) => void;
+}) {
+  return <>
+    <PendingBonsNotification bons={bons} selectedId={selectedBonId} onSelect={onSelectBon}
+      busy={bonBusy} confirmedId={bonConfirmedId} onConfirm={onConfirmBon} />
+    <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#0b3270] via-[#1a5bc0] to-sky-400 p-6 text-white shadow-[0_20px_40px_rgba(20,76,160,0.23)] sm:p-8"><div className="max-w-xl"><div className="flex items-center gap-4"><Logo size={64} rounded="rounded-2xl" /><div><p className="text-xs font-black uppercase tracking-[0.18em] text-sky-100">STANDA COMMERCIAL</p><h2 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Rechercher un dossier client</h2></div></div><p className="mt-5 max-w-lg text-sm leading-6 text-white/85">Entrez le code du client OU un numéro de tracking / Guía (les 6 derniers chiffres suffisent) pour ouvrir le dossier, vérifier le paiement et remettre les colis.</p><form onSubmit={(event) => { event.preventDefault(); onOpenDossier(); }} className="mt-6 flex flex-col gap-2 sm:flex-row"><label className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-2xl bg-white px-4 text-[#0b3270] shadow-sm"><Search size={18} className="shrink-0 text-sky-600" /><input value={search} onChange={(event) => onSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none placeholder:font-medium placeholder:text-slate-400" placeholder="Code client ou tracking · ex. MC-3817 ou 481223" aria-label="Code client ou numéro de tracking" autoCapitalize="characters" /></label><button type="submit" disabled={!search.trim()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#ff6b1a] px-5 text-sm font-black text-white shadow-sm transition hover:bg-[#e85e19] disabled:cursor-not-allowed disabled:opacity-50"><Search size={18} />Ouvrir le dossier</button></form></div><div className="mt-8 grid gap-3 border-t border-white/20 pt-5 text-sm sm:grid-cols-2"><p className="rounded-2xl bg-white/10 p-3 font-semibold">Les colis livrés quittent les dossiers actifs et sont classés dans l’historique.</p><p className="rounded-2xl bg-white/10 p-3 font-semibold">Les statuts et les paiements sont synchronisés avec le système principal.</p></div></section>
+  </>;
+}
+
+/**
+ * Notifikasyon Bon de remise sou Akèy — Rony wè imedyatman ki Bon k ap tann
+ * konfimasyon (ki poko "reçu"). Yon sèl klik pou seleksyone, yon sèl bouton
+ * pou konfime: TOUT koli ki te nan Bon sa a vin "Disponible" — otomatikman
+ * sou admin, kliyan AK isit la, paske se menm kolòn `packages.status` la.
+ */
+function PendingBonsNotification({
+  bons, selectedId, onSelect, busy, confirmedId, onConfirm
+}: {
+  bons: ZoneBon[]; selectedId: string | null; onSelect: (id: string) => void;
+  busy: boolean; confirmedId: string | null; onConfirm: (id: string) => void;
+}) {
+  const pending = bons.filter((bon) => !bon.received_at);
+  if (!pending.length) return null;
+  return <section className="mb-5 rounded-3xl border border-[#ffd9b8] bg-[#fff4ea] p-4 shadow-sm sm:p-5">
+    <div className="flex items-center gap-3">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#e85e19] text-white"><Truck size={21} /></span>
+      <div className="min-w-0">
+        <p className="text-sm font-black text-[#7a3410]">{pending.length} bon{pending.length > 1 ? "s" : ""} de remise en route vers vous</p>
+        <p className="text-xs text-[#a3652f]">Sélectionnez le bon que vous venez de recevoir, puis confirmez.</p>
+      </div>
+    </div>
+    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      {pending.map((bon) => {
+        const selected = selectedId === bon.id;
+        const justConfirmed = confirmedId === bon.id;
+        return <button key={bon.id} type="button" onClick={() => onSelect(bon.id)} disabled={busy}
+          className={cn("rounded-2xl border-2 bg-white px-4 py-3 text-left transition-all duration-200 ease-out",
+            selected ? "scale-[1.02] border-[#e85e19] shadow-md" : "border-transparent hover:border-[#ffd9b8]")}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-sm font-black text-[#0a2b61]">{bon.bon_number}</span>
+            {justConfirmed
+              ? <CheckCircle2 className="text-emerald-500" size={20} />
+              : selected && <span className="grid h-5 w-5 place-items-center rounded-full bg-[#e85e19] text-white"><Check size={12} strokeWidth={3} /></span>}
+          </div>
+          <p className="mt-0.5 text-xs text-slate-500">{bon.package_count} colis · {dateText(bon.created_at)}</p>
+        </button>;
+      })}
+    </div>
+    {selectedId && <button type="button" onClick={() => onConfirm(selectedId)} disabled={busy}
+      className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#e85e19] px-5 text-sm font-black text-white shadow-sm transition hover:bg-[#c94e13] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
+      {busy ? <RefreshCw size={18} className="animate-spin" /> : <PackageCheck size={18} />}
+      {busy ? "Mise à jour du système…" : "Rendre ces colis disponibles"}
+    </button>}
+  </section>;
 }
 
 function BatchRemiseAction({ customerCode, available, selectedPackageIds, busy, onSelectAll, onConfirm }: { customerCode: string; available: ZonePackage[]; selectedPackageIds: string[]; busy: boolean; onSelectAll: () => void; onConfirm: () => void }) {
@@ -534,7 +618,7 @@ function ReportsView({ agentName, payments, balances, onOpenInvoice }: { agentNa
 
 function BonsView({ bons, onOpenPdf }: { bons: ZoneBon[]; onOpenPdf: (id: string) => void }) {
   if (!bons.length) return <Empty text="Aucun bon de remise ne correspond à cette recherche." />;
-  return <div className="grid gap-3 md:grid-cols-2">{bons.map((bon) => <article key={bon.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-black text-[#0a2b61]">{bon.bon_number}</p><p className="mt-1 text-sm text-slate-600">{bon.destination || "Destination non précisée"} · {bon.package_count} colis</p><p className="mt-1 text-xs text-slate-400">{dateText(bon.created_at)}</p></div><FileDown className="text-[#e85e19]" size={21} /></div>{bon.has_pdf ? <button type="button" onClick={() => onOpenPdf(bon.id)} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white"><FileDown size={16} />Ouvrir le PDF</button> : <p className="mt-3 text-xs text-amber-700">PDF non archivé : ce bon a été créé avant l’archivage sécurisé.</p>}</article>)}</div>;
+  return <div className="grid gap-3 md:grid-cols-2">{bons.map((bon) => <article key={bon.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><div className="flex items-center gap-2"><p className="font-black text-[#0a2b61]">{bon.bon_number}</p>{bon.received_at ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700"><CheckCircle2 size={11} />Reçu</span> : <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">En route</span>}</div><p className="mt-1 text-sm text-slate-600">{bon.destination || "Destination non précisée"} · {bon.package_count} colis</p><p className="mt-1 text-xs text-slate-400">{dateText(bon.created_at)}{bon.received_by ? ` · reçu par ${bon.received_by}` : ""}</p></div><FileDown className="text-[#e85e19]" size={21} /></div>{bon.has_pdf ? <button type="button" onClick={() => onOpenPdf(bon.id)} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white"><FileDown size={16} />Ouvrir le PDF</button> : <p className="mt-3 text-xs text-amber-700">PDF non archivé : ce bon a été créé avant l’archivage sécurisé.</p>}</article>)}</div>;
 }
 
 function InlinePaymentError({ error }: { error: string | null }) {

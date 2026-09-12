@@ -360,6 +360,64 @@ export async function POST(req: Request) {
     const { db, agent, zoneName } = context;
     const body = await req.json().catch(() => null);
 
+    if (body?.action === "confirm_bon_remise") {
+      const bonId = code(body.bon_remise_id);
+      if (!uuid.test(bonId)) return NextResponse.json({ ok: false, reason: "Bon de remise invalide." }, { status: 400 });
+
+      // Rechèch estwat pa (id + destination = zòn ajan an) — menm si yon moun
+      // ta forje yon id valid, li pa ka konfime yon Bon ki pa pou zòn li.
+      const bonResult = await db.from("bons_remise")
+        .select("id, bon_number, destination, received_at").eq("id", bonId).ilike("destination", zoneName).maybeSingle();
+      if (bonResult.error) throw bonResult.error;
+      const bon = bonResult.data as { id: string; bon_number: string; destination: string; received_at: string | null } | null;
+      if (!bon) return NextResponse.json({ ok: false, reason: "Ce Bon de remise n'appartient pas à votre zone." }, { status: 403 });
+      if (bon.received_at) return NextResponse.json({ ok: true, updated: 0, alreadyReady: 0, alreadyConfirmed: true });
+
+      const parcelsResult = await db.from("packages")
+        .select("id, weight, customer_code, status").eq("bon_remise_id", bonId);
+      if (parcelsResult.error) throw parcelsResult.error;
+      const parcels = (parcelsResult.data ?? []) as Array<{ id: string; weight: number; customer_code: string; status: string }>;
+
+      // SÈLMAN koli ki poko pi lwen (Disponible/Facturé/Livré) chanje. Yon
+      // koli ki deja pi lwen nan sikil la pa dwe janm fè bak.
+      const targets = parcels.filter((p) => !["Disponible", "Facturé", "Livré"].includes(code(p.status)));
+      let updated = 0;
+      const alreadyReady = parcels.length - targets.length;
+
+      if (targets.length) {
+        const [villeResult, rateResult, clientsResult] = await Promise.all([
+          db.from("villes").select("id, name, price_personal, price_business, tax_personal, tax_business, fixed_fee, active")
+            .eq("id", agent.pickup_ville_id).maybeSingle(),
+          db.from("exchange_rate").select("usd_rate").eq("id", 1).maybeSingle(),
+          db.from("clients").select("customer_code, account_type")
+            .in("customer_code", Array.from(new Set(targets.map((p) => code(p.customer_code)))))
+        ]);
+        if (villeResult.error) throw villeResult.error;
+        const ville = villeResult.data as Ville | null;
+        const rate = Number(rateResult.data?.usd_rate) || 0;
+        const accountByCode = new Map<string, AccountType>((clientsResult.data ?? [])
+          .map((c: { customer_code: string; account_type: AccountType | null }) => [code(c.customer_code), c.account_type ?? "Personnel"] as const));
+
+        await Promise.all(targets.map(async (parcel) => {
+          const accountType: AccountType = accountByCode.get(code(parcel.customer_code)) ?? "Personnel";
+          const price = computePrice(Number(parcel.weight) || 0, accountType, ville);
+          const priceUsd = price?.price ?? 0;
+          const patch = {
+            status: "Disponible",
+            price_usd: priceUsd, tax_usd: 0, total_usd: priceUsd,
+            price_htg: round2(priceUsd * rate), tax_htg: 0, total_htg: round2(priceUsd * rate)
+          };
+          const result = await db.from("packages").update(patch).eq("id", parcel.id).select("id");
+          if (!result.error && (result.data ?? []).length) updated++;
+        }));
+      }
+
+      await db.from("bons_remise").update({ received_at: new Date().toISOString(), received_by: agentName(agent) }).eq("id", bonId);
+      await writeAudit(db, req, agent, "Bon de remise reçu",
+        `${bon.bon_number} — ${updated} colis rendus disponibles${alreadyReady ? `, ${alreadyReady} déjà prêts` : ""} · ${zoneName}`, bon.bon_number, "");
+      return NextResponse.json({ ok: true, updated, alreadyReady });
+    }
+
     if (body?.action === "record_payment") {
       const invoiceId = code(body.invoice_id);
       const amount = money(body.amount);
