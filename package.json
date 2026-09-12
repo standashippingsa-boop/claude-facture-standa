@@ -8,9 +8,12 @@
     "start": "next start",
     "check:isolation": "node scripts/check-public-isolation.mjs",
     "typecheck": "tsc --noEmit --incremental false",
-    "verify": "npm run typecheck && npm run check:isolation && npm run build"
+    "verify": "npm run typecheck && npm run check:isolation && npm run build",
+    "app:sync": "npm run build && npx cap sync"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@hookform/resolvers": "^3.9.0",
     "@supabase/supabase-js": "^2.45.0",
     "@zxing/library": "^0.21.3",
@@ -28,6 +31,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@types/node": "^20.14.0",
     "@types/react": "^19.0.0",
     "@types/web-push": "^3.6.4",

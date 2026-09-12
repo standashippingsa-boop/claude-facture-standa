@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">STANDA COMMERCIAL</string>
+    <string name="title_activity_main">STANDA COMMERCIAL</string>
+    <string name="package_name">com.standacommercialsa.app</string>
+    <string name="custom_url_scheme">com.standacommercialsa.app</string>
+</resources>
