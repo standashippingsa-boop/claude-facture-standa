@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Banknote, BookOpen, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
+import { AlertTriangle, Banknote, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { openSecureDocument } from "@/lib/secure-document";
 import { sortPackagesAvailableFirst } from "@/lib/utils";
@@ -282,19 +282,19 @@ export default function PickupAgentPortal() {
 
   return <div className="min-h-screen bg-gradient-to-b from-sky-100 via-[#f5f7fb] to-white text-slate-900">
     <header className="bg-gradient-to-r from-[#071b43] via-[#0d3270] to-[#154b91] text-white shadow-lg">
-      <div className="mx-auto flex min-h-20 max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-        <div className="flex min-w-0 items-center gap-3"><Logo size={44} rounded="rounded-xl" /><div><p className="text-lg font-black tracking-tight">STANDA</p><p className="text-[10px] font-semibold tracking-[0.18em] text-white/70">POINT DE RETRAIT</p></div></div>
-        <div className="flex items-center gap-1 sm:gap-2"><button type="button" onClick={() => router.push("/espace-remise/guide")} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-white/90 hover:bg-white/10"><BookOpen size={18} /><span className="hidden sm:inline">Guide</span></button><button type="button" onClick={logout} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-white/90 hover:bg-white/10"><LogOut size={18} /><span className="hidden sm:inline">Se déconnecter</span></button></div>
+      <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-2 px-3 py-2 sm:min-h-20 sm:gap-3 sm:px-6 sm:py-3">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3"><span className="sm:hidden"><Logo size={38} rounded="rounded-lg" /></span><span className="hidden sm:inline"><Logo size={44} rounded="rounded-xl" /></span><div><p className="text-base font-black tracking-tight sm:text-lg">STANDA</p><p className="text-[9px] font-semibold tracking-[0.16em] text-white/70 sm:text-[10px] sm:tracking-[0.18em]">POINT DE RETRAIT</p></div></div>
+        <button type="button" onClick={logout} className="inline-flex min-h-10 items-center gap-2 rounded-xl px-2.5 text-sm font-semibold text-white/90 hover:bg-white/10 sm:min-h-11 sm:px-3"><LogOut size={17} /><span className="hidden sm:inline">Se déconnecter</span></button>
       </div>
     </header>
 
-    <main className="mx-auto max-w-6xl px-4 py-5 pb-12 sm:px-6 sm:py-8">
+    <main className="mx-auto max-w-6xl px-3 py-3 pb-20 sm:px-6 sm:py-8 sm:pb-12">
       {loading && <div className="grid min-h-[45vh] place-items-center"><div className="text-center"><RefreshCw className="mx-auto mb-3 animate-spin text-[#0d3b7a]" size={30} /><p className="text-sm text-slate-500">Chargement des opérations…</p></div></div>}
       {!loading && !data && <section className="mx-auto max-w-xl rounded-3xl border border-red-100 bg-white p-7 text-center shadow-sm"><ShieldCheck className="mx-auto mb-3 text-red-500" size={36} /><h1 className="text-xl font-extrabold text-[#0a2b61]">Accès à vérifier</h1><p className="mt-2 text-sm text-slate-600">{message?.text || "Impossible de préparer votre espace."}</p><button type="button" className="btn mt-5" onClick={() => void load()}>Réessayer</button></section>}
       {!loading && data && <>
-        <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
+        <div className="md:grid md:grid-cols-[190px_minmax(0,1fr)] md:gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
         <SideNavigation tab={tab} incoming={incoming.length} ready={ready.length} dossiers={dossiers.length} delivered={delivered.length} bons={data.bons.length} balanceCount={report.customer_balances.length} onHome={() => setTab("home")} onArrivals={() => { setTab("arrivals"); setArrivalFilter("all"); }} onReady={() => setTab("ready")} onDossiers={() => setTab("dossiers")} onHistory={() => setTab("history")} onBons={() => setTab("bons")} onReports={() => setTab("reports")} />
-        <div className="min-w-0 pb-20 lg:pb-0">
+        <div className="min-w-0 pb-20 md:pb-0">
         {tab !== "home" && <section className="hidden">
           <Stat icon={<ClipboardCheck size={20} />} label="Dossiers clients" value={dossiers.length} tint="bg-emerald-50 text-emerald-700" active={tab === "dossiers"} onClick={() => setTab("dossiers")} />
           <Stat icon={<PackageCheck size={20} />} label="Colis à venir" value={incoming.length} tint="bg-cyan-50 text-cyan-700" active={tab === "arrivals"} onClick={() => { setTab("arrivals"); setArrivalFilter("all"); }} />
@@ -303,7 +303,7 @@ export default function PickupAgentPortal() {
           <Stat icon={<CheckCircle2 size={20} />} label="Historique" value={delivered.length} tint="bg-indigo-50 text-indigo-700" active={tab === "history"} onClick={() => setTab("history")} />
         </section>}
 
-        <section className="rounded-3xl border border-white bg-white p-4 shadow-[0_10px_35px_rgba(17,54,110,0.07)] sm:p-5">
+        <section className="rounded-2xl border border-white bg-white p-3 shadow-[0_10px_35px_rgba(17,54,110,0.07)] sm:rounded-3xl sm:p-5">
           {tab !== "home" && <div className="mb-4 flex flex-col gap-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h2 className="text-lg font-extrabold text-[#0a2b61]">{tab === "arrivals" ? "Colis à venir" : `Opérations — ${data.zone.name}`}</h2><p className="text-xs text-slate-500">{tab === "arrivals" ? "Tous les colis non livrés de votre zone, avec leur code client." : "Colis, factures, paiements et bons de remise liés à votre zone."}</p></div><form onSubmit={(event) => { event.preventDefault(); openDossier(); }} className="flex min-h-11 gap-2 md:w-[27rem]"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3"><Search size={17} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => { setSearch(event.target.value); setFocusedPackageId(null); }} className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="Numéro de client, suivi ou facture" aria-label="Rechercher un dossier client" /></label><button type="submit" className="shrink-0 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white hover:bg-[#0f448f]">Dossier</button></form></div>
             <p className="text-xs font-semibold text-emerald-700">Les statuts sont synchronisés automatiquement avec le système principal.</p>
@@ -396,7 +396,7 @@ function SideNavigation({ tab, incoming, ready, dossiers, delivered, bons, balan
   onHome: () => void; onArrivals: () => void; onReady: () => void; onDossiers: () => void; onHistory: () => void; onBons: () => void; onReports: () => void;
 }) {
   const Item = ({ label, count, icon, active, onClick }: { label: string; count?: number; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} className={cn("flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 text-left text-sm font-bold transition", active ? "bg-[#0b3270] text-white shadow-md shadow-blue-900/15" : "text-slate-600 hover:bg-slate-100 hover:text-[#0b3270]")}><span className={cn("grid h-8 w-8 place-items-center rounded-xl", active ? "bg-white/15" : "bg-sky-50 text-[#0b4d9b]")}>{icon}</span><span className="min-w-0 flex-1">{label}</span>{typeof count === "number" && <span className={cn("rounded-full px-2 py-0.5 text-xs", active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500")}>{count}</span>}</button>;
-  return <aside className="sticky top-5 hidden h-fit rounded-3xl border border-white/80 bg-white/90 p-3 shadow-[0_14px_35px_rgba(25,74,145,0.08)] backdrop-blur lg:block">
+  return <aside className="sticky top-4 hidden h-fit rounded-2xl border border-white/80 bg-white/90 p-2 shadow-[0_14px_35px_rgba(25,74,145,0.08)] backdrop-blur md:block md:rounded-3xl md:p-3 md:top-5">
     <p className="px-3 pb-2 pt-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Navigation</p>
     <div className="space-y-1">
       <Item label="Accueil" icon={<Home size={18} />} active={tab === "home"} onClick={onHome} />
@@ -414,15 +414,15 @@ function MobileNavigation({ tab, moreOpen, onHome, onArrivals, onReports, onRead
   tab: Tab; moreOpen: boolean;
   onHome: () => void; onArrivals: () => void; onReports: () => void; onReady: () => void; onToggleMore: () => void; onDossiers: () => void; onHistory: () => void; onBons: () => void;
 }) {
-  const NavButton = ({ label, icon, active, onClick }: { label: string; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} className={cn("flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-bold transition", active ? "bg-[#0b3270] text-white shadow-md shadow-blue-900/20" : "text-slate-500 hover:bg-slate-100")}><span>{icon}</span><span>{label}</span></button>;
-  return <nav className="fixed inset-x-3 bottom-3 z-40 mx-auto max-w-xl lg:hidden" aria-label="Navigation de l’espace de remise">
-    {moreOpen && <div className="absolute bottom-[4.6rem] right-0 grid w-56 gap-1 rounded-2xl border border-slate-100 bg-white p-2 shadow-xl"><button type="button" onClick={onDossiers} className="rounded-xl px-3 py-3 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Dossiers clients</button><button type="button" onClick={onHistory} className="rounded-xl px-3 py-3 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Colis remis</button><button type="button" onClick={onBons} className="rounded-xl px-3 py-3 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Bons de remise</button></div>}
-    <div className="flex items-center gap-1 rounded-3xl border border-white bg-white/95 p-1.5 shadow-xl shadow-blue-950/15 backdrop-blur">
-      <NavButton label="Accueil" icon={<Home size={19} />} active={tab === "home"} onClick={onHome} />
-      <NavButton label="À venir" icon={<PackageCheck size={19} />} active={tab === "arrivals"} onClick={onArrivals} />
-      <NavButton label="Rapport" icon={<Banknote size={19} />} active={tab === "reports"} onClick={onReports} />
-      <NavButton label="À remettre" icon={<ClipboardCheck size={19} />} active={tab === "ready"} onClick={onReady} />
-      <NavButton label="Plus" icon={<MoreHorizontal size={20} />} active={moreOpen || tab === "dossiers" || tab === "history" || tab === "bons"} onClick={onToggleMore} />
+  const NavButton = ({ label, icon, active, onClick }: { label: string; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} className={cn("flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl text-[9px] font-bold transition", active ? "bg-[#0b3270] text-white shadow-md shadow-blue-900/20" : "text-slate-500 hover:bg-slate-100")}><span>{icon}</span><span>{label}</span></button>;
+  return <nav className="fixed inset-x-2 bottom-2 z-40 mx-auto max-w-xl md:hidden" aria-label="Navigation de l’espace de remise">
+    {moreOpen && <div className="absolute bottom-[4.1rem] right-0 grid w-52 gap-1 rounded-2xl border border-slate-100 bg-white p-2 shadow-xl"><button type="button" onClick={onDossiers} className="rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Dossiers clients</button><button type="button" onClick={onHistory} className="rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Colis remis</button><button type="button" onClick={onBons} className="rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Bons de remise</button></div>}
+    <div className="flex items-center gap-1 rounded-2xl border border-white bg-white/95 p-1 shadow-xl shadow-blue-950/15 backdrop-blur">
+      <NavButton label="Accueil" icon={<Home size={17} />} active={tab === "home"} onClick={onHome} />
+      <NavButton label="À venir" icon={<PackageCheck size={17} />} active={tab === "arrivals"} onClick={onArrivals} />
+      <NavButton label="Rapport" icon={<Banknote size={17} />} active={tab === "reports"} onClick={onReports} />
+      <NavButton label="À remettre" icon={<ClipboardCheck size={17} />} active={tab === "ready"} onClick={onReady} />
+      <NavButton label="Plus" icon={<MoreHorizontal size={18} />} active={moreOpen || tab === "dossiers" || tab === "history" || tab === "bons"} onClick={onToggleMore} />
     </div>
   </nav>;
 }
@@ -437,7 +437,7 @@ function HomeDashboard({
   return <>
     <PendingBonsNotification bons={bons} selectedId={selectedBonId} onSelect={onSelectBon}
       busy={bonBusy} confirmedId={bonConfirmedId} onConfirm={onConfirmBon} />
-    <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#0b3270] via-[#1a5bc0] to-sky-400 p-6 text-white shadow-[0_20px_40px_rgba(20,76,160,0.23)] sm:p-8"><div className="max-w-xl"><div className="flex items-center gap-4"><Logo size={64} rounded="rounded-2xl" /><div><p className="text-xs font-black uppercase tracking-[0.18em] text-sky-100">STANDA COMMERCIAL</p><h2 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Rechercher un dossier client</h2></div></div><p className="mt-5 max-w-lg text-sm leading-6 text-white/85">Entrez le code du client OU un numéro de tracking / Guía (les 6 derniers chiffres suffisent) pour ouvrir le dossier, vérifier le paiement et remettre les colis.</p><form onSubmit={(event) => { event.preventDefault(); onOpenDossier(); }} className="mt-6 flex flex-col gap-2 sm:flex-row"><label className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-2xl bg-white px-4 text-[#0b3270] shadow-sm"><Search size={18} className="shrink-0 text-sky-600" /><input value={search} onChange={(event) => onSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none placeholder:font-medium placeholder:text-slate-400" placeholder="Code client ou tracking · ex. MC-3817 ou 481223" aria-label="Code client ou numéro de tracking" autoCapitalize="characters" /></label><button type="submit" disabled={!search.trim()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#ff6b1a] px-5 text-sm font-black text-white shadow-sm transition hover:bg-[#e85e19] disabled:cursor-not-allowed disabled:opacity-50"><Search size={18} />Ouvrir le dossier</button></form></div><div className="mt-8 grid gap-3 border-t border-white/20 pt-5 text-sm sm:grid-cols-2"><p className="rounded-2xl bg-white/10 p-3 font-semibold">Les colis livrés quittent les dossiers actifs et sont classés dans l’historique.</p><p className="rounded-2xl bg-white/10 p-3 font-semibold">Les statuts et les paiements sont synchronisés avec le système principal.</p></div></section>
+    <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#0b3270] via-[#1a5bc0] to-sky-400 p-4 text-white shadow-[0_20px_40px_rgba(20,76,160,0.23)] sm:rounded-3xl sm:p-8"><div className="max-w-xl"><div className="flex items-center gap-3 sm:gap-4"><span className="sm:hidden"><Logo size={48} rounded="rounded-xl" /></span><span className="hidden sm:inline"><Logo size={64} rounded="rounded-2xl" /></span><div><p className="text-[10px] font-black uppercase tracking-[0.15em] text-sky-100 sm:text-xs sm:tracking-[0.18em]">STANDA COMMERCIAL</p><h2 className="mt-1 text-xl font-black tracking-tight sm:text-3xl">Rechercher un dossier client</h2></div></div><p className="mt-4 max-w-lg text-sm leading-6 text-white/85 sm:mt-5">Entrez le code du client OU un numéro de tracking / Guía (les 6 derniers chiffres suffisent) pour ouvrir le dossier, vérifier le paiement et remettre les colis.</p><form onSubmit={(event) => { event.preventDefault(); onOpenDossier(); }} className="mt-5 flex flex-col gap-2 sm:mt-6 sm:flex-row"><label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl bg-white px-3 text-[#0b3270] shadow-sm sm:min-h-12 sm:rounded-2xl sm:px-4"><Search size={17} className="shrink-0 text-sky-600" /><input value={search} onChange={(event) => onSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none placeholder:font-medium placeholder:text-slate-400" placeholder="Code client ou tracking · ex. MC-3817 ou 481223" aria-label="Code client ou numéro de tracking" autoCapitalize="characters" /></label><button type="submit" disabled={!search.trim()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#ff6b1a] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#e85e19] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-12 sm:rounded-2xl sm:px-5"><Search size={17} />Ouvrir le dossier</button></form></div><div className="mt-5 grid gap-2 border-t border-white/20 pt-4 text-xs sm:mt-8 sm:gap-3 sm:pt-5 sm:text-sm sm:grid-cols-2"><p className="rounded-xl bg-white/10 p-2.5 font-semibold sm:rounded-2xl sm:p-3">Les colis livrés quittent les dossiers actifs et sont classés dans l’historique.</p><p className="rounded-xl bg-white/10 p-2.5 font-semibold sm:rounded-2xl sm:p-3">Les statuts et les paiements sont synchronisés avec le système principal.</p></div></section>
   </>;
 }
 
@@ -455,7 +455,7 @@ function PendingBonsNotification({
 }) {
   const pending = bons.filter((bon) => !bon.received_at);
   if (!pending.length) return null;
-  return <section className="mb-5 rounded-3xl border border-[#ffd9b8] bg-[#fff4ea] p-4 shadow-sm sm:p-5">
+  return <section className="mb-3 rounded-2xl border border-[#ffd9b8] bg-[#fff4ea] p-3 shadow-sm sm:mb-5 sm:rounded-3xl sm:p-5">
     <div className="flex items-center gap-3">
       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#e85e19] text-white"><Truck size={21} /></span>
       <div className="min-w-0">

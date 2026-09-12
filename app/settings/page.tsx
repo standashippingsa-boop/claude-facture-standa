@@ -4,7 +4,7 @@ import Loader from "@/components/Loader";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Pencil, MapPin, Building2, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Pencil, MapPin, Building2, BookOpen, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import {
   deleteVille, getSettings, getUsdRate,
@@ -138,6 +138,11 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <h1 className="text-xl font-extrabold text-navy">Paramètres</h1>
+
+      <section className="card p-5">
+        <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand"><BookOpen size={19} /></span><div><h2 className="text-sm font-bold text-navy">Guides d’utilisation</h2><p className="mt-1 text-xs text-slate-500">Ouvrez le manuel adapté à chaque rôle avant de commencer les opérations.</p></div></div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-3"><Link href="/guide" className="rounded-xl border border-line bg-mist px-3 py-3 text-sm font-bold text-navy transition hover:border-brand/40 hover:bg-brand/5">Guide administrateur</Link><Link href="/guide/employe" className="rounded-xl border border-line bg-mist px-3 py-3 text-sm font-bold text-navy transition hover:border-brand/40 hover:bg-brand/5">Guide employé</Link><Link href="/guide/agent-retrait" className="rounded-xl border border-line bg-mist px-3 py-3 text-sm font-bold text-navy transition hover:border-brand/40 hover:bg-brand/5">Guide point de retrait</Link></div>
+      </section>
 
       {/* ===== Ajans / Pwen retrait (sit piblik /agences) ===== */}
       <Link href="/settings/agences"
