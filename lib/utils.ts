@@ -38,8 +38,10 @@ export function parseMcpackDate(s?: string | null): number {
 }
 
 /**
- * Lis operasyon yo toujou mete koli ki deja Disponib an premye. Lè de koli
- * gen menm priyorite a, dènye aktivite a rete anwo pou ansyen dosye yo desann.
+ * Lis operasyon yo swiv avansman reyèl koli a. Sa bay menm lòd la sou admin,
+ * dosye kliyan ak pwen retrè: Disponib/Facturé -> vers agence -> arrivé en
+ * Haïti -> transit -> reçu à Miami. Lè de koli nan menm etap la, dènye aktivite
+ * a rete anwo pou ansyen dosye yo desann otomatikman.
  */
 type PackageListRow = {
   status?: string | null;
@@ -48,10 +50,22 @@ type PackageListRow = {
   delivered_at?: string | null;
 };
 
+export function packageProgressPriority(status?: string | null): number {
+  switch (String(status || "").trim()) {
+    case "Disponible":
+    case "Facturé": return 0;
+    case "En route vers agence": return 1;
+    case "Arrivé en Haïti": return 2;
+    case "En transit":
+    case "En préparation": return 3;
+    case "Reçu à Miami": return 4;
+    default: return 5;
+  }
+}
+
 export function sortPackagesAvailableFirst<T extends PackageListRow>(items: T[]): T[] {
   return [...items].sort((left, right) => {
-    const priority = (item: PackageListRow) => item.status === "Disponible" ? 0 : 1;
-    const priorityDifference = priority(left) - priority(right);
+    const priorityDifference = packageProgressPriority(left.status) - packageProgressPriority(right.status);
     if (priorityDifference) return priorityDifference;
 
     const activityAt = (item: PackageListRow) =>
