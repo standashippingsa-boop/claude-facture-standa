@@ -448,7 +448,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
   const [resetting, setResetting] = useState<Staff | null>(null);
   const [newPassword, setNewPassword] = useState("");
 
-  const load = () => supabase.from("staff").select("*").order("created_at")
+  const load = () => supabase.from("staff").select("*").order("created_at", { ascending: false })
     .then(({ data }: { data: Staff[] | null }) => setList((data ?? []) as Staff[]));
   useEffect(() => { load(); getVilles().then(setZones).catch(() => setZones([])); }, []);
 

@@ -30,7 +30,7 @@ type PaymentMethod = "Espèces" | "MonCash" | "NatCash" | "Zelle" | "Virement ba
 type PaymentDraft = { invoiceId: string; amount: string; currency: "USD" | "HTG"; method: PaymentMethod; reference: string };
 type ClientDossier = { customerCode: string; customerName: string; packages: ZonePackage[]; invoices: ZoneInvoice[] };
 type DossierCounts = { active: ZonePackage[]; enRoute: number; available: number; latestActiveAt: number; latestActivityAt: number };
-type PackageGroup = { customerCode: string; customerName: string; packages: ZonePackage[]; balanceUsd: number; balanceHtg: number; balanceInvoiceId: string; balanceInvoiceNumber: string };
+type PackageGroup = { customerCode: string; customerName: string; packages: ZonePackage[]; balanceUsd: number; balanceHtg: number; balanceInvoiceId: string; balanceInvoiceNumber: string; latestActivityAt: number };
 
 const DONE = "Livré";
 const READY_STATUSES = new Set(["Disponible", "Facturé"]);
@@ -42,6 +42,11 @@ const quantityTotal = (items: ZonePackage[]) => items.reduce((total, item) => to
 const packageReference = (item: ZonePackage) => item.tracking_manual || item.tracking_number || "Colis sans numéro de suivi";
 const isReadyForPickup = (item: ZonePackage) => READY_STATUSES.has(item.status) && Boolean(item.invoice_id);
 const cn = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" ");
+const dateTimestamp = (value: string) => {
+  const parsed = value ? Date.parse(value) : 0;
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+const packageActivityAt = (item: ZonePackage) => dateTimestamp(item.delivered_at || item.received_at || item.created_date);
 
 /**
  * Les compteurs d'un dossier viennent uniquement de lignes `packages` uniques
@@ -50,19 +55,14 @@ const cn = (...values: Array<string | false | null | undefined>) => values.filte
  */
 function dossierCounts(dossier: ClientDossier): DossierCounts {
   const active = dossier.packages.filter((item) => item.status !== DONE);
-  const timestamp = (item: ZonePackage) => {
-    const value = item.delivered_at || item.received_at || item.created_date;
-    const parsed = value ? Date.parse(value) : 0;
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
-  const latest = (items: ZonePackage[]) => items.reduce((mostRecent, item) => Math.max(mostRecent, timestamp(item)), 0);
+  const latest = (items: ZonePackage[]) => items.reduce((mostRecent, item) => Math.max(mostRecent, packageActivityAt(item)), 0);
   const available = active.filter(isReadyForPickup).length;
   return {
     active,
     enRoute: active.length - available,
     available,
     latestActiveAt: latest(active),
-    latestActivityAt: latest(dossier.packages)
+    latestActivityAt: Math.max(latest(dossier.packages), ...dossier.invoices.map((invoice) => dateTimestamp(invoice.created_at)))
   };
 }
 
@@ -295,15 +295,23 @@ function dossierText(dossier: ClientDossier) {
 function groupPackages(items: ZonePackage[]): PackageGroup[] {
   const byCustomer = new Map<string, ZonePackage[]>();
   for (const item of items) byCustomer.set(item.customer_code, [...(byCustomer.get(item.customer_code) ?? []), item]);
-  return Array.from(byCustomer, ([customerCode, customerPackages]) => ({
-    customerCode,
-    packages: customerPackages,
-    customerName: customerPackages[0]?.customer_name ?? "",
-    balanceUsd: customerPackages[0]?.customer_balance_usd ?? 0,
-    balanceHtg: customerPackages[0]?.customer_balance_htg ?? 0,
-    balanceInvoiceId: customerPackages[0]?.balance_invoice_id ?? "",
-    balanceInvoiceNumber: customerPackages[0]?.balance_invoice_number ?? ""
-  })).sort((left, right) => (left.customerName + " " + left.customerCode).localeCompare(right.customerName + " " + right.customerCode, "fr-CA"));
+  return Array.from(byCustomer, ([customerCode, customerPackages]) => {
+    // La réponse de l'API est déjà récente d'abord, mais ce tri local garde
+    // ce comportement fiable après une recherche, un filtre ou un rafraîchissement.
+    const packages = [...customerPackages].sort((left, right) => packageActivityAt(right) - packageActivityAt(left));
+    return {
+      customerCode,
+      packages,
+      customerName: packages[0]?.customer_name ?? "",
+      balanceUsd: packages[0]?.customer_balance_usd ?? 0,
+      balanceHtg: packages[0]?.customer_balance_htg ?? 0,
+      balanceInvoiceId: packages[0]?.balance_invoice_id ?? "",
+      balanceInvoiceNumber: packages[0]?.balance_invoice_number ?? "",
+      latestActivityAt: packageActivityAt(packages[0])
+    };
+  }).sort((left, right) => right.latestActivityAt - left.latestActivityAt
+    || right.packages.length - left.packages.length
+    || (left.customerName + " " + left.customerCode).localeCompare(right.customerName + " " + right.customerCode, "fr-CA"));
 }
 
 function groupClientDossiers(packages: ZonePackage[], invoices: ZoneInvoice[]): ClientDossier[] {
@@ -320,8 +328,8 @@ function groupClientDossiers(packages: ZonePackage[], invoices: ZoneInvoice[]): 
   return Array.from(byCustomer.values()).sort((left, right) => {
     const leftCounts = dossierCounts(left);
     const rightCounts = dossierCounts(right);
-    // Priorité absolue : le nombre exact de colis encore actifs.
-    // À égalité, le dossier avec l'activité la plus récente reste au-dessus.
+    // Les dossiers actifs restent prioritaires; à activité égale, les plus
+    // récents passent devant et les anciens descendent naturellement en bas.
     return rightCounts.active.length - leftCounts.active.length
       || rightCounts.latestActiveAt - leftCounts.latestActiveAt
       || rightCounts.latestActivityAt - leftCounts.latestActivityAt
