@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Banknote, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
+import { AlertTriangle, Banknote, Check, CheckCircle2, ChevronDown, ChevronUp, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { openSecureDocument } from "@/lib/secure-document";
 import { packageProgressPriority, sortPackagesAvailableFirst } from "@/lib/utils";
@@ -74,6 +74,7 @@ export default function PickupAgentPortal() {
   const router = useRouter();
   const [data, setData] = useState<PortalData | null>(null);
   const [tab, setTab] = useState<Tab>("home");
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const [arrivalFilter, setArrivalFilter] = useState<ArrivalFilter>("all");
   const [search, setSearch] = useState("");
   const [focusedPackageId, setFocusedPackageId] = useState<string | null>(null);
@@ -119,6 +120,12 @@ export default function PickupAgentPortal() {
     window.addEventListener("focus", refresh);
     return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
   }, [load]);
+  useEffect(() => {
+    const updateScrollButton = () => setShowScrollTop(window.scrollY > 420);
+    updateScrollButton();
+    window.addEventListener("scroll", updateScrollButton, { passive: true });
+    return () => window.removeEventListener("scroll", updateScrollButton);
+  }, []);
 
   const packages = data?.packages ?? [];
   const invoices = data?.invoices ?? [];
@@ -333,6 +340,7 @@ export default function PickupAgentPortal() {
         </div>
         </div>
         <MobileNavigation tab={tab} moreOpen={mobileMoreOpen} onHome={() => { setTab("home"); setMobileMoreOpen(false); }} onArrivals={() => { setTab("arrivals"); setArrivalFilter("all"); setMobileMoreOpen(false); }} onReports={() => { setTab("reports"); setMobileMoreOpen(false); }} onReady={() => { setTab("ready"); setMobileMoreOpen(false); }} onToggleMore={() => setMobileMoreOpen((open) => !open)} onDossiers={() => { setTab("dossiers"); setMobileMoreOpen(false); }} onHistory={() => { setTab("history"); setMobileMoreOpen(false); }} onBons={() => { setTab("bons"); setMobileMoreOpen(false); }} />
+        {tab === "dossiers" && showScrollTop && <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="fixed bottom-20 right-3 z-30 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0b3270] px-4 text-sm font-black text-white shadow-lg shadow-blue-950/25 transition hover:bg-[#154b91] md:bottom-6 md:right-6"><ChevronUp size={18} />Retour en haut</button>}
       </>}
     </main>
   </div>;
@@ -441,7 +449,7 @@ function HomeDashboard({
   return <>
     <PendingBonsNotification bons={bons} selectedId={selectedBonId} onSelect={onSelectBon}
       busy={bonBusy} confirmedId={bonConfirmedId} onConfirm={onConfirmBon} />
-    <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#0b3270] via-[#1a5bc0] to-sky-400 p-4 text-white shadow-[0_20px_40px_rgba(20,76,160,0.23)] sm:rounded-3xl sm:p-8"><div className="max-w-xl"><div className="flex items-center gap-3 sm:gap-4"><span className="sm:hidden"><Logo size={48} rounded="rounded-xl" /></span><span className="hidden sm:inline"><Logo size={64} rounded="rounded-2xl" /></span><div><p className="text-[10px] font-black uppercase tracking-[0.15em] text-sky-100 sm:text-xs sm:tracking-[0.18em]">STANDA COMMERCIAL</p><h2 className="mt-1 text-xl font-black tracking-tight sm:text-3xl">Rechercher un dossier client</h2></div></div><p className="mt-4 max-w-lg text-sm leading-6 text-white/85 sm:mt-5">Entrez le code du client OU un numéro de tracking / Guía (les 6 derniers chiffres suffisent) pour ouvrir le dossier, vérifier le paiement et remettre les colis.</p><form onSubmit={(event) => { event.preventDefault(); onOpenDossier(); }} className="mt-5 flex flex-col gap-2 sm:mt-6 sm:flex-row"><label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl bg-white px-3 text-[#0b3270] shadow-sm sm:min-h-12 sm:rounded-2xl sm:px-4"><Search size={17} className="shrink-0 text-sky-600" /><input value={search} onChange={(event) => onSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none placeholder:font-medium placeholder:text-slate-400" placeholder="Code client ou tracking · ex. MC-3817 ou 481223" aria-label="Code client ou numéro de tracking" autoCapitalize="characters" /></label><button type="submit" disabled={!search.trim()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#ff6b1a] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#e85e19] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-12 sm:rounded-2xl sm:px-5"><Search size={17} />Ouvrir le dossier</button></form></div><div className="mt-5 grid gap-2 border-t border-white/20 pt-4 text-xs sm:mt-8 sm:gap-3 sm:pt-5 sm:text-sm sm:grid-cols-2"><p className="rounded-xl bg-white/10 p-2.5 font-semibold sm:rounded-2xl sm:p-3">Les colis livrés quittent les dossiers actifs et sont classés dans l’historique.</p><p className="rounded-xl bg-white/10 p-2.5 font-semibold sm:rounded-2xl sm:p-3">Les statuts et les paiements sont synchronisés avec le système principal.</p></div></section>
+    <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#0b3270] via-[#1a5bc0] to-sky-400 p-4 text-white shadow-[0_20px_40px_rgba(20,76,160,0.23)] sm:rounded-3xl sm:p-8"><div className="max-w-xl"><div className="flex items-center gap-3 sm:gap-4"><span className="sm:hidden"><Logo size={48} rounded="rounded-xl" /></span><span className="hidden sm:inline"><Logo size={64} rounded="rounded-2xl" /></span><div><p className="text-[10px] font-black uppercase tracking-[0.15em] text-sky-100 sm:text-xs sm:tracking-[0.18em]">STANDA COMMERCIAL</p><h2 className="mt-1 text-xl font-black tracking-tight sm:text-3xl">Rechercher un dossier client</h2></div></div><p className="mt-4 max-w-lg text-sm leading-6 text-white/85 sm:mt-5">Entrez le code du client OU un numéro de tracking / Guía (les 6 derniers chiffres suffisent) pour ouvrir le dossier, vérifier le paiement et remettre les colis.</p><form onSubmit={(event) => { event.preventDefault(); onOpenDossier(); }} className="mt-5 flex flex-col gap-2 sm:mt-6 sm:flex-row"><label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl bg-white px-3 text-[#0b3270] shadow-sm sm:min-h-12 sm:rounded-2xl sm:px-4"><Search size={17} className="shrink-0 text-sky-600" /><input value={search} onChange={(event) => onSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none placeholder:font-medium placeholder:text-slate-400" placeholder="Code client ou tracking · ex. MC-3817 ou 481223" aria-label="Code client ou numéro de tracking" autoCapitalize="characters" /></label><button type="submit" disabled={!search.trim()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#ff6b1a] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#e85e19] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-12 sm:rounded-2xl sm:px-5"><Search size={17} />Ouvrir le dossier</button></form></div></section>
   </>;
 }
 
