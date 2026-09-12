@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Shell from "@/components/Shell";
 import PwaManager from "@/components/PwaManager";
-import InstallGateway from "@/components/InstallGateway";
 import SelectionBar from "@/components/SelectionBar";
 import { SelectionProvider } from "@/lib/selection";
 import { SITE_URL } from "@/lib/branding";
@@ -91,36 +90,45 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ht" translate="no" className="notranslate">
       <head>
         {/*
-          KAPTE SIYAL ENSTALASYON AN TRÈ BONÈ.
-          ─────────────────────────────────────
-          Chrome (Android/Desktop) voye `beforeinstallprompt` DEZÈ paj la
-          kòmanse chaje — souvan AVAN React fin monte. Si nou tann yon
-          useEffect, nou rate siyal la epi bouton "Installer" la pa janm
-          parèt: kliyan an tonbe sou enstriksyon manyèl san rezon.
-
-          Ti script sa a kouri anvan tout rès la, li kenbe siyal la sou
-          window, epi li previni React lè li rive. Se sa ki fè enstalasyon
-          an vin YON SÈL TAP sou Android.
+          FRONTIÈRE SITE / APPLICATION — kouri trè bonè, anvan React monte,
+          pou anpeche yon lyen piblik melanje ak yon sesyon deja konekte.
+          (Ansyen kòmantè isit la te pale de kapti siyal "enstale app la" —
+          bando sa a retire definitivman kounye a: nou gen yon vrè APK sou
+          Uptodown, nou pa ankò mande kliyan yo "enstale" sit la kòm PWA.)
         */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){
-              window.__standaBIP = window.__standaBIP || null;
-              window.addEventListener('beforeinstallprompt', function(e){
-                e.preventDefault();
-                window.__standaBIP = e;
-                window.dispatchEvent(new Event('standa:installready'));
-              });
-              window.addEventListener('appinstalled', function(){
-                window.__standaBIP = null;
-                window.dispatchEvent(new Event('standa:installed'));
-              });
+              /*
+               * FRONTIÈRE SITE / APPLICATION
+               * ─────────────────────────────
+               * sessionStorage est isolé par onglet : un nouvel onglet peut
+               * toujours consulter le site public. En revanche, dans l'onglet
+               * déjà connecté à une application, une navigation arrière ou un
+               * lien public ne doit jamais mélanger les deux produits.
+               */
+              try {
+                var realm = window.sessionStorage.getItem('standa:auth-realm');
+                var path = window.location.pathname;
+                var publicPages = {
+                  '/accueil': true, '/contact': true, '/agences': true,
+                  '/login': true, '/inscription': true, '/confidentialite': true,
+                  '/reset-password': true, '/nouveau-mot-de-passe': true,
+                  '/admin-login': true, '/employe': true, '/point-retrait': true,
+                  '/setup': true
+                };
+                var homes = { client: '/espace-client', agent_retrait: '/espace-remise', admin: '/dashboard', employe: '/dashboard' };
+                var gates = { client: '/espace-client/connexion', agent_retrait: '/point-retrait', admin: '/admin-login', employe: '/employe' };
+                if (realm && homes[realm] && publicPages[path] && path !== gates[realm]) {
+                  window.location.replace(homes[realm]);
+                  return;
+                }
+              } catch (_) { /* stockage privé indisponible : le garde React prend le relais. */ }
             })();`
           }}
         />
       </head>
       <body>
-        <InstallGateway />
         <SelectionProvider>
           <Shell>{children}</Shell>
           <SelectionBar />
