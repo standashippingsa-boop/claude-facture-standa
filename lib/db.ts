@@ -2,7 +2,7 @@ import { supabase } from "./supabase";
 import { cleanTracking, isGuia, normalizeMcCode } from "./utils";
 import { validateUpload, storagePath } from "./upload";
 import {
-  AccountType, Client, Conduce, DashboardStats, ImportLog, Invoice, InvoiceItem,
+  AccountType, Client, Conduce, DashboardStats, ImportLog, Invoice, InvoiceItem, InvoicePaymentStatus,
   BonRemiseRecord, McpackInvoice, McpackInvoiceConduce, Pkg, Ville
 , Retrait, RetraitStatus, CONDUCE_ARRIVAL_STATUS, shouldPromoteOnConduce } from "./types";
 import { McpackRow } from "./xlsx";
@@ -10,6 +10,7 @@ import { specialPackageInfo, withManualSpecialPackageMetadata, withSpecialPackag
 import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
 import { computeInvoice, invoiceLineContent, InvoiceComputation, verifyTotal } from "./invoice-engine";
+import { invoicePayableAmounts } from "./invoice-payable";
 
 const asNum = <T extends Record<string, any>>(r: T, keys: string[]): T => {
   keys.forEach((k) => (r[k as keyof T] = Number(r[k]) as any));
@@ -1695,6 +1696,88 @@ export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; r
     inv.invoice_number, inv.customer_code);
 
   return { ok: true, restored };
+}
+
+const PAYMENT_METHODS = new Set(["Espèces", "MonCash", "NatCash", "Zelle", "Virement bancaire"]);
+
+export interface RecordInvoicePaymentInput {
+  invoiceId: string;
+  amount: number;
+  currency: "USD" | "HTG";
+  paymentMethod: string;
+  paymentReference?: string;
+  who?: string;
+}
+export interface RecordInvoicePaymentResult {
+  paymentStatus: InvoicePaymentStatus; paidUsd: number; paidHtg: number; overpaymentAmount: number;
+}
+
+/**
+ * ADMIN sèlman (RLS: invoice_payments_insert_admin) — anrejistre yon peman
+ * kliyan sou yon fakti. Menm règ ak /api/pickup-agent (record_payment):
+ * fakti a dwe deja gen PDF, montan an pa ka depase rès la (yon ti tolerans
+ * pou awondisman), epi ekriti a "optimis" (eq payment_paid_usd ansyen an)
+ * anpeche de moun aplike menm peman an de fwa an menm tan.
+ */
+export async function recordInvoicePayment(input: RecordInvoicePaymentInput): Promise<RecordInvoicePaymentResult> {
+  const amount = round2(input.amount);
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Montant invalide.");
+  if (!["USD", "HTG"].includes(input.currency)) throw new Error("Devise invalide.");
+  const method = input.paymentMethod || "Espèces";
+  if (!PAYMENT_METHODS.has(method)) throw new Error("Méthode de paiement invalide.");
+
+  const { data: invoice, error } = await supabase.from("invoices")
+    .select("id, invoice_number, customer_code, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, payment_paid_usd, payment_paid_htg")
+    .eq("id", input.invoiceId).maybeSingle();
+  if (error) throw error;
+  if (!invoice) throw new Error("Facture introuvable.");
+  if (!invoice.has_pdf) throw new Error("La facture doit être générée avant tout encaissement.");
+
+  const payable = invoicePayableAmounts(invoice);
+  const rate = Number(invoice.exchange_rate_used) > 0 ? Number(invoice.exchange_rate_used) : payable.payableHtg / Math.max(payable.payableUsd, 1);
+  if (!Number.isFinite(rate) || rate <= 0) throw new Error("Taux de la facture introuvable.");
+  const amountUsd = input.currency === "USD" ? amount : round2(amount / rate);
+  const amountHtg = input.currency === "HTG" ? amount : round2(amount * rate);
+  const priorUsd = round2(Number(invoice.payment_paid_usd) || 0);
+  const priorHtg = round2(Number(invoice.payment_paid_htg) || 0);
+  const remainingUsd = Math.max(0, round2(payable.payableUsd - priorUsd));
+  const remainingHtg = Math.max(0, round2(payable.payableHtg - priorHtg));
+  const toleranceUsd = input.currency === "HTG" ? Math.max(0.05, round2(5 / rate)) : 0.05;
+  if (amountUsd > remainingUsd + toleranceUsd) {
+    throw new Error(`Le montant dépasse le reste à payer (${remainingUsd.toFixed(2)} USD).`);
+  }
+  const appliedUsd = Math.min(amountUsd, remainingUsd);
+  const appliedHtg = Math.min(amountHtg, remainingHtg);
+  const overpaymentAmount = round2(input.currency === "HTG" ? amount - appliedHtg : amount - appliedUsd);
+  const newUsd = round2(priorUsd + appliedUsd);
+  const newHtg = round2(priorHtg + appliedHtg);
+  const status: InvoicePaymentStatus = newUsd + 0.01 >= payable.payableUsd ? "Payé" : "Payé partiel";
+
+  const payment = await supabase.from("invoice_payments").insert({
+    invoice_id: invoice.id, amount, currency: input.currency, amount_usd: amountUsd, amount_htg: amountHtg,
+    applied_usd: appliedUsd, applied_htg: appliedHtg, overpayment_amount: overpaymentAmount,
+    payment_method: method, payment_reference: (input.paymentReference ?? "").trim().slice(0, 120),
+    exchange_rate_used: rate, received_by_name: (input.who ?? "").trim(), recorded_by_role: "admin"
+  }).select("id").single();
+  if (payment.error || !payment.data?.id) throw payment.error ?? new Error("Paiement non enregistré.");
+
+  const update = await supabase.from("invoices").update({
+    payment_status: status, payment_paid_usd: newUsd, payment_paid_htg: newHtg,
+    payment_paid_at: status === "Payé" ? new Date().toISOString() : null,
+    payment_paid_by: status === "Payé" ? (input.who ?? "").trim() : null
+  }).eq("id", invoice.id).eq("payment_paid_usd", priorUsd).select("id").maybeSingle();
+  if (update.error || !update.data) {
+    // Wonn: yon lòt ekriti te chanje balans lan antre chèk la ak isit la —
+    // pa kite yon peman "flote" san li reflete sou fakti a.
+    await supabase.from("invoice_payments").delete().eq("id", payment.data.id);
+    if (update.error) throw update.error;
+    throw new Error("Le solde vient de changer. Actualisez avant d'enregistrer ce paiement.");
+  }
+
+  await logAction("Paiement client reçu",
+    `${invoice.invoice_number} · ${amount} ${input.currency} · ${method}${overpaymentAmount > 0.009 ? ` · arrondi ${overpaymentAmount.toFixed(2)}` : ""}`,
+    "", invoice.customer_code);
+  return { paymentStatus: status, paidUsd: newUsd, paidHtg: newHtg, overpaymentAmount };
 }
 
 /**

@@ -1,16 +1,24 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Eye, Download, Printer, Send, XCircle } from "lucide-react";
-import { cancelInvoice, getInvoiceItems, getInvoices, getSettings, saveInvoicePdfPath } from "@/lib/db";
+import { Banknote, Eye, Download, Printer, Send, XCircle } from "lucide-react";
+import { cancelInvoice, getInvoiceItems, getInvoices, getSettings, recordInvoicePayment, saveInvoicePdfPath } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
 import { generateUploadDownload, openInvoicePdf } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Invoice } from "@/lib/types";
+import { invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 import { dateFr, htg, usd } from "@/lib/utils";
 import { useRememberListContext } from "@/lib/list-context";
 import { openSecureDocument } from "@/lib/secure-document";
+
+const PAYMENT_METHODS = ["Espèces", "MonCash", "NatCash", "Zelle", "Virement bancaire"];
+const PAYMENT_TONE: Record<string, string> = {
+  "Payé": "bg-emerald-100 text-emerald-700",
+  "Payé partiel": "bg-amber-100 text-amber-800",
+  "Non payé": "bg-red-100 text-red-700"
+};
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -28,7 +36,16 @@ export default function InvoicesPage() {
   const [footer, setFooter] = useState("Mèsi paske ou fè STANDA COMMERCIAL konfyans.");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const { role } = useRole();
+  const { role, staff } = useRole();
+  const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
+
+  const [paymentTarget, setPaymentTarget] = useState<Invoice | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentCurrency, setPaymentCurrency] = useState<"USD" | "HTG">("USD");
+  const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const load = async () => {
     await getInvoices().then(setInvoices).catch((e) => setNotice("Erè: " + e.message));
@@ -61,6 +78,39 @@ export default function InvoicesPage() {
     } catch (e: any) {
       setNotice("Erè anilasyon: " + (e?.message ?? String(e)));
     } finally { setBusy(false); }
+  };
+
+  /** Ouvri panno "Enregistrer un paiement" (ADMIN sèlman — RLS pa kite anplwaye). */
+  const startPayment = (inv: Invoice) => {
+    setPaymentTarget(inv);
+    setPaymentAmount("");
+    setPaymentCurrency("USD");
+    setPaymentMethod(PAYMENT_METHODS[0]);
+    setPaymentReference("");
+    setPaymentError(null);
+  };
+
+  const confirmPayment = async () => {
+    if (!paymentTarget) return;
+    const amount = Number(paymentAmount);
+    if (!Number.isFinite(amount) || amount <= 0) { setPaymentError("Entrez un montant valide."); return; }
+    setPaymentBusy(true);
+    setPaymentError(null);
+    try {
+      const result = await recordInvoicePayment({
+        invoiceId: paymentTarget.id, amount, currency: paymentCurrency,
+        paymentMethod, paymentReference, who: staffName
+      });
+      const extra = result.overpaymentAmount > 0.009
+        ? ` Arrondi accepté : ${result.overpaymentAmount.toFixed(2)} ${paymentCurrency}.` : "";
+      setInvoices((prev) => prev.map((x) => x.id === paymentTarget.id
+        ? { ...x, payment_status: result.paymentStatus, payment_paid_usd: result.paidUsd, payment_paid_htg: result.paidHtg }
+        : x));
+      setNotice(`✅ Paiement enregistré sur ${paymentTarget.invoice_number} : ${result.paymentStatus}.${extra}`);
+      setPaymentTarget(null);
+    } catch (e: any) {
+      setPaymentError(e?.message ?? "Paiement impossible.");
+    } finally { setPaymentBusy(false); }
   };
 
   const voir = async (inv: Invoice) => {
@@ -128,12 +178,15 @@ export default function InvoicesPage() {
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr>{["Date", "No Facture", "Code Client", "Nom Client", "Sous-total", "Tax", "Total USD", "Taux", "Total HTG", "Actions"]
+          <thead><tr>{["Date", "No Facture", "Code Client", "Nom Client", "Sous-total", "Tax", "Total USD", "Taux", "Total HTG", "Paiement", "Actions"]
             .map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={10} className="text-center py-10 text-slate-400">Aucune facture.</td></tr>
-            ) : filtered.map((f, i) => (
+              <tr><td colSpan={11} className="text-center py-10 text-slate-400">Aucune facture.</td></tr>
+            ) : filtered.map((f, i) => {
+              const paymentStatus = paymentStatusFromAmounts(f);
+              const remaining = invoiceRemainingAmounts(f).remainingUsd;
+              return (
               <tr key={f.id} className={i % 2 ? "bg-mist" : ""}>
                 <td className="td whitespace-nowrap">{dateFr(f.created_at)}</td>
                 <td className="td font-bold text-navy">{f.invoice_number}</td>
@@ -145,10 +198,19 @@ export default function InvoicesPage() {
                 <td className="td text-right text-xs text-slate-500">{Number(f.exchange_rate_used).toFixed(2)}</td>
                 <td className="td text-right font-bold text-navy">{htg(f.total_htg || f.grand_total * f.exchange_rate_used)}</td>
                 <td className="td whitespace-nowrap">
+                  <span className={`badge ${PAYMENT_TONE[paymentStatus] ?? "bg-slate-100 text-slate-600"}`}>{paymentStatus}</span>
+                  {remaining > 0.01 && <span className="block mt-0.5 text-[11px] text-mute">Reste {usd(remaining)}</span>}
+                </td>
+                <td className="td whitespace-nowrap">
                   <button title="Voir" className="text-navy hover:text-navy-light mr-3" onClick={() => voir(f)}><Eye size={16} /></button>
                   <button title="Télécharger" className="text-navy hover:text-navy-light mr-3" onClick={() => telecharger(f)}><Download size={16} /></button>
                   <button title="Ré-imprimer" className="text-navy hover:text-navy-light mr-3" onClick={() => imprimer(f)}><Printer size={16} /></button>
                   <button title="Envoyer sur WhatsApp" className="text-[#128C4B] hover:text-[#25D366]" onClick={() => envoyer(f)}><Send size={16} /></button>
+                  {role === "admin" && remaining > 0.01 && (
+                    <button title="Enregistrer un paiement"
+                      className="text-emerald-600 hover:text-emerald-800 ml-3" disabled={busy}
+                      onClick={() => startPayment(f)}><Banknote size={16} /></button>
+                  )}
                   {role === "admin" && (
                     <button title="Annuler la facture (colis redeviennent Disponible)"
                       className="text-slate-400 hover:text-red-600 ml-3" disabled={busy}
@@ -156,12 +218,61 @@ export default function InvoicesPage() {
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
+
+      {paymentTarget && (() => {
+        const remainingUsd = invoiceRemainingAmounts(paymentTarget).remainingUsd;
+        return (
+          <div className="fixed inset-0 z-[70] grid place-items-center bg-navy/35 p-4" role="dialog" aria-modal="true" aria-label="Enregistrer un paiement">
+            <div className="card w-full max-w-sm p-5 shadow-lift">
+              <div className="flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><Banknote size={20} /></span>
+                <div className="min-w-0">
+                  <h2 className="text-base font-extrabold text-navy">Enregistrer un paiement</h2>
+                  <p className="mt-1 text-xs text-mute">{paymentTarget.invoice_number} · {paymentTarget.customer_name}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-mute">Reste à payer : <b className="text-ink">{usd(remainingUsd)}</b></p>
+              <div className="mt-3 space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wide text-mute">
+                  Montant
+                  <div className="mt-1 flex gap-2">
+                    <input type="number" inputMode="decimal" min={0.01} step={0.01} className="input flex-1"
+                      value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} disabled={paymentBusy} autoFocus />
+                    <select className="input !w-24" value={paymentCurrency} onChange={(e) => setPaymentCurrency(e.target.value as "USD" | "HTG")} disabled={paymentBusy}>
+                      <option value="USD">USD</option>
+                      <option value="HTG">HTG</option>
+                    </select>
+                  </div>
+                </label>
+                <label className="block text-xs font-bold uppercase tracking-wide text-mute">
+                  Méthode
+                  <select className="input mt-1" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} disabled={paymentBusy}>
+                    {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </label>
+                <label className="block text-xs font-bold uppercase tracking-wide text-mute">
+                  Référence (optionnel)
+                  <input type="text" className="input mt-1" value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} disabled={paymentBusy} placeholder="No transaction, chèque…" />
+                </label>
+              </div>
+              {paymentError && <p className="mt-3 text-xs font-semibold text-red-600">{paymentError}</p>}
+              <div className="mt-5 flex justify-end gap-2">
+                <button className="btn btn-ghost" onClick={() => setPaymentTarget(null)} disabled={paymentBusy}>Annuler</button>
+                <button className="btn btn-brand" onClick={confirmPayment} disabled={paymentBusy || !paymentAmount}>
+                  {paymentBusy ? "Enregistrement…" : "Enregistrer"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
