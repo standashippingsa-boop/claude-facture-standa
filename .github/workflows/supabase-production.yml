@@ -32,8 +32,24 @@ jobs:
         with:
           version: latest
 
+      # SEKIRITE / DYAGNOSTIK : verifye 3 sekrè yo prezan AVAN nou eseye
+      # konekte — san sa a, yon sekrè vid bay yon erè CLI kriptik pi ba
+      # (echèk sistematik ki difisil pou dyagnostike, sa k te pase depi
+      # 2026-09-01). Okenn valè sekrè pa parèt nan lòg la.
+      - name: Verifye sekrè yo prezan
+        run: |
+          missing=""
+          [ -z "$SUPABASE_ACCESS_TOKEN" ] && missing="$missing SUPABASE_ACCESS_TOKEN"
+          [ -z "$SUPABASE_DB_PASSWORD" ] && missing="$missing PRODUCTION_DB_PASSWORD"
+          [ -z "$SUPABASE_PROJECT_ID" ] && missing="$missing PRODUCTION_PROJECT_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::Sekrè GitHub sa yo manke oswa vid:$missing — ajoute yo nan Settings > Secrets and variables > Actions, epi relanse."
+            exit 1
+          fi
+          echo "Tou 3 sekrè yo prezan (valè yo pa afiche)."
+
       - name: Lier la base de production
-        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID" --debug
 
       - name: Appliquer les nouvelles migrations
-        run: supabase db push
+        run: supabase db push --debug

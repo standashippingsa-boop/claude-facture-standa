@@ -17,6 +17,7 @@ Exécuter `npm run verify`. Cette commande vérifie, dans cet ordre :
 - **RLS** : ne JAMAIS créer de politique `anon all ... using(true)`. L'accès aux données passe par une session Supabase authentifiée (`security-hardening.sql`) ou par une route serveur avec la clé service. Toute nouvelle table doit recevoir ses politiques dans `security-hardening.sql`.
 - Ordre d'exécution SQL sur Supabase : `migration.sql` → `security-hardening.sql` → `20260831_public_reviews.sql`.
 - Chemins de fichiers Storage (`lib/upload.ts`, `lib/pdf.ts`) : garder un jeton aléatoire cryptographique — les buckets sont publics par lien.
+- **`supabase/migrations/*.sql` n'est PAS fiable tant que le workflow GitHub Actions correspondant n'a pas au moins une exécution ✅ verte confirmée** (constat 2026-09-12 : 18/18 échecs depuis sa création — voir `supabase/migrations/README.md`). Après avoir ajouté un fichier là, vérifier l'onglet Actions ; si rouge ou en doute, coller le fichier soi-même dans Supabase → SQL Editor → Run.
 
 ## Commandes utiles
 
