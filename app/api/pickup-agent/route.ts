@@ -6,6 +6,7 @@ import { invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmount
 import { specialPackageInfo } from "@/lib/special-package";
 import { computePrice, round2 } from "@/lib/pricing";
 import type { AccountType, Ville } from "@/lib/types";
+import { sendPushToCustomer } from "@/lib/push-server";
 
 /**
  * API isolée des points de retrait.
@@ -562,6 +563,14 @@ export async function POST(req: Request) {
       const completedRetraits = await completePreparedRetraits(db, customerCode);
       const references = selected.map((parcel) => code(parcel.tracking_manual || parcel.tracking_number)).filter(Boolean).slice(0, 5).join(", ");
       await writeAudit(db, req, agent, "Remise groupée", `${packageIds.length} colis remis au point de retrait ${zoneName}${completedRetraits ? ` · ${completedRetraits} demande(s) clôturée(s)` : ""}`, references, customerCode);
+      const pushConfig = getSupabaseAdminConfig();
+      if (pushConfig) {
+        // Anvwa a AVAN repons lan — sou Vercel, yon pwomès ki pa "await" ka
+        // touye lè fonksyon an reponn, epi push la pa janm pati.
+        await sendPushToCustomer(pushConfig, customerCode, {
+          title: "Colis remis", text: packageIds.length > 1 ? `${packageIds.length} colis vous ont été remis.` : "Votre colis vous a été remis."
+        }).catch(() => undefined);
+      }
       return NextResponse.json({ ok: true, package_ids: packageIds });
     }
 
@@ -618,6 +627,10 @@ export async function POST(req: Request) {
       const completedRetraits = await completePreparedRetraits(db, parcel.customer_code);
       const ref = code(parcel.tracking_manual || parcel.tracking_number);
       await writeAudit(db, req, agent, "Remise colis", `Colis remis au point de retrait ${zoneName}${completedRetraits ? ` · ${completedRetraits} demande(s) clôturée(s)` : ""}`, ref, parcel.customer_code);
+      const pushConfig = getSupabaseAdminConfig();
+      if (pushConfig) {
+        await sendPushToCustomer(pushConfig, parcel.customer_code, { title: "Colis remis", text: "Votre colis vous a été remis." }).catch(() => undefined);
+      }
       return NextResponse.json({ ok: true, package_id: packageId });
     }
 

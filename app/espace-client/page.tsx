@@ -327,12 +327,14 @@ export default function EspaceClientPage() {
   }
 
   // ── Klasman koli yo ─────────────────────────────────────────────────────
-  // Yon koli facturé rete vizib nan fakti li jouk ajan an konfime remise a.
-  // Li pa antre nan historique jis lè statut li vin « Livré ».
+  // Yon koli rete nan "Disponible" (menm si li deja facturé) tout tan li poko
+  // Livré — se konsa ajan pwen de retrait la deja konsidere l tou (READY_STATUSES
+  // = Disponible + Facturé nan PickupAgentPortal.tsx). Se PEMAN + LIVREZON ki fè
+  // l soti, pa fakti a sèl. Li rete vizib TOU sou fakti li (onglet Factures).
   const historique = pkgs.filter(isDelivered);
-  const receptionsAll = pkgs.filter((p) => !isInvoiced(p) && !isDelivered(p));
-  const disponibles = receptionsAll.filter((p) => p.status === "Disponible");
-  const autres = receptionsAll.filter((p) => p.status !== "Disponible");
+  const receptionsAll = pkgs.filter((p) => !isDelivered(p));
+  const disponibles = receptionsAll.filter((p) => p.status === "Disponible" || p.status === "Facturé");
+  const autres = receptionsAll.filter((p) => p.status !== "Disponible" && p.status !== "Facturé");
 
   const poidsDe = (list: Pkg[]) => round2(list.reduce((s, p) => s + (Number(p.weight) || 0), 0));
   const estimation = (list: Pkg[]) =>
@@ -349,54 +351,67 @@ export default function EspaceClientPage() {
     const paid = Number(invoice.payment_paid_usd ?? 0);
     return total + Math.max(0, billed - paid);
   }, 0));
+  // ── Sant notifikasyon (V13) ──────────────────────────────────────────────
+  // Chak evènman VRE (yon fakti, yon demann retrait, yon koli ki disponib)
+  // pran SA PWÒP LIY pou tèt li, epi li rete la pou tout tan — se sèlman
+  // kantite fakti/demann/koli ki egziste ki chanje lis la, jamè yon nouvo
+  // evènman ki "efase" yon ansyen. Se konsa mesaj yo pa disparèt.
   const clientNotifications: ClientNotice[] = [];
 
-  if (disponibles.length > 0) {
+  const nonFactures = disponibles.filter((pkg) => !isInvoiced(pkg));
+  if (nonFactures.length > 0) {
     clientNotifications.push({
       id: "available",
-      key: noticeKey("available", ...disponibles.map((pkg) => `${pkg.id}:${pkg.status}:${pkg.verified_at ?? ""}`).sort()),
-      title: disponibles.length === 1 ? "Votre colis est disponible" : `${disponibles.length} colis sont disponibles`,
+      key: noticeKey("available", ...nonFactures.map((pkg) => `${pkg.id}:${pkg.status}`).sort()),
+      title: nonFactures.length === 1 ? "Votre colis est disponible" : `${nonFactures.length} colis sont disponibles`,
       description: "Présentez-vous à votre agence avec une pièce d'identité.",
       stamp: "À l'instant",
       to: "disponibles",
       kind: "available"
     });
   }
-  if (invs.length > 0) {
-    const latestInvoice = invs[0];
+  // Yon liy PA fakti — pa sèlman dènye a. Yon fakti pa janm disparèt lis la.
+  for (const invoice of invs) {
     clientNotifications.push({
-      id: "invoice",
-      key: noticeKey("invoice", latestInvoice?.id ?? latestInvoice?.invoice_number, latestInvoice?.created_at),
-      title: "Votre facture est prête",
-      description: latestInvoice?.invoice_number ? `Facture ${latestInvoice.invoice_number} disponible dans votre espace.` : "Votre facture est disponible dans votre espace.",
-      stamp: latestInvoice?.created_at ? dateFr(latestInvoice.created_at) : "Récemment",
+      id: `invoice-${invoice.id}`,
+      key: noticeKey("invoice", invoice.id ?? invoice.invoice_number, invoice.created_at),
+      title: "Facture disponible",
+      description: invoice.invoice_number ? `Facture ${invoice.invoice_number} disponible dans votre espace.` : "Une facture est disponible dans votre espace.",
+      stamp: invoice.created_at ? dateFr(invoice.created_at) : "Récemment",
       to: "factures",
       kind: "invoice"
     });
   }
-  if (retraits.length > 0) {
-    const latestRetrait = retraits[0];
+  // Yon liy PA demann retrait — statut aktyèl la parèt, men demann lan
+  // pa disparèt lis la lè statut li chanje, yon lòt demann rive, elatriye.
+  for (const retrait of retraits) {
     clientNotifications.push({
-      id: "pickup",
-      key: noticeKey("pickup", latestRetrait?.id, latestRetrait?.status, latestRetrait?.created_at),
-      title: "Suivi de votre retrait",
-      description: latestRetrait?.status === "Préparé" ? "Votre demande est préparée à l'agence." : "Votre demande de retrait est en cours de préparation.",
-      stamp: latestRetrait?.created_at ? dateFr(latestRetrait.created_at) : "Récemment",
-      to: "disponibles",
+      id: `pickup-${retrait.id}`,
+      key: noticeKey("pickup", retrait.id, retrait.status, retrait.created_at),
+      title: `Retrait · ${retrait.status}`,
+      description: retrait.status === "Remis"
+        ? `${retrait.package_count} colis remis.`
+        : retrait.status === "Préparé"
+          ? "Votre demande est préparée à l'agence."
+          : "Votre demande de retrait est en cours de préparation.",
+      stamp: retrait.created_at ? dateFr(retrait.created_at) : "Récemment",
+      to: "retraits",
       kind: "pickup"
     });
   }
-  if (!clientNotifications.length && activePackage) {
+  if (activePackage) {
     clientNotifications.push({
-      id: "shipment",
+      id: `shipment-${activePackage.id}`,
       key: noticeKey("shipment", activePackage.id, activePackage.status, activePackage.received_at ?? activePackage.created_date),
-      title: "Votre colis est en cours d'acheminement",
+      title: "Colis en cours d'acheminement",
       description: `${activePackage.tracking_number || "Votre colis"} · ${activePackage.status || "Statut en cours"}`,
       stamp: "Actualisé",
       to: "receptions",
       kind: "shipment"
     });
   }
+  // `invs` ak `retraits` deja triye pi resan an premye (getClientPackagesAndInvoices
+  // / getClientRetraits) — nou pa bezwen re-triye, jis gwoupe pa kategori.
 
   const unreadNotifications = clientNotifications.filter((notice) => !readNoticeKeys.has(notice.key));
 
@@ -437,8 +452,14 @@ export default function EspaceClientPage() {
   /** Rezime yon lis koli: kantite, pwa total, epi pri (reyèl oswa estimasyon). */
   const Totaux = ({ list, reel }: { list: Pkg[]; reel?: boolean }) => {
     const w = poidsDe(list);
-    const est = reel ? null : estimation(list);
-    const totalReel = reel ? round2(list.reduce((s, p) => s + (Number(p.total_usd) || 0), 0)) : 0;
+    // "Disponible" mélange désormais des colis déjà facturés (prix réel,
+    // fixé — jamais une estimation) et des colis pas encore facturés (prix
+    // seulement estimé). On sépare les deux pour ne jamais afficher un prix
+    // "estimé" sur un colis dont le montant est en réalité déjà arrêté.
+    const facturedItems = list.filter(isInvoiced);
+    const nonFacturedItems = reel ? [] : list.filter((p) => !isInvoiced(p));
+    const totalFacture = round2(facturedItems.reduce((s, p) => s + (Number(p.total_usd) || 0), 0));
+    const est = nonFacturedItems.length ? estimation(nonFacturedItems) : null;
     return (
       <div className="card p-4">
         <div className="grid grid-cols-2 gap-3">
@@ -451,14 +472,15 @@ export default function EspaceClientPage() {
             <p className="text-2xl font-extrabold text-ink leading-tight">{w.toFixed(2)} <span className="text-sm">lb</span></p>
           </div>
         </div>
-        {reel && totalReel > 0 && (
+        {facturedItems.length > 0 && totalFacture > 0 && (
           <div className="mt-3 pt-3 border-t border-line flex items-center justify-between">
-            <span className="text-[12px] text-mute">Total facturé</span>
-            <span className="text-xl font-extrabold text-navy">{usd(totalReel)}</span>
+            <span className="text-[12px] text-mute">Total facturé{!reel ? ` (${facturedItems.length} colis)` : ""}</span>
+            <span className="text-xl font-extrabold text-navy">{usd(totalFacture)}</span>
           </div>
         )}
         {est && (
           <div className="mt-3 pt-3 border-t border-line space-y-1.5">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-mute">Estimation ({nonFacturedItems.length} colis pas encore facturés)</p>
             <div className="flex items-center justify-between text-[13px]">
               <span className="text-mute">Transport estimé</span>
               <span className="font-semibold text-ink">{usd(est.subtotal)}</span>
@@ -473,7 +495,7 @@ export default function EspaceClientPage() {
             </div>
           </div>
         )}
-        {!est && !reel && (
+        {!est && !reel && !facturedItems.length && (
           <p className="mt-3 pt-3 border-t border-line text-[11px] text-amber-700">
             Le tarif de votre ville n&apos;est pas encore configuré. Contactez-nous sur WhatsApp.
           </p>
@@ -532,19 +554,28 @@ export default function EspaceClientPage() {
   const PkgCard = ({ p, check }: { p: Pkg; check?: boolean }) => {
     const facture = Number(p.total_usd) > 0 && isInvoiced(p);
     const special = specialPackageInfo(p);
+    // Un colis déjà facturé reste visible dans "Disponible" (il attend d'être
+    // payé et retiré), mais ne peut pas entrer dans une NOUVELLE demande de
+    // retrait — la demande existante ou le règlement s'en occupe déjà.
+    const selectable = !check || p.status === "Disponible";
     return (
       <div className="relative">
         {check && (
           <input type="checkbox" aria-label="Chwazi koli a"
-            className="absolute top-4 right-4 z-10 w-4 h-4"
-            checked={sel.has(p.id)} onChange={() => toggleSel(p.id)} />
+            className="absolute top-4 right-4 z-10 w-4 h-4 disabled:opacity-30"
+            checked={sel.has(p.id)} disabled={!selectable}
+            title={selectable ? undefined : "Colis déjà facturé — réglez la facture pour le retirer."}
+            onChange={() => toggleSel(p.id)} />
         )}
         <button onClick={() => setDetail(p)} className="w-full card card-hover p-4 text-left">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p className="font-mono text-[13px] font-bold text-ink truncate">{p.tracking_number || "—"}</p>
               {p.tracking_manual && <p className="font-mono text-[11px] text-mute truncate mt-0.5">{p.tracking_manual}</p>}
-              {special.isSpecial && <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800" title="Traitement particulier appliqué à ce colis">Colis spécial</span>}
+              <div className="mt-1 flex flex-wrap gap-1">
+                {check && isInvoiced(p) && <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">Facturé</span>}
+                {special.isSpecial && <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800" title="Traitement particulier appliqué à ce colis">Colis spécial</span>}
+              </div>
             </div>
             {!check && <StatusBadge status={p.status} />}
           </div>
@@ -731,7 +762,8 @@ export default function EspaceClientPage() {
                 <Totaux list={disponibles} />
                 <p className="text-[12px] text-mute px-1 leading-relaxed">
                   Sélectionnez les colis que vous souhaitez retirer, puis cliquez sur « Préparer mon retrait »
-                  afin que notre équipe les prépare avant votre arrivée.
+                  afin que notre équipe les prépare avant votre arrivée. Les colis déjà <b>facturés</b> restent
+                  affichés ici jusqu&apos;à leur remise — réglez la facture avant de passer les chercher.
                 </p>
                 <div className="space-y-3">
                   {disponibles.map((p) => <PkgCard key={p.id} p={p} check />)}
