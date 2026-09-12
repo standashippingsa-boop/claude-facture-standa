@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Banknote, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
+import { AlertTriangle, Banknote, BookOpen, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { openSecureDocument } from "@/lib/secure-document";
 import { sortPackagesAvailableFirst } from "@/lib/utils";
@@ -76,6 +76,7 @@ export default function PickupAgentPortal() {
   const [tab, setTab] = useState<Tab>("home");
   const [arrivalFilter, setArrivalFilter] = useState<ArrivalFilter>("all");
   const [search, setSearch] = useState("");
+  const [focusedPackageId, setFocusedPackageId] = useState<string | null>(null);
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
@@ -154,11 +155,36 @@ export default function PickupAgentPortal() {
   };
 
   const openDossier = () => {
+    const lastSixDigits = needle.replace(/\D/g, "");
+    if (lastSixDigits.length === 6 && needle === lastSixDigits) {
+      const matches = packages.filter((item) => [item.tracking_number, item.tracking_manual]
+        .some((tracking) => String(tracking || "").replace(/\s+/g, "").endsWith(lastSixDigits)));
+      if (matches.length > 1) {
+        setMessage({ type: "error", text: "Plus d’un colis possède ces 6 derniers chiffres. Entrez le numéro de suivi complet pour éviter toute erreur." });
+        return;
+      }
+      if (matches.length === 1) {
+        const parcel = matches[0];
+        const found = dossiers.find((dossier) => dossier.customerCode === parcel.customer_code);
+        if (!found) { setMessage({ type: "error", text: "Le colis a été trouvé, mais son dossier client est indisponible." }); return; }
+        setTab("dossiers");
+        setSearch(found.customerCode);
+        setFocusedPackageId(parcel.id);
+        setExpandedCustomer(found.customerCode);
+        setSelectedInvoiceId(null);
+        setMessage(null);
+        window.setTimeout(() => document.getElementById("dossier-" + found.customerCode)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+        return;
+      }
+      setMessage({ type: "error", text: "Aucun colis ne correspond à ces 6 derniers chiffres. Vérifiez le numéro ou utilisez le code client." });
+      return;
+    }
     const exact = dossiers.find((dossier) => dossier.customerCode.toLowerCase() === needle);
     const found = exact ?? matchingDossiers[0];
     if (!found) { setMessage({ type: "error", text: "Aucun dossier client ne correspond à cette recherche." }); return; }
     setTab("dossiers");
     setSearch(found.customerCode);
+    setFocusedPackageId(null);
     setExpandedCustomer(found.customerCode);
     setSelectedInvoiceId(null);
     setMessage(null);
@@ -258,7 +284,7 @@ export default function PickupAgentPortal() {
     <header className="bg-gradient-to-r from-[#071b43] via-[#0d3270] to-[#154b91] text-white shadow-lg">
       <div className="mx-auto flex min-h-20 max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3"><Logo size={44} rounded="rounded-xl" /><div><p className="text-lg font-black tracking-tight">STANDA</p><p className="text-[10px] font-semibold tracking-[0.18em] text-white/70">POINT DE RETRAIT</p></div></div>
-        <button type="button" onClick={logout} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-white/90 hover:bg-white/10"><LogOut size={18} /><span className="hidden sm:inline">Se déconnecter</span></button>
+        <div className="flex items-center gap-1 sm:gap-2"><button type="button" onClick={() => router.push("/espace-remise/guide")} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-white/90 hover:bg-white/10"><BookOpen size={18} /><span className="hidden sm:inline">Guide</span></button><button type="button" onClick={logout} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-white/90 hover:bg-white/10"><LogOut size={18} /><span className="hidden sm:inline">Se déconnecter</span></button></div>
       </div>
     </header>
 
@@ -279,7 +305,7 @@ export default function PickupAgentPortal() {
 
         <section className="rounded-3xl border border-white bg-white p-4 shadow-[0_10px_35px_rgba(17,54,110,0.07)] sm:p-5">
           {tab !== "home" && <div className="mb-4 flex flex-col gap-3">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h2 className="text-lg font-extrabold text-[#0a2b61]">{tab === "arrivals" ? "Colis à venir" : `Opérations — ${data.zone.name}`}</h2><p className="text-xs text-slate-500">{tab === "arrivals" ? "Tous les colis non livrés de votre zone, avec leur code client." : "Colis, factures, paiements et bons de remise liés à votre zone."}</p></div><form onSubmit={(event) => { event.preventDefault(); openDossier(); }} className="flex min-h-11 gap-2 md:w-[27rem]"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3"><Search size={17} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="Numéro de client, suivi ou facture" aria-label="Rechercher un dossier client" /></label><button type="submit" className="shrink-0 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white hover:bg-[#0f448f]">Dossier</button></form></div>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h2 className="text-lg font-extrabold text-[#0a2b61]">{tab === "arrivals" ? "Colis à venir" : `Opérations — ${data.zone.name}`}</h2><p className="text-xs text-slate-500">{tab === "arrivals" ? "Tous les colis non livrés de votre zone, avec leur code client." : "Colis, factures, paiements et bons de remise liés à votre zone."}</p></div><form onSubmit={(event) => { event.preventDefault(); openDossier(); }} className="flex min-h-11 gap-2 md:w-[27rem]"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3"><Search size={17} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => { setSearch(event.target.value); setFocusedPackageId(null); }} className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="Numéro de client, suivi ou facture" aria-label="Rechercher un dossier client" /></label><button type="submit" className="shrink-0 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white hover:bg-[#0f448f]">Dossier</button></form></div>
             <p className="text-xs font-semibold text-emerald-700">Les statuts sont synchronisés automatiquement avec le système principal.</p>
             <nav className="hidden">{([
               ["dossiers", "Dossiers clients", dossiers.length],
@@ -291,10 +317,10 @@ export default function PickupAgentPortal() {
           </div>}
 
           {message && <Notice message={message} close={() => setMessage(null)} />}
-          {tab === "home" && <HomeDashboard search={search} onSearchChange={setSearch} onOpenDossier={openDossier}
+          {tab === "home" && <HomeDashboard search={search} onSearchChange={(value) => { setSearch(value); setFocusedPackageId(null); }} onOpenDossier={openDossier}
             bons={data.bons} selectedBonId={selectedBonId} onSelectBon={setSelectedBonId}
             bonBusy={bonBusy} bonConfirmedId={bonConfirmedId} onConfirmBon={confirmBonRemise} />}
-          {tab === "dossiers" && <ClientDossiersView dossiers={matchingDossiers} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onConfirmSelection={releaseSelectedPackages} onStartPayment={startPayment} onOpenInvoice={setSelectedInvoiceId} />}
+          {tab === "dossiers" && <ClientDossiersView dossiers={matchingDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onConfirmSelection={releaseSelectedPackages} onStartPayment={startPayment} onOpenInvoice={setSelectedInvoiceId} />}
           {tab === "arrivals" && <ArrivalFilters value={arrivalFilter} onChange={setArrivalFilter} allCount={incoming.length} miamiCount={receivedMiami.length} transitCount={inTransit.length} />}
           {(tab === "arrivals" || tab === "ready") && <PackagesView groups={groups} tab={tab} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onConfirmSelection={releaseSelectedPackages} onStartPayment={startPayment} onOpenInvoice={setSelectedInvoiceId} />}
           {tab === "history" && <DeliveredPackagesView packages={filteredPackages} onOpenInvoice={setSelectedInvoiceId} />}
@@ -513,8 +539,8 @@ function PackagesView({ groups, tab, expanded, onExpand, selectedPackageIds, con
   })}</div>;
 }
 
-function ClientDossiersView({ dossiers, expanded, onExpand, selectedPackageIds, confirmedParcelIds, releasing, onToggleSelection, onSelectCustomerPackages, onConfirmSelection, onStartPayment, onOpenInvoice }: {
-  dossiers: ClientDossier[]; expanded: string | null; onExpand: (value: string | null) => void;
+function ClientDossiersView({ dossiers, focusedPackageId, expanded, onExpand, selectedPackageIds, confirmedParcelIds, releasing, onToggleSelection, onSelectCustomerPackages, onConfirmSelection, onStartPayment, onOpenInvoice }: {
+  dossiers: ClientDossier[]; focusedPackageId: string | null; expanded: string | null; onExpand: (value: string | null) => void;
   selectedPackageIds: string[]; confirmedParcelIds: string[]; releasing: boolean; onToggleSelection: (item: ZonePackage) => void;
   onSelectCustomerPackages: (customerCode: string, parcelIds: string[]) => void; onConfirmSelection: () => void;
   onStartPayment: (invoiceId: string) => void; onOpenInvoice: (invoiceId: string) => void;
@@ -522,7 +548,9 @@ function ClientDossiersView({ dossiers, expanded, onExpand, selectedPackageIds, 
   if (!dossiers.length) return <Empty text="Aucun dossier client ne correspond à la recherche." />;
   return <div className="grid gap-4 lg:grid-cols-2">{dossiers.map((dossier) => {
     const open = expanded === dossier.customerCode;
-    const counts = dossierCounts(dossier);
+    const scopedPackages = focusedPackageId ? dossier.packages.filter((item) => item.id === focusedPackageId) : dossier.packages;
+    const scopedDossier = focusedPackageId ? { ...dossier, packages: scopedPackages } : dossier;
+    const counts = dossierCounts(scopedDossier);
     const miami = counts.active.filter((item) => item.status === "Reçu à Miami");
     const available = sortPackagesAvailableFirst(counts.active.filter(isReadyForPickup));
     const transit = counts.active.filter((item) => item.status !== "Reçu à Miami" && !isReadyForPickup(item));
@@ -530,15 +558,19 @@ function ClientDossiersView({ dossiers, expanded, onExpand, selectedPackageIds, 
     const balanceUsd = balanceSource?.customer_balance_usd ?? 0;
     const balanceHtg = balanceSource?.customer_balance_htg ?? 0;
     const balanceInvoice = dossier.invoices.find((invoice) => invoice.payment_status !== "Payé");
+    const scopedInvoices = focusedPackageId ? dossier.invoices.filter((invoice) => scopedPackages.some((item) => item.invoice_id === invoice.id)) : dossier.invoices;
+    const delivered = scopedPackages.filter((item) => item.status === DONE);
     return <article id={"dossier-" + dossier.customerCode} key={dossier.customerCode} className={cn("scroll-mt-6 overflow-hidden rounded-2xl border bg-white", balanceUsd > 0.01 ? "border-amber-300" : "border-slate-200")}>
       <button type="button" onClick={() => onExpand(open ? null : dossier.customerCode)} className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-slate-50"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Dossier client</p><h3 className="mt-0.5 truncate text-xl font-black text-[#0a2b61]">{dossier.customerCode}{dossier.customerName && <span className="ml-1 text-sm font-semibold text-slate-500">· {dossier.customerName}</span>}</h3><div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold"><span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">En route : {counts.enRoute}</span><span className="rounded-lg bg-orange-50 px-2 py-1 text-orange-700">Disponibles : {counts.available}</span></div></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a]"><ChevronDown size={20} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span></button>
       {open && <div className="space-y-4 border-t border-slate-100 bg-slate-50/70 p-3">
+        {focusedPackageId && <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900">Recherche précise : seul le colis correspondant aux 6 derniers chiffres est affiché.</p>}
         {balanceUsd > 0.01 && <BalanceNotice balanceUsd={balanceUsd} balanceHtg={balanceHtg} invoiceNumber={balanceInvoice?.invoice_number ?? ""} onPay={balanceInvoice ? () => onStartPayment(balanceInvoice.id) : undefined} />}
         <DossierSection title="Colis disponibles et facturés" subtitle="Sélectionnez tous les colis que vous remettez, puis confirmez une seule fois." packages={available} tone="orange" renderPackage={(item) => <PackageCard item={item} ready delivered={false} selected={selectedPackageIds.includes(item.id)} confirmed={confirmedParcelIds.includes(item.id)} releasing={releasing} onToggleSelection={() => onToggleSelection(item)} onStartPayment={() => onStartPayment(item.invoice_id)} onOpenInvoice={() => { if (item.invoice_id) onOpenInvoice(item.invoice_id); }} />} />
         {available.length > 0 && balanceUsd <= 0.01 && <BatchRemiseAction customerCode={dossier.customerCode} available={available} selectedPackageIds={selectedPackageIds} busy={releasing} onSelectAll={() => onSelectCustomerPackages(dossier.customerCode, available.filter((item) => isReadyForPickup(item) && item.invoice_payment_status === "Payé" && item.customer_balance_usd <= 0.01).map((item) => item.id))} onConfirm={onConfirmSelection} />}
         <DossierSection title="Colis reçus à Miami" subtitle="Colis arrivés à Miami et non encore facturés." packages={miami} />
         <DossierSection title="Colis en transit ou en traitement" subtitle="Colis sans facture client finalisée." packages={transit} />
-        <DossierInvoices invoices={dossier.invoices} onOpenInvoice={onOpenInvoice} />
+        {delivered.length > 0 && <DossierSection title="Colis remis" subtitle="Ce colis se trouve dans l’historique de remise." packages={delivered} tone="emerald" />}
+        <DossierInvoices invoices={scopedInvoices} onOpenInvoice={onOpenInvoice} />
       </div>}
     </article>;
   })}</div>;
