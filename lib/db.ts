@@ -356,8 +356,10 @@ export async function makeConducesAvailableForVille(
     const priceUsd = price.price;
     const patch = {
       status: "Disponible",
-      price_usd: priceUsd, tax_usd: 0, total_usd: priceUsd,
-      price_htg: round2(priceUsd * rate), tax_htg: 0, total_htg: round2(priceUsd * rate),
+      // total_usd / total_htg sont calculés par PostgreSQL à partir des prix.
+      // Ils ne doivent donc jamais être écrits manuellement.
+      price_usd: priceUsd, tax_usd: 0,
+      price_htg: round2(priceUsd * rate), tax_htg: 0,
     };
     const { error } = await supabase.from("packages").update(patch).eq("id", pkg.id);
     if (error) throw error;
@@ -1554,9 +1556,9 @@ export async function createInvoiceFromComputation(
       status: "Facturé", invoice_id: inv.id,
       invoiced_at: invoicedAt,
       price_usd: l.amount, tax_usd: 0,
-      total_usd: l.amount,
-      price_htg: round2(l.amount * rate), tax_htg: 0,
-      total_htg: round2(l.amount * rate)
+      // Totaux dérivés automatiquement de price_* + tax_* dans Supabase.
+      // Les inclure ici bloque toute la facture (colonnes générées).
+      price_htg: round2(l.amount * rate), tax_htg: 0
     }).eq("id", l.pkg.id)
   ));
   const failed = results.filter((r: any) => r?.error);
@@ -1608,7 +1610,7 @@ export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; r
   const { data: pkgs } = await supabase.from("packages").select("id, status").eq("invoice_id", invoiceId);
   const list = pkgs ?? [];
   const restored = list.length;
-  const zero = { invoice_id: null, price_usd: 0, tax_usd: 0, total_usd: 0, price_htg: 0, tax_htg: 0, total_htg: 0 };
+  const zero = { invoice_id: null, price_usd: 0, tax_usd: 0, price_htg: 0, tax_htg: 0 };
 
   const livres = list.filter((p: any) => p.status === "Livré").map((p: any) => p.id);
   const autres = list.filter((p: any) => p.status !== "Livré").map((p: any) => p.id);
@@ -1667,7 +1669,7 @@ export async function detachPackagesFromInvoice(
   // 1) Detache koli yo
   const { error } = await supabase.from("packages").update({
     status: "Disponible", invoice_id: null,
-    price_usd: 0, tax_usd: 0, total_usd: 0, price_htg: 0, tax_htg: 0, total_htg: 0
+    price_usd: 0, tax_usd: 0, price_htg: 0, tax_htg: 0
   }).in("id", list.map((p: any) => p.id));
   if (error) return { ok: false, detached: 0, invoicesDeleted: 0, reason: error.message };
 
