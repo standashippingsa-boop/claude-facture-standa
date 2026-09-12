@@ -667,6 +667,7 @@ export default function EspaceClientPage() {
               recentPackages={pkgs}
               availableCount={disponibles.length}
               receptionCount={receptionsAll.length}
+              retraitCount={retraits.filter((r) => r.status !== "Remis").length}
               invoiceCount={invs.length}
               unreadNotifications={unreadNotifications.length}
               onNavigate={(destination) => destination === "notifications" ? openNotifications() : setView(destination)}
@@ -675,7 +676,7 @@ export default function EspaceClientPage() {
 
             {showPushBanner && (
               <div className="card p-4 flex items-start gap-3 client-enter client-enter-d4">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-orange-50 text-orange-500">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-orange-400 to-red-500 text-white shadow-md shadow-orange-500/30">
                   <BellRing size={19} />
                 </span>
                 <div className="min-w-0 flex-1">
