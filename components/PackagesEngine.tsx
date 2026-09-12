@@ -412,18 +412,29 @@ export default function PackagesEngine({ conduceId, hideHeader = false }: { cond
     const conduceIds = Array.from(new Set(selectedAll
       .map((p) => String(p.conduce_id ?? "").trim())
       .filter(Boolean)));
+    const destinations = Array.from(new Set(selectedAll
+      .map((p) => String(tarifMap.get(p.customer_code)?.ville?.name ?? "").trim())
+      .filter(Boolean)));
     let recordId = "";
     try {
+      // Yon Bon se pou yon sèl point de retrait. Si seleksyon an gen plizyè
+      // vil, admin an dwe separe yo pou chak ajan resevwa sèlman pwòp lis li.
+      if (destinations.length !== 1) {
+        throw new Error(destinations.length
+          ? "Sélection multi-villes : créez un Bon de remise séparé pour chaque ville."
+          : "Ville de destination introuvable. Créez ce Bon depuis la page Bon de remise et choisissez la ville.");
+      }
+      const destination = destinations[0];
       const bonNumber = createBonRemiseNumber();
       // Menm gad ak paj Bon de remise la: si yon Conduce te deja sou yon bon,
       // constraint bazdone a bloke yon dezyèm PDF menm si ekran sa a louvri.
       if (conduceIds.length) {
         const record = await createBonRemiseRecord({
-          bonNumber, packageIds: selectedAll.map((p) => p.id), conduceIds, packageCount: selectedAll.length, who: staffName,
+          bonNumber, packageIds: selectedAll.map((p) => p.id), conduceIds, packageCount: selectedAll.length, destination, who: staffName,
         });
         recordId = record.id;
       }
-      const pdf = await generateBonRemise(selectedAll, tarifMap, { number: bonNumber });
+      const pdf = await generateBonRemise(selectedAll, tarifMap, { number: bonNumber, destination });
       let archiveWarning = "";
       if (recordId) {
         try { await saveBonRemisePdf(recordId, pdf.blob, pdf.filename); }

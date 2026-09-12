@@ -197,31 +197,15 @@ export async function GET(req: Request) {
         invoiceId: current?.invoiceId || code(invoice.id), invoiceNumber: current?.invoiceNumber || code(invoice.invoice_number)
       });
     }
-    const conduiteIds = Array.from(new Set(parcels.map((parcel) => code(parcel.conduce_id)).filter(Boolean)));
     let bons: Array<{ id: string; bon_number: string; destination: string; package_count: number; created_at: string; pdf_path: string | null }> = [];
-    if (conduiteIds.length) {
-      const linksResult = await db.from("bon_remise_conduces").select("bon_remise_id").in("conduce_id", conduiteIds);
-      if (linksResult.error && !String(linksResult.error.message ?? "").includes("does not exist")) throw linksResult.error;
-      const bonIds = Array.from(new Set(((linksResult.data ?? []) as Array<{ bon_remise_id: string }>).map((row) => code(row.bon_remise_id)).filter(Boolean)));
-      if (bonIds.length) {
-        const bonsResult = await db.from("bons_remise")
-          .select("id, bon_number, destination, package_count, created_at, pdf_path")
-          .in("id", bonIds).order("created_at", { ascending: false });
-        if (bonsResult.error) throw bonsResult.error;
-        bons = (bonsResult.data ?? []) as typeof bons;
-      }
-    }
-
-    // Un Bon peut contenir le compte central STANDA, donc aucun code client de
-    // Gonaïves. Son champ destination reste alors la référence sûre pour que
-    // Rony voie aussi ce PDF dans son point de retrait.
+    // La destination écrite sur le Bon est la seule référence de zone. Une
+    // Conduce peut mélanger plusieurs villes; ses liens ne doivent jamais
+    // faire apparaître un Bon Port-de-Paix dans l'espace de Gonaïves.
     const destinationBons = await db.from("bons_remise")
       .select("id, bon_number, destination, package_count, created_at, pdf_path")
       .ilike("destination", zoneName).order("created_at", { ascending: false });
     if (destinationBons.error && !String(destinationBons.error.message ?? "").includes("does not exist")) throw destinationBons.error;
-    const byBonId = new Map(bons.map((bon) => [bon.id, bon]));
-    for (const bon of (destinationBons.data ?? []) as typeof bons) byBonId.set(bon.id, bon);
-    bons = Array.from(byBonId.values()).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    bons = (destinationBons.data ?? []) as typeof bons;
 
     const bonCards = bons.map((bon) => ({
         id: code(bon.id), bon_number: code(bon.bon_number), destination: code(bon.destination),

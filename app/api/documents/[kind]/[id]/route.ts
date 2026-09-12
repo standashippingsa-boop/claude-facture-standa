@@ -23,7 +23,11 @@ function storedPath(value: unknown): string {
   const fromUrl = raw.includes("/invoices/") ? raw.split("/invoices/").pop() ?? "" : raw;
   try {
     const path = decodeURIComponent(fromUrl).replace(/^\/+/, "");
-    return /^[A-Za-z0-9._-]+\.pdf$/i.test(path) ? path : "";
+    // Les factures sont stockées à la racine du bucket, tandis que les Bons
+    // de remise sont archivés sous `bons/`. Accepter uniquement ces deux
+    // formes sûres évite de refuser les vrais PDF tout en excluant `..` et
+    // tout chemin arbitraire.
+    return /^(?:bons\/)?[A-Za-z0-9._-]+\.pdf$/i.test(path) ? path : "";
   } catch { return ""; }
 }
 
@@ -39,16 +43,10 @@ async function agentCanReadBon(db: any, staff: Staff, bon: { id: string; destina
   const zone = await db.from("villes").select("name").eq("id", staff.pickup_ville_id).maybeSingle();
   const zoneName = String(zone.data?.name ?? "").trim().toLocaleLowerCase();
   if (!zoneName) return false;
-  if (String(bon.destination ?? "").trim().toLocaleLowerCase() === zoneName) return true;
-
-  const links = await db.from("bon_remise_conduces").select("conduce_id").eq("bon_remise_id", bon.id);
-  const conduceIds = (links.data ?? []).map((row: { conduce_id: string }) => row.conduce_id).filter(Boolean);
-  if (!conduceIds.length) return false;
-  const packages = await db.from("packages").select("customer_code").in("conduce_id", conduceIds);
-  const codes = Array.from(new Set((packages.data ?? []).map((row: { customer_code: string }) => row.customer_code).filter(Boolean)));
-  if (!codes.length) return false;
-  const clients = await db.from("clients").select("ville_id").in("customer_code", codes);
-  return (clients.data ?? []).some((row: { ville_id: string | null }) => row.ville_id === staff.pickup_ville_id);
+  // Un Bon n'est accessible à un agent que s'il porte explicitement le nom
+  // de sa zone. Une Conduce peut contenir plusieurs villes : l'utiliser comme
+  // raccourci exposerait, par exemple, un Bon Port-de-Paix à Gonaïves.
+  return String(bon.destination ?? "").trim().toLocaleLowerCase() === zoneName;
 }
 
 /**
