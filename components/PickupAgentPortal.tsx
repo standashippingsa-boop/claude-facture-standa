@@ -405,7 +405,7 @@ function HomeDashboard({
   search, onSearchChange, onOpenDossier, bons, selectedBonId, onSelectBon, bonBusy, bonConfirmedId, onConfirmBon
 }: {
   search: string; onSearchChange: (value: string) => void; onOpenDossier: () => void;
-  bons: ZoneBon[]; selectedBonId: string | null; onSelectBon: (id: string) => void;
+  bons: ZoneBon[]; selectedBonId: string | null; onSelectBon: (id: string | null) => void;
   bonBusy: boolean; bonConfirmedId: string | null; onConfirmBon: (id: string) => void;
 }) {
   return <>
@@ -424,7 +424,7 @@ function HomeDashboard({
 function PendingBonsNotification({
   bons, selectedId, onSelect, busy, confirmedId, onConfirm
 }: {
-  bons: ZoneBon[]; selectedId: string | null; onSelect: (id: string) => void;
+  bons: ZoneBon[]; selectedId: string | null; onSelect: (id: string | null) => void;
   busy: boolean; confirmedId: string | null; onConfirm: (id: string) => void;
 }) {
   const pending = bons.filter((bon) => !bon.received_at);
@@ -441,7 +441,7 @@ function PendingBonsNotification({
       {pending.map((bon) => {
         const selected = selectedId === bon.id;
         const justConfirmed = confirmedId === bon.id;
-        return <button key={bon.id} type="button" onClick={() => onSelect(bon.id)} disabled={busy}
+        return <button key={bon.id} type="button" onClick={() => onSelect(selected ? null : bon.id)} disabled={busy}
           className={cn("rounded-2xl border-2 bg-white px-4 py-3 text-left transition-all duration-200 ease-out",
             selected ? "scale-[1.02] border-[#e85e19] shadow-md" : "border-transparent hover:border-[#ffd9b8]")}>
           <div className="flex items-center justify-between gap-2">
@@ -450,7 +450,7 @@ function PendingBonsNotification({
               ? <CheckCircle2 className="text-emerald-500" size={20} />
               : selected && <span className="grid h-5 w-5 place-items-center rounded-full bg-[#e85e19] text-white"><Check size={12} strokeWidth={3} /></span>}
           </div>
-          <p className="mt-0.5 text-xs text-slate-500">{bon.package_count} colis · {dateText(bon.created_at)}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{bon.package_count} colis · {dateText(bon.created_at)}{selected ? " · cliquez pour désélectionner" : ""}</p>
         </button>;
       })}
     </div>

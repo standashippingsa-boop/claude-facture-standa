@@ -20,15 +20,16 @@ import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
 import {
   ClientTarifInfo, getCentralAccountCode, getClientTarifMap,
-  createBonRemiseRecord, deleteBonRemiseRecord, getBonRemiseConduceIds, saveBonRemisePdf,
+  createBonRemiseRecord, deleteBonRemiseRecord, getBonRemiseConduceIds, getBonRemiseRecords, saveBonRemisePdf,
   getConduces, getPackagesByConduceIds
 } from "@/lib/db";
 import { createBonRemiseNumber, generateBonRemise } from "@/lib/bonremise";
-import type { Conduce, Pkg } from "@/lib/types";
+import type { BonRemiseRecord, Conduce, Pkg } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
 import { useRole } from "@/lib/authx";
 import { useRememberListContext } from "@/lib/list-context";
 import { specialPackageInfo } from "@/lib/special-package";
+import { openSecureDocument } from "@/lib/secure-document";
 
 /** Vil "flexib" pou kont santral la — pa gen vil fiks. */
 const CENTRAL_VILLE = "— Compte central —";
@@ -37,6 +38,7 @@ export default function BonRemisePage() {
   const { staff } = useRole();
   const searchParams = useSearchParams();
   const [conduces, setConduces] = useState<Conduce[] | null>(null);
+  const [bonRecords, setBonRecords] = useState<BonRemiseRecord[]>([]);
   const [tarifMap, setTarifMap] = useState<Map<string, ClientTarifInfo>>(new Map());
   const [central, setCentral] = useState("");
   const [recordedConduces, setRecordedConduces] = useState<Set<string>>(new Set());
@@ -72,8 +74,8 @@ export default function BonRemisePage() {
 
   const load = async () => {
     try {
-      const [cs, tm, cc] = await Promise.all([getConduces(), getClientTarifMap(), getCentralAccountCode()]);
-      setConduces(cs); setTarifMap(tm); setCentral(cc.toUpperCase());
+      const [cs, tm, cc, records] = await Promise.all([getConduces(), getClientTarifMap(), getCentralAccountCode(), getBonRemiseRecords()]);
+      setConduces(cs); setTarifMap(tm); setCentral(cc.toUpperCase()); setBonRecords(records);
       try {
         // Enfòmatif sèlman (badge "Colis déjà remis") — yon Conduce ki gen
         // colis pou plizyè vil rete SELEKSYONAB apre yon premye Bon, paske
@@ -167,6 +169,8 @@ export default function BonRemisePage() {
   const allFilteredSelected = filtered.length > 0 && filtered.every((p) => sel.has(p.id));
   const poidsSel = chosen.reduce((s, p) => s + (Number(p.weight) || 0), 0);
   const centralSel = chosen.filter(isCentral).length;
+  const clientsSel = new Set(chosen.map((p) => p.customer_code).filter(Boolean)).size;
+  const specialSel = chosen.filter((p) => specialPackageInfo(p).isSpecial).length;
 
   const toggle = (id: string) =>
     setSel((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -192,6 +196,10 @@ export default function BonRemisePage() {
 
   const creer = async () => {
     if (!chosen.length) return;
+    if (!ville) {
+      setToast("Choisissez d’abord la ville de destination du Bon de remise.");
+      return;
+    }
     const conduceIds = Array.from(new Set(chosen
       .map((p) => String(p.conduce_id ?? "").trim())
       .filter(Boolean)));
@@ -217,6 +225,7 @@ export default function BonRemisePage() {
       catch { archiveWarning = " — PDF téléchargé, mais l'archive sécurisée a échoué."; }
       setRecordedConduces((previous) => new Set([...previous, ...conduceIds]));
       setSel(new Set()); setSelCond(new Set()); setVille(""); setQ("");
+      await load();
       setToast(`Bon de remise ${bonNumber} créé — ${chosen.length} colis${ville ? ` · ${ville}` : ""}${archiveWarning}`);
     } catch (error) {
       // Si PDF la pa rive kreye, retire mak la pou Conduce yo pa rete bloke.
@@ -245,9 +254,9 @@ export default function BonRemisePage() {
           <span className="w-6 h-6 rounded-full bg-white/15 grid place-items-center text-[11px] font-bold">1</span>
           <h2 className="text-sm font-bold uppercase tracking-wide">Choisir les conduces</h2>
           {selCond.size > 0 && (
-            <span className="ml-auto text-[11px] bg-white/15 rounded-full px-2.5 py-1 font-semibold">
+            <div className="ml-auto flex items-center gap-2"><span className="text-[11px] bg-white/15 rounded-full px-2.5 py-1 font-semibold">
               {selCond.size} sélectionnée(s)
-            </span>
+            </span><button type="button" onClick={() => { setSelCond(new Set()); setSel(new Set()); }} className="rounded-lg bg-white/10 px-2 py-1 text-[11px] font-bold hover:bg-white/20">Désélectionner</button></div>
           )}
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-56 overflow-y-auto pr-1">
@@ -309,6 +318,23 @@ export default function BonRemisePage() {
               ils prendront <b>{ville}</b> comme destination sur ce bon.
             </p>
           )}
+        </section>
+      )}
+
+      {/* ══ REGISTRE — traçabilité, ville, réception et PDF sécurisé ══ */}
+      {bonRecords.length > 0 && (
+        <section className="card overflow-hidden">
+          <div className="flex items-start justify-between gap-3 border-b border-line p-4">
+            <div><h2 className="h-sec">Bons de remise récents</h2><p className="mt-1 text-xs text-mute">Chaque Bon conserve sa ville, son nombre de colis, son état de réception et son PDF sécurisé.</p></div>
+            <span className="badge bg-slate-100 text-slate-600">{bonRecords.length}</span>
+          </div>
+          <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+            {bonRecords.map((bon) => <article key={bon.id} className="rounded-2xl border border-line bg-slate-50 p-3">
+              <div className="flex items-start justify-between gap-2"><div><p className="font-mono text-sm font-black text-navy">{bon.bon_number}</p><p className="mt-1 text-xs font-semibold text-slate-600">{bon.destination || "Destination non précisée"} · {bon.package_count} colis</p></div><span className={`badge ${bon.received_at ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>{bon.received_at ? "Reçu" : "En route"}</span></div>
+              <p className="mt-2 text-[11px] text-slate-500">Créé le {dateFr(bon.created_at)}{bon.created_by ? ` · ${bon.created_by}` : ""}{bon.received_by ? ` · reçu par ${bon.received_by}` : ""}</p>
+              {bon.pdf_path ? <button type="button" onClick={() => void openSecureDocument("bon-remise", bon.id).catch((error) => setToast(error instanceof Error ? error.message : "PDF indisponible."))} className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-navy px-3 text-xs font-bold text-white hover:bg-brand"><FileDown size={14} />Ouvrir le PDF</button> : <p className="mt-3 text-xs font-semibold text-amber-700">PDF non archivé</p>}
+            </article>)}
+          </div>
         </section>
       )}
 
@@ -375,13 +401,15 @@ export default function BonRemisePage() {
               <span className="font-bold text-sm">{chosen.length} colis</span>
               <span className="text-white/60 text-xs">
                 {poidsSel.toFixed(2)} lb
-                {ville ? ` · ${ville}` : ""}
+                {ville ? ` · ${ville}` : " · choisissez une ville"}
+                {clientsSel ? ` · ${clientsSel} client${clientsSel > 1 ? "s" : ""}` : ""}
+                {specialSel ? ` · ${specialSel} spécial${specialSel > 1 ? "aux" : ""}` : ""}
                 {centralSel > 0 ? ` · ${centralSel} du compte central` : ""}
               </span>
               <div className="flex-1" />
               <button onClick={() => setSel(new Set())}
                 className="text-white/70 hover:text-white text-xs font-semibold px-2">Vider</button>
-              <button onClick={creer} disabled={busy}
+              <button onClick={creer} disabled={busy || !ville}
                 className="rounded-xl bg-brand hover:bg-brand-dark px-4 py-2 text-sm font-bold
                            flex items-center gap-2 disabled:opacity-60">
                 <FileDown size={15} /> {busy ? "Création…" : "Créer le Bon de Remise"}

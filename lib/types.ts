@@ -144,6 +144,9 @@ export interface BonRemiseRecord {
   /** Chemin privé Storage. Jamais renvoyé directement à un agent. */
   pdf_path?: string | null;
   pdf_created_at?: string | null;
+  /** Réception confirmée par le point de retrait, si le Bon est arrivé. */
+  received_at?: string | null;
+  received_by?: string | null;
 }
 
 export interface Pkg {

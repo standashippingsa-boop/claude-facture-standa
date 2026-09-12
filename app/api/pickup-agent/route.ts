@@ -398,18 +398,31 @@ export async function POST(req: Request) {
         const accountByCode = new Map<string, AccountType>((clientsResult.data ?? [])
           .map((c: { customer_code: string; account_type: AccountType | null }) => [code(c.customer_code), c.account_type ?? "Personnel"] as const));
 
-        await Promise.all(targets.map(async (parcel) => {
+        const updates = await Promise.all(targets.map(async (parcel) => {
           const accountType: AccountType = accountByCode.get(code(parcel.customer_code)) ?? "Personnel";
           const price = computePrice(Number(parcel.weight) || 0, accountType, ville);
           const priceUsd = price?.price ?? 0;
+          // total_usd/total_htg sont des colonnes calculées dans PostgreSQL.
+          // Les écrire provoquait une erreur silencieuse et marquait le Bon
+          // « reçu » alors que les colis n'étaient pas disponibles.
           const patch = {
             status: "Disponible",
-            price_usd: priceUsd, tax_usd: 0, total_usd: priceUsd,
-            price_htg: round2(priceUsd * rate), tax_htg: 0, total_htg: round2(priceUsd * rate)
+            price_usd: priceUsd, tax_usd: 0,
+            price_htg: round2(priceUsd * rate), tax_htg: 0
           };
           const result = await db.from("packages").update(patch).eq("id", parcel.id).select("id");
           if (!result.error && (result.data ?? []).length) updated++;
+          return { parcel, result };
         }));
+        const failed = updates.find(({ result }) => result.error || !(result.data ?? []).length);
+        if (failed) {
+          // Ne jamais confirmer un Bon à moitié: tout colis déjà basculé est
+          // remis à son statut d'origine, puis l'agent reçoit le vrai détail.
+          const completed = updates.filter(({ result }) => !result.error && (result.data ?? []).length);
+          await Promise.all(completed.map(({ parcel }) => db.from("packages")
+            .update({ status: parcel.status }).eq("id", parcel.id)));
+          throw new Error(`Le Bon n’a pas été confirmé : ${String(failed.result.error?.message ?? "un colis n’a pas été mis à jour")}`);
+        }
       }
 
       await db.from("bons_remise").update({ received_at: new Date().toISOString(), received_by: agentName(agent) }).eq("id", bonId);

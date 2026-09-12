@@ -392,6 +392,14 @@ export async function getBonRemiseConduceIds(): Promise<Set<string>> {
   return new Set((data ?? []).map((line: any) => String(line.conduce_id)));
 }
 
+/** Historique opérationnel des Bons: consultation et PDF sécurisé depuis l'admin. */
+export async function getBonRemiseRecords(limit = 30): Promise<BonRemiseRecord[]> {
+  const { data, error } = await supabase.from("bons_remise").select("*")
+    .order("created_at", { ascending: false }).limit(Math.max(1, Math.min(100, Math.trunc(limit) || 30)));
+  if (error) throw error;
+  return (data ?? []) as BonRemiseRecord[];
+}
+
 export async function createBonRemiseRecord(input: {
   bonNumber: string;
   packageIds: string[];
@@ -1460,6 +1468,23 @@ export interface InvoiceOptions {
   mode?: "addition" | "small_control";
 }
 
+/** Une base mise à jour progressivement peut ne pas encore avoir une colonne récente.
+ * On ne bloque jamais une facture correcte uniquement pour une date de traçabilité. */
+function schemaIsMissingColumn(error: unknown, column: string): boolean {
+  const issue = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown } | null;
+  const text = [issue?.message, issue?.details, issue?.hint, issue?.code]
+    .map((value) => String(value ?? "").toLowerCase()).join(" ");
+  return text.includes(column.toLowerCase()) && (
+    text.includes("schema cache") || text.includes("column") || text.includes("does not exist") || text.includes("pgrst204")
+  );
+}
+
+function databaseReason(error: unknown): string {
+  const issue = error as { message?: unknown; details?: unknown; hint?: unknown } | null;
+  return String(issue?.message ?? issue?.details ?? issue?.hint ?? "Erreur de base de données.")
+    .replace(/\s+/g, " ").trim().slice(0, 220);
+}
+
 /**
  * Kreye fakti a APATI yon rezilta moteur finansye a (deja verifye).
  * Sa garanti pri/lb ak montan yo se EGZAKteman sa moteur la kalkile —
@@ -1543,34 +1568,58 @@ export async function createInvoiceFromComputation(
     tax: 0,
     total: l.amount
   }));
-  const { error: e2 } = await supabase.from("invoice_items").insert(items);
+  let { error: e2 } = await supabase.from("invoice_items").insert(items);
+  // Les installations très anciennes n'avaient pas encore tracking_manual
+  // sur les lignes de facture. Conserver la compatibilité sans perdre la
+  // facture ni les colis: le numéro principal (Guía) reste toujours présent.
+  if (e2 && schemaIsMissingColumn(e2, "tracking_manual")) {
+    ({ error: e2 } = await supabase.from("invoice_items").insert(items.map(({ tracking_manual: _trackingManual, ...item }) => item)));
+  }
   if (e2) {
     // ROLLBACK konpansatwa: pa kite yon fakti òfelen nan bazdone a
     await supabase.from("invoices").delete().eq("id", inv.id);
-    throw new Error("Impossible de finaliser la facture. Aucun colis n'a été archivé.");
+    throw new Error(`Impossible d’enregistrer les lignes de la facture : ${databaseReason(e2)}`);
   }
 
-  // ARCHIVAGE OTOMATIK: statut + lyen fakti + dat tras (koli PA JANM efase)
+  // FACTURATION: statut + lyen fakti + dat tras (koli PA JANM efase).
+  // `invoiced_at` se yon kolòn tras: sou yon ansyen baz ki poko resevwa
+  // migration lan, n ap rekòmanse ekriti a san li pou faktirasyon pa bloke.
   const invoicedAt = new Date().toISOString();
-  const results = await Promise.all(comp.lines.map((l) =>
-    supabase.from("packages").update({
+  const applyInvoiceToPackage = async (line: typeof comp.lines[number]) => {
+    const pricing = {
       status: "Facturé", invoice_id: inv.id,
-      invoiced_at: invoicedAt,
-      price_usd: l.amount, tax_usd: 0,
+      price_usd: line.amount, tax_usd: 0,
       // Totaux dérivés automatiquement de price_* + tax_* dans Supabase.
       // Les inclure ici bloque toute la facture (colonnes générées).
-      price_htg: round2(l.amount * rate), tax_htg: 0
-    }).eq("id", l.pkg.id)
-  ));
-  const failed = results.filter((r: any) => r?.error);
-  if (failed.length) {
-    // ROLLBACK: detache koli ki te pase, efase liy yo + fakti a
-    await supabase.from("packages").update({
-      status: "Disponible", invoice_id: null, invoiced_at: null
-    }).eq("invoice_id", inv.id);
+      price_htg: round2(line.amount * rate), tax_htg: 0
+    };
+    let result = await supabase.from("packages").update({ ...pricing, invoiced_at: invoicedAt })
+      .eq("id", line.pkg.id).select("id");
+    if (result.error && schemaIsMissingColumn(result.error, "invoiced_at")) {
+      result = await supabase.from("packages").update(pricing).eq("id", line.pkg.id).select("id");
+    }
+    return result;
+  };
+  const results = await Promise.all(comp.lines.map(applyInvoiceToPackage));
+  const failed = results.find((result) => result.error || (result.data ?? []).length !== 1);
+  if (failed) {
+    // ROLLBACK: détache les colis qui ont déjà été modifiés, puis supprime les
+    // lignes et la facture. Un essai suivant repart toujours d'un état propre.
+    const clearInvoiceLink = async () => {
+      let result = await supabase.from("packages").update({
+        status: "Disponible", invoice_id: null, invoiced_at: null
+      }).eq("invoice_id", inv.id);
+      if (result.error && schemaIsMissingColumn(result.error, "invoiced_at")) {
+        result = await supabase.from("packages").update({ status: "Disponible", invoice_id: null })
+          .eq("invoice_id", inv.id);
+      }
+      return result;
+    };
+    await clearInvoiceLink();
     await supabase.from("invoice_items").delete().eq("invoice_id", inv.id);
     await supabase.from("invoices").delete().eq("id", inv.id);
-    throw new Error("Impossible de finaliser la facture. Aucun colis n'a été archivé.");
+    const reason = failed.error ? databaseReason(failed.error) : "Un colis a changé avant la validation.";
+    throw new Error(`La facture n’a pas été finalisée : ${reason} Les colis restent disponibles.`);
   }
 
   // JOURNAL FINANCIER (§9) + tras ARCHIVAGE
@@ -1583,7 +1632,7 @@ export async function createInvoiceFromComputation(
     `Poids:${comp.totalWeight} | Sous-total:${comp.subtotal} | Taxe:${comp.taxeFixe} | ` +
     `DGA:${comp.fraisDga} | Discount:${comp.discount} | Mode:${mode} | ` + journalOrder +
     `TOTAL:${comp.totalUsd} USD | ` +
-    `${comp.lines.length} colis "Disponible" → "Facturé" (archivés) | Réf:${inv.id}`,
+    `${comp.lines.length} colis "Disponible" → "Facturé" (facturés) | Réf:${inv.id}`,
     invoice_number, client.customer_code);
 
   return asNum(inv, ["subtotal", "tax", "grand_total", "exchange_rate_used", "total_usd", "total_htg", "total_weight",

@@ -276,6 +276,9 @@ alter table packages add column if not exists fob numeric not null default 0;
 alter table packages add column if not exists status_mcpack text not null default '';
 alter table packages add column if not exists tracking_manual text not null default '';
 alter table invoice_items add column if not exists tracking_manual text not null default '';
+-- Date de validation d'une facture. Elle est informative; la facturation
+-- reste compatible avec une base en cours de mise à jour.
+alter table packages add column if not exists invoiced_at timestamptz;
 
 -- Demandes de retrait de colis
 create table if not exists retraits (
