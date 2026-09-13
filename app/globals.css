@@ -9,6 +9,9 @@ html, body { @apply w-full; max-width: 100%; overflow-x: hidden; overscroll-beha
 body { @apply bg-mist text-slate-700 antialiased; }
 
 @layer components {
+  /* Police plus calme et lisible pour la page d’affiliation, surtout sur téléphone. */
+  .affiliate-type { font-family: Aptos, "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+
   /* ---- Surfaces ---- */
   .card { @apply bg-white rounded-2xl border border-line shadow-card; }
   .card-hover { @apply transition-shadow hover:shadow-soft; }

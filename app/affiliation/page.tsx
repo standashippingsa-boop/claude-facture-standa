@@ -82,7 +82,7 @@ export default function AffiliationPage() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#eff8ff] font-sans tracking-[0.008em] text-[#09295e]">
+    <main className="affiliate-type relative min-h-screen overflow-hidden bg-[#eff8ff] text-[#09295e]">
       <div
         className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: "url('/affiliation-background-v2.png')" }}
@@ -94,7 +94,7 @@ export default function AffiliationPage() {
           <div className="flex min-w-0 items-center gap-2.5">
             <Logo size={48} rounded="rounded-xl" />
             <div className="min-w-0 leading-tight">
-              <p className="text-[19px] font-extrabold tracking-[.055em] text-[#0a2b61]">STANDA</p>
+              <p className="text-[19px] font-bold tracking-[.05em] text-[#0a2b61]">STANDA</p>
               <p className="text-[10px] font-semibold tracking-[.2em] text-[#25497d]">COMMERCIAL</p>
             </div>
           </div>
@@ -102,11 +102,11 @@ export default function AffiliationPage() {
 
         <section className="relative mt-5 rounded-[2rem] border border-white/75 bg-white/55 px-5 pb-5 pt-6 shadow-[0_18px_45px_rgba(23,78,145,0.12)] backdrop-blur-[2px] sm:mt-7 sm:px-8 sm:pt-9">
           <div className="relative z-10 max-w-md">
-            <p className="text-[11px] font-extrabold uppercase tracking-[.2em] text-[#ff671d]">Programme d’affiliation</p>
-            <h1 className="mt-3 text-[34px] font-extrabold leading-[1.1] tracking-[-.03em] text-[#082861] sm:text-[45px]">
+            <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#ff671d]">Programme d’affiliation</p>
+            <h1 className="mt-3 text-[33px] font-bold leading-[1.16] tracking-[-.025em] text-[#082861] sm:text-[44px]">
               Devenez affilié à STANDA COMMERCIAL.
             </h1>
-            <p className="mt-5 text-[16px] font-normal leading-[1.75] tracking-[.012em] text-[#50698e] sm:text-[17px]">
+            <p className="mt-5 text-[15px] font-normal leading-[1.7] text-[#50698e] sm:text-[17px]">
               Partagez votre lien personnel. Recevez une commission pour chaque facture admissible.
             </p>
           </div>
@@ -117,18 +117,53 @@ export default function AffiliationPage() {
           {BENEFITS.map(({ icon: Icon, title, text, tone }) => (
             <article key={title} className="rounded-2xl border border-white bg-white/95 p-3 text-center shadow-[0_10px_24px_rgba(29,76,137,0.08)] sm:rounded-3xl sm:p-4">
               <span className={`mx-auto grid h-10 w-10 place-items-center rounded-2xl ${tone} sm:h-12 sm:w-12`}><Icon size={20} /></span>
-              <h2 className="mt-2.5 text-[12px] font-bold leading-snug tracking-[.012em] text-[#082861] sm:text-sm">{title}</h2>
-              <p className="mt-1.5 text-[10px] leading-relaxed tracking-[.01em] text-[#657a9a] sm:text-xs">{text}</p>
+              <h2 className="mt-2.5 text-[12px] font-semibold leading-snug text-[#082861] sm:text-sm">{title}</h2>
+              <p className="mt-1.5 text-[10px] leading-relaxed text-[#657a9a] sm:text-xs">{text}</p>
             </article>
           ))}
+        </section>
+
+        <section className="relative z-10 mt-5 rounded-[1.8rem] border border-white bg-white/95 p-5 shadow-[0_18px_45px_rgba(23,78,145,0.12)] sm:mt-7 sm:p-7" aria-labelledby="programme-explique">
+          <p className="text-[11px] font-bold uppercase tracking-[.15em] text-[#ff671d]">Avant de vous inscrire</p>
+          <h2 id="programme-explique" className="mt-2 text-[25px] font-bold leading-[1.18] tracking-[-.02em] text-[#082861] sm:text-[30px]">
+            Le programme d’affiliation, c’est quoi?
+          </h2>
+          <p className="mt-3 text-[14px] leading-[1.7] text-[#516b90] sm:text-[15px]">
+            Vous recommandez STANDA COMMERCIAL à votre réseau grâce à un lien personnel. Lorsqu’un client s’inscrit avec ce lien et qu’une facture est générée pendant que votre contrat est actif, une commission est inscrite à votre dossier d’affilié.
+          </p>
+
+          <ol className="mt-5 space-y-3.5" aria-label="Étapes du programme d’affiliation">
+            <ProgramStep number="1" title="Soumettez votre candidature">
+              Remplissez ce formulaire avec vos coordonnées, votre pièce d’identité et la ville où se trouve une agence STANDA active. Cette demande ne crée pas encore un compte.
+            </ProgramStep>
+            <ProgramStep number="2" title="STANDA examine votre demande">
+              L’équipe vérifie les renseignements transmis. Une candidature devient active seulement après son approbation.
+            </ProgramStep>
+            <ProgramStep number="3" title="Recevez vos accès et votre lien">
+              Une fois approuvé, vous recevez par courriel votre code, votre mot de passe, votre lien personnel et les conditions de votre contrat.
+            </ProgramStep>
+            <ProgramStep number="4" title="Partagez, puis suivez vos commissions">
+              Partagez votre lien. Votre espace affilié vous permet ensuite de consulter vos références, les commissions à recevoir et celles déjà payées.
+            </ProgramStep>
+          </ol>
+
+          <div className="mt-5 rounded-2xl border border-[#d7e7fb] bg-[#eef7ff] p-4">
+            <h3 className="text-[14px] font-semibold text-[#0b3778]">À savoir avant de soumettre votre demande</h3>
+            <ul className="mt-2.5 space-y-2 text-[13px] leading-[1.55] text-[#4f6b91]">
+              <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />La commission s’applique uniquement aux factures des clients associés à votre lien personnel.</li>
+              <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Le montant de la commission et les modalités de paiement sont confirmés dans votre contrat.</li>
+              <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Le contrat est actif pour une période de trois mois. Tout renouvellement donne lieu à de nouveaux accès et à un nouveau lien.</li>
+              <li className="flex gap-2"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre mot de passe et votre lien sont personnels : ne les partagez avec personne.</li>
+            </ul>
+          </div>
         </section>
 
         <section id="formulaire-affiliation" className="relative z-10 mt-5 rounded-[1.8rem] border border-white bg-white p-4 shadow-[0_18px_45px_rgba(23,78,145,0.12)] sm:mt-7 sm:p-7">
           {sent ? (
             <div className="flex flex-col items-center gap-3 px-3 py-10 text-center">
               <span className="grid h-14 w-14 place-items-center rounded-2xl bg-emerald-100 text-emerald-600"><CheckCircle2 size={31} /></span>
-              <h2 className="text-xl font-extrabold tracking-[-.01em] text-[#09295e]">Candidature envoyée</h2>
-              <p className="max-w-sm text-sm leading-[1.7] tracking-[.01em] text-[#5c7192]">Merci. Notre équipe examinera votre candidature et vous répondra par courriel.</p>
+              <h2 className="text-xl font-bold tracking-[-.01em] text-[#09295e]">Candidature envoyée</h2>
+              <p className="max-w-sm text-sm leading-[1.7] text-[#5c7192]">Merci. Notre équipe examinera votre candidature et vous répondra par courriel.</p>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
@@ -138,8 +173,8 @@ export default function AffiliationPage() {
               <div className="flex items-center gap-3">
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-sky-100 text-[#0a3d81]"><UserRound size={22} /></span>
                 <div>
-                  <h2 className="text-[24px] font-extrabold leading-tight tracking-[-.02em] text-[#082861] sm:text-[27px]">Vos renseignements</h2>
-                  <p className="mt-1 text-[12px] leading-relaxed tracking-[.01em] text-[#647998] sm:text-sm">Remplissez le formulaire pour soumettre votre candidature.</p>
+                  <h2 className="text-[24px] font-bold leading-tight tracking-[-.02em] text-[#082861] sm:text-[27px]">Vos renseignements</h2>
+                  <p className="mt-1 text-[12px] leading-relaxed text-[#647998] sm:text-sm">Remplissez le formulaire pour soumettre votre candidature.</p>
                 </div>
               </div>
 
@@ -171,7 +206,7 @@ export default function AffiliationPage() {
                   />
                 </FormField>
                 <FormField label="Numéro de pièce" required><Input icon={CreditCard} value={f.id_number} onChange={set("id_number")} placeholder="Numéro de pièce d’identité" required /></FormField>
-                <div className="sm:col-span-2"><FormField label="Pourquoi souhaitez-vous devenir affilié? (facultatif)"><textarea value={f.motivation} onChange={set("motivation")} rows={3} placeholder="Parlez-nous brièvement de votre réseau ou de votre expérience." className="w-full resize-y rounded-xl border border-[#d4dfed] bg-white px-3.5 py-3 text-sm font-normal leading-relaxed tracking-[.01em] text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100" /></FormField></div>
+                <div className="sm:col-span-2"><FormField label="Pourquoi souhaitez-vous devenir affilié? (facultatif)"><textarea value={f.motivation} onChange={set("motivation")} rows={3} placeholder="Parlez-nous brièvement de votre réseau ou de votre expérience." className="w-full resize-y rounded-xl border border-[#d4dfed] bg-white px-3.5 py-3 text-sm font-normal leading-relaxed text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100" /></FormField></div>
               </div>
 
               {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-sm font-medium text-red-700">{error}</p>}
@@ -188,12 +223,22 @@ export default function AffiliationPage() {
   );
 }
 
+function ProgramStep({ number, title, children }: { number: string; title: string; children: ReactNode }) {
+  return <li className="flex gap-3">
+    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#0a3d81] text-[12px] font-bold text-white shadow-sm">{number}</span>
+    <div className="min-w-0 pb-0.5">
+      <h3 className="text-[15px] font-semibold leading-snug text-[#12386f]">{title}</h3>
+      <p className="mt-1 text-[13px] leading-[1.6] text-[#607797]">{children}</p>
+    </div>
+  </li>;
+}
+
 function FormField({ label, required = false, children }: { label: string; required?: boolean; children: ReactNode }) {
-  return <label className="block"><span className="mb-1.5 block text-[13px] font-semibold tracking-[.012em] text-[#0b2d65]">{label}{required && <span className="ml-1 text-[#ff4f1f]">*</span>}</span>{children}</label>;
+  return <label className="block"><span className="mb-1.5 block text-[13px] font-semibold text-[#0b2d65]">{label}{required && <span className="ml-1 text-[#ff4f1f]">*</span>}</span>{children}</label>;
 }
 
 function Input({ icon: Icon, className = "", ...props }: InputHTMLAttributes<HTMLInputElement> & { icon: LucideIcon }) {
-  return <span className="relative block"><Icon size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#7083a1]" /><input {...props} className={`h-12 w-full rounded-xl border border-[#d4dfed] bg-white py-2 pl-10 pr-3 text-[14px] font-normal tracking-[.01em] text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100 ${className}`} /></span>;
+  return <span className="relative block"><Icon size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#7083a1]" /><input {...props} className={`h-12 w-full rounded-xl border border-[#d4dfed] bg-white py-2 pl-10 pr-3 text-[14px] font-normal text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100 ${className}`} /></span>;
 }
 
 function DropdownField({ icon: Icon, label, value, options, placeholder, disabled = false, onValueChange }: {
@@ -217,7 +262,7 @@ function DropdownField({ icon: Icon, label, value, options, placeholder, disable
       disabled={disabled}
       onClick={() => setOpen((current) => !current)}
       onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }}
-      className="flex h-14 w-full items-center rounded-2xl border border-[#cbdcf1] bg-[#fbfdff] py-2 pl-2 pr-10 text-left text-[14px] font-normal tracking-[.01em] text-[#27466f] shadow-[0_3px_10px_rgba(37,99,235,0.04)] outline-none transition hover:border-[#9dbce3] focus:border-[#2563eb] focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+      className="flex h-14 w-full items-center rounded-2xl border border-[#cbdcf1] bg-[#fbfdff] py-2 pl-2 pr-10 text-left text-[14px] font-normal text-[#27466f] shadow-[0_3px_10px_rgba(37,99,235,0.04)] outline-none transition hover:border-[#9dbce3] focus:border-[#2563eb] focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
     >
       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-blue-50 text-[#2563eb]"><Icon size={16} /></span>
       <span className={`ml-2.5 truncate ${selected ? "text-[#27466f]" : "text-[#9aabc2]"}`}>{selected?.label ?? placeholder}</span>
