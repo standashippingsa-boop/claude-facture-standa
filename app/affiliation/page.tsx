@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type ChangeEvent, type FormEvent, type InputHTMLAttributes, type ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft, ArrowRight, BarChart3, CheckCircle2, CreditCard, Link2,
@@ -54,11 +53,11 @@ export default function AffiliationPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#eff8ff] text-[#09295e]">
-      <div className="pointer-events-none absolute inset-0 opacity-60" aria-hidden="true">
-        <div className="absolute -left-40 top-44 h-80 w-80 rounded-full bg-sky-200/55 blur-3xl" />
-        <div className="absolute -right-24 top-8 h-72 w-72 rounded-full bg-blue-100 blur-3xl" />
-        <div className="absolute right-[-5rem] top-16 h-80 w-80 rounded-full border border-dashed border-blue-200" />
-      </div>
+      <div
+        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/affiliation-background-v2.png')" }}
+        aria-hidden="true"
+      />
 
       <div className="relative mx-auto w-full max-w-xl px-4 py-4 pb-10 sm:px-6 sm:py-7">
         <header className="flex items-center justify-between gap-3 py-1">
@@ -74,14 +73,8 @@ export default function AffiliationPage() {
           </Link>
         </header>
 
-        <section className="relative mt-5 overflow-hidden rounded-[2rem] border border-white bg-white/90 px-5 pb-5 pt-6 shadow-[0_18px_45px_rgba(23,78,145,0.12)] sm:mt-7 sm:px-8 sm:pt-9">
-          <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-            <div className="absolute -right-24 -top-12 h-64 w-64 rounded-full border-[18px] border-sky-100/70" />
-            <div className="absolute right-5 top-10 h-36 w-36 rounded-full border border-dashed border-blue-300/70" />
-            <div className="absolute bottom-0 left-0 h-28 w-full bg-gradient-to-t from-sky-50/85 to-transparent" />
-          </div>
-
-          <div className="relative z-10 max-w-[15.25rem] sm:max-w-sm">
+        <section className="relative mt-5 rounded-[2rem] border border-white/75 bg-white/55 px-5 pb-5 pt-6 shadow-[0_18px_45px_rgba(23,78,145,0.12)] backdrop-blur-[2px] sm:mt-7 sm:px-8 sm:pt-9">
+          <div className="relative z-10 max-w-md">
             <p className="text-[11px] font-black uppercase tracking-[.17em] text-[#ff671d]">Programme d’affiliation</p>
             <h1 className="mt-3 text-[34px] font-black leading-[1.04] tracking-[-.045em] text-[#082861] sm:text-[45px]">
               Devenez affilié à STANDA COMMERCIAL.
@@ -91,11 +84,7 @@ export default function AffiliationPage() {
             </p>
           </div>
 
-          <div className="pointer-events-none absolute right-[-2.85rem] top-[4.1rem] z-[1] h-[17rem] w-[14.75rem] sm:right-[-1.5rem] sm:top-2 sm:h-[23rem] sm:w-[20rem]" aria-hidden="true">
-            <Image src="/affiliation-agent.png" alt="" fill priority sizes="(max-width: 639px) 236px, 320px" className="object-contain object-bottom" />
-          </div>
-
-          <div className="relative z-10 mt-60 sm:mt-8 sm:max-w-sm">
+          <div className="relative z-10 mt-8 max-w-sm">
             <a href="#formulaire-affiliation" className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#ff671d] px-5 text-[16px] font-extrabold text-white shadow-[0_14px_22px_rgba(255,103,29,0.24)] transition hover:-translate-y-0.5 hover:bg-[#e85712] focus:outline-none focus:ring-4 focus:ring-orange-200">
               Soumettre ma candidature <ArrowRight size={19} />
             </a>
