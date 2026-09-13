@@ -651,7 +651,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, specialO
                           <span className="block truncate font-mono text-xs font-extrabold text-navy">* {p.tracking_number}</span>
                           <span className="mt-0.5 block truncate text-[11px] text-slate-600">{p.customer_code} · {p.customer_name || "Client"}</span>
                         </span>
-                        <span className="shrink-0 text-[11px] font-bold text-amber-900 underline">Modifier</span>
+                        <span className="shrink-0 text-[11px] font-bold text-amber-900 underline">{p.invoice_id ? "Détails" : "Modifier"}</span>
                       </span>
                       {detectedReason && <span className="mt-2 block line-clamp-2 text-xs text-amber-900"><b>Note détectée :</b> {detectedReason}</span>}
                       {special.source === "manual" && <span className="mt-1 block line-clamp-1 text-[11px] text-slate-600">Modification STANDA : {special.reason}</span>}
@@ -1009,12 +1009,14 @@ function SpecialPackageEditor({
     ? existing.reason.slice(manualPrefix.length).trim()
     : existing.source === "manual" ? existing.reason : "";
   const detectedReason = existing.importedReason || (existing.source !== "manual" ? existing.reason : "");
+  const isInvoiced = Boolean(pkg.invoice_id);
   const [kind, setKind] = useState<ManualSpecialPackageKind>(initialKind);
   const [note, setNote] = useState(initialNote);
   const [formError, setFormError] = useState("");
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isInvoiced) return;
     const cleanNote = note.trim();
     if (kind === "Autre" && !cleanNote) {
       setFormError("Précisez ce qui rend ce colis spécial.");
@@ -1030,14 +1032,16 @@ function SpecialPackageEditor({
         <div className="flex items-start gap-3">
           <span className="rounded-xl bg-amber-100 p-2 text-amber-800"><AlertTriangle size={19} /></span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-extrabold text-navy">Marquer comme colis spécial</h2>
+            <h2 className="text-base font-extrabold text-navy">{isInvoiced ? "Détails du colis spécial" : "Marquer comme colis spécial"}</h2>
             <p className="mt-0.5 break-all font-mono text-xs font-bold text-slate-600">{pkg.tracking_number}</p>
           </div>
           <button type="button" className="text-sm font-semibold text-slate-500 hover:text-slate-800" onClick={onClose} disabled={busy}>Fermer</button>
         </div>
 
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
-          Un <b>*</b> apparaîtra devant ce colis. Lors de la facturation, le système demandera un prix manuel et n&apos;appliquera jamais le tarif au poids.
+          {isInvoiced
+            ? "Ce colis est déjà facturé. Ses informations restent visibles, mais ne peuvent plus être modifiées afin de conserver le montant exact de la facture."
+            : <>Un <b>*</b> apparaîtra devant ce colis. Lors de la facturation, le système demandera un prix manuel et n&apos;appliquera jamais le tarif au poids.</>}
         </p>
 
         {detectedReason && (
@@ -1050,7 +1054,7 @@ function SpecialPackageEditor({
 
         <label className="mt-4 block text-sm font-bold text-navy">
           Type de colis
-          <select className="input mt-1.5 w-full" value={kind} onChange={(event) => setKind(event.target.value as ManualSpecialPackageKind)} disabled={busy}>
+          <select className="input mt-1.5 w-full" value={kind} onChange={(event) => setKind(event.target.value as ManualSpecialPackageKind)} disabled={busy || isInvoiced}>
             {MANUAL_SPECIAL_PACKAGE_KINDS.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
         </label>
@@ -1059,17 +1063,19 @@ function SpecialPackageEditor({
           Note explicative {kind === "Autre" && <span className="text-red-600">(obligatoire)</span>}
           <textarea className="input mt-1.5 min-h-24 w-full resize-y" value={note}
             placeholder={kind === "Téléphone" ? "Ex. iPhone 15 Pro, 256 Go" : "Ex. description ou raison du tarif spécial"}
-            onChange={(event) => setNote(event.target.value)} disabled={busy} required={kind === "Autre"} />
+            onChange={(event) => setNote(event.target.value)} disabled={busy || isInvoiced} required={kind === "Autre" && !isInvoiced} />
         </label>
         <p className="mt-1 text-[11px] text-slate-500">Cette note sera imprimée sur la ligne de facture et conservée dans l&apos;historique.</p>
 
         {formError && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{formError}</p>}
 
         <div className="mt-5 flex gap-3">
-          <button type="submit" className="btn flex-1 !bg-amber-600 hover:!bg-amber-700" disabled={busy}>
-            {busy ? "Enregistrement..." : "Enregistrer le colis spécial"}
-          </button>
-          <button type="button" className="btn btn-ghost border border-line" onClick={onClose} disabled={busy}>Annuler</button>
+          {!isInvoiced && (
+            <button type="submit" className="btn flex-1 !bg-amber-600 hover:!bg-amber-700" disabled={busy}>
+              {busy ? "Enregistrement..." : "Enregistrer le colis spécial"}
+            </button>
+          )}
+          <button type="button" className="btn btn-ghost border border-line" onClick={onClose} disabled={busy}>{isInvoiced ? "Fermer" : "Annuler"}</button>
         </div>
       </form>
     </div>
