@@ -8,6 +8,9 @@
  */
 export const SPECIAL_PACKAGE_FLAG = "__standa_special";
 export const SPECIAL_PACKAGE_REASON = "__standa_special_reason";
+/** Nòt ki te detekte nan fichye Excel la. Li rete konsève menm apre admin an
+ * ajoute pwòp kategori oswa nòt pa li. */
+export const SPECIAL_PACKAGE_IMPORTED_REASON = "__standa_special_imported_reason";
 /** Catégorie choisie manuellement par l'équipe STANDA. */
 export const SPECIAL_PACKAGE_KIND = "__standa_special_kind";
 /** Distingue une note importée MCPACK d'un marquage manuel. */
@@ -22,6 +25,8 @@ export type SpecialPackageInfo = {
   isSpecial: boolean;
   /** Texte exact (ou extrait exact) provenant de la ligne Excel. */
   reason: string;
+  /** Note originale détectée dans la colonne ADIC. / ADICIONALES, s'il y en a une. */
+  importedReason: string;
   /** Catégorie manuelle, lorsqu'elle a été choisie par l'équipe. */
   kind: string;
   /** Origine de l'indicateur, utile pour préserver un marquage manuel. */
@@ -62,8 +67,8 @@ export function detectSpecialPackage(
     .filter(([label, value]) => ADDITIONAL_HEADER.test(label) && Boolean(value) && !EMPTY_ADDITIONAL_NOTE.test(value));
   const reason = shorten(unique(entries.map(([, value]) => value)).join(" · "));
   return reason
-    ? { isSpecial: true, reason, kind: "", source: "mcpack" }
-    : { isSpecial: false, reason: "", kind: "", source: "" };
+    ? { isSpecial: true, reason, importedReason: reason, kind: "", source: "mcpack" }
+    : { isSpecial: false, reason: "", importedReason: "", kind: "", source: "" };
 }
 
 /** Rend les métadonnées Excel prêtes à être enregistrées dans `mcpack_data`. */
@@ -77,6 +82,7 @@ export function withSpecialPackageMetadata(
     ...fields,
     [SPECIAL_PACKAGE_FLAG]: "true",
     [SPECIAL_PACKAGE_REASON]: info.reason,
+    [SPECIAL_PACKAGE_IMPORTED_REASON]: info.reason,
     [SPECIAL_PACKAGE_SOURCE]: "mcpack",
   };
 }
@@ -96,11 +102,20 @@ export function withManualSpecialPackageMetadata(
     throw new Error("Précisez pourquoi ce colis est spécial.");
   }
   const reason = shorten([cleanKind, cleanNote].filter(Boolean).join(" — "));
+  // Si MCPACK a signalé ce colis dans ADIC., sa note est une preuve métier :
+  // une modification manuelle ne doit jamais la faire disparaître.
+  const previousReason = clean(fields[SPECIAL_PACKAGE_REASON]);
+  const previousSource = clean(fields[SPECIAL_PACKAGE_SOURCE]);
+  const detectedFromOriginalFields = detectSpecialPackage(undefined, fields).reason;
+  const importedReason = clean(fields[SPECIAL_PACKAGE_IMPORTED_REASON])
+    || detectedFromOriginalFields
+    || (previousSource !== "manual" ? previousReason : "");
   return {
     ...fields,
     [SPECIAL_PACKAGE_FLAG]: "true",
     [SPECIAL_PACKAGE_KIND]: cleanKind,
     [SPECIAL_PACKAGE_REASON]: reason,
+    ...(importedReason ? { [SPECIAL_PACKAGE_IMPORTED_REASON]: importedReason } : {}),
     [SPECIAL_PACKAGE_SOURCE]: "manual",
   };
 }
@@ -112,12 +127,17 @@ export function withManualSpecialPackageMetadata(
 export function specialPackageInfo(pkg: PackageLike): SpecialPackageInfo {
   const data = pkg.mcpack_data ?? {};
   const storedReason = clean(data[SPECIAL_PACKAGE_REASON]);
+  const storedImportedReason = clean(data[SPECIAL_PACKAGE_IMPORTED_REASON]);
   const storedKind = clean(data[SPECIAL_PACKAGE_KIND]);
   const storedSource = clean(data[SPECIAL_PACKAGE_SOURCE]);
+  // Les anciennes modifications manuelles ont gardé les cellules Excel dans
+  // mcpack_data. On les relit pour ne pas perdre l'explication d'origine.
+  const detectedFromOriginalFields = detectSpecialPackage(pkg.content, data).reason;
   if (data[SPECIAL_PACKAGE_FLAG] === "true") {
     return {
       isSpecial: true,
       reason: storedReason || "Note ADIC. signalée dans la ligne Excel.",
+      importedReason: storedImportedReason || detectedFromOriginalFields || (storedSource === "manual" ? "" : storedReason),
       kind: storedKind,
       source: storedSource === "manual" ? "manual" : "mcpack",
     };
@@ -129,6 +149,7 @@ export function specialPackageInfo(pkg: PackageLike): SpecialPackageInfo {
     return {
       isSpecial: true,
       reason: legacyReason || "Ligne signalée comme colis spécial dans l'export Excel.",
+      importedReason: legacyReason || "Ligne signalée comme colis spécial dans l'export Excel.",
       kind: "",
       source: "legacy",
     };
