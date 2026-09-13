@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, type ChangeEvent, type FormEvent, type InputHTMLAttributes, type ReactNode } from "react";
-import Link from "next/link";
 import {
-  ArrowLeft, ArrowRight, BarChart3, CheckCircle2, CreditCard, Link2,
+  ArrowRight, BarChart3, CheckCircle2, CreditCard, Link2,
   Loader2, Mail, MapPin, MessageCircle, Phone, ShieldCheck, UserRound, type LucideIcon
 } from "lucide-react";
 import Logo from "@/components/Logo";
@@ -60,7 +59,7 @@ export default function AffiliationPage() {
       />
 
       <div className="relative mx-auto w-full max-w-xl px-4 py-4 pb-10 sm:px-6 sm:py-7">
-        <header className="flex items-center justify-between gap-3 py-1">
+        <header className="flex items-center gap-3 py-1">
           <div className="flex min-w-0 items-center gap-2.5">
             <Logo size={48} rounded="rounded-xl" />
             <div className="min-w-0 leading-tight">
@@ -68,9 +67,6 @@ export default function AffiliationPage() {
               <p className="text-[10px] font-bold tracking-[.18em] text-[#25497d]">COMMERCIAL</p>
             </div>
           </div>
-          <Link href="/accueil" className="inline-flex min-h-10 items-center gap-1 rounded-xl px-2 text-xs font-bold text-[#355582] transition hover:bg-white hover:text-[#0a2b61]">
-            <ArrowLeft size={15} /> Retour
-          </Link>
         </header>
 
         <section className="relative mt-5 rounded-[2rem] border border-white/75 bg-white/55 px-5 pb-5 pt-6 shadow-[0_18px_45px_rgba(23,78,145,0.12)] backdrop-blur-[2px] sm:mt-7 sm:px-8 sm:pt-9">

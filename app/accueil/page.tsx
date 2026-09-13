@@ -46,20 +46,20 @@ const INTERDITS = [
 ];
 
 const SHOPPING_PLATFORMS = [
-  { name: "SHEIN", href: "https://us.shein.com/", image: "/shop-logos/shein.jpg" },
-  { name: "TEMU", href: "https://www.temu.com/", image: "/shop-logos/temu.jpg" },
-  { name: "Fashion Nova", href: "https://www.fashionnova.com/", image: "/shop-logos/fashion-nova.jpg" },
-  { name: "Amazon", href: "https://www.amazon.com/", image: "/shop-logos/amazon.jpg" },
-  { name: "Victoria's Secret", href: "https://www.victoriassecret.com/us/", image: "/shop-logos/victorias-secret.jpg" },
-  { name: "Samsung", href: "https://www.samsung.com/us/", image: "/shop-logos/samsung.jpg" },
-  { name: "HP", href: "https://www.hp.com/us-en/shop/", image: "/shop-logos/hp.jpg" },
-  { name: "eBay", href: "https://www.ebay.com/", image: "/shop-logos/ebay.jpg" },
-  { name: "AliExpress", href: "https://www.aliexpress.com/", image: "/shop-logos/aliexpress.jpg" },
-  { name: "The North Face", href: "https://www.thenorthface.com/en-us", image: "/shop-logos/north-face.jpg" },
-  { name: "Nike", href: "https://www.nike.com/", image: "/shop-logos/nike.jpg" },
-  { name: "Lacoste", href: "https://www.lacoste.com/us/", image: "/shop-logos/lacoste.jpg" },
-  { name: "Zara", href: "https://www.zara.com/us/", image: "/shop-logos/zara.jpg" },
-  { name: "adidas", href: "https://www.adidas.com/us", image: "/shop-logos/adidas.jpg" }
+  { name: "SHEIN", image: "/shop-logos/shein.jpg" },
+  { name: "TEMU", image: "/shop-logos/temu.jpg" },
+  { name: "Fashion Nova", image: "/shop-logos/fashion-nova.jpg" },
+  { name: "Amazon", image: "/shop-logos/amazon.jpg" },
+  { name: "Victoria's Secret", image: "/shop-logos/victorias-secret.jpg" },
+  { name: "Samsung", image: "/shop-logos/samsung.jpg" },
+  { name: "HP", image: "/shop-logos/hp.jpg" },
+  { name: "eBay", image: "/shop-logos/ebay.jpg" },
+  { name: "AliExpress", image: "/shop-logos/aliexpress.jpg" },
+  { name: "The North Face", image: "/shop-logos/north-face.jpg" },
+  { name: "Nike", image: "/shop-logos/nike.jpg" },
+  { name: "Lacoste", image: "/shop-logos/lacoste.jpg" },
+  { name: "Zara", image: "/shop-logos/zara.jpg" },
+  { name: "adidas", image: "/shop-logos/adidas.jpg" }
 ];
 
 const JSONLD = {
@@ -86,7 +86,7 @@ export default function AccueilPage() {
             <div className="max-w-2xl site-fade">
               <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.07] px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.17em] text-white/85 backdrop-blur-sm"><span className="h-1.5 w-1.5 rounded-full bg-accent" />Miami <span className="text-white/40">→</span> Haïti</p>
               <h1 className="mt-6 max-w-xl text-balance text-[42px] font-black leading-[.98] tracking-[-0.055em] text-white sm:text-[60px] lg:text-[66px]">Vos achats en ligne, <span className="text-accent">livrés simplement</span> en Haïti.</h1>
-              <p className="mt-6 max-w-lg text-[16px] leading-relaxed text-white/72 sm:text-[18px]">Une adresse de dépôt à Miami, un suivi clair et une équipe qui vous accompagne jusqu'à la récupération de vos colis.</p>
+              <p className="mt-6 max-w-lg text-[16px] font-medium leading-relaxed text-white drop-shadow-[0_1px_1px_rgba(4,18,48,0.65)] sm:text-[18px]">Une adresse de dépôt à Miami, un suivi clair et une équipe qui vous accompagne jusqu'à la récupération de vos colis.</p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link href="/inscription" className="group inline-flex h-[3.25rem] items-center justify-center gap-2 rounded-xl bg-accent px-6 text-[15px] font-bold text-white shadow-[0_14px_34px_-12px_rgba(228,101,10,.8)] transition hover:-translate-y-0.5 hover:bg-accent-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">Créer mon compte <ArrowRight size={17} className="transition-transform group-hover:translate-x-0.5" /></Link>
                 <Link href="/agences" className="inline-flex h-[3.25rem] items-center justify-center rounded-xl border border-white/20 bg-white/[0.06] px-6 text-[15px] font-bold text-white transition hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">Voir nos agences</Link>
@@ -129,9 +129,9 @@ export default function AccueilPage() {
 
 function TrustItem({ children }: { children: React.ReactNode }) { return <span className="inline-flex items-center gap-2"><Check size={15} className="text-accent" />{children}</span>; }
 function MiniPromise({ icon: Icon, title, text }: { icon: typeof MapPin; title: string; text: string }) { return <div className="flex items-center gap-4 py-5 sm:px-7 sm:py-6 first:sm:pl-0 last:sm:pr-0"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-light text-accent-dark"><Icon size={18} /></span><div><p className="text-[13px] font-bold text-navy">{title}</p><p className="mt-0.5 text-[12.5px] text-mute">{text}</p></div></div>; }
-function PlatformCard({ name, href, image, wordmarkClass }: { name: string; href: string; image?: string; wordmarkClass?: string }) { return <a href={href} target="_blank" rel="noreferrer" className="group flex min-h-[96px] items-center justify-center rounded-2xl border border-line bg-white px-4 shadow-[0_10px_30px_-24px_rgba(15,23,42,.45)] transition duration-300 hover:-translate-y-1 hover:border-accent/35 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent" aria-label={`Commander sur ${name}`}>
-  {image ? <Image src={image} alt={`Logo ${name}`} width={150} height={72} unoptimized className="h-12 w-auto max-w-[138px] object-contain mix-blend-multiply transition duration-300 group-hover:scale-105" /> : <span className={`font-black leading-none ${wordmarkClass ?? "text-navy"}`}>{name}</span>}
-</a>; }
+function PlatformCard({ name, image, wordmarkClass }: { name: string; image?: string; wordmarkClass?: string }) { return <article className="flex min-h-[96px] items-center justify-center rounded-2xl border border-line bg-white px-4 shadow-[0_10px_30px_-24px_rgba(15,23,42,.45)]">
+  {image ? <Image src={image} alt={`Logo ${name}`} width={150} height={72} unoptimized className="h-12 w-auto max-w-[138px] object-contain mix-blend-multiply" /> : <span className={`font-black leading-none ${wordmarkClass ?? "text-navy"}`}>{name}</span>}
+</article>; }
 function SectionHeading({ eyebrow, title, text }: { eyebrow: string; title: string; text: string }) { return <div className="max-w-2xl"><p className="text-[11px] font-bold uppercase tracking-[.2em] text-accent">{eyebrow}</p><h2 className="mt-4 text-balance text-[34px] font-black leading-[1.03] tracking-[-.045em] text-navy sm:text-[46px]">{title}</h2><p className="mt-4 max-w-xl text-[16px] leading-relaxed text-mute">{text}</p></div>; }
 function StepCard({ number, icon: Icon, title, text }: (typeof STEPS)[number]) { return <article className="group relative overflow-hidden rounded-[1.4rem] border border-line bg-white p-6 transition duration-300 hover:-translate-y-1 hover:shadow-lift"><span aria-hidden="true" className="absolute -right-2 -top-5 text-[86px] font-black leading-none tracking-[-.1em] text-navy/[.035]">{number}</span><div className="relative"><span className="grid h-11 w-11 place-items-center rounded-xl bg-navy text-white transition group-hover:bg-accent"><Icon size={19} /></span><p className="mt-7 text-[11px] font-bold tracking-[.18em] text-accent">ÉTAPE {number}</p><h3 className="mt-2 text-[18px] font-bold text-navy">{title}</h3><p className="mt-3 text-[14px] leading-relaxed text-mute">{text}</p></div></article>; }
 function AddressRow({ label, value, accent, muted }: { label: string; value: string; accent?: boolean; muted?: boolean }) { return <div className="flex items-start justify-between gap-5 py-3.5"><dt className="shrink-0 text-[12px] text-white/50">{label}</dt><dd className={`break-all text-right text-[13.5px] font-semibold ${accent ? "font-mono text-accent" : muted ? "font-normal italic text-white/50" : "text-white"}`}>{value}</dd></div>; }
