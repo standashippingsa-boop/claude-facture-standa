@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "Identifiant ou mot de passe incorrect." });
     }
     if (aff.status !== "active") {
-      return NextResponse.json({ ok: false, reason: "Ce compte affilié n'est plus actif. Contactez STANDA COMMERCIAL." });
+      return NextResponse.json({ ok: false, reason: "Ce compte affilié n'est plus actif. Contactez Standa Commercial." });
     }
 
     const token = newSessionToken();
@@ -72,13 +72,54 @@ export async function POST(req: Request) {
     const aff = await affiliateFromSession(svc, cookieValue(req));
     if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
 
-    const { data: commissions } = await svc.from("affiliate_commissions")
+    const { data: commissions, error: commissionsError } = await svc.from("affiliate_commissions")
       .select("id, amount, status, paid_at, payout_method, created_at, client_id, invoice_id")
       .eq("affiliate_id", aff.id as string).order("created_at", { ascending: false });
+    if (commissionsError) return NextResponse.json({ ok: false, reason: "Impossible de charger les commissions." }, { status: 500 });
+
+    // Yon kliyan parèt sou espas afilye a DEPI enskripsyon li ak lyen an.
+    // Li pa bezwen gen fakti pou afilye a wè li. Nou ajoute eta sèvis la
+    // apre nou gade si kliyan sa a gen omwen yon colis, epi eta komisyon an
+    // apre nou gade fakti ki deja jenere pou li.
+    const { data: clients, error: clientsError } = await svc.from("clients")
+      .select("id, fullname, customer_code, created_at")
+      .eq("referred_by_affiliate_id", aff.id as string)
+      .order("created_at", { ascending: false });
+    if (clientsError) return NextResponse.json({ ok: false, reason: "Impossible de charger les clients référés." }, { status: 500 });
+
+    const referred = (clients ?? []) as Array<{ id: string; fullname: string; customer_code?: string | null; created_at: string }>;
+    const customerCodes = Array.from(new Set(referred.map((client) => String(client.customer_code ?? "").trim()).filter(Boolean)));
+    let packages: Array<{ customer_code: string }> = [];
+    if (customerCodes.length) {
+      const { data, error: packagesError } = await svc.from("packages")
+        .select("customer_code")
+        .in("customer_code", customerCodes);
+      if (packagesError) return NextResponse.json({ ok: false, reason: "Impossible de vérifier les services des clients." }, { status: 500 });
+      packages = (data ?? []) as Array<{ customer_code: string }>;
+    }
+
     const list: any[] = commissions ?? [];
     const totalDue = list.filter((c) => c.status === "due").reduce((s: number, c) => s + Number(c.amount), 0);
     const totalPaid = list.filter((c) => c.status === "paid").reduce((s: number, c) => s + Number(c.amount), 0);
     const daysLeft = Math.max(0, Math.ceil((new Date(aff.contract_end as string).getTime() - Date.now()) / 86400000));
+    const packagesByCode = new Set(packages.map((pkg) => String(pkg.customer_code ?? "").trim()));
+    const commissionsByClient = new Map<string, any[]>();
+    list.forEach((commission) => {
+      if (!commission.client_id) return;
+      const clientCommissions = commissionsByClient.get(commission.client_id) ?? [];
+      clientCommissions.push(commission);
+      commissionsByClient.set(commission.client_id, clientCommissions);
+    });
+    const referredClients = referred.map((client) => {
+      const clientCommissions = commissionsByClient.get(client.id) ?? [];
+      const commissionTotal = clientCommissions.reduce((sum, commission) => sum + Number(commission.amount || 0), 0);
+      const hasService = !!client.customer_code && packagesByCode.has(client.customer_code);
+      const stage = commissionTotal > 0 ? "commission_added" : hasService ? "service_started" : "account_created";
+      return {
+        id: client.id, fullname: client.fullname, customer_code: client.customer_code ?? "", created_at: client.created_at,
+        stage, commission_total: commissionTotal, commission_count: clientCommissions.length
+      };
+    });
 
     return NextResponse.json({
       ok: true,
@@ -88,7 +129,8 @@ export async function POST(req: Request) {
         commission_amount: aff.commission_amount, days_left: daysLeft
       },
       commissions: list, totalDue, totalPaid,
-      clientsCount: new Set(list.map((c) => c.client_id).filter(Boolean)).size
+      clientsCount: referredClients.length,
+      referredClients
     });
   }
 

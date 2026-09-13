@@ -2,8 +2,8 @@
 
 import { useEffect, useState, type ChangeEvent, type FormEvent, type InputHTMLAttributes, type ReactNode } from "react";
 import {
-  ArrowRight, BarChart3, Check, CheckCircle2, ChevronDown, CreditCard, Link2, MapPin,
-  Loader2, Mail, MessageCircle, Phone, ShieldCheck, UserRound, type LucideIcon
+  ArrowRight, BarChart3, Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, CreditCard, Link2, MapPin,
+  Loader2, Mail, MessageCircle, Phone, ShieldCheck, UserRound, X, type LucideIcon
 } from "lucide-react";
 import Logo from "@/components/Logo";
 
@@ -28,6 +28,7 @@ export default function AffiliationPage() {
   const [error, setError] = useState<string | null>(null);
   const [cities, setCities] = useState<AgencyCity[]>([]);
   const [citiesState, setCitiesState] = useState<"loading" | "ready" | "unavailable">("loading");
+  const [showProgramInfo, setShowProgramInfo] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -94,8 +95,8 @@ export default function AffiliationPage() {
           <div className="flex min-w-0 items-center gap-2.5">
             <Logo size={48} rounded="rounded-xl" />
             <div className="min-w-0 leading-tight">
-              <p className="text-[19px] font-bold tracking-[.05em] text-[#0a2b61]">STANDA</p>
-              <p className="text-[10px] font-semibold tracking-[.2em] text-[#25497d]">COMMERCIAL</p>
+              <p className="text-[19px] font-bold tracking-[.02em] text-[#0a2b61]">Standa</p>
+              <p className="text-[11px] font-semibold tracking-[.06em] text-[#25497d]">Commercial</p>
             </div>
           </div>
         </header>
@@ -104,7 +105,7 @@ export default function AffiliationPage() {
           <div className="relative z-10 max-w-md">
             <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#ff671d]">Programme d’affiliation</p>
             <h1 className="mt-3 text-[33px] font-bold leading-[1.16] tracking-[-.025em] text-[#082861] sm:text-[44px]">
-              Devenez affilié à STANDA COMMERCIAL.
+              Devenez affilié à Standa Commercial.
             </h1>
             <p className="mt-5 text-[15px] font-normal leading-[1.7] text-[#50698e] sm:text-[17px]">
               Partagez votre lien personnel. Recevez une commission pour chaque facture admissible.
@@ -112,6 +113,20 @@ export default function AffiliationPage() {
           </div>
 
         </section>
+
+        <button
+          type="button"
+          onClick={() => setShowProgramInfo(true)}
+          className="relative z-10 mt-4 flex w-full items-center gap-3 rounded-2xl border border-white bg-white/95 p-4 text-left shadow-[0_10px_24px_rgba(29,76,137,0.08)] transition hover:border-[#c6dcf7] hover:shadow-[0_14px_28px_rgba(29,76,137,0.12)]"
+          aria-haspopup="dialog"
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-sky-100 text-[#0d4b99]"><CircleHelp size={22} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-semibold text-[#082861]">Comment fonctionne le programme?</span>
+            <span className="mt-0.5 block text-[12px] leading-relaxed text-[#627a9d]">Étapes, commission, contrat et accès à votre espace.</span>
+          </span>
+          <ChevronRight size={21} className="shrink-0 text-[#6380a6]" />
+        </button>
 
         <section className="relative z-10 mt-4 grid grid-cols-3 gap-2.5 sm:mt-5 sm:gap-3" aria-label="Avantages du programme">
           {BENEFITS.map(({ icon: Icon, title, text, tone }) => (
@@ -121,41 +136,6 @@ export default function AffiliationPage() {
               <p className="mt-1.5 text-[10px] leading-relaxed text-[#657a9a] sm:text-xs">{text}</p>
             </article>
           ))}
-        </section>
-
-        <section className="relative z-10 mt-5 rounded-[1.8rem] border border-white bg-white/95 p-5 shadow-[0_18px_45px_rgba(23,78,145,0.12)] sm:mt-7 sm:p-7" aria-labelledby="programme-explique">
-          <p className="text-[11px] font-bold uppercase tracking-[.15em] text-[#ff671d]">Avant de vous inscrire</p>
-          <h2 id="programme-explique" className="mt-2 text-[25px] font-bold leading-[1.18] tracking-[-.02em] text-[#082861] sm:text-[30px]">
-            Le programme d’affiliation, c’est quoi?
-          </h2>
-          <p className="mt-3 text-[14px] leading-[1.7] text-[#516b90] sm:text-[15px]">
-            Vous recommandez STANDA COMMERCIAL à votre réseau grâce à un lien personnel. Lorsqu’un client s’inscrit avec ce lien et qu’une facture est générée pendant que votre contrat est actif, une commission est inscrite à votre dossier d’affilié.
-          </p>
-
-          <ol className="mt-5 space-y-3.5" aria-label="Étapes du programme d’affiliation">
-            <ProgramStep number="1" title="Soumettez votre candidature">
-              Remplissez ce formulaire avec vos coordonnées, votre pièce d’identité et la ville où se trouve une agence STANDA active. Cette demande ne crée pas encore un compte.
-            </ProgramStep>
-            <ProgramStep number="2" title="STANDA examine votre demande">
-              L’équipe vérifie les renseignements transmis. Une candidature devient active seulement après son approbation.
-            </ProgramStep>
-            <ProgramStep number="3" title="Recevez vos accès et votre lien">
-              Une fois approuvé, vous recevez par courriel votre code, votre mot de passe, votre lien personnel et les conditions de votre contrat.
-            </ProgramStep>
-            <ProgramStep number="4" title="Partagez, puis suivez vos commissions">
-              Partagez votre lien. Votre espace affilié vous permet ensuite de consulter vos références, les commissions à recevoir et celles déjà payées.
-            </ProgramStep>
-          </ol>
-
-          <div className="mt-5 rounded-2xl border border-[#d7e7fb] bg-[#eef7ff] p-4">
-            <h3 className="text-[14px] font-semibold text-[#0b3778]">À savoir avant de soumettre votre demande</h3>
-            <ul className="mt-2.5 space-y-2 text-[13px] leading-[1.55] text-[#4f6b91]">
-              <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />La commission s’applique uniquement aux factures des clients associés à votre lien personnel.</li>
-              <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Le montant de la commission et les modalités de paiement sont confirmés dans votre contrat.</li>
-              <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Le contrat est actif pour une période de trois mois. Tout renouvellement donne lieu à de nouveaux accès et à un nouveau lien.</li>
-              <li className="flex gap-2"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre mot de passe et votre lien sont personnels : ne les partagez avec personne.</li>
-            </ul>
-          </div>
         </section>
 
         <section id="formulaire-affiliation" className="relative z-10 mt-5 rounded-[1.8rem] border border-white bg-white p-4 shadow-[0_18px_45px_rgba(23,78,145,0.12)] sm:mt-7 sm:p-7">
@@ -219,8 +199,53 @@ export default function AffiliationPage() {
           )}
         </section>
       </div>
+
+      {showProgramInfo && <ProgramInfoDialog onClose={() => setShowProgramInfo(false)} />}
     </main>
   );
+}
+
+function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
+  return <div role="dialog" aria-modal="true" aria-labelledby="programme-explique" className="fixed inset-0 z-50 flex items-end bg-[#061737]/55 p-0 sm:items-center sm:justify-center sm:p-5" onClick={onClose}>
+    <section className="max-h-[88vh] w-full overflow-y-auto rounded-t-[2rem] bg-white px-5 pb-7 pt-5 shadow-2xl sm:max-w-xl sm:rounded-[2rem] sm:p-7" onClick={(event) => event.stopPropagation()}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.15em] text-[#ff671d]">Guide du programme</p>
+          <h2 id="programme-explique" className="mt-2 text-[25px] font-bold leading-[1.18] tracking-[-.02em] text-[#082861] sm:text-[30px]">Comment fonctionne l’affiliation?</h2>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Fermer" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-[#385778] transition hover:bg-slate-200"><X size={20} /></button>
+      </div>
+
+      <p className="mt-4 text-[14px] leading-[1.7] text-[#516b90] sm:text-[15px]">
+        Vous recommandez Standa Commercial grâce à votre lien personnel. Le système suit chaque étape, sans vous attribuer de commission avant qu’un client ait réellement utilisé le service.
+      </p>
+
+      <ol className="mt-5 space-y-4" aria-label="Étapes du programme d’affiliation">
+        <ProgramStep number="1" title="Votre client crée son compte avec votre lien">
+          Par exemple, Fadonal partage son lien à Natou. Dès que Natou ouvre un compte avec ce lien, elle apparaît dans l’espace de Fadonal avec le statut « Compte créé ».
+        </ProgramStep>
+        <ProgramStep number="2" title="Le client commence à utiliser le service">
+          Lorsqu’un premier colis de Natou est ajouté au système, un signe « Service commencé » apparaît dans le dossier de Fadonal. À cette étape, aucune commission n’est encore ajoutée.
+        </ProgramStep>
+        <ProgramStep number="3" title="La facture déclenche la commission">
+          Lorsque Standa Commercial génère une facture pour Natou, la commission prévue au contrat est ajoutée automatiquement au compte de Fadonal. Exemple : si la commission est de 10 USD, Fadonal voit 10 USD à recevoir.
+        </ProgramStep>
+        <ProgramStep number="4" title="Vous suivez les paiements">
+          Dans votre espace affilié, vous voyez vos clients, leurs étapes, les commissions à recevoir et les commissions déjà payées.
+        </ProgramStep>
+      </ol>
+
+      <div className="mt-5 rounded-2xl border border-[#d7e7fb] bg-[#eef7ff] p-4">
+        <h3 className="text-[14px] font-semibold text-[#0b3778]">À retenir</h3>
+        <ul className="mt-2.5 space-y-2 text-[13px] leading-[1.55] text-[#4f6b91]">
+          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Créer un compte avec votre lien rattache le client à votre dossier, mais ne donne pas encore de commission.</li>
+          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />La commission est créée seulement après la génération d’une facture pour ce client, pendant que votre contrat est actif.</li>
+          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre contrat dure trois mois. En cas de renouvellement, vous recevez un nouveau lien et de nouveaux accès.</li>
+          <li className="flex gap-2"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre mot de passe et votre lien sont personnels : ne les partagez avec personne.</li>
+        </ul>
+      </div>
+    </section>
+  </div>;
 }
 
 function ProgramStep({ number, title, children }: { number: string; title: string; children: ReactNode }) {

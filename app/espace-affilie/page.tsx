@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock3, Copy, HandCoins, LogOut, Users } from "lucide-react";
+import { BadgeDollarSign, CheckCircle2, Clock3, Copy, HandCoins, LogOut, PackageCheck, UserPlus, Users } from "lucide-react";
 import Logo from "@/components/Logo";
 
 /**
@@ -16,9 +16,14 @@ interface Me {
   };
   commissions: { id: string; amount: number; status: string; created_at: string; payout_method?: string | null }[];
   totalDue: number; totalPaid: number; clientsCount: number;
+  referredClients: {
+    id: string; fullname: string; customer_code: string; created_at: string;
+    stage: "account_created" | "service_started" | "commission_added";
+    commission_total: number; commission_count: number;
+  }[];
 }
 
-const dateFr = (d?: string | null) => (d ? new Date(d).toLocaleDateString("fr-FR") : "");
+const dateFr = (d?: string | null) => (d ? new Date(d).toLocaleDateString("fr-CA") : "");
 
 /** % tan ki deja pase nan kontra 3 mwa a — pou ba pwogrè a. */
 function contractProgress(startISO: string, endISO: string): number {
@@ -34,12 +39,18 @@ export default function AffiliatePortalPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetch("/api/affiliate-portal", {
+    let active = true;
+    const load = () => fetch("/api/affiliate-portal", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "me" })
     }).then((r) => r.json()).then((j) => {
+      if (!active) return;
       if (!j.ok) { router.replace("/espace-affilie/login"); return; }
       setMe(j);
-    }).catch(() => setError("Impossible de charger votre espace."));
+      setError(null);
+    }).catch(() => { if (active) setError("Impossible de charger votre espace."); });
+    void load();
+    const refresh = window.setInterval(() => void load(), 30000);
+    return () => { active = false; window.clearInterval(refresh); };
   }, [router]);
 
   const logout = async () => {
@@ -72,7 +83,7 @@ export default function AffiliatePortalPage() {
     );
   }
 
-  const { affiliate, commissions, totalDue, totalPaid, clientsCount } = me;
+  const { affiliate, commissions, totalDue, totalPaid, clientsCount, referredClients } = me;
   const pct = contractProgress(affiliate.contract_start, affiliate.contract_end);
   const urgent = affiliate.status === "active" && affiliate.days_left <= 14;
 
@@ -91,7 +102,7 @@ export default function AffiliatePortalPage() {
 
         {affiliate.status !== "active" && (
           <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
-            Votre contrat n'est plus actif ({affiliate.status}). Contactez STANDA COMMERCIAL pour un renouvellement.
+            Votre contrat n'est plus actif ({affiliate.status}). Contactez Standa Commercial pour un renouvellement.
           </div>
         )}
 
@@ -125,6 +136,22 @@ export default function AffiliatePortalPage() {
           <Stat icon={CheckCircle2} label="Déjà payé" value={`${totalPaid.toFixed(2)} USD`} tone="emerald" />
         </div>
 
+        <section className="mt-6 rounded-2xl border border-line bg-white p-4 sm:p-5">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[.14em] text-accent">Vos références</p>
+              <h2 className="mt-1 text-lg font-bold text-navy">Clients inscrits avec votre lien</h2>
+            </div>
+            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[12px] font-semibold text-blue-700">{clientsCount}</span>
+          </div>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-mute">Les nouveaux comptes apparaissent ici automatiquement. Cette liste se met à jour toutes les 30 secondes.</p>
+
+          <div className="mt-4 space-y-2.5">
+            {referredClients.map((client) => <ReferralClientRow key={client.id} client={client} />)}
+            {!referredClients.length && <p className="rounded-xl bg-mist px-4 py-5 text-center text-[13px] text-mute">Aucun client n’est encore inscrit avec votre lien.</p>}
+          </div>
+        </section>
+
         <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white">
           <table className="w-full text-[13px]">
             <thead className="bg-mist text-left text-[11px] uppercase text-mute">
@@ -154,6 +181,26 @@ export default function AffiliatePortalPage() {
       </div>
     </div>
   );
+}
+
+function ReferralClientRow({ client }: { client: Me["referredClients"][number] }) {
+  const status = client.stage === "commission_added"
+    ? { icon: BadgeDollarSign, label: `Commission ajoutée · ${client.commission_total.toFixed(2)} USD`, tone: "bg-emerald-100 text-emerald-700", note: `${client.commission_count} facture${client.commission_count > 1 ? "s" : ""} facturée${client.commission_count > 1 ? "s" : ""}` }
+    : client.stage === "service_started"
+      ? { icon: PackageCheck, label: "Service commencé", tone: "bg-amber-100 text-amber-800", note: "Premier colis détecté" }
+      : { icon: UserPlus, label: "Compte créé", tone: "bg-blue-50 text-blue-700", note: "En attente du premier colis" };
+  const Icon = status.icon;
+  return <article className="flex items-center gap-3 rounded-xl border border-line px-3.5 py-3">
+    <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${status.tone}`}><Icon size={18} /></span>
+    <div className="min-w-0 flex-1">
+      <p className="truncate text-[14px] font-semibold text-navy">{client.fullname}</p>
+      <p className="mt-0.5 text-[12px] text-mute">{client.customer_code || "Compte en cours d’activation"} · Inscrit le {dateFr(client.created_at)}</p>
+    </div>
+    <div className="max-w-[130px] text-right">
+      <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${status.tone}`}>{status.label}</span>
+      <p className="mt-1 text-[10px] text-mute">{status.note}</p>
+    </div>
+  </article>;
 }
 
 function Stat({ icon: Icon, label, value, tone }: { icon: typeof Users; label: string; value: string; tone?: "amber" | "emerald" }) {
