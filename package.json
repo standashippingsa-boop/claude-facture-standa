@@ -14,9 +14,11 @@
   "dependencies": {
     "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
+    "@capacitor/push-notifications": "^8.1.2",
     "@hookform/resolvers": "^3.9.0",
     "@supabase/supabase-js": "^2.45.0",
     "@zxing/library": "^0.21.3",
+    "firebase-admin": "^14.4.0",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4",
     "lucide-react": "^0.453.0",

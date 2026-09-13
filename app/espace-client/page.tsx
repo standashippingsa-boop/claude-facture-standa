@@ -36,7 +36,7 @@ import {
   getClientRetraits, getSmallParcelConfig
 } from "@/lib/db";
 import { Agence, getAgences } from "@/lib/agences";
-import { isPushSupported, pushPermission, subscribeToPush } from "@/lib/push";
+import { getPushPermissionState, isPushSupported, subscribeToPush } from "@/lib/push";
 import { Client, Invoice, INTERNAL_STATUSES, Pkg, Retrait } from "@/lib/types";
 import { DEPOT } from "@/lib/depot";
 import { SUPPORT_PHONE } from "@/lib/branding";
@@ -197,7 +197,8 @@ export default function EspaceClientPage() {
     if (!isPushSupported()) return;
     let dismissed = false;
     try { dismissed = window.localStorage.getItem("standa:push-banner-dismissed") === "1"; } catch { /* ignore */ }
-    setShowPushBanner(pushPermission() === "default" && !dismissed);
+    if (dismissed) return;
+    getPushPermissionState().then((state) => setShowPushBanner(state === "default"));
   }, []);
 
   const dismissPushBanner = () => {

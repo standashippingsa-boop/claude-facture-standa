@@ -675,6 +675,25 @@ select public._hard_policy('push_subscriptions', 'push_subscriptions_delete_own'
   null);
 select public._hard_policy('push_subscriptions', 'push_subscriptions_select_staff', 'select', 'authenticated', 'public.is_staff()', null);
 
+-- JETONS FCM (app Android/Uptodown) — même modèle que push_subscriptions
+-- ci-dessus, pour les notifications natives (Firebase Cloud Messaging).
+do $$ begin execute 'drop policy if exists "anon all fcm_device_tokens" on public.fcm_device_tokens';
+exception when undefined_table then null; end $$;
+select public._hard_policy('fcm_device_tokens', 'fcm_device_tokens_insert_own', 'insert', 'authenticated',
+  null,
+  'exists (select 1 from public.clients c where c.auth_user_id = auth.uid() '
+  || 'and (c.customer_code = fcm_device_tokens.customer_code or c.username = fcm_device_tokens.customer_code))');
+select public._hard_policy('fcm_device_tokens', 'fcm_device_tokens_update_own', 'update', 'authenticated',
+  'exists (select 1 from public.clients c where c.auth_user_id = auth.uid() '
+  || 'and (c.customer_code = fcm_device_tokens.customer_code or c.username = fcm_device_tokens.customer_code))',
+  'exists (select 1 from public.clients c where c.auth_user_id = auth.uid() '
+  || 'and (c.customer_code = fcm_device_tokens.customer_code or c.username = fcm_device_tokens.customer_code))');
+select public._hard_policy('fcm_device_tokens', 'fcm_device_tokens_delete_own', 'delete', 'authenticated',
+  'exists (select 1 from public.clients c where c.auth_user_id = auth.uid() '
+  || 'and (c.customer_code = fcm_device_tokens.customer_code or c.username = fcm_device_tokens.customer_code))',
+  null);
+select public._hard_policy('fcm_device_tokens', 'fcm_device_tokens_select_staff', 'select', 'authenticated', 'public.is_staff()', null);
+
 -- JOURNAL — piste d'audit. Lecture staff. Écriture : uniquement via la route
 -- serveur /api/audit-log (clé service, qui contourne RLS) -> aucune politique
 -- INSERT pour anon/authenticated.

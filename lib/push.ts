@@ -2,16 +2,26 @@
 /**
  * STANDA COMMERCIAL — Notifications push (espace client)
  * ════════════════════════════════════════════════════════
- * Fonksyon sa yo kouri SÈLMAN nan navigatè a. Yo sèvi ak clé piblik VAPID
- * (NEXT_PUBLIC_VAPID_PUBLIC_KEY — san danje pou navigatè, se konsa Web Push
- * fonksyone), JANM kle prive a (rete sèvè /api/notify sèlman).
+ * De MOTÈ diferan dèyè MENM API piblik la (isPushSupported/pushPermission/
+ * subscribeToPush/unsubscribeFromPush) — apèl yo pa chanje nan lib/espace-
+ * client, nou jis chwazi motè a selon kote kòd la ap kouri:
  *
- * Ekri abònman an nan tab `push_subscriptions` pase pa RLS: yon kliyan ka
- * ekri SÈLMAN pou pwòp customer_code li (wè migration.sql).
+ *  • Navigatè (Chrome/Edge/PWA "Add to Home Screen") -> Web Push standard,
+ *    kle piblik VAPID (NEXT_PUBLIC_VAPID_PUBLIC_KEY), tab `push_subscriptions`.
+ *  • App Android (APK Uptodown, @capacitor/core Capacitor.isNativePlatform())
+ *    -> Firebase Cloud Messaging atravè @capacitor/push-notifications, tab
+ *    `fcm_device_tokens`. Web Push PA fyab anndan yon WebView senp (pa gen
+ *    sèvis background lè app la fèmen nèt) — se poutèt sa FCM obligatwa la.
+ *
+ * Kle prive yo (VAPID prive, Firebase service account) rete SÈVÈ SÈLMAN
+ * (lib/push-server.ts, lib/push-fcm-server.ts) — jamè isit la.
  */
+import { Capacitor } from "@capacitor/core";
 import { supabase } from "./supabase";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+
+const isNative = () => typeof window !== "undefined" && Capacitor.isNativePlatform();
 
 /** Konvèti kle VAPID la (base64url) an Uint8Array — fòma pushManager mande. */
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -25,17 +35,35 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 /** Èske aparèy/navigatè a ka resevwa notifikasyon push ditou? */
 export function isPushSupported(): boolean {
-  return typeof window !== "undefined"
-    && "serviceWorker" in navigator
-    && "PushManager" in window
-    && "Notification" in window
-    && !!VAPID_PUBLIC_KEY;
+  if (typeof window === "undefined") return false;
+  if (isNative()) return true; // FCM: konsidere sipòte, permission verifye apa
+  return "serviceWorker" in navigator && "PushManager" in window
+    && "Notification" in window && !!VAPID_PUBLIC_KEY;
 }
 
-/** Eta otorizasyon aktyèl la — san mande anyen bay itilizatè a. */
+/** Eta otorizasyon aktyèl la (web sèlman — san danje, senkwon). */
 export function pushPermission(): NotificationPermission | "unsupported" {
   if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
   return Notification.permission;
+}
+
+/**
+ * Menm bagay ak pushPermission(), men fonksyone pou LES DEUX motè yo
+ * (verifikasyon FCM natif la nesesèman asenkwòn). Itilize sa a nan
+ * useEffect yo olye pushPermission() senkwon an.
+ */
+export async function getPushPermissionState(): Promise<NotificationPermission | "unsupported"> {
+  if (!isPushSupported()) return "unsupported";
+  if (isNative()) {
+    try {
+      const { PushNotifications } = await import("@capacitor/push-notifications");
+      const res = await PushNotifications.checkPermissions();
+      if (res.receive === "granted") return "granted";
+      if (res.receive === "denied") return "denied";
+      return "default";
+    } catch { return "unsupported"; }
+  }
+  return pushPermission();
 }
 
 /**
@@ -45,6 +73,7 @@ export function pushPermission(): NotificationPermission | "unsupported" {
  * blòke oswa inyore demann otorizasyon ki parèt san rezon.
  */
 export async function subscribeToPush(customerCode: string): Promise<{ ok: boolean; reason?: string }> {
+  if (isNative()) return subscribeNative(customerCode);
   if (!isPushSupported()) return { ok: false, reason: "unsupported" };
   try {
     const permission = await Notification.requestPermission();
@@ -75,8 +104,55 @@ export async function subscribeToPush(customerCode: string): Promise<{ ok: boole
   }
 }
 
+/** Vèsyon FCM (app Android natif) — @capacitor/push-notifications. */
+async function subscribeNative(customerCode: string): Promise<{ ok: boolean; reason?: string }> {
+  try {
+    const { PushNotifications } = await import("@capacitor/push-notifications");
+    let perm = await PushNotifications.checkPermissions();
+    if (perm.receive === "prompt" || perm.receive === "prompt-with-rationale") {
+      perm = await PushNotifications.requestPermissions();
+    }
+    if (perm.receive !== "granted") {
+      return { ok: false, reason: perm.receive === "denied" ? "denied" : "default" };
+    }
+
+    let settled = false;
+    let finish: (result: { ok: boolean; reason?: string }) => void = () => undefined;
+    const done = new Promise<{ ok: boolean; reason?: string }>((resolve) => {
+      finish = (r) => { if (!settled) { settled = true; resolve(r); } };
+    });
+
+    const regListener = await PushNotifications.addListener("registration", (token) => {
+      supabase.from("fcm_device_tokens").upsert({
+        customer_code: customerCode, token: token.value, platform: "android"
+      }, { onConflict: "token" }).then(({ error }: { error: { message: string } | null }) => {
+        finish(error ? { ok: false, reason: error.message } : { ok: true });
+      });
+    });
+    const errListener = await PushNotifications.addListener("registrationError", (err) => {
+      finish({ ok: false, reason: String(err?.error ?? "registration_error") });
+    });
+
+    PushNotifications.register();
+    // Garanti: si Firebase pa konfigire nan app la, "registration" /
+    // "registrationError" pa janm rive — pa rete tann pou tout tan.
+    setTimeout(() => finish({ ok: false, reason: "timeout" }), 10000);
+
+    const result = await done;
+    await regListener.remove(); await errListener.remove();
+    return result;
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : "error" };
+  }
+}
+
 /** Dezabòne aparèy la (kliyan mande sa espresyèman). */
 export async function unsubscribeFromPush(): Promise<void> {
+  if (isNative()) {
+    // FCM: pa gen "dezabòne" pwòp — nou jis rete koute, jeton an ka efase
+    // pa kliyan an nan yon paramèt pita si sa nesesè.
+    return;
+  }
   if (!isPushSupported()) return;
   try {
     const reg = await navigator.serviceWorker.ready;

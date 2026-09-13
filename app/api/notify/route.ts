@@ -4,6 +4,7 @@ import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { sendPushToCustomer } from "@/lib/push-server";
+import { sendFcmToCustomer } from "@/lib/push-fcm-server";
 
 /**
  * Email otomatik (Reçu à Miami / Disponible) via Resend (https://resend.com).
@@ -399,12 +400,19 @@ export async function POST(req: Request) {
   }
 
   // Push la se yon kanal SEPARE: nou eseye l kanmenm si imèl la pa konfigire
-  // oswa kliyan an pa gen adrès imèl — youn pa dwe bloke lòt la.
+  // oswa kliyan an pa gen adrès imèl — youn pa dwe bloke lòt la. De kanal
+  // push kouri an paralèl: Web Push (navigatè/PWA) AK FCM (app Android
+  // Uptodown) — yon kliyan ka gen youn, lòt la, oswa toulede.
   const adminConfig = getSupabaseAdminConfig();
   let pushSent = 0;
   if (adminConfig && body?.client?.code) {
-    try { pushSent = await sendPushToCustomer(adminConfig, body.client.code, pushCopy(body)); }
-    catch { /* Push pa dwe janm fè wout la echwe */ }
+    const copy = pushCopy(body);
+    const [webResult, fcmResult] = await Promise.allSettled([
+      sendPushToCustomer(adminConfig, body.client.code, copy),
+      sendFcmToCustomer(adminConfig, body.client.code, copy)
+    ]);
+    if (webResult.status === "fulfilled") pushSent += webResult.value;
+    if (fcmResult.status === "fulfilled") pushSent += fcmResult.value;
   }
 
   // "facture" se push sèlman — dokiman an deja voye pa WhatsApp (PDF).
