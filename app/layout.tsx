@@ -45,17 +45,17 @@ export const metadata: Metadata = {
    */
   openGraph: {
     type: "website",
-    siteName: "STANDA COMMERCIAL",
+    siteName: "Standa Commercial",
     locale: "fr_HT",
     url: "/accueil",
-    title: "STANDA COMMERCIAL — Expédition de colis USA → Haïti",
+    title: "Standa Commercial",
     description:
       "Adresse de dépôt gratuite à Miami, suivi de colis en temps réel "
       + "et livraison dans nos agences en Haïti."
   },
   twitter: {
     card: "summary_large_image",
-    title: "STANDA COMMERCIAL — Expédition de colis USA → Haïti",
+    title: "Standa Commercial",
     description: "Vos achats en ligne, des USA jusqu'en Haïti."
   },
   manifest: "/manifest.webmanifest",
