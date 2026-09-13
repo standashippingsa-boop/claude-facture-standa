@@ -11,6 +11,7 @@ React Hook Form · Zod · SheetJS (Excel MCPACK) · jsPDF (factures).
    1. `supabase/migration.sql`          — tab yo + bucket Storage
    2. `supabase/security-hardening.sql` — **OBLIGATWA** : RLS staff / kliyan / piblik
    3. `supabase/20260831_public_reviews.sql` — kòmantè piblik yo
+   4. `supabase/20260913_affiliate_program.sql` — pwogram Affiliation (lyen referans, komisyon)
    > ⚠️ San etap 2, RLS ap bloke tout lekti (se espre — « fail-closed »).
    > PA JANM refè yon politik « anon all » : sa louvri tout done yo bay tout entènèt la.
 3. **Project Settings → API** → kopye `Project URL`, `anon public key`, `service_role`.

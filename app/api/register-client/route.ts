@@ -3,6 +3,13 @@ import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 
+/** Valè cookie ?ref= mete pa middleware.ts (parse manyèl — evite soud Next.js sou cookies() async). */
+function refCookie(req: Request): string {
+  const raw = req.headers.get("cookie") ?? "";
+  const m = raw.match(/(?:^|;\s*)standa_ref=([^;]+)/);
+  return m ? decodeURIComponent(m[1]).trim().toUpperCase() : "";
+}
+
 /**
  * Enskripsyon kliyan — KOTE SÈVÈ.
  * ════════════════════════════════
@@ -172,12 +179,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, linked: true });
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // PWOGRAM AFFILIATION — attribution (yon sèl fwa, jamè chanje apre).
+    // Kòd la soti nan cookie ?ref= (mete pa middleware.ts). Si li pa
+    // koresponn ak yon afilye ki egziste, nou senpleman inyore l — pa gen
+    // erè vizib pou kliyan an, enskripsyon an kontinye nòmal.
+    // ═══════════════════════════════════════════════════════════════════
+    let referredByAffiliateId: string | null = null;
+    const refCode = refCookie(req);
+    if (refCode) {
+      const { data: aff } = await svc.from("affiliates").select("id").eq("code", refCode).maybeSingle();
+      referredByAffiliateId = aff?.id ?? null;
+    }
+
     const { error } = await svc.from("clients").insert({
       ...profile,
       auth_user_id: authUserId,   // null si enskripsyon piblik (nòmal)
       customer_code: null,
       pickup_location: "",
       account_status: "En attente d'activation",
+      referred_by_affiliate_id: referredByAffiliateId,
     });
     if (error) return NextResponse.json({ ok: false, reason: "Enregistrement impossible." }, { status: 500 });
 

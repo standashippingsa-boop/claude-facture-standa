@@ -3,6 +3,11 @@ import { timingSafeEqual } from "node:crypto";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
+import { generateAffiliateCode, generateAffiliatePassword, hashPassword } from "@/lib/affiliate-crypto";
+import { buildAffiliateApprovalEmail, sendAffiliateApprovalEmail } from "@/lib/affiliate-mail";
+import { SITE_URL } from "@/lib/branding";
+
+const PAYOUT_METHODS = new Set(["Espèces", "MonCash", "NatCash", "Virement bancaire", "Zelle"]);
 
 /**
  * API Authentication (kouri sou sèvè Vercel — kle sèvis la pa janm rive nan navigatè).
@@ -190,6 +195,112 @@ export async function POST(req: Request) {
       if (error) return NextResponse.json({ ok: false, reason: error.message });
       await svc.from("clients").update({ must_change_password: false, username: code }).eq("id", clientId);
       return NextResponse.json({ ok: true, password: pass, username: code });
+    }
+
+    // ---------- affiliate_approve (admin sèlman) ----------
+    // Apwouve yon aplikasyon: jenere kòd/lyen/login, kreye kontra 3 mwa,
+    // epi voye imèl la (kontra PDF STANDA telechaje + lyen + kredansyèl).
+    if (action === "affiliate_approve") {
+      if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
+      const applicationId = String(body.application_id ?? "");
+      const { data: appRow } = await svc.from("affiliate_applications").select("*").eq("id", applicationId).maybeSingle();
+      if (!appRow) return NextResponse.json({ ok: false, reason: "Candidature introuvable." });
+      if (appRow.status !== "pending") return NextResponse.json({ ok: false, reason: "Cette candidature a déjà été traitée." });
+
+      const { data: settingsRows } = await svc.from("app_settings").select("*").in("key", ["affiliate_commission_amount", "affiliate_contract_pdf_url"]);
+      const settings = Object.fromEntries((settingsRows ?? []).map((s: { key: string; value: string }) => [s.key, s.value]));
+      const commissionAmount = Number(settings.affiliate_commission_amount) > 0 ? Number(settings.affiliate_commission_amount) : 10;
+      const contractPdfUrl = String(settings.affiliate_contract_pdf_url ?? "").trim() || null;
+
+      let code = generateAffiliateCode(appRow.fullname);
+      // Kòd dwe inik — reesye kèk fwa si koyensidans (ra men posib).
+      for (let i = 0; i < 5; i++) {
+        const { data: exists } = await svc.from("affiliates").select("id").eq("code", code).maybeSingle();
+        if (!exists) break;
+        code = generateAffiliateCode(appRow.fullname);
+      }
+      const password = generateAffiliatePassword();
+      const contractStart = new Date();
+      const contractEnd = new Date(contractStart);
+      contractEnd.setMonth(contractEnd.getMonth() + 3);
+      const toISODate = (d: Date) => d.toISOString().slice(0, 10);
+      const referralLink = `${SITE_URL}/inscription?ref=${code}`;
+
+      const { data: aff, error: affErr } = await svc.from("affiliates").insert({
+        application_id: appRow.id, fullname: appRow.fullname, email: appRow.email,
+        phone: appRow.phone, whatsapp: appRow.whatsapp, code, username: code,
+        password_hash: hashPassword(password), referral_link: referralLink,
+        contract_start: toISODate(contractStart), contract_end: toISODate(contractEnd),
+        status: "active", commission_amount: commissionAmount
+      }).select("*").single();
+      if (affErr) return NextResponse.json({ ok: false, reason: affErr.message.includes("duplicate") ? "Code déjà utilisé, réessayez." : affErr.message });
+
+      await svc.from("affiliate_applications").update({ status: "approved" }).eq("id", appRow.id);
+
+      let mailSent = false, mailError = "";
+      const key = process.env.RESEND_API_KEY;
+      if (key) {
+        const { subject, html } = buildAffiliateApprovalEmail({
+          fullname: appRow.fullname, code, username: code, password, referralLink,
+          contractStart: toISODate(contractStart), contractEnd: toISODate(contractEnd), commissionAmount
+        });
+        const r = await sendAffiliateApprovalEmail(key, appRow.email, subject, html, contractPdfUrl);
+        mailSent = r.ok;
+        if (!r.ok) mailError = r.message;
+      } else {
+        mailError = "RESEND_API_KEY pa konfigire — imèl la pa voye.";
+      }
+
+      return NextResponse.json({ ok: true, affiliate: aff, username: code, password, referralLink, mailSent, mailError });
+    }
+
+    // ---------- affiliate_reject (admin sèlman) ----------
+    if (action === "affiliate_reject") {
+      if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
+      const applicationId = String(body.application_id ?? "");
+      const { error } = await svc.from("affiliate_applications").update({ status: "rejected" }).eq("id", applicationId).eq("status", "pending");
+      if (error) return NextResponse.json({ ok: false, reason: error.message });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ---------- affiliate_revoke (admin sèlman) — bloke lyen an anvan 3 mwa ----------
+    if (action === "affiliate_revoke") {
+      if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
+      const affiliateId = String(body.affiliate_id ?? "");
+      const { error } = await svc.from("affiliates").update({ status: "revoked" }).eq("id", affiliateId);
+      if (error) return NextResponse.json({ ok: false, reason: error.message });
+      await svc.from("affiliate_sessions").delete().eq("affiliate_id", affiliateId);
+      return NextResponse.json({ ok: true });
+    }
+
+    // ---------- affiliate_renew (admin sèlman) — nouvo kontra 3 mwa + nouvo lyen ----------
+    if (action === "affiliate_renew") {
+      if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
+      const affiliateId = String(body.affiliate_id ?? "");
+      const { data: aff } = await svc.from("affiliates").select("*").eq("id", affiliateId).maybeSingle();
+      if (!aff) return NextResponse.json({ ok: false, reason: "Affilié introuvable." });
+      const contractStart = new Date();
+      const contractEnd = new Date(contractStart);
+      contractEnd.setMonth(contractEnd.getMonth() + 3);
+      const toISODate = (d: Date) => d.toISOString().slice(0, 10);
+      const { error } = await svc.from("affiliates").update({
+        status: "active", contract_start: toISODate(contractStart), contract_end: toISODate(contractEnd)
+      }).eq("id", affiliateId);
+      if (error) return NextResponse.json({ ok: false, reason: error.message });
+      return NextResponse.json({ ok: true, contractStart: toISODate(contractStart), contractEnd: toISODate(contractEnd) });
+    }
+
+    // ---------- affiliate_mark_commission_paid (admin sèlman) ----------
+    if (action === "affiliate_mark_commission_paid") {
+      if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
+      const commissionId = String(body.commission_id ?? "");
+      const method = String(body.payout_method ?? "");
+      if (!PAYOUT_METHODS.has(method)) return NextResponse.json({ ok: false, reason: "Mode de paiement invalide." });
+      const { error } = await svc.from("affiliate_commissions").update({
+        status: "paid", paid_at: new Date().toISOString(), payout_method: method
+      }).eq("id", commissionId).eq("status", "due");
+      if (error) return NextResponse.json({ ok: false, reason: error.message });
+      return NextResponse.json({ ok: true });
     }
 
     return NextResponse.json({ ok: false, reason: "Aksyon enkoni." });

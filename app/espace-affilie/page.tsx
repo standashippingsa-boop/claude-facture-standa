@@ -1,0 +1,123 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { CheckCircle2, Copy, HandCoins, LogOut, Users } from "lucide-react";
+import Logo from "@/components/Logo";
+
+/**
+ * PÒTAY AFILYE — tablo bò. Zewo enpòtasyon @/lib/db oswa @/lib/supabase:
+ * tout done soti nan /api/affiliate-portal (cookie httpOnly, service role
+ * kote sèvè a) — RLS pa ka idantifye yon afilye, donk pa gen lòt chemen.
+ */
+interface Me {
+  affiliate: {
+    fullname: string; code: string; referral_link: string; contract_start: string;
+    contract_end: string; status: string; commission_amount: number; days_left: number;
+  };
+  commissions: { id: string; amount: number; status: string; created_at: string; payout_method?: string | null }[];
+  totalDue: number; totalPaid: number; clientsCount: number;
+}
+
+const dateFr = (d?: string | null) => (d ? new Date(d).toLocaleDateString("fr-FR") : "");
+
+export default function AffiliatePortalPage() {
+  const router = useRouter();
+  const [me, setMe] = useState<Me | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/affiliate-portal", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "me" })
+    }).then((r) => r.json()).then((j) => {
+      if (!j.ok) { router.replace("/espace-affilie/login"); return; }
+      setMe(j);
+    }).catch(() => setError("Impossible de charger votre espace."));
+  }, [router]);
+
+  const logout = async () => {
+    await fetch("/api/affiliate-portal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "logout" }) });
+    router.replace("/espace-affilie/login");
+  };
+
+  const copyLink = async () => {
+    if (!me) return;
+    try { await navigator.clipboard.writeText(me.affiliate.referral_link); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ }
+  };
+
+  if (error) return <div className="grid min-h-screen place-items-center bg-[#061937] text-white">{error}</div>;
+  if (!me) return <div className="grid min-h-screen place-items-center bg-[#061937] text-white">Chargement…</div>;
+
+  const { affiliate, commissions, totalDue, totalPaid, clientsCount } = me;
+
+  return (
+    <div className="min-h-screen bg-[#F4F6F9]">
+      <div className="mx-auto max-w-4xl px-5 py-8 sm:px-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Logo size={40} rounded="rounded-xl" />
+            <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-accent">Espace Affilié</p><h1 className="text-[20px] font-black text-navy">{affiliate.fullname}</h1></div>
+          </div>
+          <button onClick={logout} className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-[13px] font-bold text-navy shadow-card hover:bg-mist">
+            <LogOut size={15} /> Déconnexion
+          </button>
+        </div>
+
+        {affiliate.status !== "active" && (
+          <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+            Votre contrat n'est plus actif ({affiliate.status}). Contactez STANDA COMMERCIAL pour un renouvellement.
+          </div>
+        )}
+
+        <div className="mt-5 rounded-2xl bg-navy p-5 text-white">
+          <p className="text-[11px] font-bold uppercase tracking-[.18em] text-white/50">Votre lien unique</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <code className="rounded-lg bg-white/10 px-3 py-2 text-[13px] break-all">{affiliate.referral_link}</code>
+            <button onClick={copyLink} className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-2 text-[12px] font-bold hover:bg-white/25">
+              {copied ? <CheckCircle2 size={14} /> : <Copy size={14} />} {copied ? "Copié" : "Copier"}
+            </button>
+          </div>
+          <p className="mt-3 text-[12px] text-white/60">Contrat : {dateFr(affiliate.contract_start)} → {dateFr(affiliate.contract_end)} ({affiliate.days_left} jour(s) restant(s))</p>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <Stat icon={Users} label="Clients parrainés" value={String(clientsCount)} />
+          <Stat icon={HandCoins} label="Commissions à venir" value={`${totalDue.toFixed(2)} USD`} />
+          <Stat icon={CheckCircle2} label="Déjà payé" value={`${totalPaid.toFixed(2)} USD`} />
+        </div>
+
+        <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white">
+          <table className="w-full text-[13px]">
+            <thead className="bg-mist text-left text-[11px] uppercase text-mute">
+              <tr><th className="px-4 py-2.5">Date</th><th className="px-4 py-2.5">Montant</th><th className="px-4 py-2.5">Statut</th></tr>
+            </thead>
+            <tbody>
+              {commissions.map((c) => (
+                <tr key={c.id} className="border-t border-line">
+                  <td className="px-4 py-3 text-mute">{dateFr(c.created_at)}</td>
+                  <td className="px-4 py-3 font-semibold text-navy">{c.amount.toFixed(2)} USD</td>
+                  <td className="px-4 py-3">
+                    {c.status === "paid"
+                      ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">Payé{c.payout_method ? ` (${c.payout_method})` : ""}</span>
+                      : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">En attente</span>}
+                  </td>
+                </tr>
+              ))}
+              {!commissions.length && <tr><td colSpan={3} className="px-4 py-6 text-center text-mute">Aucune commission pour le moment — partagez votre lien !</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-white p-4">
+      <Icon size={18} className="text-accent" />
+      <p className="mt-2 text-[20px] font-black text-navy">{value}</p>
+      <p className="text-[12px] text-mute">{label}</p>
+    </div>
+  );
+}

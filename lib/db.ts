@@ -4,7 +4,8 @@ import { validateUpload, storagePath } from "./upload";
 import {
   AccountType, Client, Conduce, DashboardStats, ImportLog, Invoice, InvoiceItem, InvoicePaymentStatus,
   BonRemiseRecord, McpackInvoice, McpackInvoiceConduce, Pkg, Ville
-, Retrait, RetraitStatus, CONDUCE_ARRIVAL_STATUS, shouldPromoteOnConduce } from "./types";
+, Retrait, RetraitStatus, CONDUCE_ARRIVAL_STATUS, shouldPromoteOnConduce
+, Affiliate, AffiliateApplication, AffiliateCommission } from "./types";
 import { McpackRow } from "./xlsx";
 import { specialPackageInfo, withManualSpecialPackageMetadata, withSpecialPackageMetadata, ManualSpecialPackageKind, SPECIAL_PACKAGE_FLAG, SPECIAL_PACKAGE_REASON, SPECIAL_PACKAGE_SOURCE } from "./special-package";
 import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS } from "./pricing";
@@ -2736,4 +2737,34 @@ export async function fixTrackingColumns(): Promise<TrackingFixResult> {
   await logAction("Correction Tracking",
     `${swapped} inversés, ${movedToId} corrigés (Guía), ${movedToManual} nettoyés`, "", "");
   return { swapped, movedToManual, movedToId };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PWOGRAM AFFILIATION — lekti admin (RLS: public.is_admin() sèlman).
+// Aksyon sansib yo (apwouve, rejte, revoke, renouvle, mak peye) pase pa
+// adminApi()/app/api/admin-auth (service role) — pa isit la.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function getAffiliateApplications(): Promise<AffiliateApplication[]> {
+  const { data } = await supabase.from("affiliate_applications").select("*").order("created_at", { ascending: false });
+  return (data as AffiliateApplication[]) ?? [];
+}
+
+// Jamè `password_hash` — menm si se admin ki li, l pa gen rezon rive nan navigatè a.
+const AFFILIATE_SELECT = "id, application_id, fullname, email, phone, whatsapp, code, username, "
+  + "referral_link, contract_start, contract_end, status, commission_amount, created_at";
+
+export async function getAffiliates(): Promise<Affiliate[]> {
+  const { data } = await supabase.from("affiliates").select(AFFILIATE_SELECT).order("created_at", { ascending: false });
+  return (data as unknown as Affiliate[]) ?? [];
+}
+
+/** Tout komisyon yo, ak non kliyan/nimewo fakti a (jwenti lekti sèlman). */
+export async function getAffiliateCommissions(): Promise<AffiliateCommission[]> {
+  const { data } = await supabase.from("affiliate_commissions")
+    .select("*, clients(fullname), invoices(invoice_number)")
+    .order("created_at", { ascending: false });
+  return ((data ?? []) as any[]).map((r) => ({
+    ...r, client_name: r.clients?.fullname ?? "", invoice_number: r.invoices?.invoice_number ?? ""
+  })) as AffiliateCommission[];
 }
