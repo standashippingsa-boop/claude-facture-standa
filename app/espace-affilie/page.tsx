@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Copy, HandCoins, LogOut, Users } from "lucide-react";
+import { CheckCircle2, Clock3, Copy, HandCoins, LogOut, Users } from "lucide-react";
 import Logo from "@/components/Logo";
 
 /**
@@ -19,6 +19,13 @@ interface Me {
 }
 
 const dateFr = (d?: string | null) => (d ? new Date(d).toLocaleDateString("fr-FR") : "");
+
+/** % tan ki deja pase nan kontra 3 mwa a — pou ba pwogrè a. */
+function contractProgress(startISO: string, endISO: string): number {
+  const start = new Date(startISO).getTime(), end = new Date(endISO).getTime(), now = Date.now();
+  if (!(end > start)) return 100;
+  return Math.min(100, Math.max(0, Math.round(((now - start) / (end - start)) * 100)));
+}
 
 export default function AffiliatePortalPage() {
   const router = useRouter();
@@ -45,10 +52,29 @@ export default function AffiliatePortalPage() {
     try { await navigator.clipboard.writeText(me.affiliate.referral_link); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ }
   };
 
-  if (error) return <div className="grid min-h-screen place-items-center bg-[#061937] text-white">{error}</div>;
-  if (!me) return <div className="grid min-h-screen place-items-center bg-[#061937] text-white">Chargement…</div>;
+  if (error) return <div className="grid min-h-screen place-items-center bg-[#061937] px-6 text-center text-white">{error}</div>;
+
+  if (!me) {
+    return (
+      <div className="min-h-screen bg-[#F4F6F9]">
+        <div className="mx-auto max-w-4xl animate-pulse px-5 py-8 sm:px-8">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-mist" />
+            <div className="h-5 w-40 rounded bg-mist" />
+          </div>
+          <div className="mt-5 h-24 rounded-2xl bg-mist" />
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {[0, 1, 2].map((i) => <div key={i} className="h-20 rounded-xl bg-mist" />)}
+          </div>
+          <div className="mt-6 h-40 rounded-xl bg-mist" />
+        </div>
+      </div>
+    );
+  }
 
   const { affiliate, commissions, totalDue, totalPaid, clientsCount } = me;
+  const pct = contractProgress(affiliate.contract_start, affiliate.contract_end);
+  const urgent = affiliate.status === "active" && affiliate.days_left <= 14;
 
   return (
     <div className="min-h-screen bg-[#F4F6F9]">
@@ -77,13 +103,26 @@ export default function AffiliatePortalPage() {
               {copied ? <CheckCircle2 size={14} /> : <Copy size={14} />} {copied ? "Copié" : "Copier"}
             </button>
           </div>
-          <p className="mt-3 text-[12px] text-white/60">Contrat : {dateFr(affiliate.contract_start)} → {dateFr(affiliate.contract_end)} ({affiliate.days_left} jour(s) restant(s))</p>
+
+          {affiliate.status === "active" && (
+            <div className="mt-4">
+              <div className="h-1.5 overflow-hidden rounded-full bg-white/15">
+                <div className={`h-full rounded-full ${urgent ? "bg-amber-400" : "bg-accent"}`} style={{ width: `${pct}%` }} />
+              </div>
+              <div className="mt-1.5 flex items-center justify-between text-[12px] text-white/60">
+                <span>{dateFr(affiliate.contract_start)} → {dateFr(affiliate.contract_end)}</span>
+                <span className={`inline-flex items-center gap-1 font-bold ${urgent ? "text-amber-300" : "text-white/80"}`}>
+                  <Clock3 size={12} /> {affiliate.days_left} jour{affiliate.days_left > 1 ? "s" : ""} restant{affiliate.days_left > 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <Stat icon={Users} label="Clients parrainés" value={String(clientsCount)} />
-          <Stat icon={HandCoins} label="Commissions à venir" value={`${totalDue.toFixed(2)} USD`} />
-          <Stat icon={CheckCircle2} label="Déjà payé" value={`${totalPaid.toFixed(2)} USD`} />
+          <Stat icon={HandCoins} label="Commissions à venir" value={`${totalDue.toFixed(2)} USD`} tone="amber" />
+          <Stat icon={CheckCircle2} label="Déjà payé" value={`${totalPaid.toFixed(2)} USD`} tone="emerald" />
         </div>
 
         <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white">
@@ -98,12 +137,17 @@ export default function AffiliatePortalPage() {
                   <td className="px-4 py-3 font-semibold text-navy">{c.amount.toFixed(2)} USD</td>
                   <td className="px-4 py-3">
                     {c.status === "paid"
-                      ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">Payé{c.payout_method ? ` (${c.payout_method})` : ""}</span>
-                      : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">En attente</span>}
+                      ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700"><CheckCircle2 size={11} /> Payé{c.payout_method ? ` (${c.payout_method})` : ""}</span>
+                      : <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700"><Clock3 size={11} /> En attente</span>}
                   </td>
                 </tr>
               ))}
-              {!commissions.length && <tr><td colSpan={3} className="px-4 py-6 text-center text-mute">Aucune commission pour le moment — partagez votre lien !</td></tr>}
+              {!commissions.length && (
+                <tr><td colSpan={3} className="px-4 py-10 text-center">
+                  <span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-mist text-mute"><HandCoins size={19} /></span>
+                  <p className="mt-2 text-mute">Aucune commission pour le moment — partagez votre lien !</p>
+                </td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -112,10 +156,11 @@ export default function AffiliatePortalPage() {
   );
 }
 
-function Stat({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: string }) {
+function Stat({ icon: Icon, label, value, tone }: { icon: typeof Users; label: string; value: string; tone?: "amber" | "emerald" }) {
+  const tones: Record<string, string> = { amber: "text-amber-600 bg-amber-100", emerald: "text-emerald-600 bg-emerald-100" };
   return (
     <div className="rounded-xl border border-line bg-white p-4">
-      <Icon size={18} className="text-accent" />
+      <span className={`grid h-9 w-9 place-items-center rounded-lg ${tone ? tones[tone] : "bg-accent-light text-accent"}`}><Icon size={17} /></span>
       <p className="mt-2 text-[20px] font-black text-navy">{value}</p>
       <p className="text-[12px] text-mute">{label}</p>
     </div>

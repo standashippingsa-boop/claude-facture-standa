@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, LogIn } from "lucide-react";
+import { ArrowLeft, Loader2, LogIn } from "lucide-react";
 import Logo from "@/components/Logo";
 
 /**
@@ -58,7 +58,7 @@ export default function AffiliateLoginPage() {
           {error && <p className="rounded-xl bg-red-500/15 px-3.5 py-2.5 text-[13px] text-red-200">{error}</p>}
           <button type="submit" disabled={busy}
             className="mt-1 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-[14px] font-bold text-white transition hover:-translate-y-0.5 hover:bg-orange-600 disabled:opacity-60">
-            <LogIn size={16} /> {busy ? "Connexion…" : "Se connecter"}
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />} {busy ? "Connexion…" : "Se connecter"}
           </button>
         </form>
       </div>
