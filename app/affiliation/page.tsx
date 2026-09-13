@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent, type InputHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent, type InputHTMLAttributes, type ReactNode } from "react";
 import {
   ArrowRight, BarChart3, CheckCircle2, CreditCard, Link2,
-  Loader2, Mail, MapPin, MessageCircle, Phone, ShieldCheck, UserRound, type LucideIcon
+  Loader2, Mail, MessageCircle, Phone, ShieldCheck, UserRound, type LucideIcon
 } from "lucide-react";
 import Logo from "@/components/Logo";
 
@@ -16,6 +16,8 @@ const BENEFITS: Array<{ icon: LucideIcon; title: string; text: string; tone: str
   { icon: BarChart3, title: "Suivi de vos gains", text: "Consultez vos références et vos gains.", tone: "bg-sky-100 text-[#0c4c9a]" }
 ];
 
+type AgencyCity = { name: string };
+
 export default function AffiliationPage() {
   const [f, setF] = useState({
     fullname: "", email: "", phone: "", whatsapp: "", city: "",
@@ -24,6 +26,35 @@ export default function AffiliationPage() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cities, setCities] = useState<AgencyCity[]>([]);
+  const [citiesState, setCitiesState] = useState<"loading" | "ready" | "unavailable">("loading");
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadCities = async () => {
+      try {
+        const response = await fetch("/api/public/agences", { signal: controller.signal });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !Array.isArray(payload.cities)) throw new Error("Cities unavailable");
+
+        const available = payload.cities.filter(
+          (city: unknown): city is AgencyCity =>
+            !!city && typeof city === "object" && typeof (city as AgencyCity).name === "string"
+        );
+        if (controller.signal.aborted) return;
+        setCities(available);
+        setCitiesState(available.length ? "ready" : "unavailable");
+      } catch {
+        if (controller.signal.aborted) return;
+        setCities([]);
+        setCitiesState("unavailable");
+      }
+    };
+
+    void loadCities();
+    return () => controller.abort();
+  }, []);
 
   const set = (key: keyof typeof f) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setF({ ...f, [key]: event.target.value });
@@ -31,7 +62,7 @@ export default function AffiliationPage() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
-    if (!f.fullname.trim() || !f.email.trim() || !f.phone.trim() || !f.id_type || !f.id_number.trim()) {
+    if (!f.fullname.trim() || !f.email.trim() || !f.phone.trim() || !f.city || !f.id_type || !f.id_number.trim()) {
       setError("Veuillez remplir tous les champs obligatoires.");
       return;
     }
@@ -125,7 +156,13 @@ export default function AffiliationPage() {
                 <FormField label="Adresse courriel" required><Input icon={Mail} type="email" value={f.email} onChange={set("email")} placeholder="exemple@courriel.com" autoComplete="email" required /></FormField>
                 <FormField label="Téléphone" required><Input icon={Phone} type="tel" value={f.phone} onChange={set("phone")} placeholder="(509) 0000-0000" autoComplete="tel" required /></FormField>
                 <FormField label="WhatsApp (si différent)"><Input icon={MessageCircle} type="tel" value={f.whatsapp} onChange={set("whatsapp")} placeholder="Numéro WhatsApp" autoComplete="tel" /></FormField>
-                <FormField label="Ville ou zone"><Input icon={MapPin} value={f.city} onChange={set("city")} placeholder="Votre ville ou zone" autoComplete="address-level2" /></FormField>
+                <FormField label="Ville ou zone" required>
+                  <select value={f.city} onChange={set("city")} required disabled={citiesState !== "ready"} className="h-12 w-full rounded-xl border border-[#d4dfed] bg-white px-3 text-[14px] font-medium text-[#27466f] outline-none transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
+                    <option value="">{citiesState === "loading" ? "Chargement des villes…" : citiesState === "unavailable" ? "Aucune agence active" : "Sélectionnez votre ville"}</option>
+                    {cities.map((city) => <option key={city.name} value={city.name}>{city.name}</option>)}
+                  </select>
+                  {citiesState === "unavailable" && <span className="mt-1.5 block text-[11px] font-medium text-amber-700">Les villes ne sont pas disponibles pour le moment.</span>}
+                </FormField>
                 <FormField label="Type de pièce d’identité" required>
                   <select value={f.id_type} onChange={set("id_type")} required className="h-12 w-full rounded-xl border border-[#d4dfed] bg-white px-3 text-[14px] font-medium text-[#27466f] outline-none transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100">
                     <option value="">Sélectionnez un type</option>

@@ -12,7 +12,11 @@ import { createClient } from "@supabase/supabase-js";
  */
 const clean = (v: unknown, max = 200) => String(v ?? "").trim().slice(0, max);
 const digits = (s: string) => String(s ?? "").replace(/\D/g, "");
-const ID_TYPES = new Set(["Carte d'identité nationale", "Passeport", "Permis de conduire"]);
+const ID_TYPES = new Set(["Carte d'identité nationale", "Carte d’identité nationale", "Passeport", "Permis de conduire"]);
+const cityKey = (city: string) => city
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLocaleLowerCase("fr-CA");
 
 export async function POST(req: Request) {
   const rl = rateLimit("affiliate-apply:" + clientIp(req), 5, 3600000);
@@ -43,6 +47,25 @@ export async function POST(req: Request) {
     if (digits(phone).length < 7) return NextResponse.json({ ok: false, reason: "Téléphone invalide." }, { status: 400 });
     if (!ID_TYPES.has(idType) || idNumber.length < 2) {
       return NextResponse.json({ ok: false, reason: "Pièce d'identité invalide." }, { status: 400 });
+    }
+
+    // La ville doit correspondre à une agence encore active, même si une
+    // requête est fabriquée en dehors du formulaire.
+    const { data: agencies, error: agenciesError } = await svc
+      .from("agences")
+      .select("nom")
+      .eq("active", true);
+    if (agenciesError) throw agenciesError;
+    const activeCities = new Set(
+      (agencies ?? [])
+        .map((agency) => typeof agency.nom === "string" ? cityKey(agency.nom.trim()) : "")
+        .filter(Boolean)
+    );
+    if (!city || !activeCities.has(cityKey(city))) {
+      return NextResponse.json(
+        { ok: false, reason: "Sélectionnez une ville où une agence est active." },
+        { status: 400 }
+      );
     }
 
     const { error } = await svc.from("affiliate_applications").insert({
