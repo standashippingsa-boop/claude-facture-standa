@@ -111,14 +111,6 @@ export default function AffiliationPage() {
             </p>
           </div>
 
-          <div className="relative z-10 mt-8 max-w-sm">
-            <a href="#formulaire-affiliation" className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#ff671d] px-5 text-[16px] font-bold tracking-[.012em] text-white shadow-[0_14px_22px_rgba(255,103,29,0.24)] transition hover:-translate-y-0.5 hover:bg-[#e85712] focus:outline-none focus:ring-4 focus:ring-orange-200">
-              Soumettre ma candidature <ArrowRight size={19} />
-            </a>
-            <p className="mt-4 flex items-center gap-2 text-[13px] font-medium leading-relaxed tracking-[.012em] text-[#526b90]">
-              <Mail size={18} className="text-[#0a3d81]" /> Inscription simple · Réponse par courriel
-            </p>
-          </div>
         </section>
 
         <section className="relative z-10 mt-4 grid grid-cols-3 gap-2.5 sm:mt-5 sm:gap-3" aria-label="Avantages du programme">
