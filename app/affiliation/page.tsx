@@ -1,25 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ChangeEvent, type FormEvent, type InputHTMLAttributes, type ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, HandCoins, Link2, Loader2, Users } from "lucide-react";
+import {
+  ArrowLeft, ArrowRight, BarChart3, CheckCircle2, CreditCard, Link2,
+  Loader2, Mail, MapPin, MessageCircle, Phone, ShieldCheck, UserRound, type LucideIcon
+} from "lucide-react";
 import Logo from "@/components/Logo";
 
-/**
- * PWOGRAM AFFILIATION — fòm kandidati (lyen PRIVE).
- * ═══════════════════════════════════════════════════════════════════════
- * Paj sa a PA nan menu piblik sit la (STANDA vle envite moun li chwazi
- * dirèkteman, pa louvri l bay tout piblik la — gade lib/access.ts).
- * Yo POKO fè okenn lekti bazdone: fòm lan poste bay /api/affiliates-apply
- * (sèvè, service role) — pa gen enpòtasyon @/lib/db ni @/lib/supabase isit
- * la, donk zewo risk izolasyon menm san paj la nan lis ZONES verifye a.
- */
-const ID_TYPES = ["Carte d'identité nationale", "Passeport", "Permis de conduire"] as const;
+/** Page publique de candidature au programme d’affiliation. */
+const ID_TYPES = ["Carte d’identité nationale", "Passeport", "Permis de conduire"] as const;
 
-const BENEFITS = [
-  { icon: Link2, title: "Un lien unique", text: "Partagez votre lien personnel — chaque client qui l'utilise vous reste attaché." },
-  { icon: HandCoins, title: "Une commission par facture", text: "Vous êtes payé pour chaque facture générée par vos filleuls, pendant la durée de votre contrat." },
-  { icon: Users, title: "Un espace pour suivre vos gains", text: "Un accès personnel montre vos filleuls et vos commissions en temps réel." }
+const BENEFITS: Array<{ icon: LucideIcon; title: string; text: string; tone: string }> = [
+  { icon: Link2, title: "Lien personnel", text: "Votre lien unique à partager.", tone: "bg-sky-100 text-[#0c4c9a]" },
+  { icon: CreditCard, title: "Commission par facture", text: "Une commission pour chaque facture admissible.", tone: "bg-orange-100 text-[#f05a1a]" },
+  { icon: BarChart3, title: "Suivi de vos gains", text: "Consultez vos références et vos gains.", tone: "bg-sky-100 text-[#0c4c9a]" }
 ];
 
 export default function AffiliationPage() {
@@ -31,109 +27,148 @@ export default function AffiliationPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
-    setF({ ...f, [k]: e.target.value });
+  const set = (key: keyof typeof f) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setF({ ...f, [key]: event.target.value });
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
     setError(null);
     if (!f.fullname.trim() || !f.email.trim() || !f.phone.trim() || !f.id_type || !f.id_number.trim()) {
-      setError("Merci de remplir tous les champs obligatoires.");
+      setError("Veuillez remplir tous les champs obligatoires.");
       return;
     }
     setBusy(true);
     try {
-      const res = await fetch("/api/affiliates-apply", {
+      const response = await fetch("/api/affiliates-apply", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(f)
       });
-      const j = await res.json();
-      if (!j.ok) { setError(j.reason || "Une erreur est survenue."); return; }
+      const json = await response.json();
+      if (!json.ok) { setError(json.reason || "Une erreur est survenue."); return; }
       setSent(true);
     } catch {
-      setError("Impossible d'envoyer votre candidature. Réessayez.");
+      setError("Impossible d’envoyer votre candidature. Réessayez.");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#061937] text-white">
-      <div className="mx-auto max-w-3xl px-5 py-8 sm:px-8">
-        <Link href="/accueil" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-white/75 transition hover:text-white">
-          <ArrowLeft size={15} /> Retour au site
-        </Link>
+    <main className="relative min-h-screen overflow-hidden bg-[#eff8ff] text-[#09295e]">
+      <div className="pointer-events-none absolute inset-0 opacity-60" aria-hidden="true">
+        <div className="absolute -left-40 top-44 h-80 w-80 rounded-full bg-sky-200/55 blur-3xl" />
+        <div className="absolute -right-24 top-8 h-72 w-72 rounded-full bg-blue-100 blur-3xl" />
+        <div className="absolute right-[-5rem] top-16 h-80 w-80 rounded-full border border-dashed border-blue-200" />
+      </div>
 
-        <div className="mt-8 flex items-center gap-3">
-          <Logo size={40} rounded="rounded-xl" />
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[.18em] text-orange-200">Programme Affiliation</p>
-            <h1 className="text-[26px] font-black tracking-[-.03em] sm:text-[32px]">Devenez affilié STANDA COMMERCIAL</h1>
-          </div>
-        </div>
-
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">
-          {BENEFITS.map(({ icon: Icon, title, text }) => (
-            <div key={title} className="rounded-2xl border border-white/15 bg-white/[.06] p-4 backdrop-blur-md">
-              <Icon size={20} className="text-orange-300" />
-              <p className="mt-3 text-[14px] font-bold">{title}</p>
-              <p className="mt-1 text-[12.5px] leading-relaxed text-white/70">{text}</p>
+      <div className="relative mx-auto w-full max-w-xl px-4 py-4 pb-10 sm:px-6 sm:py-7">
+        <header className="flex items-center justify-between gap-3 py-1">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Logo size={48} rounded="rounded-xl" />
+            <div className="min-w-0 leading-tight">
+              <p className="text-[19px] font-black tracking-[.04em] text-[#0a2b61]">STANDA</p>
+              <p className="text-[10px] font-bold tracking-[.18em] text-[#25497d]">COMMERCIAL</p>
             </div>
-          ))}
-        </div>
+          </div>
+          <Link href="/accueil" className="inline-flex min-h-10 items-center gap-1 rounded-xl px-2 text-xs font-bold text-[#355582] transition hover:bg-white hover:text-[#0a2b61]">
+            <ArrowLeft size={15} /> Retour
+          </Link>
+        </header>
 
-        <div className="mt-8 rounded-[1.75rem] border border-white/15 bg-white/[.08] p-5 backdrop-blur-2xl sm:p-7">
+        <section className="relative mt-5 overflow-hidden rounded-[2rem] border border-white bg-white/90 px-5 pb-5 pt-6 shadow-[0_18px_45px_rgba(23,78,145,0.12)] sm:mt-7 sm:px-8 sm:pt-9">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+            <div className="absolute -right-24 -top-12 h-64 w-64 rounded-full border-[18px] border-sky-100/70" />
+            <div className="absolute right-5 top-10 h-36 w-36 rounded-full border border-dashed border-blue-300/70" />
+            <div className="absolute bottom-0 left-0 h-28 w-full bg-gradient-to-t from-sky-50/85 to-transparent" />
+          </div>
+
+          <div className="relative z-10 max-w-[15.25rem] sm:max-w-sm">
+            <p className="text-[11px] font-black uppercase tracking-[.17em] text-[#ff671d]">Programme d’affiliation</p>
+            <h1 className="mt-3 text-[34px] font-black leading-[1.04] tracking-[-.045em] text-[#082861] sm:text-[45px]">
+              Devenez affilié à STANDA COMMERCIAL.
+            </h1>
+            <p className="mt-4 text-[16px] leading-relaxed text-[#50698e] sm:text-[17px]">
+              Partagez votre lien personnel. Recevez une commission pour chaque facture admissible.
+            </p>
+          </div>
+
+          <div className="pointer-events-none absolute right-[-2.85rem] top-[4.1rem] z-[1] h-[17rem] w-[14.75rem] sm:right-[-1.5rem] sm:top-2 sm:h-[23rem] sm:w-[20rem]" aria-hidden="true">
+            <Image src="/affiliation-agent.png" alt="" fill priority sizes="(max-width: 639px) 236px, 320px" className="object-contain object-bottom" />
+          </div>
+
+          <div className="relative z-10 mt-60 sm:mt-8 sm:max-w-sm">
+            <a href="#formulaire-affiliation" className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#ff671d] px-5 text-[16px] font-extrabold text-white shadow-[0_14px_22px_rgba(255,103,29,0.24)] transition hover:-translate-y-0.5 hover:bg-[#e85712] focus:outline-none focus:ring-4 focus:ring-orange-200">
+              Soumettre ma candidature <ArrowRight size={19} />
+            </a>
+            <p className="mt-4 flex items-center gap-2 text-[13px] font-semibold text-[#526b90]">
+              <Mail size={18} className="text-[#0a3d81]" /> Inscription simple · Réponse par courriel
+            </p>
+          </div>
+        </section>
+
+        <section className="relative z-10 mt-4 grid grid-cols-3 gap-2.5 sm:mt-5 sm:gap-3" aria-label="Avantages du programme">
+          {BENEFITS.map(({ icon: Icon, title, text, tone }) => (
+            <article key={title} className="rounded-2xl border border-white bg-white/95 p-3 text-center shadow-[0_10px_24px_rgba(29,76,137,0.08)] sm:rounded-3xl sm:p-4">
+              <span className={`mx-auto grid h-10 w-10 place-items-center rounded-2xl ${tone} sm:h-12 sm:w-12`}><Icon size={20} /></span>
+              <h2 className="mt-2.5 text-[12px] font-extrabold leading-tight text-[#082861] sm:text-sm">{title}</h2>
+              <p className="mt-1 text-[10px] leading-snug text-[#657a9a] sm:text-xs">{text}</p>
+            </article>
+          ))}
+        </section>
+
+        <section id="formulaire-affiliation" className="relative z-10 mt-5 rounded-[1.8rem] border border-white bg-white p-4 shadow-[0_18px_45px_rgba(23,78,145,0.12)] sm:mt-7 sm:p-7">
           {sent ? (
-            <div className="flex flex-col items-center gap-3 py-8 text-center">
-              <CheckCircle2 size={40} className="text-emerald-300" />
-              <h2 className="text-[19px] font-bold">Candidature envoyée</h2>
-              <p className="max-w-sm text-[13.5px] text-white/75">
-                Merci ! Notre équipe va étudier votre candidature. Si elle est acceptée, vous recevrez un e-mail avec votre lien, votre contrat et vos accès.
-              </p>
+            <div className="flex flex-col items-center gap-3 px-3 py-10 text-center">
+              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-emerald-100 text-emerald-600"><CheckCircle2 size={31} /></span>
+              <h2 className="text-xl font-black text-[#09295e]">Candidature envoyée</h2>
+              <p className="max-w-sm text-sm leading-relaxed text-[#5c7192]">Merci. Notre équipe examinera votre candidature et vous répondra par courriel.</p>
             </div>
           ) : (
-            <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-              {/* Honeypot anti-bot — envizib pou moun */}
-              <input type="text" name="website" value={f.website} onChange={set("website")} autoComplete="off" tabIndex={-1}
-                className="hidden" aria-hidden="true" />
+            <form onSubmit={submit} className="space-y-4">
+              {/* Champ invisible de protection contre les robots. */}
+              <input type="text" name="website" value={f.website} onChange={set("website")} autoComplete="off" tabIndex={-1} className="hidden" aria-hidden="true" />
 
-              <Field label="Nom complet *"><Input value={f.fullname} onChange={set("fullname")} required /></Field>
-              <Field label="E-mail *"><Input type="email" value={f.email} onChange={set("email")} required /></Field>
-              <Field label="Téléphone *"><Input value={f.phone} onChange={set("phone")} required /></Field>
-              <Field label="WhatsApp (si différent)"><Input value={f.whatsapp} onChange={set("whatsapp")} /></Field>
-              <Field label="Ville / zone"><Input value={f.city} onChange={set("city")} /></Field>
-              <Field label="Type de pièce d'identité *">
-                <select value={f.id_type} onChange={set("id_type")} required
-                  className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-[14px] text-white outline-none focus:border-orange-300">
-                  <option value="" className="text-navy">Choisir…</option>
-                  {ID_TYPES.map((t) => <option key={t} value={t} className="text-navy">{t}</option>)}
-                </select>
-              </Field>
-              <Field label="Numéro de la pièce *"><Input value={f.id_number} onChange={set("id_number")} required /></Field>
-              <div className="sm:col-span-2">
-                <Field label="Pourquoi voulez-vous devenir affilié ? (optionnel)">
-                  <textarea value={f.motivation} onChange={set("motivation")} rows={3}
-                    className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-[14px] text-white outline-none placeholder:text-white/40 focus:border-orange-300" />
-                </Field>
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-sky-100 text-[#0a3d81]"><UserRound size={22} /></span>
+                <div>
+                  <h2 className="text-[24px] font-black tracking-[-.035em] text-[#082861] sm:text-[27px]">Vos renseignements</h2>
+                  <p className="mt-0.5 text-[12px] text-[#647998] sm:text-sm">Remplissez le formulaire pour soumettre votre candidature.</p>
+                </div>
               </div>
 
-              {error && <p className="sm:col-span-2 rounded-xl bg-red-500/15 px-3.5 py-2.5 text-[13px] text-red-200">{error}</p>}
+              <div className="grid gap-3.5 sm:grid-cols-2 sm:gap-4">
+                <FormField label="Nom complet" required><Input icon={UserRound} value={f.fullname} onChange={set("fullname")} placeholder="Votre nom complet" autoComplete="name" required /></FormField>
+                <FormField label="Adresse courriel" required><Input icon={Mail} type="email" value={f.email} onChange={set("email")} placeholder="exemple@courriel.com" autoComplete="email" required /></FormField>
+                <FormField label="Téléphone" required><Input icon={Phone} type="tel" value={f.phone} onChange={set("phone")} placeholder="(509) 0000-0000" autoComplete="tel" required /></FormField>
+                <FormField label="WhatsApp (si différent)"><Input icon={MessageCircle} type="tel" value={f.whatsapp} onChange={set("whatsapp")} placeholder="Numéro WhatsApp" autoComplete="tel" /></FormField>
+                <FormField label="Ville ou zone"><Input icon={MapPin} value={f.city} onChange={set("city")} placeholder="Votre ville ou zone" autoComplete="address-level2" /></FormField>
+                <FormField label="Type de pièce d’identité" required>
+                  <select value={f.id_type} onChange={set("id_type")} required className="h-12 w-full rounded-xl border border-[#d4dfed] bg-white px-3 text-[14px] font-medium text-[#27466f] outline-none transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100">
+                    <option value="">Sélectionnez un type</option>
+                    {ID_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                  </select>
+                </FormField>
+                <FormField label="Numéro de pièce" required><Input icon={CreditCard} value={f.id_number} onChange={set("id_number")} placeholder="Numéro de pièce d’identité" required /></FormField>
+                <div className="sm:col-span-2"><FormField label="Pourquoi souhaitez-vous devenir affilié? (facultatif)"><textarea value={f.motivation} onChange={set("motivation")} rows={3} placeholder="Parlez-nous brièvement de votre réseau ou de votre expérience." className="w-full resize-y rounded-xl border border-[#d4dfed] bg-white px-3.5 py-3 text-sm text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100" /></FormField></div>
+              </div>
 
-              <button type="submit" disabled={busy}
-                className="sm:col-span-2 mt-1 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-orange-500 text-[14px] font-bold text-white transition hover:-translate-y-0.5 hover:bg-orange-600 disabled:opacity-60">
-                {busy && <Loader2 size={16} className="animate-spin" />} {busy ? "Envoi en cours…" : "Envoyer ma candidature"}
+              {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-sm font-medium text-red-700">{error}</p>}
+
+              <button type="submit" disabled={busy} className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#ff671d] px-5 text-[16px] font-extrabold text-white shadow-[0_14px_22px_rgba(255,103,29,0.24)] transition hover:-translate-y-0.5 hover:bg-[#e85712] disabled:cursor-not-allowed disabled:opacity-60">
+                {busy && <Loader2 size={18} className="animate-spin" />}{busy ? "Envoi en cours…" : "Soumettre ma candidature"}<ArrowRight size={19} />
               </button>
+              <p className="flex items-center justify-center gap-1.5 text-center text-[11px] font-medium text-[#6a7e9c]"><ShieldCheck size={14} /> Vos renseignements sont protégés.</p>
             </form>
           )}
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="block"><span className="mb-1.5 block text-[12px] font-semibold text-white/70">{label}</span>{children}</label>;
+function FormField({ label, required = false, children }: { label: string; required?: boolean; children: ReactNode }) {
+  return <label className="block"><span className="mb-1.5 block text-[13px] font-extrabold text-[#0b2d65]">{label}{required && <span className="ml-1 text-[#ff4f1f]">*</span>}</span>{children}</label>;
 }
-function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props}
-    className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-[14px] text-white outline-none placeholder:text-white/40 focus:border-orange-300" />;
+
+function Input({ icon: Icon, className = "", ...props }: InputHTMLAttributes<HTMLInputElement> & { icon: LucideIcon }) {
+  return <span className="relative block"><Icon size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#7083a1]" /><input {...props} className={`h-12 w-full rounded-xl border border-[#d4dfed] bg-white py-2 pl-10 pr-3 text-[14px] font-medium text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100 ${className}`} /></span>;
 }
