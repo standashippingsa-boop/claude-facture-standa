@@ -7,6 +7,7 @@ import { createClient } from "@supabase/supabase-js";
  */
 export type AuthRealm = "admin" | "employe" | "agent_retrait" | "client";
 const AUTH_REALM_KEY = "standa:auth-realm";
+const PORTAL_HISTORY_KEY_PREFIX = "standa:portal-history-boundary:";
 
 function activeAuthRealm() {
   if (typeof window === "undefined") return "default";
@@ -14,10 +15,27 @@ function activeAuthRealm() {
   catch { return "default"; }
 }
 
+/** Espace actif dans cet onglet (jamais partagé avec un nouvel onglet). */
+export function getAuthRealm(): AuthRealm | null {
+  const realm = activeAuthRealm();
+  return realm === "admin" || realm === "employe" || realm === "agent_retrait" || realm === "client" ? realm : null;
+}
+
 export function setAuthRealm(realm: AuthRealm) {
   if (typeof window === "undefined") return;
-  try { window.sessionStorage.setItem(AUTH_REALM_KEY, realm); }
+  try {
+    window.sessionStorage.setItem(AUTH_REALM_KEY, realm);
+    // Une nouvelle connexion démarre une nouvelle frontière de navigation.
+    // Cela empêche un historique d'une ancienne session de ramener la personne
+    // vers le site public ou vers un autre espace métier.
+    window.sessionStorage.removeItem(portalHistorySessionKey(realm));
+  }
   catch { /* Le navigateur peut bloquer le stockage privé : l'authentification reste fonctionnelle. */ }
+}
+
+/** Clé de session utilisée pour isoler l'historique de chaque application. */
+export function portalHistorySessionKey(realm: AuthRealm) {
+  return `${PORTAL_HISTORY_KEY_PREFIX}${realm}`;
 }
 
 const isolatedAuthStorage = {

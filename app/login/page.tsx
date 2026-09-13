@@ -45,7 +45,9 @@ function LoginInner() {
     try {
       const result = await signInClientWithCode(raw, pass);
       if (!result.ok) { setErr(clientSignInErrorMessage(result.reason, norm)); return; }
-      router.push("/espace-client");
+      // La porte web est remplacée par l'application : aucune étape publique
+      // ne reste derrière le client après sa connexion.
+      router.replace("/espace-client");
     } catch {
       setErr("Une erreur imprévue est survenue. Réessayez dans quelques instants.");
     } finally {

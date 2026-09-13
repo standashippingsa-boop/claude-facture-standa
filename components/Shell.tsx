@@ -4,6 +4,8 @@ import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Loader from "./Loader";
 import ScrollToTopButton from "./ScrollToTopButton";
+import PortalHistoryBoundary from "./PortalHistoryBoundary";
+import PublicPortalRedirect from "./PublicPortalRedirect";
 import { getMyStaff } from "@/lib/authx";
 import { getClientByAuthId } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
@@ -53,19 +55,22 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [publicPath, path, router]);
 
-  if (publicPath) return <main className="min-h-screen">{children}</main>;
+  if (publicPath) return <PublicPortalRedirect><main className="min-h-screen">{children}</main></PublicPortalRedirect>;
   if (!ready) return <Loader />;
 
   // Kliyan ak ajan remiz: chak gen pwòp entèfas mobil li, san sidebar staff.
-  if (role === "client" || role === "agent_retrait" || isClientPath(path) || isPickupAgentPath(path)) {
-    return <main className="min-h-screen">{children}<ScrollToTopButton /></main>;
+  if (role === "client" || isClientPath(path)) {
+    return <PortalHistoryBoundary realm="client" homePath="/espace-client"><main className="min-h-screen">{children}<ScrollToTopButton /></main></PortalHistoryBoundary>;
+  }
+  if (role === "agent_retrait" || isPickupAgentPath(path)) {
+    return <PortalHistoryBoundary realm="agent_retrait" homePath="/espace-remise"><main className="min-h-screen">{children}<ScrollToTopButton /></main></PortalHistoryBoundary>;
   }
 
   // Staff: sidebar + kontni
   return (
-    <div className="flex">
+    <PortalHistoryBoundary realm={role === "employe" ? "employe" : "admin"} homePath="/dashboard"><div className="flex">
       <Sidebar staff={staff} />
       <main className="flex-1 min-w-0 p-6">{children}<ScrollToTopButton /></main>
-    </div>
+    </div></PortalHistoryBoundary>
   );
 }
