@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "521597427045",
+    "project_id": "planning-with-ai-d1512",
+    "storage_bucket": "planning-with-ai-d1512.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:521597427045:android:874cc558b5525dc39a558c",
+        "android_client_info": {
+          "package_name": "com.standacommercialsa.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXVcaQB2gLgof2eVJ2TszXXzpz4v-03GM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
