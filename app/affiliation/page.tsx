@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type FormEvent, type InputHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 import {
-  ArrowRight, BarChart3, CheckCircle2, CreditCard, Link2,
+  ArrowRight, BarChart3, CheckCircle2, ChevronDown, CreditCard, Link2, MapPin,
   Loader2, Mail, MessageCircle, Phone, ShieldCheck, UserRound, type LucideIcon
 } from "lucide-react";
 import Logo from "@/components/Logo";
@@ -157,17 +157,17 @@ export default function AffiliationPage() {
                 <FormField label="Téléphone" required><Input icon={Phone} type="tel" value={f.phone} onChange={set("phone")} placeholder="(509) 0000-0000" autoComplete="tel" required /></FormField>
                 <FormField label="WhatsApp (si différent)"><Input icon={MessageCircle} type="tel" value={f.whatsapp} onChange={set("whatsapp")} placeholder="Numéro WhatsApp" autoComplete="tel" /></FormField>
                 <FormField label="Ville ou zone" required>
-                  <select value={f.city} onChange={set("city")} required disabled={citiesState !== "ready"} className="h-12 w-full rounded-xl border border-[#d4dfed] bg-white px-3 text-[14px] font-normal tracking-[.01em] text-[#27466f] outline-none transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
+                  <SelectField icon={MapPin} value={f.city} onChange={set("city")} required disabled={citiesState !== "ready"}>
                     <option value="">{citiesState === "loading" ? "Chargement des villes…" : citiesState === "unavailable" ? "Aucune agence active" : "Sélectionnez votre ville"}</option>
                     {cities.map((city) => <option key={city.name} value={city.name}>{city.name}</option>)}
-                  </select>
+                  </SelectField>
                   {citiesState === "unavailable" && <span className="mt-1.5 block text-[11px] font-medium text-amber-700">Les villes ne sont pas disponibles pour le moment.</span>}
                 </FormField>
                 <FormField label="Type de pièce d’identité" required>
-                  <select value={f.id_type} onChange={set("id_type")} required className="h-12 w-full rounded-xl border border-[#d4dfed] bg-white px-3 text-[14px] font-normal tracking-[.01em] text-[#27466f] outline-none transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100">
+                  <SelectField icon={CreditCard} value={f.id_type} onChange={set("id_type")} required>
                     <option value="">Sélectionnez un type</option>
                     {ID_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-                  </select>
+                  </SelectField>
                 </FormField>
                 <FormField label="Numéro de pièce" required><Input icon={CreditCard} value={f.id_number} onChange={set("id_number")} placeholder="Numéro de pièce d’identité" required /></FormField>
                 <div className="sm:col-span-2"><FormField label="Pourquoi souhaitez-vous devenir affilié? (facultatif)"><textarea value={f.motivation} onChange={set("motivation")} rows={3} placeholder="Parlez-nous brièvement de votre réseau ou de votre expérience." className="w-full resize-y rounded-xl border border-[#d4dfed] bg-white px-3.5 py-3 text-sm font-normal leading-relaxed tracking-[.01em] text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100" /></FormField></div>
@@ -193,4 +193,14 @@ function FormField({ label, required = false, children }: { label: string; requi
 
 function Input({ icon: Icon, className = "", ...props }: InputHTMLAttributes<HTMLInputElement> & { icon: LucideIcon }) {
   return <span className="relative block"><Icon size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#7083a1]" /><input {...props} className={`h-12 w-full rounded-xl border border-[#d4dfed] bg-white py-2 pl-10 pr-3 text-[14px] font-normal tracking-[.01em] text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100 ${className}`} /></span>;
+}
+
+function SelectField({ icon: Icon, className = "", children, ...props }: SelectHTMLAttributes<HTMLSelectElement> & { icon: LucideIcon; children: ReactNode }) {
+  return <span className="relative block">
+    <span className="pointer-events-none absolute left-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-xl bg-blue-50 text-[#2563eb]"><Icon size={16} /></span>
+    <select {...props} className={`h-14 w-full appearance-none rounded-2xl border border-[#cbdcf1] bg-[#fbfdff] py-2 pl-12 pr-10 text-[14px] font-normal tracking-[.01em] text-[#27466f] shadow-[0_3px_10px_rgba(37,99,235,0.04)] outline-none transition hover:border-[#9dbce3] focus:border-[#2563eb] focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 ${className}`}>
+      {children}
+    </select>
+    <ChevronDown size={18} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#5e7599]" />
+  </span>;
 }
