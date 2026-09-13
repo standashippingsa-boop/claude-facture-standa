@@ -189,17 +189,25 @@ export async function POST(req: Request) {
     // imèl/telefòn kont sa a k ap kreye a matche ak pwòp enfo afilye a,
     // nou senpleman pa atribye l (kont lan kreye kanmenm, jis san lyen).
     // ═══════════════════════════════════════════════════════════════════
+    // SEPARASYON DE SISTÈM YO: try/catch pwòp li a (anplis de sa a ki
+    // envlope tout wout la deja) — yon bug/tab-ki-manke isit la PA JANM
+    // dwe anpeche yon nouvo kliyan enskri. Nan pi mal la, l tonbe san lyen.
     let referredByAffiliateId: string | null = null;
-    const refCode = refCookie(req);
-    if (refCode) {
-      const { data: aff } = await svc.from("affiliates")
-        .select("id, email, phone, whatsapp").eq("code", refCode).eq("status", "active").maybeSingle();
-      if (aff) {
-        const affTail = digits(String(aff.phone || aff.whatsapp || "")).slice(-8);
-        const isSelf = (aff.email && String(aff.email).trim().toLowerCase() === email)
-          || (affTail && affTail.length >= 7 && affTail === tail);
-        if (!isSelf) referredByAffiliateId = aff.id;
+    try {
+      const refCode = refCookie(req);
+      if (refCode) {
+        const { data: aff } = await svc.from("affiliates")
+          .select("id, email, phone, whatsapp").eq("code", refCode).eq("status", "active").maybeSingle();
+        if (aff) {
+          const affTail = digits(String(aff.phone || aff.whatsapp || "")).slice(-8);
+          const isSelf = (aff.email && String(aff.email).trim().toLowerCase() === email)
+            || (affTail && affTail.length >= 7 && affTail === tail);
+          if (!isSelf) referredByAffiliateId = aff.id;
+        }
       }
+    } catch {
+      // Pwogram Affiliation an pa konfigire ankò (tab pa la) oswa yon erè
+      // pase — enskripsyon kliyan an kontinye nòmal, san lyen afilye.
     }
 
     const { error } = await svc.from("clients").insert({

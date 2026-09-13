@@ -87,7 +87,8 @@ export async function POST(req: Request) {
         contract_start: aff.contract_start, contract_end: aff.contract_end, status: aff.status,
         commission_amount: aff.commission_amount, days_left: daysLeft
       },
-      commissions: list, totalDue, totalPaid, clientsCount: new Set(list.map((c) => c.client_id)).size
+      commissions: list, totalDue, totalPaid,
+      clientsCount: new Set(list.map((c) => c.client_id).filter(Boolean)).size
     });
   }
 

@@ -406,7 +406,8 @@ export interface Affiliate {
 export interface AffiliateCommission {
   id?: string;
   affiliate_id: string;
-  client_id: string;
+  /** Nullable: si kliyan an efase/fusyone nan sistèm prensipal la pita, liy komisyon an rete (istorik), sèlman lyen an vin vid. */
+  client_id: string | null;
   invoice_id: string;
   amount: number;
   status: "due" | "paid";

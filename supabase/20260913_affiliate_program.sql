@@ -25,6 +25,18 @@
 --     bezwen sèvi afilye yo — se sèlman ADMIN (staff Supabase Auth) ki li/ekri
 --     tab sa yo dirèkteman; pòtay afilye a li TOUJOU pa yon wout sèvè (service
 --     role), jamè dirèk nan navigatè a.
+--
+-- SEPARASYON DE SISTÈM YO (kritik — pa touche san reflechi) :
+--   Sistèm Affiliation an DWE rete izole de sistèm PRENSIPAL la, nan toude
+--   sans — youn pa dwe "monte sou" lòt :
+--     1) Yon BUG nan Affiliation PA JANM dwe bloke yon FAKTI (fonksyon
+--        prensipal STANDA). Trigger la vlope lojik li nan yon blòk
+--        EXCEPTION WHEN OTHERS — nenpòt erè anndan l pyeje san l pa kraze
+--        `insert into invoices`.
+--     2) Yon AKSYON nan sistèm prensipal la (efase/fusyone yon kliyan) PA
+--        JANM dwe efase istorik finansye afilye a an silans — se pou sa
+--        `affiliate_commissions.client_id` sèvi ak "on delete set null"
+--        (pa "cascade") epi `affiliate_id` sèvi ak "on delete restrict".
 -- ═══════════════════════════════════════════════════════════════════════════
 
 begin;
@@ -75,10 +87,19 @@ create table if not exists affiliates (
 );
 create index if not exists affiliates_status_idx on affiliates (status);
 
+-- SEPARASYON DE SISTÈM YO: yon aksyon nan sistèm PRENSIPAL la (efase/fusyone
+-- yon kliyan, pa egzanp — Clients > Fusionner) PA DWE janm efase istorik
+-- finansye pwogram Affiliation an an silans. Se pou sa `client_id` aksepte
+-- NULL ak "on delete set null" olye "cascade" — si yon jou kliyan an disparèt,
+-- liy komisyon an rete (kòm prèv $ afilye a te touche), sèlman lyen kliyan
+-- an vin vid. `affiliate_id` itilize "restrict": pa gen okenn bouton pou
+-- efase yon afilye nèt (sèlman revoke/expire), donk sa a se yon defans si
+-- yon jou yon moun eseye fè l dirèkteman nan SQL — pito yon erè klè pase yon
+-- pèt done kòmès san moun pa wè l.
 create table if not exists affiliate_commissions (
   id uuid primary key default gen_random_uuid(),
-  affiliate_id uuid not null references affiliates(id) on delete cascade,
-  client_id uuid not null references clients(id) on delete cascade,
+  affiliate_id uuid not null references affiliates(id) on delete restrict,
+  client_id uuid references clients(id) on delete set null,
   invoice_id uuid not null references invoices(id) on delete cascade,
   amount numeric not null,
   status text not null default 'due' check (status in ('due','paid')),
@@ -156,23 +177,37 @@ declare
   c clients%rowtype;
   aff affiliates%rowtype;
 begin
-  select * into c from public.clients where customer_code = new.customer_code limit 1;
-  if c.id is null or c.referred_by_affiliate_id is null then
-    return new;
-  end if;
+  -- ═══════════════════════════════════════════════════════════════════
+  -- SEPARASYON DE SISTÈM YO — REGLE ABSOLI :
+  -- Sistèm Affiliation an PA JANM DWE anpeche kreyasyon yon fakti, kèlkeswa
+  -- ki erè ki rive nan blòk sa a (tab ki manke, kolòn ki chanje, kontrent
+  -- vyole, elatriye). `EXCEPTION WHEN OTHERS` anba a pyeje TOUT erè epi
+  -- senpleman pa fè komisyon an — men fakti a (fonksyon PRENSIPAL biznis
+  -- la) toujou kreye nòmalman. San blòk sa a, yon senp bug isit la ta ka
+  -- bloke TOUT fakti STANDA fè — sa pa akseptab.
+  -- ═══════════════════════════════════════════════════════════════════
+  begin
+    select * into c from public.clients where customer_code = new.customer_code limit 1;
+    if c.id is null or c.referred_by_affiliate_id is null then
+      return new;
+    end if;
 
-  select * into aff from public.affiliates where id = c.referred_by_affiliate_id;
-  if aff.id is null then
-    return new;
-  end if;
+    select * into aff from public.affiliates where id = c.referred_by_affiliate_id;
+    if aff.id is null then
+      return new;
+    end if;
 
-  -- Komisyon SÈLMAN si kontra a aktif EPI dat jodi a nan fenèt li.
-  if aff.status = 'active'
-     and current_date between aff.contract_start and aff.contract_end then
-    insert into public.affiliate_commissions (affiliate_id, client_id, invoice_id, amount)
-    values (aff.id, c.id, new.id, aff.commission_amount)
-    on conflict (invoice_id) do nothing;
-  end if;
+    -- Komisyon SÈLMAN si kontra a aktif EPI dat jodi a nan fenèt li.
+    if aff.status = 'active'
+       and current_date between aff.contract_start and aff.contract_end then
+      insert into public.affiliate_commissions (affiliate_id, client_id, invoice_id, amount)
+      values (aff.id, c.id, new.id, aff.commission_amount)
+      on conflict (invoice_id) do nothing;
+    end if;
+  exception when others then
+    raise warning 'affiliate_commission_on_invoice a echwe pou fakti % (% ) — fakti a kreye kanmenm, komisyon an senpleman pa anrejistre.',
+      new.invoice_number, sqlerrm;
+  end;
 
   return new;
 end;
