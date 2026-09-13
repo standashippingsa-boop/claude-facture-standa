@@ -31,7 +31,7 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [showSpecialOnly, setShowSpecialOnly] = useState(false);
+  const [packageListFilter, setPackageListFilter] = useState<"all" | "special" | null>(null);
 
   /** Chèche conduce a DIRÈKTEMAN pa ID. Vrè erè yo remonte — pa "introuvable" an blan. */
   const load = async () => {
@@ -122,16 +122,22 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
             [<Clock size={14} />, "Restant à facturer", restant],
             [<CheckCircle2 size={14} />, "Vérifiés MCPACK", `${stats?.verifiedCount ?? 0}/${stats?.count ?? 0}`],
           ].map(([icon, label, val], i) => {
+            const isPackagesCard = label === "Colis";
             const isSpecialCard = label === "Colis spéciaux";
-            return isSpecialCard ? (
+            return isPackagesCard || isSpecialCard ? (
             <button key={i} type="button" onClick={() => {
-              setShowSpecialOnly(true);
-              window.setTimeout(() => document.getElementById("colis-speciaux")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-            }} className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 text-left transition hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400"
-              title="Afficher les colis spéciaux de cette Conduce">
+              const filter = isSpecialCard ? "special" : "all";
+              setPackageListFilter(filter);
+              window.setTimeout(() => document.getElementById(filter === "special" ? "colis-speciaux" : "packages-results")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+            }} className={isSpecialCard
+              ? "rounded-xl border border-amber-200 bg-amber-50/50 p-3 text-left transition hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              : "rounded-xl border border-blue-200 bg-blue-50/50 p-3 text-left transition hover:border-blue-400 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-400"}
+              title={isSpecialCard ? "Afficher les colis spéciaux de cette Conduce" : "Afficher tous les colis de cette Conduce"}>
               <div className="flex items-center gap-1.5 text-mute text-[11px]">{icon as any} {label as string}</div>
               <div className="text-lg font-extrabold text-navy mt-0.5">{val as any}</div>
-              <div className="mt-1 text-[10px] font-bold text-amber-800">Voir les colis et les modifier</div>
+              <div className={isSpecialCard ? "mt-1 text-[10px] font-bold text-amber-800" : "mt-1 text-[10px] font-bold text-blue-800"}>
+                {isSpecialCard ? "Voir les colis et les modifier" : "Voir tous les colis"}
+              </div>
             </button>
             ) : (
             <div key={i} className="rounded-xl border border-line p-3">
@@ -149,7 +155,7 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
       {/* Rezime — PLEINE LARGEUR, anlè tablo a (li te twò sere nan kwen an) */}
       <ConduceSummaryPanel conduceId={conduce.id} />
 
-      <PackagesEngine conduceId={conduce.id} hideHeader specialOnly={showSpecialOnly} />
+      <PackagesEngine conduceId={conduce.id} hideHeader packageListFilter={packageListFilter} />
     </div>
   );
 }

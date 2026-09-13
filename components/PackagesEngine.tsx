@@ -50,7 +50,7 @@ function pkgSources(p: Pkg): SrcKey[] {
   return out;
 }
 
-export default function PackagesEngine({ conduceId, hideHeader = false, specialOnly = false }: { conduceId?: string; hideHeader?: boolean; specialOnly?: boolean } = {}) {
+export default function PackagesEngine({ conduceId, hideHeader = false, packageListFilter = null }: { conduceId?: string; hideHeader?: boolean; packageListFilter?: "all" | "special" | null } = {}) {
   const pathname = usePathname() ?? (conduceId ? `/conduces/${conduceId}` : "/packages");
   const [pkgs, setPkgs] = useState<Pkg[]>([]);
   const [tarifMap, setTarifMap] = useState<Map<string, ClientTarifInfo>>(new Map());
@@ -91,13 +91,13 @@ export default function PackagesEngine({ conduceId, hideHeader = false, specialO
     setPage(typeof saved.page === "number" && saved.page > 0 ? saved.page : 1);
     setShowArchived(saved.showArchived === true);
   });
-  // Lè administratè a klike sou kat « Colis spéciaux » yon Conduce, filtè a
-  // ouvè tousuit sou lis la olye de kite l sèlman ak yon chif nan tèt paj la.
+  // Kat yo nan tèt yon Conduce louvri lis koli aktyèl la: swa tout koli yo,
+  // swa sèlman koli espesyal yo. Sa pa kite itilizatè a sou yon senp kantite.
   useEffect(() => {
-    if (!specialOnly) return;
-    setSpecialF("special");
+    if (!packageListFilter) return;
+    setSpecialF(packageListFilter === "special" ? "special" : "");
     setPage(1);
-  }, [specialOnly]);
+  }, [packageListFilter]);
   /** Ti rezime koli a pou seleksyon global la (pa gen done sansib). */
   const snap = (p: Pkg) => ({
     id: p.id, tracking_number: p.tracking_number, customer_code: p.customer_code,
