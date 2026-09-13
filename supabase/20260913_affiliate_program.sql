@@ -14,8 +14,11 @@
 --     SI dat jodi a tonbe nan [contract_start, contract_end] afilye a, yon
 --     komisyon FIKS ($10 pa defo, konfigirab) anrejistre otomatikman —
 --     TRIGGER SQL, pa kòd app la (garanti li pa ka janm bliye l).
---   • Apre 3 mwa: pou kontinye ak yon afilye, admin kreye yon NOUVO kontra
---     (nouvo lyen) pou li — ansyen an rete jis kòm istorik.
+--   • Apre 3 mwa: pou kontinye ak yon afilye, admin "Renouvle" — sistèm nan
+--     kreye yon LIY AFILYE TOUNÈF (nouvo kòd/lyen/username/modpas, nouvo
+--     imèl voye), pa yon modifikasyon sou plas. Ansyen liy la pase "expired"
+--     epi rete kòm istorik — kliyan ki te enskri anba ANSYEN lyen an kontinye
+--     jenere komisyon SÈLMAN pandan fenèt ansyen kontra a (deja ekspire).
 --   • Afilye yo PA gen Supabase Auth: yon ti login apa (/api/affiliate-portal),
 --     modpas kwape ak scrypt (jamè an clè), sesyon pa cookie httpOnly.
 --     Konsekans SEKIRITE: okenn politik RLS pou "authenticated" isit la pa
@@ -64,6 +67,10 @@ create table if not exists affiliates (
   contract_end date not null,
   status text not null default 'active' check (status in ('active','expired','revoked')),
   commission_amount numeric not null default 10,
+  -- Renouvèlman = NOUVO liy (nouvo kòd/lyen/login), jamè yon modifikasyon sou
+  -- plas ansyen an: chak kontra gen pwòp lyen li pou rès la ka trase pwòp
+  -- kliyantèl li. Sa a mennen tounen sou kontra ki te ranplase pa sa a.
+  renewed_from_affiliate_id uuid references affiliates(id) on delete set null,
   created_at timestamptz not null default now()
 );
 create index if not exists affiliates_status_idx on affiliates (status);
@@ -77,6 +84,7 @@ create table if not exists affiliate_commissions (
   status text not null default 'due' check (status in ('due','paid')),
   paid_at timestamptz,
   payout_method text,
+  paid_by text,  -- username anplwaye ki make peman an (piste odit, menm prensip ak invoices.payment_paid_by)
   created_at timestamptz not null default now(),
   unique (invoice_id)  -- yon fakti pa ka peye 2 fwa (idempotence)
 );

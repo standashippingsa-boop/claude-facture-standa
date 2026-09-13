@@ -398,6 +398,8 @@ export interface Affiliate {
   status: AffiliateStatus;
   /** Montan fiks pa fakti kalifye (USD) — kopye soti nan Paramètres lè apwouve a. */
   commission_amount: number;
+  /** Si sa a se yon renouvèlman: ansyen liy afilye a (istorik, jamè efase). */
+  renewed_from_affiliate_id?: string | null;
   created_at?: string;
 }
 
@@ -410,6 +412,8 @@ export interface AffiliateCommission {
   status: "due" | "paid";
   paid_at?: string | null;
   payout_method?: PayoutMethod | null;
+  /** Username anplwaye ki make peman an (piste odit — menm prensip ak invoices.payment_paid_by). */
+  paid_by?: string | null;
   created_at?: string;
   // ── Jwenti lekti sèlman (pou tablo admin/pòtay) ──
   client_name?: string;

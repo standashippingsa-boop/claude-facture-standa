@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { CheckCircle2, Copy, HandCoins, RefreshCw, ShieldOff, XCircle } from "lucide-react";
+import { CheckCircle2, Copy, HandCoins, KeyRound, RefreshCw, ShieldOff, XCircle } from "lucide-react";
 import { adminApi } from "@/lib/authx";
 import { getAffiliateApplications, getAffiliateCommissions, getAffiliates } from "@/lib/db";
 import { Affiliate, AffiliateApplication, AffiliateCommission } from "@/lib/types";
@@ -50,13 +50,26 @@ export default function AffiliatesPage() {
   };
 
   const renew = async (id?: string) => {
-    if (!id || !confirm("Générer un nouveau contrat de 3 mois pour cet affilié ?")) return;
+    if (!id || !confirm("Créer un nouveau lien et un nouveau contrat de 3 mois pour cet affilié ? L'ancien lien cessera de générer des commissions.")) return;
     setBusy(id);
     try {
       const j = await adminApi("affiliate_renew", { affiliate_id: id });
       if (!j.ok) { setNotice("Erè: " + j.reason); return; }
-      setNotice(`Nouveau contrat : ${j.contractStart} → ${j.contractEnd}.`);
+      setCreds({ username: j.username, password: j.password, referralLink: j.referralLink, mailSent: j.mailSent, mailError: j.mailError });
+      setNotice(j.mailSent ? `Nouveau lien créé (${j.contractStart} → ${j.contractEnd}) et e-mail envoyé à ${j.affiliate?.email}.` : `Nouveau lien créé, mais l'e-mail n'a pas pu être envoyé (${j.mailError}). Copiez les accès ci-dessous.`);
       await load();
+    } finally { setBusy(null); }
+  };
+
+  const resetPassword = async (id?: string) => {
+    if (!id || !confirm("Réinitialiser le mot de passe de cet affilié ? Ses sessions actives seront déconnectées.")) return;
+    setBusy(id);
+    try {
+      const j = await adminApi("affiliate_reset_password", { affiliate_id: id });
+      if (!j.ok) { setNotice("Erè: " + j.reason); return; }
+      const a = affiliates.find((x) => x.id === id);
+      setCreds({ username: a?.username ?? "", password: j.password, referralLink: a?.referral_link ?? "", mailSent: false, mailError: "Nouveau mot de passe — communiquez-le vous-même à l'affilié." });
+      setNotice("Mot de passe réinitialisé. Copiez-le ci-dessous et transmettez-le à l'affilié.");
     } finally { setBusy(null); }
   };
 
@@ -145,18 +158,22 @@ export default function AffiliatesPage() {
                   <td className="px-4 py-3 text-mute">{dateFr(a.contract_start)} → {dateFr(a.contract_end)}</td>
                   <td className="px-4 py-3"><StatusPill status={a.status} /></td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      {a.status !== "active" && (
-                        <button disabled={busy === a.id} onClick={() => renew(a.id)} title="Nouveau contrat de 3 mois"
-                          className="inline-flex items-center gap-1 rounded-lg bg-mist px-2.5 py-1.5 text-[12px] font-bold text-navy hover:bg-accent-light">
-                          <RefreshCw size={13} /> Renouveler
-                        </button>
-                      )}
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button disabled={busy === a.id} onClick={() => renew(a.id)} title="Nouveau lien + nouveau contrat de 3 mois"
+                        className="inline-flex items-center gap-1 rounded-lg bg-mist px-2.5 py-1.5 text-[12px] font-bold text-navy hover:bg-accent-light">
+                        <RefreshCw size={13} /> Renouveler
+                      </button>
                       {a.status === "active" && (
-                        <button disabled={busy === a.id} onClick={() => revoke(a.id)} title="Révoquer"
-                          className="inline-flex items-center gap-1 rounded-lg bg-mist px-2.5 py-1.5 text-[12px] font-bold text-navy hover:bg-red-50 hover:text-red-700">
-                          <ShieldOff size={13} /> Révoquer
-                        </button>
+                        <>
+                          <button disabled={busy === a.id} onClick={() => resetPassword(a.id)} title="Réinitialiser le mot de passe"
+                            className="inline-flex items-center gap-1 rounded-lg bg-mist px-2.5 py-1.5 text-[12px] font-bold text-navy hover:bg-accent-light">
+                            <KeyRound size={13} /> Modpas
+                          </button>
+                          <button disabled={busy === a.id} onClick={() => revoke(a.id)} title="Révoquer"
+                            className="inline-flex items-center gap-1 rounded-lg bg-mist px-2.5 py-1.5 text-[12px] font-bold text-navy hover:bg-red-50 hover:text-red-700">
+                            <ShieldOff size={13} /> Révoquer
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>
@@ -183,7 +200,10 @@ export default function AffiliatesPage() {
                   <td className="px-4 py-3 font-semibold text-navy">{usd(c.amount)}</td>
                   <td className="px-4 py-3">
                     {c.status === "paid"
-                      ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">Payé{c.payout_method ? ` (${c.payout_method})` : ""}</span>
+                      ? <span title={c.paid_by ? `Marqué payé par ${c.paid_by}` : undefined}
+                          className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                          Payé{c.payout_method ? ` (${c.payout_method})` : ""}{c.paid_by ? ` · ${c.paid_by}` : ""}
+                        </span>
                       : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">Dû</span>}
                   </td>
                   <td className="px-4 py-3">

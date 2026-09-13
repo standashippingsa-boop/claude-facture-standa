@@ -182,14 +182,24 @@ export async function POST(req: Request) {
     // ═══════════════════════════════════════════════════════════════════
     // PWOGRAM AFFILIATION — attribution (yon sèl fwa, jamè chanje apre).
     // Kòd la soti nan cookie ?ref= (mete pa middleware.ts). Si li pa
-    // koresponn ak yon afilye ki egziste, nou senpleman inyore l — pa gen
-    // erè vizib pou kliyan an, enskripsyon an kontinye nòmal.
+    // koresponn ak yon afilye AKTIF ki egziste, nou senpleman inyore l —
+    // pa gen erè vizib pou kliyan an, enskripsyon an kontinye nòmal.
+    //
+    // GAD ANTI-FRAUD: yon afilye pa ka touche komisyon sou TÈT LI — si
+    // imèl/telefòn kont sa a k ap kreye a matche ak pwòp enfo afilye a,
+    // nou senpleman pa atribye l (kont lan kreye kanmenm, jis san lyen).
     // ═══════════════════════════════════════════════════════════════════
     let referredByAffiliateId: string | null = null;
     const refCode = refCookie(req);
     if (refCode) {
-      const { data: aff } = await svc.from("affiliates").select("id").eq("code", refCode).maybeSingle();
-      referredByAffiliateId = aff?.id ?? null;
+      const { data: aff } = await svc.from("affiliates")
+        .select("id, email, phone, whatsapp").eq("code", refCode).eq("status", "active").maybeSingle();
+      if (aff) {
+        const affTail = digits(String(aff.phone || aff.whatsapp || "")).slice(-8);
+        const isSelf = (aff.email && String(aff.email).trim().toLowerCase() === email)
+          || (affTail && affTail.length >= 7 && affTail === tail);
+        if (!isSelf) referredByAffiliateId = aff.id;
+      }
     }
 
     const { error } = await svc.from("clients").insert({

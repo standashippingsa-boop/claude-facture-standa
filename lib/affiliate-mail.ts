@@ -20,8 +20,14 @@ function fromValue(): string {
 export function buildAffiliateApprovalEmail(a: {
   fullname: string; code: string; username: string; password: string;
   referralLink: string; contractStart: string; contractEnd: string; commissionAmount: number;
+  isRenewal?: boolean;
 }): { subject: string; html: string } {
-  const subject = `Bienvenue dans le programme Affiliation STANDA COMMERCIAL — ${a.code}`;
+  const subject = a.isRenewal
+    ? `Votre nouveau contrat Affiliation STANDA COMMERCIAL — ${a.code}`
+    : `Bienvenue dans le programme Affiliation STANDA COMMERCIAL — ${a.code}`;
+  const intro = a.isRenewal
+    ? `Votre contrat <strong>programme Affiliation STANDA COMMERCIAL</strong> est renouvelé pour 3 mois, avec un <strong>nouveau lien</strong>. L'ancien lien ne génère plus de commission. Voici vos nouvelles informations :`
+    : `Votre candidature au <strong>programme Affiliation STANDA COMMERCIAL</strong> est acceptée. Voici vos informations :`;
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>
 <body style="margin:0;padding:0;background:#F4F6F9;font-family:${FONT}">
@@ -29,8 +35,8 @@ export function buildAffiliateApprovalEmail(a: {
 <tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:560px;max-width:100%;background:#FFFFFF;border:1px solid #EAECEF;border-radius:8px">
 <tr><td style="padding:24px 32px 0"><img src="https://www.standacommercialsa.com/logo.png" alt="STANDA COMMERCIAL" height="32" style="height:32px"></td></tr>
-<tr><td style="padding:16px 32px 0"><h1 style="margin:0;font-size:20px;color:#111827">Félicitations, ${esc(a.fullname)} !</h1>
-<p style="margin:10px 0 0;font-size:14px;line-height:1.6;color:#4B5563">Votre candidature au <strong>programme Affiliation STANDA COMMERCIAL</strong> est acceptée. Voici vos informations :</p></td></tr>
+<tr><td style="padding:16px 32px 0"><h1 style="margin:0;font-size:20px;color:#111827">${a.isRenewal ? `Bonne nouvelle, ${esc(a.fullname)} !` : `Félicitations, ${esc(a.fullname)} !`}</h1>
+<p style="margin:10px 0 0;font-size:14px;line-height:1.6;color:#4B5563">${intro}</p></td></tr>
 <tr><td style="padding:18px 32px 0">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
 <tr><td style="padding:6px 0;color:#6B7280;font-size:13px">Votre lien unique</td><td align="right" style="padding:6px 0;font-size:13px;font-weight:700;color:#1E3A8A;word-break:break-all">${esc(a.referralLink)}</td></tr>
