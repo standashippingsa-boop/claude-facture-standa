@@ -41,7 +41,15 @@ export const PUBLIC_PREFIXES = [
   // Yo pa li okenn done kliyan: tracking piblik la pase pa /api/track.
   "/accueil",                           // paj akèy piblik la
   "/contact",                           // fòm kontak + WhatsApp
-  "/agences"                            // lis ajans yo an Ayiti
+  "/agences",                           // lis ajans yo an Ayiti
+
+  // ── PWOGRAM AFFILIATION ──
+  // /affiliation: lyen PRIVE (pa nan menu sit la) — kandida yo ranpli fòm nan.
+  // /espace-affilie: pòtay afilye yo — jere pa /api/affiliate-portal (cookie
+  // apa, PA Supabase Auth), donk li dwe rete "piblik" pou Shell la la kite l
+  // jere pwòp aksè li san eseye rezoud yon wòl staff/kliyan.
+  "/affiliation",
+  "/espace-affilie"
 ];
 
 /** Paj kliyan (wòl "client" sèlman) */
@@ -54,7 +62,7 @@ export const PICKUP_AGENT_PREFIXES = ["/espace-remise"];
  * Paj ADMIN sèlman (Employé bloke). Tout lòt paj staff yo louvri pou
  * admin + employé (koli, kliyan, fakti, sync, historique, journal, retraits).
  */
-export const ADMIN_ONLY_PREFIXES = ["/settings", "/reviews", "/points-retrait", "/rapports-financiers", "/recu-paiement"];
+export const ADMIN_ONLY_PREFIXES = ["/settings", "/reviews", "/points-retrait", "/rapports-financiers", "/recu-paiement", "/affiliates"];
 
 /**
  * Match yon prefiks ak yon fwontyè segman: "/login" matche "/login" ak

@@ -3,6 +3,13 @@ import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 
+/** Valè cookie ?ref= mete pa middleware.ts (parse manyèl — evite soud Next.js sou cookies() async). */
+function refCookie(req: Request): string {
+  const raw = req.headers.get("cookie") ?? "";
+  const m = raw.match(/(?:^|;\s*)standa_ref=([^;]+)/);
+  return m ? decodeURIComponent(m[1]).trim().toUpperCase() : "";
+}
+
 /**
  * Enskripsyon kliyan — KOTE SÈVÈ.
  * ════════════════════════════════
@@ -172,12 +179,44 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, linked: true });
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // PWOGRAM AFFILIATION — attribution (yon sèl fwa, jamè chanje apre).
+    // Kòd la soti nan cookie ?ref= (mete pa middleware.ts). Si li pa
+    // koresponn ak yon afilye AKTIF ki egziste, nou senpleman inyore l —
+    // pa gen erè vizib pou kliyan an, enskripsyon an kontinye nòmal.
+    //
+    // GAD ANTI-FRAUD: yon afilye pa ka touche komisyon sou TÈT LI — si
+    // imèl/telefòn kont sa a k ap kreye a matche ak pwòp enfo afilye a,
+    // nou senpleman pa atribye l (kont lan kreye kanmenm, jis san lyen).
+    // ═══════════════════════════════════════════════════════════════════
+    // SEPARASYON DE SISTÈM YO: try/catch pwòp li a (anplis de sa a ki
+    // envlope tout wout la deja) — yon bug/tab-ki-manke isit la PA JANM
+    // dwe anpeche yon nouvo kliyan enskri. Nan pi mal la, l tonbe san lyen.
+    let referredByAffiliateId: string | null = null;
+    try {
+      const refCode = refCookie(req);
+      if (refCode) {
+        const { data: aff } = await svc.from("affiliates")
+          .select("id, email, phone, whatsapp").eq("code", refCode).eq("status", "active").maybeSingle();
+        if (aff) {
+          const affTail = digits(String(aff.phone || aff.whatsapp || "")).slice(-8);
+          const isSelf = (aff.email && String(aff.email).trim().toLowerCase() === email)
+            || (affTail && affTail.length >= 7 && affTail === tail);
+          if (!isSelf) referredByAffiliateId = aff.id;
+        }
+      }
+    } catch {
+      // Pwogram Affiliation an pa konfigire ankò (tab pa la) oswa yon erè
+      // pase — enskripsyon kliyan an kontinye nòmal, san lyen afilye.
+    }
+
     const { error } = await svc.from("clients").insert({
       ...profile,
       auth_user_id: authUserId,   // null si enskripsyon piblik (nòmal)
       customer_code: null,
       pickup_location: "",
       account_status: "En attente d'activation",
+      referred_by_affiliate_id: referredByAffiliateId,
     });
     if (error) return NextResponse.json({ ok: false, reason: "Enregistrement impossible." }, { status: 500 });
 

@@ -37,6 +37,8 @@ export interface Client {
   auth_user_id?: string | null;
   username?: string | null;              // = kòd MC (MC-XXXXX)
   must_change_password?: boolean;
+  /** Afilye ki mennen kliyan sa a (pwogram Affiliation) — jamè chanje apre enskripsyon. */
+  referred_by_affiliate_id?: string | null;
   created_at?: string;
 }
 
@@ -343,4 +345,78 @@ export interface Staff {
   /** Zòn operasyon ajan remiz la; vid pou admin/anplwaye nòmal. */
   pickup_ville_id?: string | null;
   created_at?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PWOGRAM AFFILIATION (v20)
+// ───────────────────────────────────────────────────────────────────────────
+// Yon moun ranpli yon fòm piblik (/affiliation, lyen prive) -> admin apwouve
+// -> sistèm nan jenere yon lyen inik (?ref=KÒD) + login pòtay + kontra 3 mwa
+// -> chak fwa yon kliyan ki mache anba lyen sa a fè yon fakti PANDAN kontra
+//    a ap kouri, yon komisyon fiks anrejistre otomatikman (trigger SQL sou
+//    `invoices`, gade supabase/20260913_affiliate_program.sql).
+//
+// Afilye yo PA Supabase Auth: se yon ti sesyon apa (kòn/paswò + cookie),
+// jere pa /api/affiliate-portal — done yo touche SÈLMAN pa wout sèvè
+// (service role), jamè dirèkteman pa navigatè a (RLS pa ka idantifye yo).
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type AffiliateIdType = "Carte d'identité nationale" | "Passeport" | "Permis de conduire";
+export type AffiliateApplicationStatus = "pending" | "approved" | "rejected";
+export type AffiliateStatus = "active" | "expired" | "revoked";
+export type PayoutMethod = "Espèces" | "MonCash" | "NatCash" | "Virement bancaire" | "Zelle";
+
+export interface AffiliateApplication {
+  id?: string;
+  fullname: string;
+  email: string;
+  phone: string;
+  whatsapp?: string;
+  city?: string;
+  id_type: AffiliateIdType;
+  id_number: string;
+  motivation?: string;
+  status: AffiliateApplicationStatus;
+  created_at?: string;
+}
+
+export interface Affiliate {
+  id?: string;
+  application_id?: string | null;
+  fullname: string;
+  email: string;
+  phone?: string;
+  whatsapp?: string;
+  /** Ti mo inik nan lyen an (ex: JEAN4821) — jamè chanje. */
+  code: string;
+  /** Login pòtay afilye a (= code, pou senplisite). */
+  username: string;
+  /** Lyen konplè ki gen ?ref=code la (kalkile yon fwa, anrejistre pou konfò). */
+  referral_link: string;
+  contract_start: string;   // date ISO (yyyy-mm-dd)
+  contract_end: string;     // date ISO — contract_start + 3 mwa
+  status: AffiliateStatus;
+  /** Montan fiks pa fakti kalifye (USD) — kopye soti nan Paramètres lè apwouve a. */
+  commission_amount: number;
+  /** Si sa a se yon renouvèlman: ansyen liy afilye a (istorik, jamè efase). */
+  renewed_from_affiliate_id?: string | null;
+  created_at?: string;
+}
+
+export interface AffiliateCommission {
+  id?: string;
+  affiliate_id: string;
+  /** Nullable: si kliyan an efase/fusyone nan sistèm prensipal la pita, liy komisyon an rete (istorik), sèlman lyen an vin vid. */
+  client_id: string | null;
+  invoice_id: string;
+  amount: number;
+  status: "due" | "paid";
+  paid_at?: string | null;
+  payout_method?: PayoutMethod | null;
+  /** Username anplwaye ki make peman an (piste odit — menm prensip ak invoices.payment_paid_by). */
+  paid_by?: string | null;
+  created_at?: string;
+  // ── Jwenti lekti sèlman (pou tablo admin/pòtay) ──
+  client_name?: string;
+  invoice_number?: string;
 }

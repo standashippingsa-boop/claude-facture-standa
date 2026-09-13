@@ -25,6 +25,30 @@ import type { NextRequest } from "next/server";
  */
 const CANONICAL_HOST = "www.standacommercialsa.com";
 
+/**
+ * PWOGRAM AFFILIATION — kaptire ?ref=KÒD.
+ * ═══════════════════════════════════════════════════════════════════════
+ * Yon moun ki klike lyen yon afilye (ex: /inscription?ref=JEAN4821) dwe
+ * rete "mache" ak kòd sa a menm si li navige sou plizyè paj anvan l enskri.
+ * Nou kenbe l nan yon cookie 30 jou; /api/register-client li l pou mete
+ * `referred_by_affiliate_id` sou nouvo kliyan an. Kòd envalid (fòma
+ * sispèk) senpleman inyore — pa gen validasyon kont bazdone a isit la
+ * (middleware pa touche Supabase), sa fèt kote sèvè a nan wout la.
+ */
+const REF_COOKIE = "standa_ref";
+const REF_RE = /^[A-Z0-9]{3,20}$/i;
+
+/** Ajoute cookie ?ref= la sou repons lan, si prezan e valid. */
+function withRef(req: NextRequest, res: NextResponse): NextResponse {
+  const ref = req.nextUrl.searchParams.get("ref");
+  if (ref && REF_RE.test(ref)) {
+    res.cookies.set(REF_COOKIE, ref.toUpperCase(), {
+      httpOnly: true, sameSite: "lax", path: "/", maxAge: 30 * 86400
+    });
+  }
+  return res;
+}
+
 export function middleware(req: NextRequest) {
   const host = req.headers.get("host") ?? "";
 
@@ -50,14 +74,14 @@ export function middleware(req: NextRequest) {
       home.host = CANONICAL_HOST;
       home.port = "";
     }
-    return NextResponse.redirect(home, 307);
+    return withRef(req, NextResponse.redirect(home, 307));
   }
 
   // Devlopman lokal: apre redireksyon rasin lan, pa chanje lòt URL yo.
-  if (host.startsWith("localhost") || host.startsWith("127.0.0.1")) return NextResponse.next();
+  if (host.startsWith("localhost") || host.startsWith("127.0.0.1")) return withRef(req, NextResponse.next());
 
   // Deja sou domèn kanonik la
-  if (host === CANONICAL_HOST) return NextResponse.next();
+  if (host === CANONICAL_HOST) return withRef(req, NextResponse.next());
 
   // API: pa redirije (ekstansyon/entegrasyon yo ka gen ansyen URL konfigire)
   if (req.nextUrl.pathname.startsWith("/api/")) return NextResponse.next();
@@ -66,7 +90,7 @@ export function middleware(req: NextRequest) {
   url.protocol = "https:";
   url.host = CANONICAL_HOST;
   url.port = "";
-  return NextResponse.redirect(url, 308);
+  return withRef(req, NextResponse.redirect(url, 308));
 }
 
 export const config = {

@@ -432,6 +432,8 @@ export default function SettingsPage() {
 
       {role === "admin" && <EmailNotificationsSection />}
 
+      {role === "admin" && <AffiliateSettingsSection onNotice={setNotice} />}
+
       {role === "admin" && <ApiTokensSection onNotice={setNotice} />}
 
       <EmployesSection onNotice={setNotice} />
@@ -619,6 +621,66 @@ interface EmailDiag {
   from_domain: string;
   from_is_default: boolean;
   domain_matches_expected: boolean;
+}
+
+// ================= PWOGRAM AFFILIATION (admin sèlman) =================
+function AffiliateSettingsSection({ onNotice }: { onNotice: (s: string) => void }) {
+  const [amount, setAmount] = useState("10");
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getSettings().then((s) => {
+      setAmount(s.affiliate_commission_amount || "10");
+      setPdfUrl(s.affiliate_contract_pdf_url || "");
+    });
+  }, []);
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      let url = pdfUrl;
+      if (pdfFile) {
+        const check = validateUpload(pdfFile, "pdf");
+        if (!check.ok) { onNotice(check.reason ?? "Fichier refusé."); return; }
+        const path = storagePath(check.filename, "affiliate-contracts/");
+        const { error } = await supabase.storage.from("staff-docs")
+          .upload(path, pdfFile, { upsert: false, contentType: "application/pdf" });
+        if (error) { onNotice("Erè upload: " + error.message); return; }
+        url = supabase.storage.from("staff-docs").getPublicUrl(path).data.publicUrl;
+      }
+      await setSetting("affiliate_commission_amount", String(Number(amount) || 10));
+      await setSetting("affiliate_contract_pdf_url", url);
+      setPdfUrl(url); setPdfFile(null);
+      onNotice("Paramètres du programme Affiliation enregistrés.");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <section className="card p-6 space-y-3">
+      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">🤝 Programme Affiliation</h2>
+      <p className="text-xs text-slate-500">
+        Montant versé à un affilié pour chaque facture générée par un client qu&apos;il a
+        parrainé, pendant la durée de son contrat (3 mois) — et le contrat PDF joint
+        automatiquement à l&apos;e-mail d&apos;approbation.
+      </p>
+      <label className="block max-w-xs">
+        <span className="text-xs text-slate-600">Commission par facture qualifiée (USD)</span>
+        <input className="input mt-1" type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      </label>
+      <label className="block">
+        <span className="text-xs text-slate-600">Contrat affilié (PDF — joint à chaque approbation)</span>
+        <input className="input mt-1" type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)} />
+        {pdfUrl && !pdfFile && (
+          <a href={pdfUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-accent hover:underline">
+            Voir le contrat actuellement enregistré
+          </a>
+        )}
+      </label>
+      <button className="btn" onClick={save} disabled={busy}>{busy ? "Enregistrement…" : "Enregistrer"}</button>
+    </section>
+  );
 }
 
 function EmailNotificationsSection() {
