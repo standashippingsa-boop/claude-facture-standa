@@ -41,7 +41,7 @@ export function buildAffiliateApprovalEmail(a: {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
 <tr><td style="padding:6px 0;color:#6B7280;font-size:13px">Votre lien unique</td><td align="right" style="padding:6px 0;font-size:13px;font-weight:700;color:#1E3A8A;word-break:break-all">${esc(a.referralLink)}</td></tr>
 <tr><td style="padding:6px 0;color:#6B7280;font-size:13px">Code</td><td align="right" style="padding:6px 0;font-size:13px;font-weight:700;font-family:monospace">${esc(a.code)}</td></tr>
-<tr><td style="padding:6px 0;color:#6B7280;font-size:13px">Commission par facture qualifiée</td><td align="right" style="padding:6px 0;font-size:13px;font-weight:700">${a.commissionAmount.toFixed(2)} USD</td></tr>
+<tr><td style="padding:6px 0;color:#6B7280;font-size:13px">Commission par utilisation du service</td><td align="right" style="padding:6px 0;font-size:13px;font-weight:700">${a.commissionAmount.toFixed(2)} USD</td></tr>
 <tr><td style="padding:6px 0;color:#6B7280;font-size:13px">Contrat valide</td><td align="right" style="padding:6px 0;font-size:13px;font-weight:700">${esc(a.contractStart)} → ${esc(a.contractEnd)}</td></tr>
 </table></td></tr>
 <tr><td style="padding:18px 32px 0"><div style="height:1px;background:#EAECEF"></div></td></tr>

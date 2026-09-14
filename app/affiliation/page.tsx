@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type FormEvent, type InputHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type InputHTMLAttributes, type ReactNode } from "react";
 import {
   ArrowRight, BarChart3, Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, CreditCard, Link2, MapPin,
   Loader2, Mail, MessageCircle, Phone, ShieldCheck, UserRound, X, type LucideIcon
@@ -12,7 +12,7 @@ const ID_TYPES = ["Carte d’identité nationale", "Passeport", "Permis de condu
 
 const BENEFITS: Array<{ icon: LucideIcon; title: string; text: string; tone: string }> = [
   { icon: Link2, title: "Lien personnel", text: "Votre lien unique à partager.", tone: "bg-sky-100 text-[#0c4c9a]" },
-  { icon: CreditCard, title: "Commission par facture", text: "Une commission pour chaque facture admissible.", tone: "bg-orange-100 text-[#f05a1a]" },
+  { icon: CreditCard, title: "Commission par service", text: "Une commission pour chaque service admissible.", tone: "bg-orange-100 text-[#f05a1a]" },
   { icon: BarChart3, title: "Suivi de vos gains", text: "Consultez vos références et vos gains.", tone: "bg-sky-100 text-[#0c4c9a]" }
 ];
 
@@ -108,7 +108,7 @@ export default function AffiliationPage() {
               Devenez affilié à Standa Commercial.
             </h1>
             <p className="mt-5 text-[15px] font-normal leading-[1.7] text-[#50698e] sm:text-[17px]">
-              Partagez votre lien personnel. Recevez une commission pour chaque facture admissible.
+              Partagez votre lien personnel. Recevez une commission pour chaque utilisation admissible du service.
             </p>
           </div>
 
@@ -123,7 +123,7 @@ export default function AffiliationPage() {
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-sky-100 text-[#0d4b99]"><CircleHelp size={22} /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-[15px] font-semibold text-[#082861]">Comment fonctionne le programme?</span>
-            <span className="mt-0.5 block text-[12px] leading-relaxed text-[#627a9d]">Découvrez Standa, votre rôle, les étapes et les commissions.</span>
+            <span className="mt-0.5 block text-[12px] leading-relaxed text-[#627a9d]">Découvrez Standa, votre rôle, les utilisations du service et les commissions.</span>
           </span>
           <ChevronRight size={21} className="shrink-0 text-[#6380a6]" />
         </button>
@@ -226,7 +226,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
       <section className="mt-4">
         <h3 className="text-[17px] font-bold text-[#12386f]">Pourquoi ce programme existe?</h3>
         <p className="mt-1.5 text-[14px] leading-[1.7] text-[#516b90]">
-          Standa Commercial veut développer son réseau par la recommandation de personnes de confiance. Le programme récompense les affiliés lorsque les personnes qu’ils ont référées utilisent réellement le service et reçoivent une facture.
+          Standa Commercial veut développer son réseau par la recommandation de personnes de confiance. Le programme récompense les affiliés lorsque les personnes qu’ils ont référées utilisent réellement le service.
         </p>
       </section>
 
@@ -249,8 +249,8 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
         <ProgramStep number="2" title="Le client commence à utiliser le service">
           Lorsqu’un premier colis de ce client est ajouté au système, un signe « Service commencé » apparaît dans votre dossier. À cette étape, aucune commission n’est encore ajoutée.
         </ProgramStep>
-        <ProgramStep number="3" title="La facture déclenche la commission">
-          Lorsque Standa Commercial génère une facture pour ce client, la commission prévue au contrat est ajoutée automatiquement à votre compte. Exemple : si la commission est de 10 USD, vous voyez 10 USD à recevoir.
+        <ProgramStep number="3" title="Une utilisation confirmée ajoute votre commission">
+          Lorsqu’un client utilise le service — par exemple, pour une expédition prise en charge ou un règlement confirmé — la commission prévue au contrat est ajoutée automatiquement à votre compte. Exemple : si la commission est de 10 USD, vous voyez 10 USD à recevoir.
         </ProgramStep>
         <ProgramStep number="4" title="Vous suivez les paiements">
           Dans votre espace affilié, vous voyez vos clients, leurs étapes, les commissions à recevoir et les commissions déjà payées.
@@ -261,7 +261,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
         <h3 className="text-[14px] font-semibold text-[#0b3778]">À retenir</h3>
         <ul className="mt-2.5 space-y-2 text-[13px] leading-[1.55] text-[#4f6b91]">
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Créer un compte avec votre lien rattache le client à votre dossier, mais ne donne pas encore de commission.</li>
-          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />La commission est créée seulement après la génération d’une facture pour ce client, pendant que votre contrat est actif.</li>
+          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />La commission est créée lorsqu’une utilisation du service est confirmée, pendant que votre contrat est actif. Elle ne se calcule pas pour chaque colis séparément.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre rôle est de recommander et de partager votre lien. La réception, le suivi, la tarification et la remise des colis demeurent gérés par Standa Commercial.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre contrat dure trois mois. En cas de renouvellement, vous recevez un nouveau lien et de nouveaux accès.</li>
           <li className="flex gap-2"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre mot de passe et votre lien sont personnels : ne les partagez avec personne.</li>
@@ -299,9 +299,19 @@ function DropdownField({ icon: Icon, label, value, options, placeholder, disable
   onValueChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLSpanElement>(null);
   const selected = options.find((option) => option.value === value);
 
-  return <span className="relative block">
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!dropdownRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, [open]);
+
+  return <span ref={dropdownRef} className="relative block">
     <button
       type="button"
       aria-label={label}

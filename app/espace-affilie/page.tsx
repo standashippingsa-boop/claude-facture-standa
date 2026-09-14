@@ -185,7 +185,7 @@ export default function AffiliatePortalPage() {
 
 function ReferralClientRow({ client }: { client: Me["referredClients"][number] }) {
   const status = client.stage === "commission_added"
-    ? { icon: BadgeDollarSign, label: `Commission ajoutée · ${client.commission_total.toFixed(2)} USD`, tone: "bg-emerald-100 text-emerald-700", note: `${client.commission_count} facture${client.commission_count > 1 ? "s" : ""} facturée${client.commission_count > 1 ? "s" : ""}` }
+    ? { icon: BadgeDollarSign, label: `Commission ajoutée · ${client.commission_total.toFixed(2)} USD`, tone: "bg-emerald-100 text-emerald-700", note: `${client.commission_count} utilisation${client.commission_count > 1 ? "s" : ""} confirmée${client.commission_count > 1 ? "s" : ""}` }
     : client.stage === "service_started"
       ? { icon: PackageCheck, label: "Service commencé", tone: "bg-amber-100 text-amber-800", note: "Premier colis détecté" }
       : { icon: UserPlus, label: "Compte créé", tone: "bg-blue-50 text-blue-700", note: "En attente du premier colis" };
