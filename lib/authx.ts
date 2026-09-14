@@ -3,10 +3,11 @@ import { useEffect, useState } from "react";
 import { isSupabaseConfigured, supabase } from "./supabase";
 import { Staff, StaffRole } from "./types";
 import { normalizeMcCode } from "./utils";
+import { clientAuthEmail, clientAuthEmailCandidates } from "./client-auth";
 
 /** Username -> imèl sentetik (Supabase Auth mande imèl; kliyan pa janm wè sa) */
 export const staffEmail = (u: string) => `${u.trim().toLowerCase()}@staff.standacommercialsa.com`;
-export const clientEmail = (mc: string) => `${mc.trim().toLowerCase()}@client.standacommercialsa.com`;
+export const clientEmail = clientAuthEmail;
 
 export type ClientSignInFailure = "configuration" | "unconfirmed" | "network" | "invalid";
 export type ClientSignInResult = { ok: true } | { ok: false; reason: ClientSignInFailure };
@@ -24,17 +25,32 @@ export async function signInClientWithCode(inputCode: string, password: string):
 
   const raw = inputCode.trim();
   const normalized = normalizeMcCode(raw);
-  const candidates = Array.from(new Set([normalized, raw.toUpperCase(), raw].filter(Boolean)));
+  const candidates = clientAuthEmailCandidates(raw);
   let networkFailed = false;
   let unconfirmed = false;
 
-  for (const code of candidates) {
+  for (const email of candidates) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: clientEmail(code),
+        email,
         password
       });
-      if (!error && data.session) return { ok: true };
+      if (!error && data.session) {
+        // Un compte ancien peut encore utiliser l'ancienne forme technique du
+        // code MC. Après preuve du mot de passe, le serveur le remet sur la
+        // forme actuelle sans interrompre la connexion du client.
+        try {
+          await fetch("/api/client-auth/reconcile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: data.session.access_token, code: normalized }),
+          });
+        } catch {
+          // La session déjà validée reste utilisable même si la réparation est
+          // momentanément indisponible; elle sera rejouée à la prochaine connexion.
+        }
+        return { ok: true };
+      }
       const message = String(error?.message ?? "").toLowerCase();
       if (message.includes("not confirmed")) unconfirmed = true;
       if (message.includes("fetch") || message.includes("network") || message.includes("timeout")) networkFailed = true;
