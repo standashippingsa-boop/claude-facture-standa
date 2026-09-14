@@ -244,13 +244,13 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
 
       <ol className="mt-3 space-y-4" aria-label="Étapes du programme d’affiliation">
         <ProgramStep number="1" title="Votre client crée son compte avec votre lien">
-          Par exemple, Fadonal partage son lien à Natou. Dès que Natou ouvre un compte avec ce lien, elle apparaît dans l’espace de Fadonal avec le statut « Compte créé ».
+          Dès qu’une personne ouvre un compte avec votre lien, elle apparaît dans votre espace affilié avec le statut « Compte créé ».
         </ProgramStep>
         <ProgramStep number="2" title="Le client commence à utiliser le service">
-          Lorsqu’un premier colis de Natou est ajouté au système, un signe « Service commencé » apparaît dans le dossier de Fadonal. À cette étape, aucune commission n’est encore ajoutée.
+          Lorsqu’un premier colis de ce client est ajouté au système, un signe « Service commencé » apparaît dans votre dossier. À cette étape, aucune commission n’est encore ajoutée.
         </ProgramStep>
         <ProgramStep number="3" title="La facture déclenche la commission">
-          Lorsque Standa Commercial génère une facture pour Natou, la commission prévue au contrat est ajoutée automatiquement au compte de Fadonal. Exemple : si la commission est de 10 USD, Fadonal voit 10 USD à recevoir.
+          Lorsque Standa Commercial génère une facture pour ce client, la commission prévue au contrat est ajoutée automatiquement à votre compte. Exemple : si la commission est de 10 USD, vous voyez 10 USD à recevoir.
         </ProgramStep>
         <ProgramStep number="4" title="Vous suivez les paiements">
           Dans votre espace affilié, vous voyez vos clients, leurs étapes, les commissions à recevoir et les commissions déjà payées.
