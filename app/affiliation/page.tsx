@@ -275,7 +275,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
       </ol>
 
       <section className="mt-5 rounded-2xl border border-orange-100 bg-orange-50/70 p-4">
-        <h3 className="text-[15px] font-semibold text-[#9a3a0e]">Comment la commission est comptée</h3>
+        <h3 className="text-[15px] font-semibold text-[#9a3a0e]">Comment la commission est comptée?</h3>
         <p className="mt-1.5 text-[13px] leading-[1.65] text-[#8a542f]">
           La commission ne se calcule pas pour chaque colis pris séparément. Elle correspond à une utilisation confirmée du service par un client que vous avez référé. Si plusieurs colis font partie de la même utilisation, ils ne créent pas plusieurs commissions. Si ce client utilise Standa Commercial de nouveau dans une autre utilisation confirmée, une nouvelle commission peut être ajoutée selon les conditions de votre contrat.
         </p>
