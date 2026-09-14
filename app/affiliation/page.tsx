@@ -123,7 +123,7 @@ export default function AffiliationPage() {
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-sky-100 text-[#0d4b99]"><CircleHelp size={22} /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-[15px] font-semibold text-[#082861]">Comment fonctionne le programme?</span>
-            <span className="mt-0.5 block text-[12px] leading-relaxed text-[#627a9d]">Étapes, commission, contrat et accès à votre espace.</span>
+            <span className="mt-0.5 block text-[12px] leading-relaxed text-[#627a9d]">Découvrez Standa, votre rôle, les étapes et les commissions.</span>
           </span>
           <ChevronRight size={21} className="shrink-0 text-[#6380a6]" />
         </button>
@@ -211,16 +211,38 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[.15em] text-[#ff671d]">Guide du programme</p>
-          <h2 id="programme-explique" className="mt-2 text-[25px] font-bold leading-[1.18] tracking-[-.02em] text-[#082861] sm:text-[30px]">Comment fonctionne l’affiliation?</h2>
+          <h2 id="programme-explique" className="mt-2 text-[25px] font-bold leading-[1.18] tracking-[-.02em] text-[#082861] sm:text-[30px]">Le programme d’affiliation, en détail</h2>
         </div>
         <button type="button" onClick={onClose} aria-label="Fermer" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-[#385778] transition hover:bg-slate-200"><X size={20} /></button>
       </div>
 
-      <p className="mt-4 text-[14px] leading-[1.7] text-[#516b90] sm:text-[15px]">
-        Vous recommandez Standa Commercial grâce à votre lien personnel. Le système suit chaque étape, sans vous attribuer de commission avant qu’un client ait réellement utilisé le service.
-      </p>
+      <section className="mt-4 rounded-2xl bg-[#0b3675] p-4 text-white">
+        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-sky-200">Standa Commercial, c’est quoi?</p>
+        <p className="mt-2 text-[14px] leading-[1.7] text-white/90">
+          Standa Commercial est un service d’expédition de colis des États-Unis vers Haïti. Le client reçoit une adresse de dépôt à Miami et un code personnel, suit ses colis, puis les récupère dans son agence en Haïti.
+        </p>
+      </section>
 
-      <ol className="mt-5 space-y-4" aria-label="Étapes du programme d’affiliation">
+      <section className="mt-4">
+        <h3 className="text-[17px] font-bold text-[#12386f]">Pourquoi ce programme existe?</h3>
+        <p className="mt-1.5 text-[14px] leading-[1.7] text-[#516b90]">
+          Standa Commercial veut développer son réseau par la recommandation de personnes de confiance. Le programme récompense les affiliés lorsque les personnes qu’ils ont référées utilisent réellement le service et reçoivent une facture.
+        </p>
+      </section>
+
+      <section className="mt-4 rounded-2xl border border-[#d7e7fb] bg-[#f7fbff] p-4">
+        <h3 className="text-[15px] font-semibold text-[#0b3778]">Ce que vous aurez comme affilié</h3>
+        <ul className="mt-2.5 space-y-2 text-[13px] leading-[1.55] text-[#4f6b91]">
+          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Un lien personnel à partager avec les personnes que vous recommandez.</li>
+          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Un espace affilié pour voir les comptes créés avec votre lien et leur progression.</li>
+          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Le suivi des commissions à recevoir et des commissions déjà payées.</li>
+          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Les dates de votre contrat, vos accès et les conditions appliquées à votre entente.</li>
+        </ul>
+      </section>
+
+      <h3 className="mt-5 text-[17px] font-bold text-[#12386f]">Voici exactement ce qui se passe</h3>
+
+      <ol className="mt-3 space-y-4" aria-label="Étapes du programme d’affiliation">
         <ProgramStep number="1" title="Votre client crée son compte avec votre lien">
           Par exemple, Fadonal partage son lien à Natou. Dès que Natou ouvre un compte avec ce lien, elle apparaît dans l’espace de Fadonal avec le statut « Compte créé ».
         </ProgramStep>
@@ -240,6 +262,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
         <ul className="mt-2.5 space-y-2 text-[13px] leading-[1.55] text-[#4f6b91]">
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Créer un compte avec votre lien rattache le client à votre dossier, mais ne donne pas encore de commission.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />La commission est créée seulement après la génération d’une facture pour ce client, pendant que votre contrat est actif.</li>
+          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre rôle est de recommander et de partager votre lien. La réception, le suivi, la tarification et la remise des colis demeurent gérés par Standa Commercial.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre contrat dure trois mois. En cas de renouvellement, vous recevez un nouveau lien et de nouveaux accès.</li>
           <li className="flex gap-2"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre mot de passe et votre lien sont personnels : ne les partagez avec personne.</li>
         </ul>
