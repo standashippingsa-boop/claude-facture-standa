@@ -226,7 +226,17 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
       <section className="mt-4">
         <h3 className="text-[17px] font-bold text-[#12386f]">Pourquoi ce programme existe?</h3>
         <p className="mt-1.5 text-[14px] leading-[1.7] text-[#516b90]">
-          Standa Commercial veut développer son réseau par la recommandation de personnes de confiance. Le programme récompense les affiliés lorsque les personnes qu’ils ont référées utilisent réellement le service.
+          Standa Commercial veut développer son réseau par la recommandation de personnes de confiance. Le programme permet à un affilié de faire connaître le service dans son entourage, tout en recevant une commission lorsque les personnes qu’il a référées utilisent réellement le service.
+        </p>
+      </section>
+
+      <section className="mt-4 rounded-2xl border border-[#e0eaf7] bg-white p-4 shadow-sm">
+        <h3 className="text-[15px] font-semibold text-[#0b3778]">Avant de commencer</h3>
+        <p className="mt-1.5 text-[13px] leading-[1.65] text-[#4f6b91]">
+          Vous soumettez d’abord votre demande. Après l’approbation, vous recevez vos accès, votre lien personnel et votre contrat. C’est ce lien qui permet au système de reconnaître automatiquement les nouveaux clients que vous avez référés.
+        </p>
+        <p className="mt-2 text-[13px] leading-[1.65] text-[#4f6b91]">
+          Pour être associé à votre dossier, le client doit ouvrir son compte à partir de votre lien. Votre espace vous permet ensuite de voir son avancement sans avoir à demander une vérification à l’équipe.
         </p>
       </section>
 
@@ -240,29 +250,43 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
         </ul>
       </section>
 
+      <section className="mt-4">
+        <h3 className="text-[17px] font-bold text-[#12386f]">Votre rôle comme affilié</h3>
+        <p className="mt-1.5 text-[14px] leading-[1.7] text-[#516b90]">
+          Votre rôle est simple : présenter Standa Commercial, partager votre lien et accompagner votre contact jusqu’à son inscription. Standa Commercial garde la responsabilité de l’adresse de Miami, de la réception, du suivi, de la tarification, des paiements et de la remise des colis.
+        </p>
+      </section>
+
       <h3 className="mt-5 text-[17px] font-bold text-[#12386f]">Voici exactement ce qui se passe</h3>
 
       <ol className="mt-3 space-y-4" aria-label="Étapes du programme d’affiliation">
         <ProgramStep number="1" title="Votre client crée son compte avec votre lien">
-          Dès qu’une personne ouvre un compte avec votre lien, elle apparaît dans votre espace affilié avec le statut « Compte créé ».
+          Le client clique sur votre lien, puis remplit son inscription. Dès que son compte est créé, il apparaît dans votre espace avec le statut « Compte créé ». Il est bien rattaché à votre dossier, mais aucune commission n’est encore créée à cette étape.
         </ProgramStep>
         <ProgramStep number="2" title="Le client commence à utiliser le service">
-          Lorsqu’un premier colis de ce client est ajouté au système, un signe « Service commencé » apparaît dans votre dossier. À cette étape, aucune commission n’est encore ajoutée.
+          Le client reçoit son adresse de dépôt à Miami et son code personnel. Lorsqu’il envoie un premier colis à cette adresse et que le colis est pris en charge dans le système, un signe « Service commencé » apparaît dans votre dossier. Vous savez alors qu’il utilise réellement Standa Commercial.
         </ProgramStep>
         <ProgramStep number="3" title="Une utilisation confirmée ajoute votre commission">
-          Lorsqu’un client utilise le service — par exemple, pour une expédition prise en charge ou un règlement confirmé — la commission prévue au contrat est ajoutée automatiquement à votre compte. Exemple : si la commission est de 10 USD, vous voyez 10 USD à recevoir.
+          Lorsqu’une utilisation du service est confirmée par les opérations de Standa Commercial — par exemple, lors d’une expédition prise en charge ou d’un règlement confirmé — la commission prévue au contrat est ajoutée automatiquement à votre compte. Exemple : si la commission est de 10 USD, vous voyez 10 USD à recevoir.
         </ProgramStep>
         <ProgramStep number="4" title="Vous suivez les paiements">
-          Dans votre espace affilié, vous voyez vos clients, leurs étapes, les commissions à recevoir et les commissions déjà payées.
+          Dans votre espace affilié, vous voyez le nom et le code du client, son étape actuelle, les commissions à recevoir et les commissions déjà payées. La liste se met à jour automatiquement : vous n’avez pas besoin de créer ces suivis à la main.
         </ProgramStep>
       </ol>
+
+      <section className="mt-5 rounded-2xl border border-orange-100 bg-orange-50/70 p-4">
+        <h3 className="text-[15px] font-semibold text-[#9a3a0e]">Comment la commission est comptée</h3>
+        <p className="mt-1.5 text-[13px] leading-[1.65] text-[#8a542f]">
+          La commission ne se calcule pas pour chaque colis pris séparément. Elle correspond à une utilisation confirmée du service par un client que vous avez référé. Si plusieurs colis font partie de la même utilisation, ils ne créent pas plusieurs commissions. Si ce client utilise Standa Commercial de nouveau dans une autre utilisation confirmée, une nouvelle commission peut être ajoutée selon les conditions de votre contrat.
+        </p>
+      </section>
 
       <div className="mt-5 rounded-2xl border border-[#d7e7fb] bg-[#eef7ff] p-4">
         <h3 className="text-[14px] font-semibold text-[#0b3778]">À retenir</h3>
         <ul className="mt-2.5 space-y-2 text-[13px] leading-[1.55] text-[#4f6b91]">
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Créer un compte avec votre lien rattache le client à votre dossier, mais ne donne pas encore de commission.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />La commission est créée lorsqu’une utilisation du service est confirmée, pendant que votre contrat est actif. Elle ne se calcule pas pour chaque colis séparément.</li>
-          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre rôle est de recommander et de partager votre lien. La réception, le suivi, la tarification et la remise des colis demeurent gérés par Standa Commercial.</li>
+          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Vous n’avez pas à gérer les colis, les montants ou les remises : Standa Commercial s’en charge.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Les modalités de votre entente et de son renouvellement sont indiquées dans votre contrat.</li>
           <li className="flex gap-2"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre mot de passe et votre lien sont personnels : ne les partagez avec personne.</li>
         </ul>
