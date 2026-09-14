@@ -236,7 +236,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Un lien personnel à partager avec les personnes que vous recommandez.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Un espace affilié pour voir les comptes créés avec votre lien et leur progression.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Le suivi des commissions à recevoir et des commissions déjà payées.</li>
-          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Les dates de votre contrat, vos accès et les conditions appliquées à votre entente.</li>
+          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Vos accès et votre contrat, qui présente les conditions de votre entente.</li>
         </ul>
       </section>
 
@@ -263,7 +263,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Créer un compte avec votre lien rattache le client à votre dossier, mais ne donne pas encore de commission.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />La commission est créée lorsqu’une utilisation du service est confirmée, pendant que votre contrat est actif. Elle ne se calcule pas pour chaque colis séparément.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre rôle est de recommander et de partager votre lien. La réception, le suivi, la tarification et la remise des colis demeurent gérés par Standa Commercial.</li>
-          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre contrat dure trois mois. En cas de renouvellement, vous recevez un nouveau lien et de nouveaux accès.</li>
+          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Les modalités de votre entente et de son renouvellement sont indiquées dans votre contrat.</li>
           <li className="flex gap-2"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Votre mot de passe et votre lien sont personnels : ne les partagez avec personne.</li>
         </ul>
       </div>
