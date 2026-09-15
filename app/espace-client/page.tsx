@@ -472,15 +472,22 @@ export default function EspaceClientPage() {
     const totalFacture = round2(facturedItems.reduce((s, p) => s + (Number(p.total_usd) || 0), 0));
     const est = nonFacturedItems.length ? estimation(nonFacturedItems) : null;
     return (
-      <div className="card p-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
+      <div className="relative overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-br from-white via-white to-sky-50/70 p-4 shadow-[0_14px_30px_-24px_rgba(14,83,172,.45)]">
+        <span aria-hidden className="absolute -right-9 -top-9 h-24 w-24 rounded-full bg-sky-100/65" />
+        <div className="relative grid grid-cols-2 gap-3">
+          <div className="flex items-start gap-2.5">
+            <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#eaf4ff] text-[#1466b8]"><PackageCheck size={17} /></span>
+            <div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-mute">Total des colis</p>
             <p className="text-2xl font-extrabold text-ink leading-tight">{list.length}</p>
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-mute">Poids total</p>
-            <p className="text-2xl font-extrabold text-ink leading-tight">{w.toFixed(2)} <span className="text-sm">lb</span></p>
+          <div className="flex items-start justify-end gap-2.5 text-right">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-mute">Poids total</p>
+              <p className="text-2xl font-extrabold text-ink leading-tight">{w.toFixed(2)} <span className="text-sm">lb</span></p>
+            </div>
+            <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#eaf4ff] text-[#1466b8]"><Route size={17} /></span>
           </div>
         </div>
         {facturedItems.length > 0 && totalFacture > 0 && (
@@ -559,6 +566,37 @@ export default function EspaceClientPage() {
       </section>
     );
   };
+
+  /** Illustration Miami : pure CSS + icônes, sans image lourde ni donnée métier. */
+  const MiamiParcelArt = ({ count }: { count: number }) => (
+    <div aria-hidden className="relative h-[120px] w-[132px] shrink-0 overflow-visible sm:h-[132px] sm:w-[146px]">
+      <span className="absolute -right-6 -top-6 h-28 w-28 rounded-full border border-sky-100 bg-white/60" />
+      <span className="absolute right-3 top-5 grid h-16 w-20 place-items-center rounded-2xl border border-sky-200 bg-white text-[#1466b8] shadow-[0_14px_26px_-18px_rgba(14,83,172,.55)]"><Store size={29} strokeWidth={1.7} /></span>
+      <span className="absolute right-9 top-[13px] h-2.5 w-8 rounded-t-md bg-[#1466b8]" />
+      <span className="absolute bottom-3 right-0 h-[61px] w-[68px] rotate-[-7deg] rounded-xl border border-[#e9b97d] bg-gradient-to-br from-[#ffdfae] via-[#e5a35d] to-[#bd7137] shadow-[0_15px_22px_rgba(14,83,172,.2)]" />
+      <span className="absolute bottom-[29px] right-[30px] h-[62px] w-2 rotate-[-7deg] bg-[#fff1d4]/90" />
+      <span className="absolute bottom-[31px] right-[17px] h-[16px] w-[31px] rotate-[-7deg] rounded bg-white/90" />
+      <span className="absolute bottom-0 left-1 grid h-12 w-12 place-items-center rounded-2xl border border-white bg-[#1466b8] text-white shadow-lg shadow-blue-900/20"><Truck size={23} strokeWidth={1.8} /></span>
+      <span className="absolute bottom-1 left-[39px] grid h-7 min-w-7 place-items-center rounded-full border-2 border-[#1466b8] bg-white px-1 text-[11px] font-black text-[#1466b8] shadow-sm">{count}</span>
+    </div>
+  );
+
+  /** En-tête illustré de la page Miami — présentation seulement. */
+  const MiamiHero = ({ count }: { count: number }) => (
+    <section className="relative overflow-hidden rounded-[28px] border border-sky-100 bg-gradient-to-br from-[#eaf6ff] via-white to-[#dff2ff] p-4 shadow-[0_18px_36px_-28px_rgba(14,83,172,.55)] sm:p-5">
+      <span aria-hidden className="absolute -left-12 -bottom-14 h-40 w-40 rounded-full bg-sky-200/45 blur-2xl" />
+      <span aria-hidden className="absolute right-24 top-0 h-px w-28 rotate-[28deg] bg-sky-200/80" />
+      <div className="relative flex min-h-[122px] items-center justify-between gap-3">
+        <div className="min-w-0 py-1">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.13em] text-[#1466b8] shadow-sm"><Sparkles size={12} /> Entrepôt Miami</span>
+          <h2 className="mt-3 text-[21px] font-black leading-tight tracking-[-.035em] text-[#0b3977]">Vos colis sont suivis</h2>
+          <p className="mt-1.5 max-w-[194px] text-[12px] leading-relaxed text-slate-500">{count === 1 ? "Un colis est actuellement dans le parcours STANDA." : `${count} colis sont actuellement dans le parcours STANDA.`}</p>
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#dbeeff] px-2.5 py-1.5 text-[11px] font-semibold text-[#145ca8]"><Route size={13} /> Suivi clair à chaque étape</span>
+        </div>
+        <MiamiParcelArt count={count} />
+      </div>
+    </section>
+  );
 
   const AvailableEmpty = () => (
     <div className="relative overflow-hidden rounded-[28px] border border-sky-100 bg-gradient-to-b from-sky-50 to-white px-6 py-10 text-center shadow-sm">
@@ -869,6 +907,7 @@ export default function EspaceClientPage() {
             <SubHeader title="Miami" sub="Colis reçus à notre entrepôt · en attente de facturation" />
             {autres.length === 0 ? <Empty t="Aucun colis reçu à Miami ou en acheminement pour le moment." /> : (
               <>
+                <MiamiHero count={autres.length} />
                 <Totaux list={autres} />
                 <div className="space-y-3">
                   {autres.map((p) => <PkgCard key={p.id} p={p} />)}
