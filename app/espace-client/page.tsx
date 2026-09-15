@@ -25,7 +25,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, ChevronDown, ChevronLeft,
+  AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, ChevronDown, ChevronLeft, CircleCheck,
   ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
   MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, ShieldCheck, Sparkles, Store, Truck, X
 } from "lucide-react";
@@ -721,6 +721,11 @@ export default function EspaceClientPage() {
             {!check && <StatusBadge status={p.status} />}
           </div>
           <div className="mt-2.5"><StatusTimeline status={p.status} compact /></div>
+          {p.status === "Livré" && (
+            <div className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
+              <CircleCheck size={15} strokeWidth={2.4} /> Livraison terminée
+            </div>
+          )}
           <div className="flex items-center justify-between gap-2 mt-2.5">
             <span className="text-xs text-mute truncate">{p.content || "—"}</span>
             <span className="text-xs font-semibold text-ink shrink-0">
