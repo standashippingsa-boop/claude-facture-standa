@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { Spinner, SuccessCheck } from "@/components/Loader";
+import { Spinner } from "@/components/Loader";
 
 /**
  * BOUTON ACTUALISER + MIZAJOU OTOMATIK — STANDA COMMERCIAL (v3)
@@ -40,7 +40,6 @@ export default function RefreshButton({
   autoMs?: number;
 }) {
   const [busy, setBusy] = useState(false);
-  const [ok, setOk] = useState(false);
   /** Refs: listeners yo li valè aktyèl la san yo pa re-atache chak rann. */
   const running = useRef(false);
   const fn = useRef(onRefresh);
@@ -83,28 +82,21 @@ export default function RefreshButton({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoMs]);
 
-  /** Peze bouton an: la nou MONTRE sa k ap pase. */
-  const click = async () => {
+  /**
+   * Peze bouton an: se yon vrè rechargement navigatè a, menm jan ak bouton
+   * reload Chrome. Sa rekreye paj la nèt epi rekòmanse tout lekti done yo.
+   * Mizajou otomatik yo rete lejè epi kontinye sèvi ak `onRefresh` an silans.
+   */
+  const click = () => {
     if (busy || running.current) return;
-    setBusy(true); setOk(false);
-    running.current = true;
-    const t0 = Date.now();
-    try {
-      await fn.current();
-      // Si done yo desann twò vit, ilustrasyon an ta klere yon frap je epi
-      // ou pa ta wè anyen. Nou kenbe l vizib omwen 600 ms.
-      const reste = 600 - (Date.now() - t0);
-      if (reste > 0) await new Promise((r) => setTimeout(r, reste));
-      setOk(true);
-      setTimeout(() => setOk(false), 1800);
-    } catch { /* paj la jere pwòp erè li */ }
-    finally { running.current = false; setBusy(false); }
+    setBusy(true);
+    window.location.reload();
   };
 
   return (
     <button onClick={click} disabled={busy} title="Mettre à jour les données"
       className="btn btn-ghost border border-line !py-1.5 !px-3 !text-xs disabled:opacity-60">
-      {busy ? <Spinner size={15} /> : ok ? <SuccessCheck size={16} /> : <RefreshCw size={14} />}
+      {busy ? <Spinner size={15} /> : <RefreshCw size={14} />}
       {label}
     </button>
   );

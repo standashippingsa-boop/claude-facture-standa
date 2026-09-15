@@ -242,11 +242,10 @@ export default function EspaceClientPage() {
    * an (koli yo pa disparèt), yo ranplase sèlman lè nouvo yo fin desann.
    * Ilustrasyon an ap vire jiskaske li fini, epi ✅ vèt la parèt.
    */
-  const refresh = async () => {
+  const refresh = () => {
     if (refreshing) return;
     setRefreshing(true);
-    try { await load(); setToast("Mise à jour effectuée"); }
-    finally { setRefreshing(false); }
+    window.location.reload();
   };
   const logout = async () => { await supabase.auth.signOut(); router.replace("/espace-client/connexion"); };
 

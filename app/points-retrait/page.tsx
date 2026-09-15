@@ -123,7 +123,7 @@ export default function PointsRetraitPage() {
   };
 
   return <div className="space-y-5 pb-10">
-    <div className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="h-page flex items-center gap-2"><Truck size={22} /> Points de retrait</h1><p className="mt-0.5 text-sm text-mute">Contrôle des paiements, colis remis et colis restants par zone.</p></div><button onClick={() => void load()} className="btn btn-ghost inline-flex items-center gap-2"><RefreshCw size={16} />Actualiser</button></div>
+    <div className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="h-page flex items-center gap-2"><Truck size={22} /> Points de retrait</h1><p className="mt-0.5 text-sm text-mute">Contrôle des paiements, colis remis et colis restants par zone.</p></div><button onClick={() => window.location.reload()} className="btn btn-ghost inline-flex items-center gap-2"><RefreshCw size={16} />Actualiser</button></div>
     <section className="card p-4"><label className="block max-w-md"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Point / ville</span><select value={villeId} onChange={(event) => setVilleId(event.target.value)} className="input mt-1"><option value="">Choisir une ville</option>{villes.filter((city) => city.active).map((city) => <option key={city.id} value={city.id}>{city.name}</option>)}</select></label></section>
     {notice && <p className="card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</p>}
     {loading ? <div className="card p-10 text-center text-sm text-slate-500">Chargement…</div> : !villeId ? <div className="card p-10 text-center text-sm text-slate-500">Choisissez un point de retrait.</div> : <>
