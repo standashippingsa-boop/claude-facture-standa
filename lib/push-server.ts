@@ -9,9 +9,14 @@ import webpush from "web-push";
  */
 export interface SupabaseAdminConfig { url: string; key: string; }
 
+/** Kle piblik la se yon valè piblik: sèvè a reutilize menm valè kliyan an. */
+function vapidPublicKey(): string {
+  return process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
+}
+
 /** Konfigire VAPID yon sèl fwa; retounen false si kle yo pa mete (Vercel). */
 function vapidReady(): boolean {
-  return !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+  return !!(vapidPublicKey() && process.env.VAPID_PRIVATE_KEY);
 }
 
 export async function sendPushToCustomer(
@@ -20,7 +25,7 @@ export async function sendPushToCustomer(
   if (!vapidReady() || !customerCode) return 0;
   webpush.setVapidDetails(
     process.env.VAPID_SUBJECT || "mailto:notifications@standacommercialsa.com",
-    process.env.VAPID_PUBLIC_KEY!, process.env.VAPID_PRIVATE_KEY!
+    vapidPublicKey(), process.env.VAPID_PRIVATE_KEY!
   );
 
   const svc = createClient(config.url, config.key, { auth: { persistSession: false } });
