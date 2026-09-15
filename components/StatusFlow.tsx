@@ -1,5 +1,4 @@
 "use client";
-import { Check } from "lucide-react";
 import { INTERNAL_STATUSES } from "@/lib/types";
 
 /**
@@ -58,13 +57,11 @@ export function StatusTimeline({ status, compact = false }: {
         return (
           <div key={s} className="flex items-center flex-1 last:flex-none">
             <div className="flex flex-col items-center">
-              <div className={`flex items-center justify-center rounded-full transition-colors ${
-                compact ? "w-5 h-5" : "w-7 h-7"} ${
-                current ? "bg-brand text-white ring-4 ring-brand-light"
-                  : done ? "bg-brand text-white"
-                  : "bg-slate-200 text-slate-400"}`}>
-                {done || current ? <Check size={compact ? 11 : 14} /> : <span className={`rounded-full ${compact ? "w-1.5 h-1.5" : "w-2 h-2"} bg-current`} />}
-              </div>
+              <span className={`block rounded-full transition-all ${
+                compact ? "h-3 w-3" : "h-4 w-4"} ${
+                current ? "bg-brand ring-4 ring-brand-light"
+                  : done ? "bg-brand"
+                  : "bg-slate-200"}`} />
               {!compact && (
                 <span className={`mt-1.5 text-[10px] text-center leading-tight max-w-[64px] ${
                   reached ? "text-ink font-semibold" : "text-mute"}`}>{s}</span>
