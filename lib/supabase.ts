@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
  * rete konekte nan yon onglet pandan yon ajan retrè konekte nan yon lòt,
  * san youn pa ranplase kont lòt la.
  */
-export type AuthRealm = "admin" | "employe" | "agent_retrait" | "client";
+export type AuthRealm = "admin" | "employe" | "agent_retrait" | "agent_reception" | "client";
 const AUTH_REALM_KEY = "standa:auth-realm";
 const PORTAL_HISTORY_KEY_PREFIX = "standa:portal-history-boundary:";
 
@@ -18,7 +18,7 @@ function activeAuthRealm() {
 /** Espace actif dans cet onglet (jamais partagé avec un nouvel onglet). */
 export function getAuthRealm(): AuthRealm | null {
   const realm = activeAuthRealm();
-  return realm === "admin" || realm === "employe" || realm === "agent_retrait" || realm === "client" ? realm : null;
+  return realm === "admin" || realm === "employe" || realm === "agent_retrait" || realm === "agent_reception" || realm === "client" ? realm : null;
 }
 
 export function setAuthRealm(realm: AuthRealm) {

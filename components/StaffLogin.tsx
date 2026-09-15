@@ -69,7 +69,9 @@ export default function StaffLogin({
           ? "administration"
           : requiredRole === "employe"
             ? "employés"
-            : "point de retrait";
+            : requiredRole === "agent_reception"
+              ? "réception"
+              : "point de retrait";
         setErr(`Ce lien est réservé à l’espace ${roleName}. Utilisez le lien correspondant à votre fonction.`);
         return;
       }

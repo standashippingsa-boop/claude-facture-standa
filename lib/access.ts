@@ -12,6 +12,7 @@ import { StaffRole } from "./types";
  *                MEN pa Paramètres/Tarification/Taxes/Utilisateurs/API/Sécurité
  *   - "client" : Kliyan — sèlman espas pèsonèl li (/espace-client)
  *   - "agent_retrait": ajan pwen rekiperasyon — sèlman /espace-remise
+ *   - "agent_reception": ajan resepsyon (antre Conduce + chèche kliyan) — sèlman /reception
  *
  * ⚠️ Sekirite reyèl la se sou SÈVÈ a (admin-auth valide wòl la). Gad sa a se
  * pou eksperyans + bloke navigasyon dirèk. Nou pa retire okenn gad ki egziste.
@@ -31,7 +32,7 @@ export type AppRole = StaffRole | "client";
  */
 export const PUBLIC_PREFIXES = [
   // 3 LYEN OFISYÈL YO: /admin-login (admin) · /login (kliyan) · /employe (anplwaye)
-  "/login", "/admin-login", "/employe", "/setup",
+  "/login", "/admin-login", "/employe", "/setup", "/reception-login",
   "/inscription",                       // ansyen lyen -> redirije sou /login?tab=signup
   "/reset-password", "/nouveau-mot-de-passe", "/confidentialite",
   "/espace-client/connexion",            // koneksyon APLIKASYON an (anndan scope PWA)
@@ -57,6 +58,9 @@ export const CLIENT_PREFIXES = ["/espace-client"];
 
 /** Paj travay ajan remiz yo. Pa mete paj koneksyon an isit la: li piblik. */
 export const PICKUP_AGENT_PREFIXES = ["/espace-remise"];
+
+/** Paj travay ajan resepsyon an (Conduce + chèche kliyan). Pòt koneksyon an piblik. */
+export const RECEPTION_AGENT_PREFIXES = ["/reception"];
 
 /**
  * Paj ADMIN sèlman (Employé bloke). Tout lòt paj staff yo louvri pou
@@ -90,6 +94,11 @@ export function isPickupAgentPath(path: string): boolean {
   return underPrefix(path, PICKUP_AGENT_PREFIXES);
 }
 
+/** Èske se espas ki rezève pou ajan resepsyon an? */
+export function isReceptionAgentPath(path: string): boolean {
+  return underPrefix(path, RECEPTION_AGENT_PREFIXES);
+}
+
 /** Èske chemen sa a admin-sèlman? */
 export function isAdminOnlyPath(path: string): boolean {
   return underPrefix(path, ADMIN_ONLY_PREFIXES);
@@ -109,6 +118,7 @@ export function resolveAccess(path: string, role: AppRole | null): {
   if (!role) {
     if (isClientPath(path)) return { allowed: false, redirect: "/login" };
     if (isPickupAgentPath(path)) return { allowed: false, redirect: "/point-retrait" };
+    if (isReceptionAgentPath(path)) return { allowed: false, redirect: "/reception-login" };
     return { allowed: false, redirect: "/admin-login" };
   }
 
@@ -119,6 +129,7 @@ export function resolveAccess(path: string, role: AppRole | null): {
     // Si kliyan an tape lyen ajan an, pa fè l retounen nan app kliyan an.
     // Nou voye l sou pòt koneksyon ajan an, ki rete deyò PWA kliyan an.
     if (isPickupAgentPath(path)) return { allowed: false, redirect: "/point-retrait" };
+    if (isReceptionAgentPath(path)) return { allowed: false, redirect: "/reception-login" };
     return { allowed: false, redirect: "/espace-client" };
   }
 
@@ -130,11 +141,21 @@ export function resolveAccess(path: string, role: AppRole | null): {
     return { allowed: false, redirect: "/espace-remise" };
   }
 
+  // Ajan resepsyon an: sèlman /reception, menm rezònman ak ajan remiz la.
+  if (role === "agent_reception") {
+    if (isReceptionAgentPath(path)) return { allowed: true, redirect: null };
+    if (isClientPath(path)) return { allowed: false, redirect: "/login" };
+    return { allowed: false, redirect: "/reception" };
+  }
+
   // Staff (admin/employe) pa gen dwa nan espas kliyan an
   if (isClientPath(path)) return { allowed: false, redirect: "/login" };
 
   // Espas remiz la se ekran ajan an sèlman.
   if (isPickupAgentPath(path)) return { allowed: false, redirect: "/point-retrait" };
+
+  // Espas resepsyon an se ekran ajan resepsyon an sèlman.
+  if (isReceptionAgentPath(path)) return { allowed: false, redirect: "/reception-login" };
 
   // Admin: tout paj staff
   if (role === "admin") return { allowed: true, redirect: null };

@@ -115,10 +115,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   '/login': true, '/inscription': true, '/confidentialite': true,
                   '/reset-password': true, '/nouveau-mot-de-passe': true,
                   '/admin-login': true, '/employe': true, '/point-retrait': true,
-                  '/setup': true
+                  '/reception-login': true, '/setup': true
                 };
-                var homes = { client: '/espace-client', agent_retrait: '/espace-remise', admin: '/dashboard', employe: '/dashboard' };
-                var gates = { client: '/espace-client/connexion', agent_retrait: '/point-retrait', admin: '/admin-login', employe: '/employe' };
+                var homes = { client: '/espace-client', agent_retrait: '/espace-remise', agent_reception: '/reception', admin: '/dashboard', employe: '/dashboard' };
+                var gates = { client: '/espace-client/connexion', agent_retrait: '/point-retrait', agent_reception: '/reception-login', admin: '/admin-login', employe: '/employe' };
                 if (realm && homes[realm] && publicPages[path] && path !== gates[realm]) {
                   window.location.replace(homes[realm]);
                   return;

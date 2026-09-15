@@ -327,10 +327,13 @@ export interface RetraitItem {
 // ===== v9: Authentication =====
 /**
  * `agent_retrait` se moun ki remèt koli nan yon pwen rekiperasyon.
- * Li pa antre nan `is_staff()` nan bazdone a: li itilize sèlman yon route
- * sèvè ki bay li kantite enfòmasyon ki nesesè pou remèt yon koli.
+ * `agent_reception` se moun ki resevwa machandiz la lè l rive an Ayiti epi
+ * ki antre nimewo Conduce yo — li bezwen jwenn non/zòn yon kliyan ak konbyen
+ * koli li gen k ap soti Miami lè yon kòd kliyan parèt etranj sou yon pakè.
+ * Ni youn ni lòt pa antre nan `is_staff()` nan bazdone a: yo itilize sèlman
+ * yon wout sèvè ki bay yo kantite enfòmasyon ki nesesè pou travay yo.
  */
-export type StaffRole = "admin" | "employe" | "agent_retrait";
+export type StaffRole = "admin" | "employe" | "agent_retrait" | "agent_reception";
 export interface Staff {
   id?: string;
   auth_user_id?: string | null;

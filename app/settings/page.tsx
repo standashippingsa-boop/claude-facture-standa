@@ -444,13 +444,19 @@ export default function SettingsPage() {
 }
 
 // ================= EMPLOYÉS (v9 — admin sèlman) =================
+const ROLE_LOGIN_PATH: Record<string, string> = {
+  admin: "/admin-login", agent_retrait: "/point-retrait", agent_reception: "/reception-login", employe: "/employe"
+};
+const ROLE_LABEL: Record<string, string> = {
+  admin: "Administrateur", agent_retrait: "Agent de remise", agent_reception: "Agent de réception", employe: "Employé"
+};
 function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
   const [list, setList] = useState<Staff[]>([]);
   const [zones, setZones] = useState<Ville[]>([]);
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [f, setF] = useState({ nom: "", prenom: "", email: "", phone: "", id_number: "",
-    username: "", password: "", role: "employe" as "employe" | "admin" | "agent_retrait", pickup_ville_id: "" });
+    username: "", password: "", role: "employe" as "employe" | "admin" | "agent_retrait" | "agent_reception", pickup_ville_id: "" });
   const [photo, setPhoto] = useState<File | null>(null);
   const [resetting, setResetting] = useState<Staff | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -483,8 +489,8 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
       }
       const j = await adminApi("create_staff", { ...f, id_photo_url });
       if (!j.ok) { onNotice("Erè: " + j.reason); return; }
-      const loginPath = f.role === "admin" ? "/admin-login" : f.role === "agent_retrait" ? "/point-retrait" : "/employe";
-      const roleLabel = f.role === "admin" ? "Administrateur" : f.role === "agent_retrait" ? "Agent de remise" : "Employé";
+      const loginPath = ROLE_LOGIN_PATH[f.role] ?? "/employe";
+      const roleLabel = ROLE_LABEL[f.role] ?? "Employé";
       onNotice(`${roleLabel} "${f.username}" kreye — li ka konekte sou ${loginPath}.`);
       setShow(false);
       setF({ nom: "", prenom: "", email: "", phone: "", id_number: "", username: "", password: "", role: "employe", pickup_ville_id: "" });
@@ -509,7 +515,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
     try {
       const j = await adminApi("reset_staff_password", { staff_id: resetting.id, password: newPassword });
       if (!j.ok) { onNotice("Erè: " + j.reason); return; }
-      const loginPath = resetting.role === "admin" ? "/admin-login" : resetting.role === "agent_retrait" ? "/point-retrait" : "/employe";
+      const loginPath = ROLE_LOGIN_PATH[resetting.role] ?? "/employe";
       onNotice(`Modpas pou "${resetting.username}" reinitialize. Li ka konekte sou ${loginPath}.`);
       setResetting(null); setNewPassword("");
     } finally { setBusy(false); }
@@ -546,6 +552,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
               <select className="input mt-1" value={f.role} onChange={set("role")}>
                 <option value="employe">Employé</option>
                 <option value="agent_retrait">Agent de remise (point de retrait)</option>
+                <option value="agent_reception">Agent de réception (arrivée des Conduces)</option>
                 <option value="admin">Administrateur</option>
               </select></label>
             {f.role === "agent_retrait" && <label className="block"><span className="text-xs font-medium text-slate-500">Zone / point de retrait *</span>
@@ -590,8 +597,8 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
               <tr key={s.id} className={i % 2 ? "bg-mist" : ""}>
                 <td className="td font-bold text-navy">{s.username}</td>
                 <td className="td">{s.prenom} {s.nom}</td>
-                <td className="td"><span className={`badge ${s.role === "admin" ? "bg-blue-100 text-blue-700" : s.role === "agent_retrait" ? "bg-orange-100 text-orange-700" : "bg-emerald-100 text-emerald-700"}`}>
-                  {s.role === "admin" ? "Administrateur" : s.role === "agent_retrait" ? "Agent de remise" : "Employé"}</span></td>
+                <td className="td"><span className={`badge ${s.role === "admin" ? "bg-blue-100 text-blue-700" : s.role === "agent_retrait" ? "bg-orange-100 text-orange-700" : s.role === "agent_reception" ? "bg-purple-100 text-purple-700" : "bg-emerald-100 text-emerald-700"}`}>
+                  {ROLE_LABEL[s.role] ?? "Employé"}</span></td>
                 <td className="td text-xs">{s.role === "agent_retrait" ? (zones.find((v) => v.id === s.pickup_ville_id)?.name ?? "À configurer") : "—"}</td>
                 <td className="td">{s.phone}</td>
                 <td className="td text-xs">{s.id_number}{s.id_photo_url && <> · <a className="text-navy underline" href={s.id_photo_url} target="_blank">foto</a></>}</td>

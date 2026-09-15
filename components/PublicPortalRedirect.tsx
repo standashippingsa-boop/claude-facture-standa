@@ -8,12 +8,14 @@ import { isPublicPath } from "@/lib/access";
 const HOME: Record<AuthRealm, string> = {
   client: "/espace-client",
   agent_retrait: "/espace-remise",
+  agent_reception: "/reception",
   admin: "/dashboard",
   employe: "/dashboard"
 };
 const GATE: Record<AuthRealm, string> = {
   client: "/espace-client/connexion",
   agent_retrait: "/point-retrait",
+  agent_reception: "/reception-login",
   admin: "/admin-login",
   employe: "/employe"
 };

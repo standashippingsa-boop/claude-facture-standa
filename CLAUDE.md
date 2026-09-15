@@ -15,7 +15,7 @@ Exécuter `npm run verify`. Cette commande vérifie, dans cet ordre :
 - Conserver les protections et en-têtes de sécurité définis dans `next.config.mjs`.
 - Ne pas versionner les fichiers `.env*` ni les clés Supabase. Si une clé fuit : la régénérer dans Supabase (voir `SECURITY.md`).
 - **RLS** : ne JAMAIS créer de politique `anon all ... using(true)`. L'accès aux données passe par une session Supabase authentifiée (`security-hardening.sql`) ou par une route serveur avec la clé service. Toute nouvelle table doit recevoir ses politiques dans `security-hardening.sql`.
-- Ordre d'exécution SQL sur Supabase : `migration.sql` → `security-hardening.sql` → `20260831_public_reviews.sql` → `20260913_affiliate_program.sql`.
+- Ordre d'exécution SQL sur Supabase : `migration.sql` → `security-hardening.sql` → `20260831_public_reviews.sql` → `20260913_affiliate_program.sql` → `20260915_reception_agent.sql`.
 - Chemins de fichiers Storage (`lib/upload.ts`, `lib/pdf.ts`) : garder un jeton aléatoire cryptographique — les buckets sont publics par lien.
 - **`supabase/migrations/*.sql` n'est PAS fiable tant que le workflow GitHub Actions correspondant n'a pas au moins une exécution ✅ verte confirmée** (constat 2026-09-12 : 18/18 échecs depuis sa création — voir `supabase/migrations/README.md`). Après avoir ajouté un fichier là, vérifier l'onglet Actions ; si rouge ou en doute, coller le fichier soi-même dans Supabase → SQL Editor → Run.
 

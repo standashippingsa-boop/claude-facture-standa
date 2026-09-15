@@ -10,7 +10,7 @@ import { getMyStaff } from "@/lib/authx";
 import { getClientByAuthId } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Staff } from "@/lib/types";
-import { AppRole, isClientPath, isPublicPath, isPickupAgentPath, resolveAccess } from "@/lib/access";
+import { AppRole, isClientPath, isPublicPath, isPickupAgentPath, isReceptionAgentPath, resolveAccess } from "@/lib/access";
 
 /**
  * Shell — CONTRÔLE D'ACCÈS CENTRALISÉ (RBAC)
@@ -64,6 +64,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   }
   if (role === "agent_retrait" || isPickupAgentPath(path)) {
     return <PortalHistoryBoundary realm="agent_retrait" homePath="/espace-remise"><main className="min-h-screen">{children}<ScrollToTopButton /></main></PortalHistoryBoundary>;
+  }
+  if (role === "agent_reception" || isReceptionAgentPath(path)) {
+    return <PortalHistoryBoundary realm="agent_reception" homePath="/reception"><main className="min-h-screen">{children}<ScrollToTopButton /></main></PortalHistoryBoundary>;
   }
 
   // Staff: sidebar + kontni

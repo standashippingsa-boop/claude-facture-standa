@@ -52,13 +52,13 @@ export async function POST(req: Request) {
     const action = String(body.action ?? "");
 
     // ---------- caller role ----------
-    async function callerRole(): Promise<"admin" | "employe" | "agent_retrait" | null> {
+    async function callerRole(): Promise<"admin" | "employe" | "agent_retrait" | "agent_reception" | null> {
       const token = String(body.token ?? "");
       if (!token) return null;
       const { data } = await svc.auth.getUser(token);
       if (!data.user) return null;
       const { data: s } = await svc.from("staff").select("role").eq("auth_user_id", data.user.id).maybeSingle();
-      return (s?.role as "admin" | "employe" | "agent_retrait") ?? null;
+      return (s?.role as "admin" | "employe" | "agent_retrait" | "agent_reception") ?? null;
     }
 
     /** Username anplwaye k ap fè aksyon an (piste odit — ex: kilès ki make yon komisyon peye). */
@@ -107,7 +107,8 @@ export async function POST(req: Request) {
       const password = String(body.password ?? "");
       const newRole = body.role === "admin"
         ? "admin"
-        : body.role === "agent_retrait" ? "agent_retrait" : "employe";
+        : body.role === "agent_retrait" ? "agent_retrait"
+        : body.role === "agent_reception" ? "agent_reception" : "employe";
       const pickupVilleId = String(body.pickup_ville_id ?? "").trim();
       if (!username || password.length < 6) return NextResponse.json({ ok: false, reason: "Username + modpas (6+ karaktè) obligatwa." });
       if (newRole === "agent_retrait" && !pickupVilleId) {
