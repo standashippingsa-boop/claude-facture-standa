@@ -29,6 +29,7 @@ const NAV = [
   { label: "Accueil", href: "/accueil" },
   { label: "Contact", href: "/contact" },
   { label: "Nos agences", href: "/agences" },
+  { label: "Application", href: "/app" },
   { label: "Mon compte", href: "/login" }
 ];
 

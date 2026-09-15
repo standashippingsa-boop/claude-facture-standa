@@ -111,7 +111,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 var realm = window.sessionStorage.getItem('standa:auth-realm');
                 var path = window.location.pathname;
                 var publicPages = {
-                  '/accueil': true, '/contact': true, '/agences': true,
+                  '/accueil': true, '/contact': true, '/agences': true, '/app': true,
                   '/login': true, '/inscription': true, '/confidentialite': true,
                   '/reset-password': true, '/nouveau-mot-de-passe': true,
                   '/admin-login': true, '/employe': true, '/point-retrait': true,

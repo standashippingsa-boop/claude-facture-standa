@@ -43,6 +43,7 @@ export const PUBLIC_PREFIXES = [
   "/accueil",                           // paj akèy piblik la
   "/contact",                           // fòm kontak + WhatsApp
   "/agences",                           // lis ajans yo an Ayiti
+  "/app",                               // telechaje APK Android kliyan an
 
   // ── PWOGRAM AFFILIATION ──
   // /affiliation: lyen PRIVE (pa nan menu sit la) — kandida yo ranpli fòm nan.
