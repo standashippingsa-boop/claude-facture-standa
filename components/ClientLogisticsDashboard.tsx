@@ -35,15 +35,11 @@ function QuickAction({
   icon: Icon, label, hint, count, onClick
 }: { icon: typeof Truck; label: string; hint: string; count?: number; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="group flex min-h-[122px] flex-col items-center justify-center gap-1.5 rounded-3xl bg-white px-2 text-center shadow-[0_12px_30px_-24px_rgba(12,67,143,.55)] ring-1 ring-sky-100 transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md">
-      <span className="relative grid h-[58px] w-[58px] place-items-center">
-        <span aria-hidden className="absolute inset-x-1 bottom-0 h-9 translate-y-1.5 rounded-[18px] bg-[#0a3f84] opacity-50 blur-[1px]" />
-        <span className="absolute inset-0 rounded-[20px] border border-white/80 bg-gradient-to-br from-white via-[#dff0ff] to-[#8bc6f6] shadow-[inset_0_2px_2px_rgba(255,255,255,.95),0_10px_0_#0d4d92,0_17px_22px_rgba(12,67,143,.24)] transition-transform duration-200 group-hover:-translate-y-1">
-          <span aria-hidden className="absolute left-2.5 right-2.5 top-2 h-px rounded bg-white/90" />
-        </span>
-        <Icon className="relative z-10 text-[#0b4c92] drop-shadow-[0_1px_0_rgba(255,255,255,.9)]" size={25} strokeWidth={2.2} />
+    <button type="button" onClick={onClick} className="group flex min-h-[108px] flex-col items-center justify-center gap-1.5 rounded-3xl bg-white px-2 text-center shadow-[0_12px_30px_-24px_rgba(12,67,143,.55)] ring-1 ring-sky-100 transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md">
+      <span className="relative grid h-12 w-12 place-items-center rounded-2xl border border-sky-100 bg-[#eaf4ff] text-[#145ca8] transition-colors group-hover:bg-[#dcebff]">
+        <Icon className="text-[#145ca8]" size={22} strokeWidth={2.1} />
         {typeof count === "number" && count > 0 && (
-          <span className="absolute -right-2 -top-1.5 z-20 grid h-5 min-w-5 place-items-center rounded-full bg-[#145ca8] px-1 text-[10px] font-black text-white ring-2 ring-white">
+          <span className="absolute -right-1.5 -top-1.5 z-10 grid h-5 min-w-5 place-items-center rounded-full bg-[#145ca8] px-1 text-[10px] font-black text-white ring-2 ring-white">
             {count > 99 ? "99+" : count}
           </span>
         )}
