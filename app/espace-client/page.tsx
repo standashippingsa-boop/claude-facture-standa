@@ -189,21 +189,24 @@ export default function EspaceClientPage() {
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [router]);
 
   /**
-   * BANDO NOTIFIKASYON PUSH — kalkile SÈLMAN apre montaj (client-side), jamè
-   * pandan rann sèvè a: `Notification` pa egziste sou sèvè a, epi kalkile l
-   * nan kò render lan ta bay yon mismatch ant SSR ak premye rann navigatè a.
+   * Premye koneksyon sou APARÈY sa a: montre demann otorizasyon an pou KLIYAN
+   * sa a. Demann natif la dwe soti apre yon klik "Activer"; Chrome, Safari ak
+   * Android bloke demann ki lanse otomatikman san aksyon kliyan an.
    */
   useEffect(() => {
-    if (!isPushSupported()) return;
+    const customerCode = client?.customer_code;
+    if (!customerCode || !isPushSupported()) return;
     let dismissed = false;
-    try { dismissed = window.localStorage.getItem("standa:push-banner-dismissed") === "1"; } catch { /* ignore */ }
+    try { dismissed = window.localStorage.getItem(`standa:push-permission-dismissed:${customerCode}`) === "1"; } catch { /* ignore */ }
     if (dismissed) return;
     getPushPermissionState().then((state) => setShowPushBanner(state === "default"));
-  }, []);
+  }, [client?.customer_code]);
 
   const dismissPushBanner = () => {
     setShowPushBanner(false);
-    try { window.localStorage.setItem("standa:push-banner-dismissed", "1"); } catch { /* ignore */ }
+    try {
+      if (client?.customer_code) window.localStorage.setItem(`standa:push-permission-dismissed:${client.customer_code}`, "1");
+    } catch { /* ignore */ }
   };
 
   const activatePush = async () => {
@@ -848,24 +851,24 @@ export default function EspaceClientPage() {
             />
 
             {showPushBanner && (
-              <div className="card p-4 flex items-start gap-3 client-enter client-enter-d4">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-orange-400 to-red-500 text-white shadow-md shadow-orange-500/30">
-                  <BellRing size={19} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-ink">Recevoir une notification sur votre téléphone</p>
-                  <p className="text-xs text-mute mt-0.5 leading-relaxed">
-                    Soyez averti dès qu&apos;un colis change de statut (reçu, disponible…), sans avoir à ouvrir l&apos;application.
-                  </p>
-                  <div className="mt-2.5 flex gap-2">
-                    <button onClick={activatePush} disabled={pushBusy} className="btn btn-brand !text-xs !py-1.5">
-                      {pushBusy ? "Activation…" : "Activer"}
-                    </button>
-                    <button onClick={dismissPushBanner} className="btn btn-ghost border border-line !text-xs !py-1.5">
-                      Plus tard
-                    </button>
+              <div role="dialog" aria-modal="true" aria-labelledby="push-permission-title" className="fixed inset-0 z-[70] flex items-end bg-slate-950/35 p-3 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-5">
+                <section className="w-full max-w-sm overflow-hidden rounded-[30px] bg-white shadow-[0_28px_60px_rgba(4,33,78,.3)]">
+                  <div className="relative overflow-hidden bg-gradient-to-br from-[#0b3977] via-[#145ca8] to-[#28a3bc] px-6 pb-7 pt-6 text-white">
+                    <span aria-hidden className="absolute -right-8 -top-10 h-32 w-32 rounded-full border border-white/15 bg-white/10" />
+                    <span aria-hidden className="absolute -left-10 -bottom-14 h-32 w-32 rounded-full bg-sky-300/15 blur-2xl" />
+                    <span className="relative grid h-14 w-14 place-items-center rounded-2xl border border-white/20 bg-white/15 shadow-lg shadow-blue-950/20"><BellRing size={27} /></span>
+                    <p className="relative mt-5 text-[11px] font-bold uppercase tracking-[.14em] text-sky-100">STANDA COMMERCIAL</p>
+                    <h2 id="push-permission-title" className="relative mt-1 text-[22px] font-black leading-tight">Activez les notifications</h2>
                   </div>
-                </div>
+                  <div className="p-5">
+                    <p className="text-sm leading-relaxed text-slate-600">Recevez une alerte dans la barre de notifications de votre téléphone dès qu&apos;un colis est reçu, disponible, facturé ou remis.</p>
+                    <div className="mt-4 rounded-2xl bg-sky-50 px-3 py-2.5 text-[12px] leading-relaxed text-[#145ca8]">Après votre choix, votre téléphone affichera sa demande d&apos;autorisation officielle.</div>
+                    <button onClick={activatePush} disabled={pushBusy} className="btn btn-brand mt-5 w-full justify-center !py-3 disabled:opacity-60">
+                      {pushBusy ? <Spinner size={16} /> : <BellRing size={16} />} {pushBusy ? "Activation…" : "Autoriser les notifications"}
+                    </button>
+                    <button onClick={dismissPushBanner} disabled={pushBusy} className="mt-3 w-full py-2 text-sm font-semibold text-slate-500 transition hover:text-slate-700 disabled:opacity-50">Pas maintenant</button>
+                  </div>
+                </section>
               </div>
             )}
 
