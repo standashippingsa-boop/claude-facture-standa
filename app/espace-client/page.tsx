@@ -333,6 +333,7 @@ export default function EspaceClientPage() {
   // = Disponible + Facturé nan PickupAgentPortal.tsx). Se PEMAN + LIVREZON ki fè
   // l soti, pa fakti a sèl. Li rete vizib TOU sou fakti li (onglet Factures).
   const historique = pkgs.filter(isDelivered);
+  const activeRetraits = retraits.filter((retrait) => retrait.status !== "Remis");
   const receptionsAll = pkgs.filter((p) => !isDelivered(p));
   const disponibles = receptionsAll.filter((p) => p.status === "Disponible" || p.status === "Facturé");
   // Yon koli facturé pa dwe parèt nan "Miami" — l ap parèt SÈLMAN nan "Disponible".
@@ -574,9 +575,9 @@ export default function EspaceClientPage() {
   );
 
   /** Lis demann retrait yo — sèvi ni sou Akèy (rezime), ni sou paj Retrait la. */
-  const RetraitsList = () => (
+  const RetraitsList = ({ list = retraits }: { list?: Retrait[] }) => (
     <>
-      {retraits.map((r) => {
+      {list.map((r) => {
         const open = openRetrait === r.id;
         return (
           <div key={r.id} className="card overflow-hidden">
@@ -658,7 +659,7 @@ export default function EspaceClientPage() {
             </div>
             {!check && <StatusBadge status={p.status} />}
           </div>
-          <div className="mt-2.5"><StatusTimeline status={p.status} compact lastStepLabel="Facturé" /></div>
+          <div className="mt-2.5"><StatusTimeline status={p.status} compact /></div>
           <div className="flex items-center justify-between gap-2 mt-2.5">
             <span className="text-xs text-mute truncate">{p.content || "—"}</span>
             <span className="text-xs font-semibold text-ink shrink-0">
@@ -773,15 +774,12 @@ export default function EspaceClientPage() {
               destination={client.pickup_location || client.ville?.name || client.city || "Votre agence"}
               balanceUsd={outstandingBalanceUsd}
               estimatedUsd={estimatedTransitUsd}
-              activePackage={activePackage}
-              recentPackages={pkgs}
               availableCount={disponibles.length}
-              receptionCount={nonFactures.length + autres.length}
-              retraitCount={retraits.filter((r) => r.status !== "Remis").length}
-              invoiceCount={invs.length}
+              receptionCount={autres.length}
+              retraitCount={activeRetraits.length}
+              deliveredCount={historique.length}
               unreadNotifications={unreadNotifications.length}
               onNavigate={(destination) => destination === "notifications" ? openNotifications() : setView(destination)}
-              onOpenTracking={setDetail}
             />
 
             {showPushBanner && (
@@ -810,13 +808,13 @@ export default function EspaceClientPage() {
               <span><BookOpen size={19} /> Guide et aide</span><ChevronRight size={17} />
             </button>
 
-            {retraits.length > 0 && (
+            {activeRetraits.length > 0 && (
               <section className="space-y-2 pt-1 client-enter client-enter-d4">
                 <div className="flex items-center justify-between">
                   <h2 className="h-sec">Vos demandes de retrait</h2>
                   <button onClick={() => setView("retraits")} className="text-xs font-bold text-blue-600">Voir tout</button>
                 </div>
-                <RetraitsList />
+                <RetraitsList list={activeRetraits} />
               </section>
             )}
           </>
@@ -826,9 +824,9 @@ export default function EspaceClientPage() {
         {view === "retraits" && (
           <>
             <SubHeader title="Retrait" sub="Vos demandes de retrait en agence" />
-            {retraits.length === 0
+            {activeRetraits.length === 0
               ? <Empty t="Aucune demande de retrait pour le moment. Sélectionnez vos colis disponibles pour en créer une." />
-              : <div className="space-y-2"><RetraitsList /></div>}
+              : <div className="space-y-2"><RetraitsList list={activeRetraits} /></div>}
           </>
         )}
 
@@ -869,21 +867,10 @@ export default function EspaceClientPage() {
         {view === "receptions" && (
           <>
             <SubHeader title="Miami" sub="Colis reçus à notre entrepôt · en attente de facturation" />
-            {(nonFactures.length + autres.length) === 0 ? <Empty t="Aucun colis reçu pour le moment." /> : (
+            {autres.length === 0 ? <Empty t="Aucun colis reçu à Miami ou en acheminement pour le moment." /> : (
               <>
-                <Totaux list={[...nonFactures, ...autres]} />
+                <Totaux list={autres} />
                 <div className="space-y-3">
-                  {nonFactures.length > 0 && (
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-brand-dark pt-1">
-                      Disponibles ({nonFactures.length})
-                    </p>
-                  )}
-                  {nonFactures.map((p) => <PkgCard key={p.id} p={p} />)}
-                  {autres.length > 0 && (
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-mute pt-2">
-                      En cours ({autres.length})
-                    </p>
-                  )}
                   {autres.map((p) => <PkgCard key={p.id} p={p} />)}
                 </div>
               </>

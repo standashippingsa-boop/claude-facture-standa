@@ -60,6 +60,7 @@ export const PUBLIC_STEPS = [
   "Arrivé en Haïti",
   "En route vers agence",
   "Disponible",
+  "Facturé",
   "Livré"
 ] as const;
 
@@ -81,7 +82,6 @@ export interface RawPublicRow {
 export function toPublicTracking(row: RawPublicRow, saisie: string): PublicTracking {
   const status = String(row?.status ?? "").trim();
   let step = PUBLIC_STEPS.indexOf(status as (typeof PUBLIC_STEPS)[number]);
-  if (status === "Facturé") step = PUBLIC_STEPS.length - 1;
   if (step < 0) step = 0;
 
   const dates = [row?.verified_at, row?.received_at, row?.created_date]

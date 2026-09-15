@@ -37,19 +37,16 @@ export function StatusPill({ status }: { status: string }) {
  * Timeline orizontal ki montre kote koli a ye nan pwosesis la.
  * Etap ki fèt = ranpli (vèt/navy), etap aktyèl = mete aksan, rès = gri.
  */
-export function StatusTimeline({ status, compact = false, lastStepLabel }: {
+export function StatusTimeline({ status, compact = false }: {
   status: string; compact?: boolean;
-  /** Chanje NON dènye etap la sèlman (afichaj). App kliyan an mete "Facturé". */
-  lastStepLabel?: string;
 }) {
-  // "Facturé" konte kòm dènye etap la nan liy tan an (fen pwosesis)
-  const base = INTERNAL_STATUSES as readonly string[];
-  const steps = lastStepLabel
-    ? [...base.slice(0, -1), lastStepLabel]
-    : base;
-  // Endèks la toujou kalkile sou VRE estati yo (base), pa sou etikèt afichaj la.
-  let idx = base.indexOf(status);
-  if (status === "Facturé") idx = base.length - 1;
+  // Les deux dernières étapes font partie de l'affichage client, sans
+  // modifier la machine de statuts utilisée par les opérations.
+  const operationalSteps = (INTERNAL_STATUSES as readonly string[]).filter((step) => step !== "Livré");
+  const steps = [...operationalSteps, "Facturé", "Livré"];
+  let idx = operationalSteps.indexOf(status);
+  if (status === "Facturé") idx = steps.indexOf("Facturé");
+  if (status === "Livré") idx = steps.length - 1;
   if (idx < 0) idx = 0;
 
   return (
