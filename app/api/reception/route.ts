@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
+import { normalizeMcCode } from "@/lib/utils";
 
 /**
  * API isolée de l'agent de réception (arrivée des Conduces).
@@ -66,18 +67,26 @@ export async function POST(req: Request) {
   const action = String(body?.action ?? "");
 
   // ---------- lookup_client : chèche pa kòd OSWA non (rezilta limite) ----------
+  // "MC-" a PA OBLIGATWA: yon ajan tape sèlman chif yo li sou pakè a (ex.
+  // "36191") — normalizeMcCode() konplete l an "MC-36191" pou yon match egzat,
+  // an menm tan ak rechèch flou a (non, oswa kòd pasyèl) pou lòt ka yo.
   if (action === "lookup_client") {
-    const q = money(body.query).slice(0, 60);
+    // Filtre PostgREST `.or()` la itilize "," "(" ")" kòm separatè — netwaye
+    // yo pou yon moun pa ka kraze/manipile filtè a ak yon rechèch sispèk.
+    const q = money(body.query).slice(0, 60).replace(/[,()]/g, "");
     if (q.length < 2) return NextResponse.json({ ok: true, clients: [] });
+    const normalized = normalizeMcCode(q);
 
     const { data: clients, error } = await db.from("clients")
       .select("customer_code, fullname, ville_id")
-      .or(`customer_code.ilike.%${q}%,fullname.ilike.%${q}%,username.ilike.%${q}%`)
+      .or(`customer_code.ilike.%${q}%,fullname.ilike.%${q}%,username.ilike.%${q}%,customer_code.eq.${normalized}`)
       .not("customer_code", "is", null).neq("customer_code", "")
       .order("fullname").limit(8);
     if (error) return NextResponse.json({ ok: false, reason: "Recherche impossible." }, { status: 500 });
-    const rows = (clients ?? []) as { customer_code: string; fullname: string; ville_id: string | null }[];
+    let rows = (clients ?? []) as { customer_code: string; fullname: string; ville_id: string | null }[];
     if (!rows.length) return NextResponse.json({ ok: true, clients: [] });
+    // Match egzat (kòd konplè, ak/san "MC-") an premye nan lis la.
+    rows = [...rows].sort((a, b) => Number(b.customer_code === normalized) - Number(a.customer_code === normalized));
 
     const villeIds = [...new Set(rows.map((r) => r.ville_id).filter(Boolean))] as string[];
     const villes = villeIds.length

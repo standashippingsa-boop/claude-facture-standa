@@ -10,6 +10,7 @@ export default function ReceptionLoginPage() {
       subtitle="Accès réservé aux agents de réception STANDA COMMERCIAL"
       destination="/reception"
       requiredRole="agent_reception"
+      backgroundImage="/parcel-boxes-background.png"
     />
   );
 }

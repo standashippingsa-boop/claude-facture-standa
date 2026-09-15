@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { ClipboardList, LogOut, MapPin, Package, PackagePlus, Search, User } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import Logo from "@/components/Logo";
@@ -112,20 +113,31 @@ export default function ReceptionAgentPortal() {
 
   return (
     <div className="min-h-screen bg-[#F4F6F9]">
-      <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Logo size={38} rounded="rounded-xl" />
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[.16em] text-accent">Réception</p>
-              <h1 className="text-[18px] font-black text-navy">{agentName || "Agent de réception"}</h1>
+      {/* ── Hero — antrepo/pakè, pou l atiran e byen brandé ── */}
+      <div className="relative overflow-hidden bg-navy">
+        <Image src="/parcel-boxes-background.png" alt="" fill priority sizes="100vw" unoptimized
+          className="object-cover object-center opacity-45" />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(6,25,55,.5) 0%, rgba(6,25,55,.92) 100%)" }} />
+        <div className="relative mx-auto max-w-2xl px-4 py-6 sm:px-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Logo size={38} rounded="rounded-xl" />
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[.16em] text-accent-light">Réception</p>
+                <h1 className="text-[18px] font-black text-white">{agentName || "Agent de réception"}</h1>
+              </div>
             </div>
+            <button onClick={logout} className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-2 text-[13px] font-bold text-white backdrop-blur-sm hover:bg-white/20">
+              <LogOut size={15} /> Déconnexion
+            </button>
           </div>
-          <button onClick={logout} className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-[13px] font-bold text-navy shadow-card hover:bg-mist">
-            <LogOut size={15} /> Déconnexion
-          </button>
+          <p className="mt-4 max-w-sm text-[13px] leading-relaxed text-white/75">
+            Confirmez un code client et enregistrez l&apos;arrivée d&apos;une Conduce.
+          </p>
         </div>
+      </div>
 
+      <div className="mx-auto max-w-2xl px-4 py-5 sm:px-6">
         {/* ── Chèche yon kliyan ── */}
         <section className="mt-5 rounded-2xl border border-line bg-white p-4 sm:p-5">
           <div className="flex items-center gap-2">
@@ -133,11 +145,11 @@ export default function ReceptionAgentPortal() {
             <h2 className="text-[15px] font-bold text-navy">Chercher un client</h2>
           </div>
           <p className="mt-1 text-[12.5px] leading-relaxed text-mute">
-            Tapez le code (ex. MC-36191) ou le nom écrit sur le colis pour voir sa zone
-            et combien de colis il a encore en route depuis Miami.
+            Tapez juste les chiffres du code (ex. 36191, pas besoin de « MC- ») ou le nom
+            écrit sur le colis pour voir sa zone et combien de colis il a encore en route depuis Miami.
           </p>
           <input value={query} onChange={(e) => setQuery(e.target.value)} autoCapitalize="none"
-            placeholder="Code client ou nom…"
+            placeholder="Ex. 36191 ou le nom du client…"
             className="mt-3 w-full rounded-xl border border-line px-3.5 py-2.5 text-[14px] outline-none focus:border-accent" />
 
           {searching && <p className="mt-3 text-[13px] text-mute">Recherche…</p>}

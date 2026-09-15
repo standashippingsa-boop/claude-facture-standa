@@ -7,6 +7,7 @@
  * pa pòt administrasyon an.
  */
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User } from "lucide-react";
@@ -19,7 +20,8 @@ export default function StaffLogin({
   title,
   subtitle,
   destination = "/dashboard",
-  requiredRole
+  requiredRole,
+  backgroundImage
 }: {
   title: string;
   subtitle: string;
@@ -27,6 +29,8 @@ export default function StaffLogin({
   destination?: string;
   /** Wòl ki gen dwa sèvi ak pòt antre sa a. */
   requiredRole: StaffRole;
+  /** Ilistrasyon opsyonèl an background (ex: /parcel-boxes-background.png). */
+  backgroundImage?: string;
 }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -82,10 +86,19 @@ export default function StaffLogin({
   };
 
   return (
-    <div className="min-h-screen bg-[#081226] flex items-center justify-center p-5"
-      style={{ background: "radial-gradient(ellipse at top, #0E2145 0%, #081226 55%, #060D1C 100%)" }}>
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#081226] p-5">
+      {backgroundImage && (
+        <>
+          <Image src={backgroundImage} alt="" fill priority sizes="100vw" unoptimized
+            className="object-cover object-center opacity-40" />
+          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(8,18,38,.55) 0%, rgba(8,18,38,.85) 60%, #081226 100%)" }} />
+        </>
+      )}
+      {!backgroundImage && (
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at top, #0E2145 0%, #081226 55%, #060D1C 100%)" }} />
+      )}
       <form onSubmit={(e) => { e.preventDefault(); submit(); }}
-        className="w-full max-w-md rounded-3xl bg-[#0D1F3F]/90 border border-white/10 shadow-2xl p-6 sm:p-8 space-y-5">
+        className="relative z-10 w-full max-w-md rounded-3xl bg-[#0D1F3F]/90 border border-white/10 shadow-2xl p-6 sm:p-8 space-y-5 backdrop-blur-sm">
         <div className="w-20 h-20 mx-auto rounded-2xl bg-white grid place-items-center shadow-lg">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-16 object-contain" />
