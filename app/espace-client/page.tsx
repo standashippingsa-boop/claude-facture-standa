@@ -598,6 +598,29 @@ export default function EspaceClientPage() {
     </section>
   );
 
+  /** En-tête illustré réutilisable pour les autres espaces de l'application client. */
+  const SectionHero = ({ eyebrow, title, description, icon: Icon, count }: {
+    eyebrow: string; title: string; description: string; icon: typeof Truck; count?: number;
+  }) => (
+    <section className="relative overflow-hidden rounded-[28px] border border-sky-100 bg-gradient-to-br from-white via-[#f7fbff] to-[#e3f3ff] p-4 shadow-[0_18px_36px_-28px_rgba(14,83,172,.5)] sm:p-5">
+      <span aria-hidden className="absolute -left-10 -top-12 h-32 w-32 rounded-full bg-sky-100/80 blur-2xl" />
+      <span aria-hidden className="absolute -right-10 -bottom-14 h-36 w-36 rounded-full bg-blue-100/65 blur-2xl" />
+      <div className="relative flex min-h-[112px] items-center justify-between gap-3">
+        <div className="min-w-0 py-1">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.13em] text-[#1466b8] shadow-sm"><Sparkles size={12} /> {eyebrow}</span>
+          <h2 className="mt-3 text-[21px] font-black leading-tight tracking-[-.035em] text-[#0b3977]">{title}</h2>
+          <p className="mt-1.5 max-w-[205px] text-[12px] leading-relaxed text-slate-500">{description}</p>
+        </div>
+        <div aria-hidden className="relative grid h-[94px] w-[100px] shrink-0 place-items-center">
+          <span className="absolute inset-1 rounded-[30px] border border-sky-100 bg-white/85 shadow-[0_16px_27px_-21px_rgba(14,83,172,.65)]" />
+          <span className="absolute bottom-0 right-0 h-12 w-12 rounded-2xl border border-blue-100 bg-[#dceeff]" />
+          <span className="relative grid h-14 w-14 place-items-center rounded-2xl bg-[#1466b8] text-white shadow-lg shadow-blue-900/20"><Icon size={27} strokeWidth={1.8} /></span>
+          {typeof count === "number" && <span className="absolute -right-1 top-1 grid h-7 min-w-7 place-items-center rounded-full border-2 border-white bg-white px-1 text-[11px] font-black text-[#1466b8] shadow-sm">{count}</span>}
+        </div>
+      </div>
+    </section>
+  );
+
   const AvailableEmpty = () => (
     <div className="relative overflow-hidden rounded-[28px] border border-sky-100 bg-gradient-to-b from-sky-50 to-white px-6 py-10 text-center shadow-sm">
       <span aria-hidden className="absolute -left-10 top-5 h-28 w-28 rounded-full bg-sky-100/80 blur-xl" />
@@ -862,6 +885,7 @@ export default function EspaceClientPage() {
         {view === "retraits" && (
           <>
             <SubHeader title="Retrait" sub="Vos demandes de retrait en agence" />
+            <SectionHero eyebrow="Retrait en agence" title="Préparez votre passage" description="Vos demandes restent regroupées ici jusqu’à la remise de vos colis." icon={PackageCheck} count={activeRetraits.length} />
             {activeRetraits.length === 0
               ? <Empty t="Aucune demande de retrait pour le moment. Sélectionnez vos colis disponibles pour en créer une." />
               : <div className="space-y-2"><RetraitsList list={activeRetraits} /></div>}
@@ -921,6 +945,7 @@ export default function EspaceClientPage() {
         {view === "historique" && (
           <>
             <SubHeader title="Historique" sub="Colis remis et confirmés" />
+            <SectionHero eyebrow="Vos remises" title="Tout votre historique" description="Retrouvez les colis déjà remis et confirmés, classés dans votre espace." icon={Clock} count={historique.length} />
             {historique.length === 0 ? <Empty t="Aucun colis dans votre historique." /> : (
               <>
                 <Totaux list={historique} reel />
@@ -934,6 +959,7 @@ export default function EspaceClientPage() {
         {view === "factures" && (
           <>
             <SubHeader title="Factures" sub={`${invs.length} facture${invs.length > 1 ? "s" : ""}`} />
+            <SectionHero eyebrow="Paiements" title="Vos factures STANDA" description="Consultez vos montants, vos colis facturés et vos documents au même endroit." icon={ReceiptText} count={invs.length} />
             {invs.length === 0 ? <Empty t="Aucune facture pour le moment." /> : (
               <div className="space-y-3">
                 {invs.map((f) => {
@@ -976,6 +1002,7 @@ export default function EspaceClientPage() {
         {view === "notifications" && (
           <>
             <SubHeader title="Notifications" sub="Les informations importantes de votre compte" />
+            <SectionHero eyebrow="À ne pas manquer" title="Restez informé" description="Vos nouvelles importantes sont réunies ici pour suivre chaque étape sans rien oublier." icon={BellRing} count={clientNotifications.length} />
             {clientNotifications.length === 0 ? (
               <Empty t="Aucune notification pour le moment." />
             ) : (
@@ -1001,6 +1028,7 @@ export default function EspaceClientPage() {
         {view === "infos" && (
           <>
             <SubHeader title="Guide & Aide" sub="Tout ce qu&apos;il faut savoir sur vos expéditions" />
+            <SectionHero eyebrow="Guide client" title="Expédiez en toute confiance" description="Les étapes importantes, expliquées simplement, pour préparer et suivre vos colis." icon={BookOpen} />
 
             {/* Kijan sa mache */}
             <div className="card p-5">
@@ -1200,6 +1228,7 @@ export default function EspaceClientPage() {
         {view === "adresse" && (
           <>
             <SubHeader title="Mon adresse" sub="Votre adresse de dépôt aux États-Unis" />
+            <SectionHero eyebrow="Dépôt STANDA" title="Votre adresse Miami" description="Utilisez ces informations lors de vos achats afin que vos colis soient correctement enregistrés." icon={MapPin} />
             <div className="card p-5">
               {([["Full Name / Nombre completo", non || "—"],
                  ["Address 1", DEPOT.address1],
@@ -1221,6 +1250,7 @@ export default function EspaceClientPage() {
         {view === "calc" && (
           <>
             <SubHeader title="Calculateur" sub="Estimez le coût de votre expédition" />
+            <SectionHero eyebrow="Estimation" title="Calculez votre envoi" description="Saisissez le poids du colis pour obtenir une estimation claire avant son arrivée à Miami." icon={Calculator} />
             <div className="card p-5 space-y-4">
               <label className="block">
                 <span className="text-xs font-semibold text-mute">Poids du colis (lb)</span>
