@@ -13,7 +13,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
  */
 const config: CapacitorConfig = {
   appId: 'com.standacommercialsa.admin',
-  appName: 'STANDA Admin',
+  appName: 'Standa Admin',
   webDir: 'www',
   server: {
     url: 'https://www.standacommercialsa.com/admin-login',

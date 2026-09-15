@@ -27,7 +27,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
  */
 const config: CapacitorConfig = {
   appId: 'com.standacommercialsa.app',
-  appName: 'STANDA COMMERCIAL',
+  appName: 'Standa',
   webDir: 'public',
   server: {
     // /espace-client sèlman — JANM domèn rasin lan, pou APK Uptodown an pa

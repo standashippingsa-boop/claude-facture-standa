@@ -8,7 +8,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
  */
 const config: CapacitorConfig = {
   appId: 'com.standacommercialsa.employe',
-  appName: 'STANDA Employé',
+  appName: 'Standa Équipe',
   webDir: 'www',
   server: {
     url: 'https://www.standacommercialsa.com/employe',

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">STANDA Admin</string>
-    <string name="title_activity_main">STANDA Admin</string>
+    <string name="app_name">Standa Admin</string>
+    <string name="title_activity_main">Standa Admin</string>
     <string name="package_name">com.standacommercialsa.admin</string>
     <string name="custom_url_scheme">com.standacommercialsa.admin</string>
 </resources>

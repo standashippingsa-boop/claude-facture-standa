@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">STANDA Affiliation</string>
-    <string name="title_activity_main">STANDA Affiliation</string>
+    <string name="app_name">Standa Partenaire</string>
+    <string name="title_activity_main">Standa Partenaire</string>
     <string name="package_name">com.standacommercialsa.affiliation</string>
     <string name="custom_url_scheme">com.standacommercialsa.affiliation</string>
 </resources>

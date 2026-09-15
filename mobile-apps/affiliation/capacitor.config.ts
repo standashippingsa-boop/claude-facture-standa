@@ -10,7 +10,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
  */
 const config: CapacitorConfig = {
   appId: 'com.standacommercialsa.affiliation',
-  appName: 'STANDA Affiliation',
+  appName: 'Standa Partenaire',
   webDir: 'www',
   server: {
     url: 'https://www.standacommercialsa.com/espace-affilie/login',

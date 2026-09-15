@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">STANDA Employé</string>
-    <string name="title_activity_main">STANDA Employé</string>
+    <string name="app_name">Standa Équipe</string>
+    <string name="title_activity_main">Standa Équipe</string>
     <string name="package_name">com.standacommercialsa.employe</string>
     <string name="custom_url_scheme">com.standacommercialsa.employe</string>
 </resources>
