@@ -27,7 +27,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, ChevronDown, ChevronLeft,
   ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
-  MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, ShieldCheck, Store, Truck, X
+  MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, ShieldCheck, Sparkles, Store, Truck, X
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";
@@ -514,6 +514,65 @@ export default function EspaceClientPage() {
     );
   };
 
+  /** Illustration décorative légère — aucun fichier externe, donc aucune donnée ni écran n'est ralenti. */
+  const AvailableParcelArt = ({ count }: { count: number }) => (
+    <div aria-hidden className="relative h-[118px] w-[126px] shrink-0 sm:h-[130px] sm:w-[142px]">
+      <span className="absolute -right-5 -top-8 h-28 w-28 rounded-full border border-white/20 bg-white/10" />
+      <span className="absolute right-1 top-3 h-[82px] w-[82px] rotate-[-7deg] rounded-2xl border border-white/25 bg-gradient-to-br from-[#ffd99d] via-[#eaa75d] to-[#bd682e] shadow-[0_16px_25px_rgba(1,30,74,.26)]" />
+      <span className="absolute right-6 top-[9px] h-[82px] w-3 rotate-[-7deg] bg-[#fff0d1]/85" />
+      <span className="absolute right-[42px] top-[41px] h-[26px] w-[47px] rotate-[-7deg] rounded-md bg-white/90 shadow-sm" />
+      <span className="absolute right-[49px] top-[47px] h-1.5 w-[21px] rotate-[-7deg] rounded bg-sky-500/80" />
+      <span className="absolute left-2 bottom-0 grid h-[59px] w-[59px] place-items-center rounded-2xl border border-white/30 bg-white/20 text-white shadow-lg backdrop-blur-sm">
+        <PackageCheck size={29} strokeWidth={1.8} />
+      </span>
+      <span className="absolute bottom-1 left-[47px] grid h-7 min-w-7 place-items-center rounded-full border-2 border-[#0d478d] bg-white px-1 text-[11px] font-black text-[#0d478d] shadow-md">
+        {count}
+      </span>
+    </div>
+  );
+
+  /** En-tête visuel de la section Disponibles : présentation seulement, sans logique métier. */
+  const AvailableHero = ({ count }: { count: number }) => {
+    const agency = client.pickup_location || client.ville?.name || client.city || "Votre agence";
+    return (
+      <section className="relative overflow-hidden rounded-[28px] border border-sky-300/50 bg-gradient-to-br from-[#0a3271] via-[#1254a6] to-[#129eb4] p-4 text-white shadow-[0_20px_42px_-18px_rgba(11,60,139,.65)] sm:p-5">
+        <span aria-hidden className="absolute -left-12 -top-14 h-40 w-40 rounded-full border border-white/10 bg-sky-300/10" />
+        <span aria-hidden className="absolute -bottom-20 left-20 h-36 w-36 rounded-full bg-cyan-300/10 blur-2xl" />
+        <div className="relative flex min-h-[124px] items-center justify-between gap-3">
+          <div className="min-w-0 py-1">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.13em] text-sky-50">
+              <Sparkles size={12} /> Prêt au retrait
+            </span>
+            <h2 className="mt-3 text-[22px] font-black leading-tight tracking-[-.035em]">
+              {count === 1 ? "Votre colis vous attend" : "Vos colis vous attendent"}
+            </h2>
+            <p className="mt-1.5 max-w-[200px] text-[12px] leading-relaxed text-sky-50/85">
+              Choisissez les colis à préparer avant votre passage à l&apos;agence.
+            </p>
+            <span className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-xl bg-[#07255a]/35 px-2.5 py-1.5 text-[11px] font-semibold text-white/90">
+              <MapPin size={13} className="shrink-0 text-sky-200" /> <span className="truncate">{agency}</span>
+            </span>
+          </div>
+          <AvailableParcelArt count={count} />
+        </div>
+      </section>
+    );
+  };
+
+  const AvailableEmpty = () => (
+    <div className="relative overflow-hidden rounded-[28px] border border-sky-100 bg-gradient-to-b from-sky-50 to-white px-6 py-10 text-center shadow-sm">
+      <span aria-hidden className="absolute -left-10 top-5 h-28 w-28 rounded-full bg-sky-100/80 blur-xl" />
+      <span aria-hidden className="absolute -right-12 bottom-0 h-32 w-32 rounded-full bg-cyan-100/70 blur-xl" />
+      <div className="relative mx-auto grid h-20 w-20 place-items-center rounded-[26px] border border-white bg-white text-[#1466b8] shadow-[0_15px_28px_-16px_rgba(14,83,172,.45)]">
+        <PackageCheck size={36} strokeWidth={1.55} />
+      </div>
+      <h2 className="relative mt-5 text-[17px] font-extrabold text-navy">Aucun colis disponible</h2>
+      <p className="relative mx-auto mt-2 max-w-[260px] text-[13px] leading-relaxed text-mute">
+        Dès que vos colis seront prêts à votre agence, ils apparaîtront ici.
+      </p>
+    </div>
+  );
+
   /** Lis demann retrait yo — sèvi ni sou Akèy (rezime), ni sou paj Retrait la. */
   const RetraitsList = () => (
     <>
@@ -564,6 +623,7 @@ export default function EspaceClientPage() {
   const PkgCard = ({ p, check }: { p: Pkg; check?: boolean }) => {
     const facture = Number(p.total_usd) > 0 && isInvoiced(p);
     const special = specialPackageInfo(p);
+    const availableCard = Boolean(check);
     // Un colis déjà facturé reste visible dans "Disponible" (il attend d'être
     // payé et retiré), mais ne peut pas entrer dans une NOUVELLE demande de
     // retrait — la demande existante ou le règlement s'en occupe déjà.
@@ -572,18 +632,27 @@ export default function EspaceClientPage() {
       <div className="relative">
         {check && (
           <input type="checkbox" aria-label="Chwazi koli a"
-            className="absolute top-4 right-4 z-10 w-4 h-4 disabled:opacity-30"
+            className="absolute top-4 right-4 z-10 h-[18px] w-[18px] accent-emerald-600 disabled:opacity-30"
             checked={sel.has(p.id)} disabled={!selectable}
             title={selectable ? undefined : "Colis déjà facturé — réglez la facture pour le retirer."}
             onChange={() => toggleSel(p.id)} />
         )}
-        <button onClick={() => setDetail(p)} className="w-full card card-hover p-4 text-left">
+        <button onClick={() => setDetail(p)} className={`w-full p-4 text-left transition ${availableCard
+          ? "overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-white via-white to-sky-50/75 shadow-[0_14px_28px_-22px_rgba(14,83,172,.55)] hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_18px_30px_-20px_rgba(14,83,172,.6)]"
+          : "card card-hover"}`}>
+          {availableCard && <span aria-hidden className="absolute -right-9 -bottom-12 h-28 w-28 rounded-full bg-sky-100/65" />}
           <div className="flex items-start justify-between gap-3">
+            {availableCard && (
+              <span aria-hidden className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white bg-gradient-to-br from-[#e2f3ff] to-[#d6e9ff] text-[#1466b8] shadow-sm">
+                <PackageCheck size={23} strokeWidth={1.8} />
+              </span>
+            )}
             <div className="min-w-0 flex-1">
-              <p className="font-mono text-[13px] font-bold text-ink truncate">{p.tracking_number || "—"}</p>
+              <p className="font-mono text-[13px] font-bold text-ink truncate pr-7">{p.tracking_number || "—"}</p>
               {p.tracking_manual && <p className="font-mono text-[11px] text-mute truncate mt-0.5">{p.tracking_manual}</p>}
               <div className="mt-1 flex flex-wrap gap-1">
                 {check && isInvoiced(p) && <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">Facturé</span>}
+                {availableCard && !isInvoiced(p) && <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Prêt au retrait</span>}
                 {special.isSpecial && <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800" title="Traitement particulier appliqué à ce colis">Colis spécial</span>}
               </div>
             </div>
@@ -767,14 +836,19 @@ export default function EspaceClientPage() {
         {view === "disponibles" && (
           <>
             <SubHeader title="Disponibles" sub="Colis prêts à être retirés" />
-            {disponibles.length === 0 ? <Empty t="Aucun colis disponible pour le moment." /> : (
+            {disponibles.length === 0 ? <AvailableEmpty /> : (
               <>
+                <AvailableHero count={disponibles.length} />
                 <Totaux list={disponibles} />
-                <p className="text-[12px] text-mute px-1 leading-relaxed">
-                  Sélectionnez les colis que vous souhaitez retirer, puis cliquez sur « Préparer mon retrait »
-                  afin que notre équipe les prépare avant votre arrivée. Les colis déjà <b>facturés</b> restent
-                  affichés ici jusqu&apos;à leur remise — réglez la facture avant de passer les chercher.
-                </p>
+                <div className="rounded-2xl border border-sky-100 bg-sky-50/65 p-3">
+                  <div className="flex items-start gap-2.5">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white text-[#1466b8] shadow-sm"><PackageCheck size={16} /></span>
+                    <p className="pt-0.5 text-[12px] leading-relaxed text-slate-600">
+                      Sélectionnez les colis à récupérer, puis appuyez sur <b className="text-[#0d478d]">« Préparer mon retrait »</b>.
+                      Les colis facturés restent affichés jusqu&apos;à leur remise.
+                    </p>
+                  </div>
+                </div>
                 <div className="space-y-3">
                   {disponibles.map((p) => <PkgCard key={p.id} p={p} check />)}
                 </div>
