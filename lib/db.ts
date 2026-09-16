@@ -11,7 +11,7 @@ import { specialPackageInfo, withManualSpecialPackageMetadata, withSpecialPackag
 import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
 import { computeInvoice, invoiceLineContent, InvoiceComputation, verifyTotal } from "./invoice-engine";
-import { invoicePayableAmounts } from "./invoice-payable";
+import { invoicePayableAmounts, paymentIsWithinRoundingMargin, paymentStatusFromAmounts } from "./invoice-payable";
 
 const asNum = <T extends Record<string, any>>(r: T, keys: string[]): T => {
   keys.forEach((k) => (r[k as keyof T] = Number(r[k]) as any));
@@ -1743,8 +1743,7 @@ export async function recordInvoicePayment(input: RecordInvoicePaymentInput): Pr
   const priorHtg = round2(Number(invoice.payment_paid_htg) || 0);
   const remainingUsd = Math.max(0, round2(payable.payableUsd - priorUsd));
   const remainingHtg = Math.max(0, round2(payable.payableHtg - priorHtg));
-  const toleranceUsd = input.currency === "HTG" ? Math.max(0.05, round2(5 / rate)) : 0.05;
-  if (amountUsd > remainingUsd + toleranceUsd) {
+  if (!paymentIsWithinRoundingMargin(amountHtg, remainingHtg)) {
     throw new Error(`Le montant dépasse le reste à payer (${remainingUsd.toFixed(2)} USD).`);
   }
   const appliedUsd = Math.min(amountUsd, remainingUsd);
@@ -1752,7 +1751,7 @@ export async function recordInvoicePayment(input: RecordInvoicePaymentInput): Pr
   const overpaymentAmount = round2(input.currency === "HTG" ? amount - appliedHtg : amount - appliedUsd);
   const newUsd = round2(priorUsd + appliedUsd);
   const newHtg = round2(priorHtg + appliedHtg);
-  const status: InvoicePaymentStatus = newUsd + 0.01 >= payable.payableUsd ? "Payé" : "Payé partiel";
+  const status: InvoicePaymentStatus = paymentStatusFromAmounts({ ...invoice, payment_paid_usd: newUsd, payment_paid_htg: newHtg });
 
   const payment = await supabase.from("invoice_payments").insert({
     invoice_id: invoice.id, amount, currency: input.currency, amount_usd: amountUsd, amount_htg: amountHtg,

@@ -19,6 +19,15 @@ export type InvoicePayableSource = {
 
 export const money = (value: unknown) => Math.round(Number(value ?? 0) * 100) / 100;
 
+/**
+ * Une différence inférieure à 50 gourdes ne devient jamais un solde client.
+ * Cette règle métier est utilisée par l'administration, les agents, l'espace
+ * client et les routes serveur pour éviter que chaque écran interprète un
+ * même paiement différemment.
+ */
+export const HTG_BALANCE_THRESHOLD = 50;
+export const HTG_ROUNDING_MARGIN = HTG_BALANCE_THRESHOLD - 0.01;
+
 function definedMoney(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   const amount = Number(value);
@@ -58,9 +67,30 @@ export function invoiceRemainingAmounts(invoice: InvoicePayableSource) {
   };
 }
 
+/** Vrai uniquement si le reste atteint au moins 50 gourdes. */
+export function hasSignificantInvoiceBalance(invoice: InvoicePayableSource) {
+  const amounts = invoiceRemainingAmounts(invoice);
+  // `total_htg` est normalement enregistré sur chaque facture. Le fallback
+  // protège les anciennes factures USD qui ne l'auraient pas encore.
+  const rate = Math.max(0, definedMoney(invoice.exchange_rate_used) ?? 0);
+  const remainingHtg = amounts.remainingHtg > 0
+    ? amounts.remainingHtg
+    : money(amounts.remainingUsd * rate);
+  return remainingHtg >= HTG_BALANCE_THRESHOLD;
+}
+
+/**
+ * Accepte un léger excédent de caisse (< 50 HTG), sans créditer un montant
+ * qui n'appartient pas à la facture. À 50 HTG ou plus, la saisie est refusée
+ * afin d'éviter une erreur de montant.
+ */
+export function paymentIsWithinRoundingMargin(amountHtg: unknown, remainingHtg: unknown) {
+  return money(amountHtg) <= money(remainingHtg) + HTG_ROUNDING_MARGIN;
+}
+
 export function paymentStatusFromAmounts(invoice: InvoicePayableSource) {
   const amounts = invoiceRemainingAmounts(invoice);
-  if (amounts.remainingUsd <= 0.01) return "Payé";
+  if (!hasSignificantInvoiceBalance(invoice)) return "Payé";
   if (amounts.paidUsd > 0.009 || amounts.paidHtg > 0.009) return "Payé partiel";
   return "Non payé";
 }

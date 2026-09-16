@@ -46,7 +46,7 @@ import {
 } from "@/lib/pricing";
 import { dateFr, usd } from "@/lib/utils";
 import { specialPackageInfo } from "@/lib/special-package";
-import { invoicePayableAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
+import { hasSignificantInvoiceBalance, invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 import Loader, { SavedToast, Spinner, SuccessCheck } from "@/components/Loader";
 import StatusBadge from "@/components/StatusBadge";
 import { StatusTimeline } from "@/components/StatusFlow";
@@ -360,11 +360,9 @@ export default function EspaceClientPage() {
     ?? autres[0]
     ?? disponibles[0]
     ?? null;
-  const outstandingBalanceUsd = round2(invs.reduce((total, invoice) => {
-    const billed = Number(invoice.balance_due ?? invoice.grand_total ?? invoice.total_usd ?? 0);
-    const paid = Number(invoice.payment_paid_usd ?? 0);
-    return total + Math.max(0, billed - paid);
-  }, 0));
+  const outstandingBalanceUsd = round2(invs.reduce((total, invoice) => (
+    hasSignificantInvoiceBalance(invoice) ? total + invoiceRemainingAmounts(invoice).remainingUsd : total
+  ), 0));
   // ── Sant notifikasyon (V13) ──────────────────────────────────────────────
   // Chak evènman VRE (yon fakti, yon demann retrait, yon koli ki disponib)
   // pran SA PWÒP LIY pou tèt li, epi li rete la pou tout tan — se sèlman

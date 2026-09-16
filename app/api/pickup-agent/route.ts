@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
-import { invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
+import { hasSignificantInvoiceBalance, invoicePayableAmounts, invoiceRemainingAmounts, paymentIsWithinRoundingMargin, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 import { specialPackageInfo } from "@/lib/special-package";
 import { computePrice, round2 } from "@/lib/pricing";
 import type { AccountType, Ville } from "@/lib/types";
@@ -239,7 +239,7 @@ export async function GET(req: Request) {
     const oldestFirst = [...issuedInvoices].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
     for (const invoice of oldestFirst) {
       const { remainingUsd, remainingHtg } = invoiceRemainingAmounts(invoice);
-      if (remainingUsd <= 0.01) continue;
+      if (!hasSignificantInvoiceBalance(invoice)) continue;
       const current = balanceByCustomer.get(code(invoice.customer_code));
       balanceByCustomer.set(code(invoice.customer_code), {
         usd: money((current?.usd ?? 0) + remainingUsd), htg: money((current?.htg ?? 0) + remainingHtg),
@@ -333,7 +333,7 @@ export async function GET(req: Request) {
         }));
     }).sort((left, right) => String(right.created_at).localeCompare(String(left.created_at)));
     const customerBalances = Array.from(balanceByCustomer.entries()).map(([customerCode, balance]) => {
-      const unpaidInvoices = issuedInvoices.filter((invoice) => code(invoice.customer_code) === customerCode && invoiceRemainingAmounts(invoice).remainingUsd > 0.01);
+      const unpaidInvoices = issuedInvoices.filter((invoice) => code(invoice.customer_code) === customerCode && hasSignificantInvoiceBalance(invoice));
       return {
         customer_code: customerCode, customer_name: customerName(customerByCode.get(customerCode)),
         balance_usd: balance.usd, balance_htg: balance.htg,
@@ -469,8 +469,7 @@ export async function POST(req: Request) {
       const remainingHtg = Math.max(0, money(payable.payableHtg - priorHtg));
       // Aksepte yon ti depase lajan (eg. 11 675 pou yon balans 11 673 HTG),
       // men pa kite yon gwo montan pase pa erè. Se sèlman balans la ki aplike.
-      const toleranceUsd = currency === "HTG" ? Math.max(0.05, money(5 / rate)) : 0.05;
-      if (amountUsd > remainingUsd + toleranceUsd) {
+      if (!paymentIsWithinRoundingMargin(amountHtg, remainingHtg)) {
         return NextResponse.json({ ok: false, reason: `Le montant dépasse le reste à payer (${remainingUsd.toFixed(2)} USD).` }, { status: 409 });
       }
       const appliedUsd = Math.min(amountUsd, remainingUsd);
@@ -478,7 +477,7 @@ export async function POST(req: Request) {
       const overpaymentAmount = money(currency === "HTG" ? amount - appliedHtg : amount - appliedUsd);
       const newUsd = money(priorUsd + appliedUsd);
       const newHtg = money(priorHtg + appliedHtg);
-      const status = newUsd + 0.01 >= payable.payableUsd ? "Payé" : "Payé partiel";
+      const status = paymentStatusFromAmounts({ ...invoice, payment_paid_usd: newUsd, payment_paid_htg: newHtg });
       // Écriture optimiste: une seule caisse peut ajouter un paiement à partir
       // du même solde. Si deux appareils valident au même instant, le second
       // enregistrement est retiré et doit actualiser l'écran.
@@ -536,15 +535,15 @@ export async function POST(req: Request) {
         .in("id", invoiceIds);
       if (invoicesResult.error) throw invoicesResult.error;
       const selectedInvoices = invoicesResult.data ?? [];
-      if (selectedInvoices.length !== invoiceIds.length || selectedInvoices.some((invoice: any) => !invoice.has_pdf || invoiceRemainingAmounts(invoice).remainingUsd > 0.01)) {
+      if (selectedInvoices.length !== invoiceIds.length || selectedInvoices.some((invoice: any) => !invoice.has_pdf || hasSignificantInvoiceBalance(invoice))) {
         return NextResponse.json({ ok: false, reason: "Toutes les factures sélectionnées doivent être générées et entièrement payées avant la remise." }, { status: 409 });
       }
       const balances = await db.from("invoices")
         .select("invoice_number, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, payment_paid_usd, payment_paid_htg")
         .eq("customer_code", customerCode).eq("has_pdf", true).order("created_at", { ascending: true });
       if (balances.error) throw balances.error;
-      const outstanding = (balances.data ?? []).map((row: ZoneInvoice) => ({ number: code(row.invoice_number), remaining: invoiceRemainingAmounts(row).remainingUsd }))
-        .filter((row: { remaining: number }) => row.remaining > 0.01);
+      const outstanding = (balances.data ?? []).filter((row: ZoneInvoice) => hasSignificantInvoiceBalance(row))
+        .map((row: ZoneInvoice) => ({ number: code(row.invoice_number), remaining: invoiceRemainingAmounts(row).remainingUsd }));
       if (outstanding.length) {
         const total = money(outstanding.reduce((sum: number, row: { remaining: number }) => sum + row.remaining, 0));
         const refs = outstanding.map((row: { number: string }) => row.number).filter(Boolean).join(", ");
@@ -602,7 +601,7 @@ export async function POST(req: Request) {
       if (!invoiceResult.data?.has_pdf) {
         return NextResponse.json({ ok: false, reason: "La facture doit être générée pour le client avant toute remise." }, { status: 409 });
       }
-      if (invoiceRemainingAmounts(invoiceResult.data).remainingUsd > 0.01) {
+      if (hasSignificantInvoiceBalance(invoiceResult.data)) {
         return NextResponse.json({ ok: false, reason: "Enregistrez le paiement complet de la facture avant de remettre ce colis." }, { status: 409 });
       }
       // Règle de caisse: un client doit aussi solder ses anciennes factures.
@@ -612,9 +611,9 @@ export async function POST(req: Request) {
         .select("invoice_number, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, payment_paid_usd, payment_paid_htg")
         .eq("customer_code", parcel.customer_code).eq("has_pdf", true).order("created_at", { ascending: true });
       if (balances.error) throw balances.error;
-      const outstanding = (balances.data ?? []).map((row: ZoneInvoice) => ({
+      const outstanding = (balances.data ?? []).filter((row: ZoneInvoice) => hasSignificantInvoiceBalance(row)).map((row: ZoneInvoice) => ({
         number: code(row.invoice_number), remaining: invoiceRemainingAmounts(row).remainingUsd
-      })).filter((row: { remaining: number }) => row.remaining > 0.01);
+      }));
       if (outstanding.length) {
         const total = money(outstanding.reduce((sum: number, row: { remaining: number }) => sum + row.remaining, 0));
         const refs = outstanding.map((row: { number: string }) => row.number).filter(Boolean).join(", ");

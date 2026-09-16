@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Banknote, BarChart3, CalendarDays, Download, FileText, Landmark, RefreshCw, UsersRound, WalletCards } from "lucide-react";
+import { Banknote, BarChart3, CalendarDays, CircleDollarSign, Download, FileText, History, Landmark, RefreshCw, UsersRound, WalletCards, X } from "lucide-react";
 import Loader from "@/components/Loader";
 import { supabase } from "@/lib/supabase";
-import { invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
+import { hasSignificantInvoiceBalance, invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 
 type InvoiceRow = {
   id: string; invoice_number: string; customer_code: string; grand_total: number; total_usd: number; total_htg: number;
@@ -20,7 +20,8 @@ type PaymentRow = {
 type ClientRow = { customer_code: string; fullname: string; surname: string; ville_id: string | null };
 type CityRow = { id: string; name: string; active: boolean };
 type ReportData = { invoices: InvoiceRow[]; payments: PaymentRow[]; clients: ClientRow[]; villes: CityRow[] };
-type BalanceRow = { customerCode: string; customerName: string; invoiceCount: number; usd: number; htg: number; latestAt: string };
+type BalanceRow = { customerCode: string; customerName: string; invoiceCount: number; usd: number; htg: number; latestAt: string; oldestInvoiceId: string; oldestInvoiceNumber: string; oldestAt: string };
+type PaymentDraft = { invoiceId: string; amount: string; currency: "USD" | "HTG"; method: string; reference: string };
 
 const money = (value: unknown) => Math.round(Number(value ?? 0) * 100) / 100;
 const usd = (value: unknown) => `$${money(value).toFixed(2)}`;
@@ -28,6 +29,7 @@ const htg = (value: unknown) => `${new Intl.NumberFormat("fr-HT", { maximumFract
 const dateText = (value: string) => value ? new Date(value).toLocaleDateString("fr-CA", { day: "numeric", month: "short", year: "numeric" }) : "—";
 const dateInput = (value: Date) => value.toISOString().slice(0, 10);
 const PAYMENT_METHODS = ["Espèces", "MonCash", "NatCash", "Zelle", "Virement bancaire"];
+const emptyPaymentDraft = (): PaymentDraft => ({ invoiceId: "", amount: "", currency: "HTG", method: "Espèces", reference: "" });
 
 function csvCell(value: unknown) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
@@ -41,6 +43,9 @@ export default function RapportsFinanciersPage() {
   const [villeId, setVilleId] = useState("");
   const [from, setFrom] = useState(() => dateInput(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
   const [to, setTo] = useState(() => dateInput(new Date()));
+  const [paymentDraft, setPaymentDraft] = useState<PaymentDraft>(emptyPaymentDraft);
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,16 +89,20 @@ export default function RapportsFinanciersPage() {
     for (const invoice of zoneInvoices) {
       if (!invoice.has_pdf) continue;
       const remaining = invoiceRemainingAmounts(invoice);
-      if (remaining.remainingUsd <= 0.009 && remaining.remainingHtg <= 0.009) continue;
+      if (!hasSignificantInvoiceBalance(invoice)) continue;
       const customer = customerByCode.get(invoice.customer_code);
       const current = rows.get(invoice.customer_code);
+      const isOlder = !current || String(invoice.created_at ?? "") < String(current.oldestAt ?? "");
       rows.set(invoice.customer_code, {
         customerCode: invoice.customer_code,
         customerName: current?.customerName || [customer?.fullname, customer?.surname].filter(Boolean).join(" "),
         invoiceCount: (current?.invoiceCount ?? 0) + 1,
         usd: money((current?.usd ?? 0) + remaining.remainingUsd),
         htg: money((current?.htg ?? 0) + remaining.remainingHtg),
-        latestAt: String(invoice.created_at ?? "") > String(current?.latestAt ?? "") ? invoice.created_at : current?.latestAt ?? invoice.created_at
+        latestAt: String(invoice.created_at ?? "") > String(current?.latestAt ?? "") ? invoice.created_at : current?.latestAt ?? invoice.created_at,
+        oldestInvoiceId: isOlder ? invoice.id : current!.oldestInvoiceId,
+        oldestInvoiceNumber: isOlder ? invoice.invoice_number : current!.oldestInvoiceNumber,
+        oldestAt: isOlder ? invoice.created_at : current!.oldestAt
       });
     }
     return Array.from(rows.values()).sort((left, right) => right.usd - left.usd || right.htg - left.htg || left.customerCode.localeCompare(right.customerCode));
@@ -117,6 +126,74 @@ export default function RapportsFinanciersPage() {
     return Array.from(rows.values()).sort((left, right) => right.usd - left.usd || right.htg - left.htg || left.name.localeCompare(right.name));
   }, [payments]);
 
+  const customerHistory = useMemo(() => {
+    const rows = new Map<string, { code: string; name: string; city: string; invoiceCount: number; paidUsd: number; paidHtg: number; lastInvoiceAt: string; lastPaymentAt: string }>();
+    for (const customer of data?.clients ?? []) {
+      if (!customerMatchesCity(customer.customer_code)) continue;
+      rows.set(customer.customer_code, {
+        code: customer.customer_code,
+        name: [customer.fullname, customer.surname].filter(Boolean).join(" "),
+        city: cityById.get(customer.ville_id ?? "") ?? "",
+        invoiceCount: 0, paidUsd: 0, paidHtg: 0, lastInvoiceAt: "", lastPaymentAt: ""
+      });
+    }
+    for (const invoice of zoneInvoices) {
+      if (!invoice.has_pdf) continue;
+      const current = rows.get(invoice.customer_code) ?? { code: invoice.customer_code, name: "", city: "", invoiceCount: 0, paidUsd: 0, paidHtg: 0, lastInvoiceAt: "", lastPaymentAt: "" };
+      current.invoiceCount += 1;
+      if (String(invoice.created_at) > current.lastInvoiceAt) current.lastInvoiceAt = invoice.created_at;
+      rows.set(invoice.customer_code, current);
+    }
+    for (const payment of data?.payments ?? []) {
+      const invoice = invoiceById.get(payment.invoice_id);
+      if (!invoice || !customerMatchesCity(invoice.customer_code)) continue;
+      const current = rows.get(invoice.customer_code) ?? { code: invoice.customer_code, name: "", city: "", invoiceCount: 0, paidUsd: 0, paidHtg: 0, lastInvoiceAt: "", lastPaymentAt: "" };
+      current.paidUsd = money(current.paidUsd + money(payment.amount_usd));
+      current.paidHtg = money(current.paidHtg + money(payment.amount_htg));
+      if (String(payment.created_at) > current.lastPaymentAt) current.lastPaymentAt = payment.created_at;
+      rows.set(invoice.customer_code, current);
+    }
+    return Array.from(rows.values()).sort((left, right) => {
+      const leftDate = left.lastPaymentAt || left.lastInvoiceAt;
+      const rightDate = right.lastPaymentAt || right.lastInvoiceAt;
+      return String(rightDate).localeCompare(String(leftDate)) || left.code.localeCompare(right.code);
+    });
+  }, [cityById, customerMatchesCity, data?.clients, data?.payments, invoiceById, zoneInvoices]);
+
+  const recordBalancePayment = async () => {
+    const amount = Number(paymentDraft.amount);
+    if (!paymentDraft.invoiceId || !Number.isFinite(amount) || amount <= 0) {
+      setPaymentError("Entrez un montant valide.");
+      return;
+    }
+    setPaymentBusy(true);
+    setPaymentError("");
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const response = await fetch("/api/admin-invoice-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: sessionData.session?.access_token ?? "",
+          invoice_id: paymentDraft.invoiceId,
+          amount,
+          currency: paymentDraft.currency,
+          payment_method: paymentDraft.method,
+          payment_reference: paymentDraft.reference
+        })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.reason || "Paiement impossible.");
+      setNotice(`Paiement enregistré : ${result.payment_status}. Les espaces administration, agence et client sont synchronisés.`);
+      setPaymentDraft(emptyPaymentDraft());
+      await load();
+    } catch (error) {
+      setPaymentError(error instanceof Error ? error.message : "Paiement impossible.");
+    } finally {
+      setPaymentBusy(false);
+    }
+  };
+
   const exportPayments = () => {
     const lines: Array<Array<string | number>> = [["Date", "Reçu", "Facture", "Client", "Ville", "Montant", "Devise", "USD comptabilisé", "HTG comptabilisé", "Moyen", "Référence", "Reçu par", "Source"]];
     for (const payment of payments) {
@@ -138,8 +215,10 @@ export default function RapportsFinanciersPage() {
     {loading ? <div className="card py-16"><Loader inline size={56} /></div> : <>
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric icon={<Banknote size={20} />} label="Encaissements de la période" value={usd(receivedUsd)} hint={htg(receivedHtg)} tone="bg-emerald-50 text-emerald-700" /><Metric icon={<WalletCards size={20} />} label="Transactions enregistrées" value={payments.length} hint="Chaque paiement conserve son reçu" tone="bg-blue-50 text-blue-700" /><Metric icon={<Landmark size={20} />} label="Factures réglées" value={paidInvoices} hint="Dans la ville sélectionnée" tone="bg-indigo-50 text-indigo-700" /><Metric icon={<UsersRound size={20} />} label="Soldes à recevoir" value={usd(totalBalanceUsd)} hint={`${htg(totalBalanceHtg)} · ${balances.length} client(s)`} tone="bg-amber-50 text-amber-700" /></section>
       <section className="grid gap-5 xl:grid-cols-2"><FinanceBreakdown title="Par moyen de paiement" rows={byMethod.map((row) => ({ label: row.method, sublabel: `${row.count} transaction${row.count > 1 ? "s" : ""}`, usd: row.usd, htg: row.htg }))} empty="Aucun encaissement dans cette période." /><FinanceBreakdown title="Par personne qui a encaissé" rows={byCollector.map((row) => ({ label: row.name, sublabel: `${row.source} · ${row.count} transaction${row.count > 1 ? "s" : ""}`, usd: row.usd, htg: row.htg }))} empty="Aucun encaissement dans cette période." /></section>
-      <section className="card overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4"><div><h2 className="h-sec flex items-center gap-2"><FileText size={19} /> Derniers paiements et reçus</h2><p className="mt-1 text-xs text-mute">Un reçu imprimable est disponible pour chaque paiement confirmé.</p></div><span className="badge bg-slate-100 text-slate-600">{payments.length}</span></div><div className="max-h-[500px] overflow-auto"><table className="w-full min-w-[850px] text-sm"><thead><tr>{["Date", "Facture", "Client", "Montant", "Moyen", "Reçu par", "Reçu"].map((title) => <th className="th" key={title}>{title}</th>)}</tr></thead><tbody>{payments.length ? payments.map((payment, index) => { const invoice = invoiceById.get(payment.invoice_id); const customer = invoice ? customerByCode.get(invoice.customer_code) : undefined; return <tr className={index % 2 ? "bg-mist" : ""} key={payment.id}><td className="td whitespace-nowrap">{dateText(payment.created_at)}</td><td className="td font-bold text-navy">{invoice?.invoice_number ?? "—"}</td><td className="td"><b>{invoice?.customer_code ?? "—"}</b>{customer && <span className="mt-0.5 block text-xs text-slate-500">{[customer.fullname, customer.surname].filter(Boolean).join(" ") || "—"}</span>}</td><td className="td text-right font-bold">{payment.currency === "USD" ? usd(payment.amount) : htg(payment.amount)}</td><td className="td">{payment.payment_method || "Espèces"}{payment.payment_reference && <span className="mt-0.5 block text-xs text-slate-500">{payment.payment_reference}</span>}</td><td className="td">{payment.received_by_name || "—"}<span className="mt-0.5 block text-xs text-slate-500">{payment.recorded_by_role === "admin" ? "Admin direct" : "Point de retrait"}</span></td><td className="td"><Link className="inline-flex items-center gap-1 text-xs font-bold text-navy underline" href={`/recu-paiement/${payment.id}`} target="_blank"><FileText size={14} /> Reçu</Link></td></tr>; }) : <tr><td colSpan={7} className="py-10 text-center text-slate-400">Aucun paiement dans cette période.</td></tr>}</tbody></table></div></section>
-      <section className="card overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4"><div><h2 className="h-sec flex items-center gap-2"><CalendarDays size={19} /> Clients avec un solde à régler</h2><p className="mt-1 text-xs text-mute">Les montants reprennent les factures envoyées au client, pas une estimation.</p></div><span className="badge bg-amber-100 text-amber-800">{balances.length} client{balances.length > 1 ? "s" : ""}</span></div><div className="max-h-[430px] overflow-auto"><table className="w-full min-w-[650px] text-sm"><thead><tr>{["Client", "Ville", "Factures", "Solde USD", "Solde HTG", "Dernière facture"].map((title) => <th className="th" key={title}>{title}</th>)}</tr></thead><tbody>{balances.length ? balances.map((row, index) => { const customer = customerByCode.get(row.customerCode); return <tr key={row.customerCode} className={index % 2 ? "bg-mist" : ""}><td className="td"><b className="text-navy">{row.customerCode}</b>{row.customerName && <span className="mt-0.5 block text-xs text-slate-500">{row.customerName}</span>}</td><td className="td">{cityById.get(customer?.ville_id ?? "") ?? "—"}</td><td className="td">{row.invoiceCount}</td><td className="td text-right font-bold text-amber-800">{usd(row.usd)}</td><td className="td text-right font-bold text-amber-800">{htg(row.htg)}</td><td className="td whitespace-nowrap">{dateText(row.latestAt)}</td></tr>; }) : <tr><td colSpan={6} className="py-10 text-center text-slate-400">Aucun solde à recevoir pour cette sélection.</td></tr>}</tbody></table></div></section>
+      <section className="card overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4"><div><h2 className="h-sec flex items-center gap-2"><FileText size={19} /> Derniers paiements et reçus</h2><p className="mt-1 text-xs text-mute">Chaque reçu s&apos;ouvre dans le rapport et peut être imprimé directement.</p></div><span className="badge bg-slate-100 text-slate-600">{payments.length}</span></div><div className="max-h-[500px] overflow-auto"><table className="w-full min-w-[850px] text-sm"><thead><tr>{["Date", "Facture", "Client", "Montant", "Moyen", "Reçu par", "Reçu"].map((title) => <th className="th" key={title}>{title}</th>)}</tr></thead><tbody>{payments.length ? payments.map((payment, index) => { const invoice = invoiceById.get(payment.invoice_id); const customer = invoice ? customerByCode.get(invoice.customer_code) : undefined; return <tr className={index % 2 ? "bg-mist" : ""} key={payment.id}><td className="td whitespace-nowrap">{dateText(payment.created_at)}</td><td className="td font-bold text-navy">{invoice?.invoice_number ?? "—"}</td><td className="td"><b>{invoice?.customer_code ?? "—"}</b>{customer && <span className="mt-0.5 block text-xs text-slate-500">{[customer.fullname, customer.surname].filter(Boolean).join(" ") || "—"}</span>}</td><td className="td text-right font-bold">{payment.currency === "USD" ? usd(payment.amount) : htg(payment.amount)}</td><td className="td">{payment.payment_method || "Espèces"}{payment.payment_reference && <span className="mt-0.5 block text-xs text-slate-500">{payment.payment_reference}</span>}</td><td className="td">{payment.received_by_name || "—"}<span className="mt-0.5 block text-xs text-slate-500">{payment.recorded_by_role === "admin" ? "Admin direct" : "Point de retrait"}</span></td><td className="td"><Link className="inline-flex items-center gap-1 text-xs font-bold text-navy underline" href={`/rapports-financiers/recu/${payment.id}`}><FileText size={14} /> Reçu</Link></td></tr>; }) : <tr><td colSpan={7} className="py-10 text-center text-slate-400">Aucun paiement dans cette période.</td></tr>}</tbody></table></div></section>
+      {paymentDraft.invoiceId && <AdminBalancePaymentPanel invoice={invoiceById.get(paymentDraft.invoiceId) ?? null} draft={paymentDraft} busy={paymentBusy} error={paymentError} onChange={(patch) => { setPaymentDraft((current) => ({ ...current, ...patch })); setPaymentError(""); }} onClose={() => { setPaymentDraft(emptyPaymentDraft()); setPaymentError(""); }} onSubmit={() => void recordBalancePayment()} />}
+      <section className="card overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4"><div><h2 className="h-sec flex items-center gap-2"><CalendarDays size={19} /> Clients avec un solde à régler</h2><p className="mt-1 text-xs text-mute">Seuls les soldes d&apos;au moins 50 HTG sont retenus. Les petites différences sont réglées automatiquement.</p></div><span className="badge bg-amber-100 text-amber-800">{balances.length} client{balances.length > 1 ? "s" : ""}</span></div><div className="max-h-[430px] overflow-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr>{["Client", "Ville", "Factures", "Solde USD", "Solde HTG", "Dernière facture", "Action"].map((title) => <th className="th" key={title}>{title}</th>)}</tr></thead><tbody>{balances.length ? balances.map((row, index) => { const customer = customerByCode.get(row.customerCode); return <tr key={row.customerCode} className={index % 2 ? "bg-mist" : ""}><td className="td"><b className="text-navy">{row.customerCode}</b>{row.customerName && <span className="mt-0.5 block text-xs text-slate-500">{row.customerName}</span>}</td><td className="td">{cityById.get(customer?.ville_id ?? "") ?? "—"}</td><td className="td">{row.invoiceCount}<span className="mt-0.5 block text-[11px] text-slate-500">À partir de {row.oldestInvoiceNumber}</span></td><td className="td text-right font-bold text-amber-800">{usd(row.usd)}</td><td className="td text-right font-bold text-amber-800">{htg(row.htg)}</td><td className="td whitespace-nowrap">{dateText(row.latestAt)}</td><td className="td"><button type="button" onClick={() => { setPaymentDraft({ ...emptyPaymentDraft(), invoiceId: row.oldestInvoiceId }); setPaymentError(""); }} className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-bold text-navy underline"><CircleDollarSign size={14} /> Régler</button></td></tr>; }) : <tr><td colSpan={7} className="py-10 text-center text-slate-400">Aucun solde à recevoir pour cette sélection.</td></tr>}</tbody></table></div></section>
+      <section className="card overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4"><div><h2 className="h-sec flex items-center gap-2"><History size={19} /> Historique financier des clients</h2><p className="mt-1 text-xs text-mute">Toutes les factures et tous les paiements enregistrés, par client.</p></div><span className="badge bg-slate-100 text-slate-600">{customerHistory.length} client{customerHistory.length > 1 ? "s" : ""}</span></div><div className="max-h-[430px] overflow-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr>{["Client", "Ville", "Factures", "Total payé USD", "Total payé HTG", "Dernière activité"].map((title) => <th className="th" key={title}>{title}</th>)}</tr></thead><tbody>{customerHistory.length ? customerHistory.map((row, index) => <tr key={row.code} className={index % 2 ? "bg-mist" : ""}><td className="td"><b className="text-navy">{row.code}</b>{row.name && <span className="mt-0.5 block text-xs text-slate-500">{row.name}</span>}</td><td className="td">{row.city || "—"}</td><td className="td">{row.invoiceCount}</td><td className="td text-right font-bold">{usd(row.paidUsd)}</td><td className="td text-right font-bold">{htg(row.paidHtg)}</td><td className="td whitespace-nowrap">{dateText(row.lastPaymentAt || row.lastInvoiceAt)}</td></tr>) : <tr><td colSpan={6} className="py-10 text-center text-slate-400">Aucun historique pour cette sélection.</td></tr>}</tbody></table></div></section>
     </>}
   </div>;
 }
@@ -150,4 +229,19 @@ function Metric({ icon, label, value, hint, tone }: { icon: React.ReactNode; lab
 
 function FinanceBreakdown({ title, rows, empty }: { title: string; rows: Array<{ label: string; sublabel: string; usd: number; htg: number }>; empty: string }) {
   return <section className="card overflow-hidden"><div className="border-b border-line p-4"><h2 className="h-sec">{title}</h2></div><div className="divide-y divide-line">{rows.length ? rows.map((row) => <div className="flex items-center justify-between gap-3 p-4" key={row.label}><div><p className="font-bold text-navy">{row.label}</p><p className="mt-0.5 text-xs text-slate-500">{row.sublabel}</p></div><div className="text-right"><p className="font-black text-navy">{usd(row.usd)}</p><p className="text-xs text-slate-500">{htg(row.htg)}</p></div></div>) : <p className="p-6 text-center text-sm text-slate-400">{empty}</p>}</div></section>;
+}
+
+function AdminBalancePaymentPanel({ invoice, draft, busy, error, onChange, onClose, onSubmit }: {
+  invoice: InvoiceRow | null;
+  draft: PaymentDraft;
+  busy: boolean;
+  error: string;
+  onChange: (patch: Partial<PaymentDraft>) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  if (!invoice) return null;
+  const payable = invoicePayableAmounts(invoice);
+  const remaining = invoiceRemainingAmounts(invoice);
+  return <section className="card border border-blue-200 bg-blue-50/60 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-blue-700">Règlement direct par l&apos;administration</p><h2 className="mt-1 text-lg font-black text-navy">{invoice.invoice_number} · {invoice.customer_code}</h2><p className="mt-1 text-xs text-slate-600">Montant de référence : la facture envoyée au client.</p><p className="mt-2 text-sm font-semibold text-slate-700">Solde courant : <b>{usd(remaining.remainingUsd)}</b> · {htg(remaining.remainingHtg)}</p><p className="mt-1 text-xs text-slate-500">Une différence de moins de 50 HTG est automatiquement considérée comme réglée.</p></div><button type="button" onClick={onClose} aria-label="Fermer le règlement" className="rounded-lg p-1 text-slate-500 hover:bg-white"><X size={18} /></button></div><div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4"><input value={draft.amount} onChange={(event) => onChange({ amount: event.target.value })} type="number" min="0.01" step="0.01" className="input" placeholder="Montant reçu" autoFocus /><select value={draft.currency} onChange={(event) => onChange({ currency: event.target.value as "USD" | "HTG" })} className="input"><option value="HTG">Gourdes</option><option value="USD">Dollars américains</option></select><select value={draft.method} onChange={(event) => onChange({ method: event.target.value })} className="input">{PAYMENT_METHODS.map((method) => <option key={method} value={method}>{method}</option>)}</select><input value={draft.reference} onChange={(event) => onChange({ reference: event.target.value.slice(0, 120) })} className="input" placeholder="Référence (facultatif)" /></div>{error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p>}<div className="mt-3 flex flex-wrap items-center gap-3"><button type="button" disabled={busy} onClick={onSubmit} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-navy px-4 text-sm font-bold text-white disabled:opacity-60"><CircleDollarSign size={17} />{busy ? "Enregistrement…" : "Confirmer le paiement"}</button><span className="text-xs text-slate-500">Facture : {usd(payable.payableUsd)} · {htg(payable.payableHtg)}</span></div></section>;
 }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
-import { invoicePayableAmounts } from "@/lib/invoice-payable";
+import { invoicePayableAmounts, paymentIsWithinRoundingMargin, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 const METHODS = new Set(["Espèces", "MonCash", "NatCash", "Zelle", "Virement bancaire"]);
@@ -50,8 +50,7 @@ export async function POST(req: Request) {
     const priorHtg = money(invoice.payment_paid_htg);
     const remainingUsd = Math.max(0, money(payable.payableUsd - priorUsd));
     const remainingHtg = Math.max(0, money(payable.payableHtg - priorHtg));
-    const toleranceUsd = currency === "HTG" ? Math.max(0.05, money(5 / rate)) : 0.05;
-    if (amountUsd > remainingUsd + toleranceUsd) {
+    if (!paymentIsWithinRoundingMargin(amountHtg, remainingHtg)) {
       return NextResponse.json({ ok: false, reason: `Le montant dépasse le reste à payer (${remainingUsd.toFixed(2)} USD).` }, { status: 409 });
     }
 
@@ -60,7 +59,7 @@ export async function POST(req: Request) {
     const overpaymentAmount = money(currency === "HTG" ? amount - appliedHtg : amount - appliedUsd);
     const newUsd = money(priorUsd + appliedUsd);
     const newHtg = money(priorHtg + appliedHtg);
-    const status = newUsd + 0.01 >= payable.payableUsd ? "Payé" : "Payé partiel";
+    const status = paymentStatusFromAmounts({ ...invoice, payment_paid_usd: newUsd, payment_paid_htg: newHtg });
     const staffName = [text(staff.prenom), text(staff.nom)].filter(Boolean).join(" ") || text(staff.username) || "Administrateur";
 
     const payment = await db.from("invoice_payments").insert({
