@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import { getPendingRetraitsCount } from "@/lib/db";
 import { Staff } from "@/lib/types";
 import { isAdminOnlyPath } from "@/lib/access";
+import StaffNotifications from "./StaffNotifications";
 
 // Nav gwoupe pa seksyon (estil dashboard pwofesyonèl)
 const groups: { title: string; items: { href: string; label: string; icon: typeof Users }[] }[] = [
@@ -75,6 +76,11 @@ export default function Sidebar({ staff }: { staff?: Staff | null }) {
           <p className="font-extrabold text-sm leading-tight">STANDA</p>
           <p className="text-[10px] text-white/50 tracking-wide">COMMERCIAL</p>
         </div>
+      </div>
+
+      {/* Opérations internes: paiements agence / Bons destinés aux agents. */}
+      <div className="px-3 pb-2">
+        <StaffNotifications variant="sidebar" />
       </div>
 
       {/* Nav gwoupe */}

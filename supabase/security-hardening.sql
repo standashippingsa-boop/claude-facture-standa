@@ -29,6 +29,7 @@ alter table if exists public.exchange_rate enable row level security;
 alter table if exists public.retraits enable row level security;
 alter table if exists public.retrait_items enable row level security;
 alter table if exists public.staff enable row level security;
+alter table if exists public.staff_notifications enable row level security;
 
 -- ============================================================
 -- 1. REMOVE DANGEROUS LEGACY POLICIES  (+ idempotence)
@@ -48,7 +49,7 @@ begin
     where schemaname = 'public' and tablename in (
        'villes','clients','packages','invoices','invoice_items','invoice_payments','imports',
       'app_settings','exchange_rate','retraits','retrait_items','staff',
-      'agences','conduces','journal','import_batches','api_tokens')
+      'agences','conduces','journal','import_batches','api_tokens','staff_notifications')
   loop
     execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
   end loop;
@@ -693,6 +694,12 @@ select public._hard_policy('fcm_device_tokens', 'fcm_device_tokens_delete_own', 
   || 'and (c.customer_code = fcm_device_tokens.customer_code or c.username = fcm_device_tokens.customer_code))',
   null);
 select public._hard_policy('fcm_device_tokens', 'fcm_device_tokens_select_staff', 'select', 'authenticated', 'public.is_staff()', null);
+
+-- NOTIFICATIONS INTERNES — seulement /api/staff-notifications, qui dérive
+-- le destinataire depuis la session. Les triggers créent les événements avec
+-- la clé service; aucune politique navigateur n'est volontairement accordée.
+do $$ begin execute 'drop policy if exists "anon all staff_notifications" on public.staff_notifications';
+exception when undefined_table then null; end $$;
 
 -- JOURNAL — piste d'audit. Lecture staff. Écriture : uniquement via la route
 -- serveur /api/audit-log (clé service, qui contourne RLS) -> aucune politique

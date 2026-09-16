@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { openSecureDocument } from "@/lib/secure-document";
 import { packageProgressPriority, sortPackagesAvailableFirst } from "@/lib/utils";
 import Logo from "@/components/Logo";
+import StaffNotifications from "@/components/StaffNotifications";
 
 type ZonePackage = {
   id: string; tracking_number: string; tracking_manual: string; customer_code: string; customer_name: string;
@@ -283,7 +284,7 @@ export default function PickupAgentPortal() {
     <header className="bg-gradient-to-r from-[#071b43] via-[#0d3270] to-[#154b91] text-white shadow-lg">
       <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-2 px-3 py-2 sm:min-h-20 sm:gap-3 sm:px-6 sm:py-3">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3"><span className="sm:hidden"><Logo size={38} rounded="rounded-lg" /></span><span className="hidden sm:inline"><Logo size={44} rounded="rounded-xl" /></span><div><p className="text-base font-black tracking-tight sm:text-lg">STANDA</p><p className="text-[9px] font-semibold tracking-[0.16em] text-white/70 sm:text-[10px] sm:tracking-[0.18em]">POINT DE RETRAIT</p></div></div>
-        <button type="button" onClick={logout} className="inline-flex min-h-10 items-center gap-2 rounded-xl px-2.5 text-sm font-semibold text-white/90 hover:bg-white/10 sm:min-h-11 sm:px-3"><LogOut size={17} /><span className="hidden sm:inline">Se déconnecter</span></button>
+        <div className="flex items-center gap-1 sm:gap-2"><StaffNotifications variant="icon" /><button type="button" onClick={logout} className="inline-flex min-h-10 items-center gap-2 rounded-xl px-2.5 text-sm font-semibold text-white/90 hover:bg-white/10 sm:min-h-11 sm:px-3"><LogOut size={17} /><span className="hidden sm:inline">Se déconnecter</span></button></div>
       </div>
     </header>
 

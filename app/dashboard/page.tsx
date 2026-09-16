@@ -16,6 +16,7 @@ import { Users, Package, FileText, DollarSign, RefreshCw, CheckCircle2, Bell, In
 import { getClients, getRetraits, getStats } from "@/lib/db";
 import { Client, DashboardStats, Retrait } from "@/lib/types";
 import RefreshButton from "@/components/RefreshButton";
+import StaffNotifications from "@/components/StaffNotifications";
 import { dateFr, usd } from "@/lib/utils";
 
 export default function Dashboard() {
@@ -56,6 +57,8 @@ export default function Dashboard() {
       </div>
 
       {err && <p className="card p-4 text-sm text-red-600">Erè koneksyon bazdone: {err} — verifye .env.local ou a.</p>}
+
+      <StaffNotifications variant="section" />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {cards.map(({ label, value, icon: Icon, href, tint }) => (
