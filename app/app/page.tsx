@@ -3,6 +3,7 @@ import { Bell, Download, MapPin, PackageSearch, Settings, ShieldCheck, Smartphon
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
 import PageHero from "@/components/site/PageHero";
+import StoreBadges from "@/components/site/StoreBadges";
 
 export const metadata: Metadata = {
   title: "Application mobile — STANDA COMMERCIAL",
@@ -76,6 +77,15 @@ export default function AppPage() {
       <div className="mt-6 flex items-center gap-2 rounded-xl bg-mist px-4 py-3 text-[13px] text-mute">
         <Settings size={15} className="shrink-0 text-accent-dark" />
         Un problème d&apos;installation ? Écrivez-nous sur <a href="/contact" className="font-bold text-accent-dark hover:underline">Contact</a>.
+      </div>
+    </section>
+
+    <section className="bg-navy px-5 py-12 sm:px-8 sm:py-16 lg:px-10 xl:px-6">
+      <div className="mx-auto max-w-5xl text-center text-white">
+        <p className="text-[11px] font-bold uppercase tracking-[.19em] text-accent">Prochainement</p>
+        <h2 className="mt-3 text-balance text-[28px] font-black leading-tight sm:text-[36px]">Bientôt dans vos boutiques d&apos;applications.</h2>
+        <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-white/70">Les boutons sont prêts. Ils deviendront accessibles dès la publication officielle de l&apos;application.</p>
+        <StoreBadges className="mt-7 justify-center" />
       </div>
     </section>
 

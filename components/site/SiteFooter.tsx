@@ -5,6 +5,7 @@ import Logo from "@/components/Logo";
 import { SITE } from "@/lib/site";
 import { DEPOT } from "@/lib/depot";
 import { FacebookIcon, InstagramIcon, TikTokIcon, WhatsAppIcon } from "./BrandIcons";
+import StoreBadges from "./StoreBadges";
 
 /**
  * STANDA COMMERCIAL — FOOTER SIT PIBLIK LA
@@ -26,7 +27,7 @@ export default function SiteFooter() {
     <footer className="bg-navy-dark text-white">
       <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10 xl:px-6">
 
-        <div className="grid gap-10 md:grid-cols-4">
+        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
 
           {/* ── Kolòn 1: mak la ── */}
           <div className="md:col-span-1">
@@ -126,9 +127,21 @@ export default function SiteFooter() {
               N&apos;oubliez jamais votre code MC sur chaque colis.
             </p>
           </div>
-        </div>
+          </div>
 
-        {/* ── Ba anba a ── */}
+          {/* ── Kolòn 5: aplikasyon mobil ── */}
+          <div>
+            <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50 mb-4">
+              Application mobile
+            </h3>
+            <p className="mb-3 text-[13px] leading-relaxed text-white/65">
+              Suivez vos colis et vos factures depuis votre téléphone.
+            </p>
+            <StoreBadges className="flex-col" />
+            <p className="mt-3 text-[11px] font-semibold text-accent/90">Disponibilité prochaine.</p>
+          </div>
+
+          {/* ── Ba anba a ── */}
         <div className="mt-10 pt-6 border-t border-white/10
                         flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-[12px] text-white/50 text-center sm:text-left">
