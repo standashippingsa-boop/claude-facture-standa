@@ -55,7 +55,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [publicPath, path, router]);
 
-  if (publicPath) return <PublicPortalRedirect><main className="min-h-screen">{children}</main></PublicPortalRedirect>;
+  if (publicPath) return <PublicPortalRedirect><main className="min-h-screen">{children}<ScrollToTopButton /></main></PublicPortalRedirect>;
   if (!ready) return <Loader />;
 
   // Kliyan ak ajan remiz: chak gen pwòp entèfas mobil li, san sidebar staff.
