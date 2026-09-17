@@ -14,13 +14,14 @@ type ZonePackage = {
   customer_balance_usd: number; customer_balance_htg: number; balance_invoice_id: string; balance_invoice_number: string;
   quantity: number; content: string; created_date: string; received_at: string; delivered_at: string; status: string;
   invoice_id: string; invoice_number: string; invoice_payment_status: string; invoice_payment_details: string;
+  is_central_account: boolean;
   is_special: boolean; special_reason: string;
 };
 type ZoneInvoice = {
   id: string; invoice_number: string; customer_code: string; package_count: number; customer_name: string;
   customer_balance_usd: number; customer_balance_htg: number; grand_total_usd: number; deposit_usd: number; amount_due_usd: number; amount_due_htg: number;
   amount_label: string; payment_status: string; payment_details: string; payment_paid_usd: number;
-  payment_paid_htg: number; delivery_status: string; delivered_packages_count: number; has_pdf: boolean; created_at: string;
+  payment_paid_htg: number; delivery_status: string; delivered_packages_count: number; has_pdf: boolean; created_at: string; is_central_account: boolean;
 };
 type ZoneBon = {
   id: string; bon_number: string; destination: string; package_count: number; created_at: string;
@@ -35,7 +36,7 @@ type PaymentMethod = "Espèces" | "MonCash" | "NatCash" | "Zelle" | "Virement ba
 type PaymentDraft = { invoiceId: string; amount: string; currency: "USD" | "HTG"; method: PaymentMethod; reference: string };
 type ClientDossier = { customerCode: string; customerName: string; packages: ZonePackage[]; invoices: ZoneInvoice[] };
 type DossierCounts = { active: ZonePackage[]; enRoute: number; available: number; latestActiveAt: number; latestActivityAt: number };
-type PackageGroup = { customerCode: string; customerName: string; packages: ZonePackage[]; balanceUsd: number; balanceHtg: number; balanceInvoiceId: string; balanceInvoiceNumber: string; latestActivityAt: number };
+type PackageGroup = { customerCode: string; customerName: string; packages: ZonePackage[]; balanceUsd: number; balanceHtg: number; balanceInvoiceId: string; balanceInvoiceNumber: string; latestActivityAt: number; isCentralAccount: boolean };
 
 const DONE = "Livré";
 const READY_STATUSES = new Set(["Disponible", "Facturé"]);
@@ -129,7 +130,12 @@ export default function PickupAgentPortal() {
   const receivedMiami = useMemo(() => incoming.filter((item) => item.status === "Reçu à Miami"), [incoming]);
   const inTransit = useMemo(() => incoming.filter((item) => item.status !== "Reçu à Miami"), [incoming]);
   const arrivals = useMemo(() => incoming.filter((item) => arrivalFilter === "all" || (arrivalFilter === "miami" ? item.status === "Reçu à Miami" : item.status !== "Reçu à Miami")), [incoming, arrivalFilter]);
-  const dossiers = useMemo(() => groupClientDossiers(packages, invoices), [packages, invoices]);
+  // Kont santral la sèvi pou operasyon STANDA, li pa yon kliyan nan zòn nan.
+  // Koli li yo rete vizib nan lis operasyon yo, men yo pa antre nan Dossiers clients.
+  const dossiers = useMemo(() => groupClientDossiers(
+    packages.filter((item) => !item.is_central_account),
+    invoices.filter((invoice) => !invoice.is_central_account)
+  ), [packages, invoices]);
   const needle = search.trim().toLowerCase();
   const matchingDossiers = useMemo(() => needle ? dossiers.filter((dossier) => dossierText(dossier).includes(needle)) : dossiers, [dossiers, needle]);
   const packageSource = tab === "arrivals" ? arrivals : tab === "ready" ? ready : tab === "history" ? delivered : [];
@@ -154,6 +160,16 @@ export default function PickupAgentPortal() {
     return json;
   };
 
+  const openCentralOperation = (parcel: ZonePackage, query = parcel.customer_code) => {
+    setTab(parcel.status === DONE ? "history" : isReadyForPickup(parcel) ? "ready" : "arrivals");
+    setSearch(query);
+    setFocusedPackageId(null);
+    setExpandedCustomer(parcel.customer_code);
+    setSelectedInvoiceId(null);
+    setMessage(null);
+    window.setTimeout(() => document.getElementById("package-group-" + parcel.customer_code)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
+
   const openDossier = () => {
     const lastSixDigits = needle.replace(/\D/g, "");
     if (lastSixDigits.length === 6 && needle === lastSixDigits) {
@@ -165,6 +181,7 @@ export default function PickupAgentPortal() {
       }
       if (matches.length === 1) {
         const parcel = matches[0];
+        if (parcel.is_central_account) { openCentralOperation(parcel, needle); return; }
         const found = dossiers.find((dossier) => dossier.customerCode === parcel.customer_code);
         if (!found) { setMessage({ type: "error", text: "Le colis a été trouvé, mais son dossier client est indisponible." }); return; }
         setTab("dossiers");
@@ -179,6 +196,8 @@ export default function PickupAgentPortal() {
       setMessage({ type: "error", text: "Aucun colis ne correspond à ces 6 derniers chiffres. Vérifiez le numéro ou utilisez le code client." });
       return;
     }
+    const centralMatch = packages.find((item) => item.is_central_account && item.customer_code.toLowerCase() === needle);
+    if (centralMatch) { openCentralOperation(centralMatch); return; }
     const exact = dossiers.find((dossier) => dossier.customerCode.toLowerCase() === needle);
     const found = exact ?? matchingDossiers[0];
     if (!found) { setMessage({ type: "error", text: "Aucun dossier client ne correspond à cette recherche." }); return; }
@@ -361,7 +380,8 @@ function groupPackages(items: ZonePackage[]): PackageGroup[] {
       balanceHtg: packages[0]?.customer_balance_htg ?? 0,
       balanceInvoiceId: packages[0]?.balance_invoice_id ?? "",
       balanceInvoiceNumber: packages[0]?.balance_invoice_number ?? "",
-      latestActivityAt: Math.max(...customerPackages.map(packageActivityAt))
+      latestActivityAt: Math.max(...customerPackages.map(packageActivityAt)),
+      isCentralAccount: Boolean(packages[0]?.is_central_account)
     };
   }).sort((left, right) => right.latestActivityAt - left.latestActivityAt
     || right.packages.length - left.packages.length
@@ -536,8 +556,8 @@ function PackagesView({ groups, tab, expanded, onExpand, selectedPackageIds, con
     const alwaysOpen = tab === "arrivals";
     const open = alwaysOpen || expanded === group.customerCode;
     const hasBalance = tab === "ready" && group.balanceUsd > 0.01;
-    return <article key={group.customerCode} className={cn("overflow-hidden rounded-xl border bg-white sm:rounded-2xl", hasBalance ? "border-amber-300" : "border-slate-200")}>
-      <button type="button" onClick={() => { if (!alwaysOpen) onExpand(open ? null : group.customerCode); }} className={cn("flex w-full items-center justify-between gap-3 p-3 text-left sm:p-4", alwaysOpen ? "cursor-default" : "hover:bg-slate-50")}><div><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:text-[11px]">Code client</p><p className="mt-0.5 text-lg font-black tracking-tight text-[#0a2b61] sm:text-xl">{group.customerCode} {group.customerName && <span className="ml-1 text-xs font-semibold text-slate-500 sm:text-sm">· {group.customerName}</span>}</p><p className="mt-1 text-xs font-semibold text-slate-600 sm:text-sm">{group.packages.length} colis · {quantityTotal(group.packages)} article{quantityTotal(group.packages) > 1 ? "s" : ""}</p></div>{!alwaysOpen && <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a] sm:h-10 sm:w-10"><ChevronDown size={18} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span>}</button>
+    return <article id={"package-group-" + group.customerCode} key={group.customerCode} className={cn("scroll-mt-6 overflow-hidden rounded-xl border bg-white sm:rounded-2xl", hasBalance ? "border-amber-300" : group.isCentralAccount ? "border-indigo-200" : "border-slate-200")}>
+      <button type="button" onClick={() => { if (!alwaysOpen) onExpand(open ? null : group.customerCode); }} className={cn("flex w-full items-center justify-between gap-3 p-3 text-left sm:p-4", alwaysOpen ? "cursor-default" : "hover:bg-slate-50")}><div><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:text-[11px]">{group.isCentralAccount ? "Opérations centrales" : "Code client"}</p><p className="mt-0.5 text-lg font-black tracking-tight text-[#0a2b61] sm:text-xl">{group.isCentralAccount ? "Compte central STANDA" : <>{group.customerCode} {group.customerName && <span className="ml-1 text-xs font-semibold text-slate-500 sm:text-sm">· {group.customerName}</span>}</>}</p><p className="mt-1 text-xs font-semibold text-slate-600 sm:text-sm">{group.packages.length} colis attribué{group.packages.length > 1 ? "s" : ""} à cette zone · {quantityTotal(group.packages)} article{quantityTotal(group.packages) > 1 ? "s" : ""}</p></div>{!alwaysOpen && <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a] sm:h-10 sm:w-10"><ChevronDown size={18} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span>}</button>
       {open && <div className="space-y-2 border-t border-slate-100 bg-slate-50/70 p-2.5 sm:space-y-3 sm:p-3">{hasBalance && <BalanceNotice balanceUsd={group.balanceUsd} balanceHtg={group.balanceHtg} invoiceNumber={group.balanceInvoiceNumber} onPay={group.balanceInvoiceId ? () => onStartPayment(group.balanceInvoiceId) : undefined} />}{group.packages.map((item) => <PackageCard key={item.id} item={item} ready={tab === "ready"} delivered={tab === "history"} selected={selectedPackageIds.includes(item.id)} confirmed={confirmedParcelIds.includes(item.id)} releasing={releasing} onToggleSelection={() => onToggleSelection(item)} onStartPayment={() => onStartPayment(item.invoice_id)} onOpenInvoice={() => { if (item.invoice_id) onOpenInvoice(item.invoice_id); }} />)}{tab === "ready" && !hasBalance && <BatchRemiseAction customerCode={group.customerCode} available={group.packages} selectedPackageIds={selectedPackageIds} busy={releasing} onSelectAll={() => onSelectCustomerPackages(group.customerCode, group.packages.filter((item) => isReadyForPickup(item) && item.invoice_payment_status === "Payé" && item.customer_balance_usd <= 0.01).map((item) => item.id))} onConfirm={onConfirmSelection} />}</div>}
     </article>;
   })}</div>;
@@ -634,7 +654,7 @@ function DeliveredInvoicesView({ invoices, onOpenInvoice }: { invoices: ZoneInvo
 
 function InvoiceDetails({ invoice, packages, onClose }: { invoice: ZoneInvoice | null; packages: ZonePackage[]; onClose: () => void }) {
   if (!invoice) return null;
-  return <section className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-indigo-600">Détail de la facture</p><h3 className="mt-1 text-lg font-black text-[#0a2b61]">{invoice.invoice_number} · {invoice.customer_code}</h3><p className="mt-1 text-sm font-semibold text-slate-600">{invoice.customer_name || "Client STANDA"} · {invoice.payment_status}</p><div className="mt-1"><DeliveryChip status={invoice.delivery_status} /></div>{invoice.payment_details && <p className="mt-1 text-xs font-bold text-emerald-700">{invoice.payment_details}</p>}</div><button type="button" onClick={onClose} aria-label="Fermer le détail de la facture" className="rounded-lg p-1 text-slate-500 hover:bg-white"><X size={18} /></button></div><InvoiceSummary invoice={invoice} packages={packages} /></section>;
+  return <section className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-indigo-600">Détail de la facture</p><h3 className="mt-1 text-lg font-black text-[#0a2b61]">{invoice.invoice_number}{invoice.is_central_account ? " · Compte central STANDA" : " · " + invoice.customer_code}</h3><p className="mt-1 text-sm font-semibold text-slate-600">{invoice.is_central_account ? "Opération centrale affectée à cette zone" : invoice.customer_name || "Client STANDA"} · {invoice.payment_status}</p><div className="mt-1"><DeliveryChip status={invoice.delivery_status} /></div>{invoice.payment_details && <p className="mt-1 text-xs font-bold text-emerald-700">{invoice.payment_details}</p>}</div><button type="button" onClick={onClose} aria-label="Fermer le détail de la facture" className="rounded-lg p-1 text-slate-500 hover:bg-white"><X size={18} /></button></div><InvoiceSummary invoice={invoice} packages={packages} /></section>;
 }
 
 function PaymentPanel({ invoice, draft, setDraft, busy, error, onChange, onPay, onClose }: { invoice: ZoneInvoice | null; draft: PaymentDraft; setDraft: (value: PaymentDraft) => void; busy: boolean; error: string | null; onChange: () => void; onPay: () => void; onClose: () => void }) {

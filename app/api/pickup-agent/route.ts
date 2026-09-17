@@ -23,7 +23,7 @@ type Parcel = {
   id: string; tracking_number: string | null; tracking_manual: string | null;
   customer_code: string; quantity: number | null; content: string | null;
   created_date: string | null; received_at: string | null; delivered_at: string | null; status: string;
-  invoice_id: string | null; conduce_id: string | null; archived: boolean | null;
+  invoice_id: string | null; conduce_id: string | null; bon_remise_id: string | null; archived: boolean | null;
   mcpack_data: Record<string, string> | null;
 };
 type ZoneInvoice = {
@@ -131,6 +131,39 @@ async function customerBelongsToZone(db: any, customerCode: string, villeId: str
 }
 
 /**
+ * Kont santral STANDA pa gen vil kliyan: se destinasyon Bon de remise a ki
+ * bay zòn li. Sa evite yon koli Port-de-Paix parèt sou ekran Gonaïves, epi
+ * sa kenbe kont lan deyò dosye kliyan òdinè yo.
+ */
+async function centralAccountCode(db: any) {
+  const result = await db.from("app_settings").select("value").eq("key", "central_account_code").maybeSingle();
+  if (result.error) throw result.error;
+  return code(result.data?.value).toUpperCase();
+}
+
+async function centralPackagesBelongToZone(db: any, centralCode: string, packageIds: string[], zoneName: string) {
+  const ids = Array.from(new Set(packageIds.map(code).filter((id) => uuid.test(id))));
+  if (!centralCode || !ids.length) return false;
+  const packagesResult = await db.from("packages").select("id, customer_code, bon_remise_id")
+    .in("id", ids).eq("customer_code", centralCode);
+  if (packagesResult.error) throw packagesResult.error;
+  const rows = (packagesResult.data ?? []) as Array<{ id: string; customer_code: string; bon_remise_id: string | null }>;
+  if (rows.length !== ids.length || rows.some((row) => !code(row.bon_remise_id))) return false;
+  const bonIds = Array.from(new Set(rows.map((row) => code(row.bon_remise_id)).filter(Boolean)));
+  const bonsResult = await db.from("bons_remise").select("id").in("id", bonIds).ilike("destination", zoneName);
+  if (bonsResult.error) throw bonsResult.error;
+  return (bonsResult.data ?? []).length === bonIds.length;
+}
+
+async function invoiceBelongsToAgentZone(db: any, invoiceId: string, customerCode: string, villeId: string, zoneName: string, centralCode: string) {
+  if (code(customerCode).toUpperCase() !== centralCode) return customerBelongsToZone(db, customerCode, villeId);
+  const packagesResult = await db.from("packages").select("id").eq("invoice_id", invoiceId).eq("customer_code", centralCode);
+  if (packagesResult.error) throw packagesResult.error;
+  const packageIds = (packagesResult.data ?? []).map((row: { id: string }) => code(row.id)).filter(Boolean);
+  return centralPackagesBelongToZone(db, centralCode, packageIds, zoneName);
+}
+
+/**
  * Une demande de retrait devient « Remis » seulement quand tous les colis
  * initialement demandés ont réellement le statut Livré. Les rapprochements se
  * font avec les deux numéros de suivi, puisque les anciennes demandes peuvent
@@ -189,9 +222,19 @@ export async function GET(req: Request) {
     const context = await contextFor(req);
     if (!context.ok) return context.response;
     const { db, agent, zoneName } = context;
-    const customers = await zoneCustomers(db, agent.pickup_ville_id!);
+    const centralCode = await centralAccountCode(db);
+    // Même si le compte central a été créé avec une ville par erreur, il ne
+    // doit jamais devenir un dossier client de cette ville.
+    const customers = (await zoneCustomers(db, agent.pickup_ville_id!))
+      .filter((customer) => customer.customer_code.toUpperCase() !== centralCode);
     const codes = customers.map((customer) => customer.customer_code);
     const customerByCode = new Map(customers.map((customer) => [customer.customer_code, customer]));
+    // Se Bon de remise a, pa fich kliyan an, ki deside nan ki zòn kont
+    // santral la parèt. Nou pran id yo anvan pou n pa janm voye yon koli nan
+    // yon lòt vil, menm si yon Conduce gen plizyè destinasyon.
+    const centralBonsResult = await db.from("bons_remise").select("id").ilike("destination", zoneName);
+    if (centralBonsResult.error && !String(centralBonsResult.error.message ?? "").includes("does not exist")) throw centralBonsResult.error;
+    const centralBonIds = (centralBonsResult.data ?? []).map((bon: { id: string }) => code(bon.id)).filter(Boolean);
 
     let parcels: Parcel[] = [];
     let invoices: ZoneInvoice[] = [];
@@ -199,12 +242,12 @@ export async function GET(req: Request) {
       // Un colis livré doit rester consultable dans l'historique et depuis son
       // numéro de facture, même si l'administration l'a archivé par la suite.
       // Les autres colis archivés restent, eux, invisibles pour l'agent.
-      let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id, archived, mcpack_data")
+      let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
         .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       // Le site reste utilisable durant le très court délai entre le
       // déploiement et l'application de la migration Supabase.
       if (missingSchemaColumn(parcelResult.error, "delivered_at")) {
-        parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id, archived, mcpack_data")
+        parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
           .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       }
       const invoiceResult = await db.from("invoices").select("id, invoice_number, customer_code, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
@@ -214,6 +257,46 @@ export async function GET(req: Request) {
       parcels = ((parcelResult.data ?? []) as Parcel[])
         .filter((parcel) => !parcel.archived || code(parcel.status) === "Livré");
       invoices = (invoiceResult.data ?? []) as ZoneInvoice[];
+    }
+
+    if (centralCode && centralBonIds.length) {
+      let centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+        .eq("customer_code", centralCode).in("bon_remise_id", centralBonIds).order("created_at", { ascending: false }).limit(5000);
+      if (missingSchemaColumn(centralParcelsResult.error, "delivered_at")) {
+        centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+          .eq("customer_code", centralCode).in("bon_remise_id", centralBonIds).order("created_at", { ascending: false }).limit(5000);
+      }
+      if (centralParcelsResult.error) throw centralParcelsResult.error;
+      const centralParcels = ((centralParcelsResult.data ?? []) as Parcel[])
+        .filter((parcel) => !parcel.archived || code(parcel.status) === "Livré");
+      const centralInvoiceIds = Array.from(new Set(centralParcels.map((parcel) => code(parcel.invoice_id)).filter(Boolean)));
+      let eligibleCentralInvoiceIds = new Set<string>();
+      if (centralInvoiceIds.length) {
+        // Yon fakti kont santral ki gen koli pou de vil pa dwe parèt ni peye
+        // nan yon sèl ajans. Li bezwen separe pa administrasyon an avan.
+        const linksResult = await db.from("packages").select("invoice_id, bon_remise_id")
+          .eq("customer_code", centralCode).in("invoice_id", centralInvoiceIds);
+        if (linksResult.error) throw linksResult.error;
+        const linksByInvoice = new Map<string, Array<{ bon_remise_id: string | null }>>();
+        for (const link of (linksResult.data ?? []) as Array<{ invoice_id: string | null; bon_remise_id: string | null }>) {
+          const invoiceId = code(link.invoice_id);
+          if (invoiceId) linksByInvoice.set(invoiceId, [...(linksByInvoice.get(invoiceId) ?? []), link]);
+        }
+        eligibleCentralInvoiceIds = new Set(centralInvoiceIds.filter((invoiceId) => {
+          const links = linksByInvoice.get(invoiceId) ?? [];
+          return links.length > 0 && links.every((link) => centralBonIds.includes(code(link.bon_remise_id)));
+        }));
+        if (eligibleCentralInvoiceIds.size) {
+          const centralInvoicesResult = await db.from("invoices").select("id, invoice_number, customer_code, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
+            .in("id", Array.from(eligibleCentralInvoiceIds)).eq("customer_code", centralCode).order("created_at", { ascending: false }).limit(1000);
+          if (centralInvoicesResult.error) throw centralInvoicesResult.error;
+          invoices = [...invoices, ...((centralInvoicesResult.data ?? []) as ZoneInvoice[])];
+        }
+      }
+      // Koli ki poko gen fakti yo toujou vizib pou ajans destinasyon an;
+      // apre faktirasyon, sèlman fakti ki rete nan menm zòn nan pase.
+      parcels = [...parcels, ...centralParcels.filter((parcel) => !code(parcel.invoice_id) || eligibleCentralInvoiceIds.has(code(parcel.invoice_id)))];
+      customerByCode.set(centralCode, { customer_code: centralCode, fullname: "Compte central STANDA", surname: null });
     }
 
     // Yon pri pa janm soti pou ajan an jis fakti a gen PDF li a (sa vle di li
@@ -298,6 +381,7 @@ export async function GET(req: Request) {
         status: code(parcel.status), invoice_id: invoice?.id ?? "", invoice_number: invoice?.invoice_number ?? "",
         invoice_payment_status: paymentStatus, invoice_payment_details: invoice ? paymentDetails(paymentStatus, paymentsByInvoice.get(invoice.id) ?? []) : "", customer_balance_usd: balance?.usd ?? 0,
         customer_balance_htg: balance?.htg ?? 0, balance_invoice_id: balance?.invoiceId ?? "", balance_invoice_number: balance?.invoiceNumber ?? "",
+        is_central_account: code(parcel.customer_code).toUpperCase() === centralCode,
         is_special: special.isSpecial, special_reason: special.reason
       };
     });
@@ -313,7 +397,8 @@ export async function GET(req: Request) {
       customer_name: customerName(customerByCode.get(customerCode)), customer_balance_usd: balance?.usd ?? 0, customer_balance_htg: balance?.htg ?? 0,
       package_count: Number(invoice.package_count ?? 0), grand_total_usd: amounts.grandTotalUsd, deposit_usd: amounts.depositUsd, amount_due_usd: amounts.payableUsd, amount_due_htg: amounts.payableHtg,
       amount_label: amounts.hasDeposit ? "Solde à payer selon la facture" : "Total de la facture", payment_status: paymentStatusFromAmounts(invoice), payment_details: paymentDetails(paymentStatusFromAmounts(invoice), paymentsByInvoice.get(invoice.id) ?? []), payment_paid_usd: money(invoice.payment_paid_usd),
-      payment_paid_htg: money(invoice.payment_paid_htg), delivery_status: deliveryStatus, delivered_packages_count: delivery.delivered, has_pdf: Boolean(invoice.has_pdf), created_at: code(invoice.created_at)
+      payment_paid_htg: money(invoice.payment_paid_htg), delivery_status: deliveryStatus, delivered_packages_count: delivery.delivered, has_pdf: Boolean(invoice.has_pdf), created_at: code(invoice.created_at),
+      is_central_account: customerCode.toUpperCase() === centralCode
     }; });
 
     // Rapò ajan an pa konte peman administratè a kòm lajan ajan an resevwa.
@@ -360,6 +445,7 @@ export async function POST(req: Request) {
     const context = await contextFor(req);
     if (!context.ok) return context.response;
     const { db, agent, zoneName } = context;
+    const centralCode = await centralAccountCode(db);
     const body = await req.json().catch(() => null);
 
     if (body?.action === "confirm_bon_remise") {
@@ -452,7 +538,7 @@ export async function POST(req: Request) {
         id: string; invoice_number: string; customer_code: string; grand_total: number; total_usd: number; total_htg: number;
         exchange_rate_used: number; order_deposit: number; balance_due: number; has_pdf: boolean; payment_paid_usd: number; payment_paid_htg: number;
       } | null;
-      if (!invoice || !(await customerBelongsToZone(db, invoice.customer_code, agent.pickup_ville_id!))) {
+      if (!invoice || !(await invoiceBelongsToAgentZone(db, invoice.id, invoice.customer_code, agent.pickup_ville_id!, zoneName, centralCode))) {
         return NextResponse.json({ ok: false, reason: "Cette facture n'appartient pas à votre zone." }, { status: 403 });
       }
       if (!invoice.has_pdf) {
@@ -523,7 +609,11 @@ export async function POST(req: Request) {
       if (!customerCode || selected.some((parcel) => code(parcel.customer_code) !== customerCode)) {
         return NextResponse.json({ ok: false, reason: "Une remise groupée doit concerner un seul client." }, { status: 400 });
       }
-      if (!(await customerBelongsToZone(db, customerCode, agent.pickup_ville_id!))) {
+      const isCentralAccount = customerCode.toUpperCase() === centralCode;
+      const belongsToZone = isCentralAccount
+        ? await centralPackagesBelongToZone(db, centralCode, packageIds, zoneName)
+        : await customerBelongsToZone(db, customerCode, agent.pickup_ville_id!);
+      if (!belongsToZone) {
         return NextResponse.json({ ok: false, reason: "Ces colis n'appartiennent pas à votre zone de remise." }, { status: 403 });
       }
       if (selected.some((parcel) => !["Disponible", "Facturé"].includes(code(parcel.status)) || !code(parcel.invoice_id))) {
@@ -538,9 +628,18 @@ export async function POST(req: Request) {
       if (selectedInvoices.length !== invoiceIds.length || selectedInvoices.some((invoice: any) => !invoice.has_pdf || hasSignificantInvoiceBalance(invoice))) {
         return NextResponse.json({ ok: false, reason: "Toutes les factures sélectionnées doivent être générées et entièrement payées avant la remise." }, { status: 409 });
       }
-      const balances = await db.from("invoices")
-        .select("invoice_number, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, payment_paid_usd, payment_paid_htg")
-        .eq("customer_code", customerCode).eq("has_pdf", true).order("created_at", { ascending: true });
+      if (isCentralAccount) {
+        const invoicesAreInZone = await Promise.all(invoiceIds.map((invoiceId) =>
+          invoiceBelongsToAgentZone(db, invoiceId, customerCode, agent.pickup_ville_id!, zoneName, centralCode)));
+        if (invoicesAreInZone.some((isInZone) => !isInZone)) {
+          return NextResponse.json({ ok: false, reason: "Cette facture du compte central mélange plusieurs zones. Elle doit être séparée par l’administration avant la remise." }, { status: 409 });
+        }
+      }
+      const balances = isCentralAccount
+        ? { data: [], error: null }
+        : await db.from("invoices")
+          .select("invoice_number, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, payment_paid_usd, payment_paid_htg")
+          .eq("customer_code", customerCode).eq("has_pdf", true).order("created_at", { ascending: true });
       if (balances.error) throw balances.error;
       const outstanding = (balances.data ?? []).filter((row: ZoneInvoice) => hasSignificantInvoiceBalance(row))
         .map((row: ZoneInvoice) => ({ number: code(row.invoice_number), remaining: invoiceRemainingAmounts(row).remainingUsd }));
@@ -590,7 +689,11 @@ export async function POST(req: Request) {
       if (!parcel || !["Disponible", "Facturé"].includes(parcel.status)) {
         return NextResponse.json({ ok: false, reason: "Ce colis n'est pas prêt pour une remise." }, { status: 409 });
       }
-      if (!(await customerBelongsToZone(db, parcel.customer_code, agent.pickup_ville_id!))) {
+      const isCentralAccount = code(parcel.customer_code).toUpperCase() === centralCode;
+      const belongsToZone = isCentralAccount
+        ? await centralPackagesBelongToZone(db, centralCode, [parcel.id], zoneName)
+        : await customerBelongsToZone(db, parcel.customer_code, agent.pickup_ville_id!);
+      if (!belongsToZone) {
         return NextResponse.json({ ok: false, reason: "Ce colis n'appartient pas à votre zone de remise." }, { status: 403 });
       }
       if (!parcel.invoice_id) {
@@ -598,6 +701,9 @@ export async function POST(req: Request) {
       }
       const invoiceResult = await db.from("invoices").select("invoice_number, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, payment_paid_usd, payment_paid_htg")
         .eq("id", parcel.invoice_id).maybeSingle();
+      if (!(await invoiceBelongsToAgentZone(db, parcel.invoice_id, parcel.customer_code, agent.pickup_ville_id!, zoneName, centralCode))) {
+        return NextResponse.json({ ok: false, reason: "Cette facture n'appartient pas à votre zone de remise." }, { status: 403 });
+      }
       if (!invoiceResult.data?.has_pdf) {
         return NextResponse.json({ ok: false, reason: "La facture doit être générée pour le client avant toute remise." }, { status: 409 });
       }
@@ -607,9 +713,11 @@ export async function POST(req: Request) {
       // Règle de caisse: un client doit aussi solder ses anciennes factures.
       // Sinon il pourrait payer uniquement le dernier colis et laisser une
       // dette antérieure, puis continuer les retraits sans contrôle.
-      const balances = await db.from("invoices")
-        .select("invoice_number, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, payment_paid_usd, payment_paid_htg")
-        .eq("customer_code", parcel.customer_code).eq("has_pdf", true).order("created_at", { ascending: true });
+      const balances = isCentralAccount
+        ? { data: [], error: null }
+        : await db.from("invoices")
+          .select("invoice_number, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, payment_paid_usd, payment_paid_htg")
+          .eq("customer_code", parcel.customer_code).eq("has_pdf", true).order("created_at", { ascending: true });
       if (balances.error) throw balances.error;
       const outstanding = (balances.data ?? []).filter((row: ZoneInvoice) => hasSignificantInvoiceBalance(row)).map((row: ZoneInvoice) => ({
         number: code(row.invoice_number), remaining: invoiceRemainingAmounts(row).remainingUsd
