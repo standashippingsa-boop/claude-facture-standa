@@ -84,7 +84,7 @@ export default function AppPage() {
       <div className="mx-auto max-w-5xl text-center text-white">
         <p className="text-[11px] font-bold uppercase tracking-[.19em] text-accent">Prochainement</p>
         <h2 className="mt-3 text-balance text-[28px] font-black leading-tight sm:text-[36px]">Bientôt dans vos boutiques d&apos;applications.</h2>
-        <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-white/70">Les boutons sont prêts. Ils deviendront accessibles dès la publication officielle de l&apos;application.</p>
+        <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-white/70">Téléchargez l’application depuis votre boutique officielle dès sa publication.</p>
         <StoreBadges className="mt-7 justify-center" />
       </div>
     </section>

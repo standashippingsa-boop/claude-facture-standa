@@ -138,7 +138,7 @@ export default function SiteFooter() {
               Suivez vos colis et vos factures depuis votre téléphone.
             </p>
             <StoreBadges className="flex-col" />
-            <p className="mt-3 text-[11px] font-semibold text-accent/90">Disponibilité prochaine.</p>
+            <p className="mt-3 text-[11px] font-semibold text-accent/90">Téléchargement disponible après publication officielle.</p>
           </div>
 
           {/* ── Ba anba a ── */}
