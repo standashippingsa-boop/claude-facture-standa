@@ -98,7 +98,7 @@ export default function SiteFooter() {
                 <a href={SITE.instagramUrl}
                   target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-white/80 hover:text-accent transition">
-                  <InstagramIcon size={16} /> @{SITE.instagram}
+                  <InstagramIcon size={16} /> Instagram
                 </a>
               </li>
               <li>
