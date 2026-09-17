@@ -27,7 +27,7 @@ export default function SiteFooter() {
     <footer className="bg-navy-dark text-white">
       <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10 xl:px-6">
 
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
 
           {/* ── Kolòn 1: mak la ── */}
           <div className="md:col-span-1">
@@ -46,8 +46,16 @@ export default function SiteFooter() {
             </p>
           </div>
 
-          {/* ── Kolòn 2: navigasyon ── */}
+          {/* ── Kolòn 2: aplikasyon ak navigasyon ── */}
           <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50 mb-3">
+              Application mobile
+            </p>
+            <StoreBadges className="flex-col items-start" />
+            <p className="mt-3 text-[11px] font-semibold text-accent/90">
+              Téléchargement disponible après publication officielle.
+            </p>
+            <div className="mt-6 border-t border-white/10 pt-6">
             <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50 mb-4">
               Navigation
             </h3>
@@ -58,6 +66,7 @@ export default function SiteFooter() {
               <li><Link href="/login" className="text-white/80 hover:text-accent transition">Mon compte</Link></li>
               <li><Link href="/inscription" className="text-accent font-semibold hover:text-white transition">S&apos;inscrire</Link></li>
             </ul>
+            </div>
           </div>
 
           {/* ── Kolòn 3: kontak ── */}
@@ -127,19 +136,7 @@ export default function SiteFooter() {
               N&apos;oubliez jamais votre code MC sur chaque colis.
             </p>
           </div>
-          </div>
-
-          {/* ── Kolòn 5: aplikasyon mobil ── */}
-          <div className="flex flex-col items-center text-center">
-            <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50 mb-4">
-              Application mobile
-            </h3>
-            <p className="mb-3 text-[13px] leading-relaxed text-white/65">
-              Suivez vos colis et vos factures depuis votre téléphone.
-            </p>
-            <StoreBadges className="flex-col items-center" />
-            <p className="mt-3 text-[11px] font-semibold text-accent/90">Téléchargement disponible après publication officielle.</p>
-          </div>
+        </div>
 
           {/* ── Ba anba a ── */}
         <div className="mt-10 pt-6 border-t border-white/10
