@@ -4,7 +4,7 @@ import Loader from "@/components/Loader";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Pencil, MapPin, Building2, BookOpen, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Pencil, MapPin, Building2, BookOpen, ChevronRight, Check, Copy, ExternalLink, Link2 } from "lucide-react";
 import Link from "next/link";
 import {
   deleteVille, getSettings, getUsdRate,
@@ -143,6 +143,8 @@ export default function SettingsPage() {
         <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand"><BookOpen size={19} /></span><div><h2 className="text-sm font-bold text-navy">Guides d’utilisation</h2><p className="mt-1 text-xs text-slate-500">Ouvrez le manuel adapté à chaque rôle avant de commencer les opérations.</p></div></div>
         <div className="mt-4 grid gap-2 sm:grid-cols-3"><Link href="/guide" className="rounded-xl border border-line bg-mist px-3 py-3 text-sm font-bold text-navy transition hover:border-brand/40 hover:bg-brand/5">Guide administrateur</Link><Link href="/guide/employe" className="rounded-xl border border-line bg-mist px-3 py-3 text-sm font-bold text-navy transition hover:border-brand/40 hover:bg-brand/5">Guide employé</Link><Link href="/guide/agent-retrait" className="rounded-xl border border-line bg-mist px-3 py-3 text-sm font-bold text-navy transition hover:border-brand/40 hover:bg-brand/5">Guide point de retrait</Link></div>
       </section>
+
+      <PlatformLinksSection />
 
       {/* ===== Ajans / Pwen retrait (sit piblik /agences) ===== */}
       <Link href="/settings/agences"
@@ -441,6 +443,57 @@ export default function SettingsPage() {
       {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
     </div>
   );
+}
+
+const PLATFORM_ORIGIN = "https://www.standacommercialsa.com";
+
+/** Liens de partage officiels : les destinataires arrivent toujours sur leur porte de connexion dédiée. */
+function PlatformLinksSection() {
+  const [copiedPath, setCopiedPath] = useState<string | null>(null);
+  const platforms = [
+    { label: "Site Web STANDA", description: "Site public et informations générales", path: "/accueil" },
+    { label: "Inscription client", description: "Créer un nouveau compte client", path: "/inscription" },
+    { label: "Espace client", description: "Connexion à l’application client", path: "/espace-client/connexion" },
+    { label: "Plateforme administrateur", description: "Connexion réservée à l’administration", path: "/admin-login" },
+    { label: "Plateforme employé", description: "Connexion réservée au personnel", path: "/employe" },
+    { label: "Plateforme réception", description: "Connexion pour les agents de réception", path: "/reception-login" },
+    { label: "Point de retrait", description: "Connexion pour les agents de remise", path: "/point-retrait" },
+    { label: "Programme affiliation", description: "Présentation et demande d’affiliation", path: "/affiliation" },
+    { label: "Espace affilié", description: "Connexion des affiliés approuvés", path: "/espace-affilie/login" },
+    { label: "Nos agences", description: "Liste publique des agences STANDA", path: "/agences" }
+  ];
+
+  const copy = async (path: string) => {
+    const value = PLATFORM_ORIGIN + path;
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      const field = document.createElement("textarea");
+      field.value = value;
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.appendChild(field);
+      field.select();
+      document.execCommand("copy");
+      field.remove();
+    }
+    setCopiedPath(path);
+    window.setTimeout(() => setCopiedPath((current) => current === path ? null : current), 1800);
+  };
+
+  return <section className="card p-5">
+    <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand"><Link2 size={19} /></span><div><h2 className="text-sm font-bold text-navy">Liens des plateformes</h2><p className="mt-1 text-xs leading-relaxed text-slate-500">Copiez un lien et partagez-le. Chaque personne arrive directement sur l’espace qui correspond à son rôle.</p></div></div>
+    <div className="mt-4 grid gap-2 lg:grid-cols-2">
+      {platforms.map((platform) => {
+        const url = PLATFORM_ORIGIN + platform.path;
+        const copied = copiedPath === platform.path;
+        return <article key={platform.path} className="rounded-xl border border-line bg-mist/60 p-3">
+          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="text-sm font-bold text-navy">{platform.label}</h3><p className="mt-0.5 text-[11px] text-slate-500">{platform.description}</p></div><a href={url} target="_blank" rel="noreferrer" title="Ouvrir le lien" className="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-white hover:text-brand"><ExternalLink size={16} /></a></div>
+          <div className="mt-2 flex gap-2"><input readOnly value={url} aria-label={`Lien ${platform.label}`} onFocus={(event) => event.currentTarget.select()} className="min-w-0 flex-1 rounded-lg border border-line bg-white px-2 py-2 font-mono text-[10px] text-slate-600 outline-none focus:border-brand" /><button type="button" onClick={() => void copy(platform.path)} className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition ${copied ? "bg-emerald-600 text-white" : "bg-navy text-white hover:bg-brand"}`}>{copied ? <Check size={14} /> : <Copy size={14} />}{copied ? "Copié" : "Copier"}</button></div>
+        </article>;
+      })}
+    </div>
+  </section>;
 }
 
 // ================= EMPLOYÉS (v9 — admin sèlman) =================
