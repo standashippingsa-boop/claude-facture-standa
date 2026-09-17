@@ -27,10 +27,10 @@ export default function SiteFooter() {
     <footer className="bg-navy-dark text-white">
       <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10 xl:px-6">
 
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid items-start gap-10 md:grid-cols-2 lg:grid-cols-4">
 
           {/* ── Kolòn 1: mak la ── */}
-          <div className="md:col-span-1">
+          <div className="order-1 md:col-span-1 lg:order-none">
             <div className="flex items-center gap-2.5 mb-4">
               <Logo size={40} tone="light" />
               <span className="font-black tracking-tight leading-none">
@@ -47,7 +47,7 @@ export default function SiteFooter() {
           </div>
 
           {/* ── Kolòn 2: aplikasyon ak navigasyon ── */}
-          <div>
+          <div className="order-4 lg:order-none">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50 mb-3">
               Application mobile
             </p>
@@ -70,7 +70,7 @@ export default function SiteFooter() {
           </div>
 
           {/* ── Kolòn 3: kontak ── */}
-          <div>
+          <div className="order-2 lg:order-none">
             <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50 mb-4">
               Contact
             </h3>
@@ -119,7 +119,7 @@ export default function SiteFooter() {
           </div>
 
           {/* ── Kolòn 4: depo Miami ── */}
-          <div>
+          <div className="order-3 lg:order-none">
             <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50 mb-4">
               Notre dépôt
             </h3>
