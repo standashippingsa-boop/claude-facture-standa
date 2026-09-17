@@ -79,9 +79,14 @@ export function sortPackagesAvailableFirst<T extends PackageListRow>(items: T[])
  * Kle inik kliyan an — menm fòma toupatou (clients, packages, invoices, retraits).
  */
 export function normalizeMcCode(raw?: string | null): string {
-  const s = String(raw ?? "").trim().replace(/\s+/g, "");
+  // Safari/iOS peut introduire des espaces insécables, invisibles ou un tiret
+  // typographique lorsqu'un client colle son code depuis WhatsApp. Le code MC
+  // reste le même : on ne corrige que ces caractères de saisie.
+  const s = String(raw ?? "").trim()
+    .replace(/[\s\u00A0\u200B-\u200D\uFEFF]+/g, "")
+    .replace(/[‐‑‒–—―−]/g, "-");
   if (!s) return "";
-  const up = s.toUpperCase();
+  const up = s.toUpperCase().replace(/-+/g, "-");
   return up.startsWith("MC-") ? up : up.startsWith("MC") && /^MC\d/.test(up) ? "MC-" + up.slice(2) : "MC-" + up.replace(/^-+/, "");
 }
 

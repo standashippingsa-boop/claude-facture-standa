@@ -72,7 +72,7 @@ function LoginInner() {
             <form onSubmit={(event) => { event.preventDefault(); void submit(); }} className="rounded-[1.5rem] bg-white p-5 text-ink shadow-[0_24px_60px_-36px_rgba(8,30,67,.55)] sm:p-7">
               <label className="block">
                 <span className="text-xs font-semibold text-slate-600">Code client MC</span>
-                <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-line bg-mist px-3 transition focus-within:border-accent focus-within:bg-white focus-within:ring-2 focus-within:ring-accent/15"><User size={16} className="shrink-0 text-navy" /><input name="username" autoComplete="username" inputMode="text" autoCapitalize="characters" className="w-full bg-transparent py-3 text-sm font-semibold text-ink placeholder:text-slate-400 focus:outline-none uppercase" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="MC-XXXXX" /></div>
+                <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-line bg-mist px-3 transition focus-within:border-accent focus-within:bg-white focus-within:ring-2 focus-within:ring-accent/15"><User size={16} className="shrink-0 text-navy" /><input name="username" autoComplete="username" inputMode="text" autoCapitalize="characters" autoCorrect="off" spellCheck={false} enterKeyHint="next" className="w-full bg-transparent py-3 text-sm font-semibold text-ink placeholder:text-slate-400 focus:outline-none uppercase" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="MC-XXXXX" /></div>
               </label>
 
               <div className="mt-4"><PasswordInput label="Mot de passe" value={password} onChange={setPassword} onEnter={submit} /></div>

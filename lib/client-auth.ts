@@ -25,15 +25,13 @@ export function clientAuthEmail(code: string): string {
  * comptes existants : tout nouveau compte utilise exclusivement clientAuthEmail.
  */
 export function clientAuthEmailCandidates(inputCode: string): string[] {
-  const raw = String(inputCode ?? "").trim().replace(/\s+/g, "").toUpperCase();
-  const canonical = normalizeMcCode(raw);
+  const canonical = normalizeMcCode(inputCode);
   const digits = canonical.replace(/^MC-?/, "").replace(/\D/g, "");
   const variants = unique([
     canonical,
     canonical.replace(/-/g, ""),
     digits ? `MC${digits}` : "",
     digits,
-    raw,
   ]).filter((value) => /^[A-Z0-9-]+$/.test(value));
 
   return unique(variants.map(technicalEmail));

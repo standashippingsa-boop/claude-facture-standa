@@ -89,6 +89,7 @@ export default function AppConnexionPage() {
               <User size={18} className="text-white/40 shrink-0" />
               <input
                 name="username" autoComplete="username" autoCapitalize="characters"
+                autoCorrect="off" spellCheck={false} enterKeyHint="next"
                 placeholder="MC-XXXXX"
                 className="w-full bg-transparent py-3.5 text-[15px] text-white placeholder:text-white/30
                            focus:outline-none uppercase tracking-wide"
@@ -103,10 +104,11 @@ export default function AppConnexionPage() {
               <Lock size={18} className="text-white/40 shrink-0" />
               <input
                 type={show ? "text" : "password"} name="password" autoComplete="current-password"
+                autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="go"
                 placeholder="••••••••"
                 className="w-full bg-transparent py-3.5 text-[15px] text-white placeholder:text-white/30 focus:outline-none"
                 value={password} onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && submit()} />
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void submit(); } }} />
               <button type="button" onClick={() => setShow((v) => !v)}
                 aria-label={show ? "Kache modpas la" : "Montre modpas la"}
                 className="text-white/40 hover:text-white shrink-0 p-1">

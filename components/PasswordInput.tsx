@@ -40,10 +40,11 @@ export default function PasswordInput({
         <input
           type={show ? "text" : "password"}
           name={name} autoComplete={autoComplete} autoFocus={autoFocus}
+          autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="go"
           placeholder={placeholder}
           className="w-full bg-transparent py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none"
           value={value} onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && onEnter) onEnter(); }} />
+          onKeyDown={(e) => { if (e.key === "Enter" && onEnter) { e.preventDefault(); onEnter(); } }} />
         <button type="button" onClick={() => setShow((v) => !v)}
           aria-label={show ? "Cacher le mot de passe" : "Afficher le mot de passe"}
           className="text-[#9DB4DC] hover:text-white shrink-0 p-1">
@@ -60,9 +61,10 @@ export default function PasswordInput({
         <input
           type={show ? "text" : "password"}
           name={name} autoComplete={autoComplete} autoFocus={autoFocus}
+          autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="go"
           placeholder={placeholder} className="input !pr-10"
           value={value} onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && onEnter) onEnter(); }} />
+          onKeyDown={(e) => { if (e.key === "Enter" && onEnter) { e.preventDefault(); onEnter(); } }} />
         <button type="button" onClick={() => setShow((v) => !v)}
           aria-label={show ? "Cacher le mot de passe" : "Afficher le mot de passe"}
           className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy p-1">

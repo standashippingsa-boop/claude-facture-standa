@@ -9,7 +9,7 @@ import { clientAuthEmail, clientAuthEmailCandidates } from "./client-auth";
 export const staffEmail = (u: string) => `${u.trim().toLowerCase()}@staff.standacommercialsa.com`;
 export const clientEmail = clientAuthEmail;
 
-export type ClientSignInFailure = "configuration" | "unconfirmed" | "network" | "invalid";
+export type ClientSignInFailure = "configuration" | "unconfirmed" | "network" | "rate_limited" | "invalid";
 export type ClientSignInResult = { ok: true } | { ok: false; reason: ClientSignInFailure };
 
 /**
@@ -53,6 +53,9 @@ export async function signInClientWithCode(inputCode: string, password: string):
       }
       const message = String(error?.message ?? "").toLowerCase();
       if (message.includes("not confirmed")) unconfirmed = true;
+      if (message.includes("too many requests") || message.includes("rate limit") || message.includes("security purposes")) {
+        return { ok: false, reason: "rate_limited" };
+      }
       if (message.includes("fetch") || message.includes("network") || message.includes("timeout")) networkFailed = true;
     } catch {
       networkFailed = true;
@@ -73,6 +76,9 @@ export function clientSignInErrorMessage(reason: ClientSignInFailure, code: stri
   }
   if (reason === "network") {
     return "Impossible de joindre le service de connexion. Vérifiez votre connexion internet puis réessayez.";
+  }
+  if (reason === "rate_limited") {
+    return "Trop de tentatives de connexion ont été détectées. Attendez quelques minutes avant de réessayer.";
   }
   return `Le code ${code || "MC-XXXXX"} ou le mot de passe est incorrect. Vérifiez votre saisie puis réessayez.`;
 }
