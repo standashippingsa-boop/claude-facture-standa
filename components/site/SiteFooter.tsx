@@ -130,14 +130,14 @@ export default function SiteFooter() {
           </div>
 
           {/* ── Kolòn 5: aplikasyon mobil ── */}
-          <div>
+          <div className="flex flex-col items-center text-center">
             <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50 mb-4">
               Application mobile
             </h3>
             <p className="mb-3 text-[13px] leading-relaxed text-white/65">
               Suivez vos colis et vos factures depuis votre téléphone.
             </p>
-            <StoreBadges className="flex-col" />
+            <StoreBadges className="flex-col items-center" />
             <p className="mt-3 text-[11px] font-semibold text-accent/90">Téléchargement disponible après publication officielle.</p>
           </div>
 
