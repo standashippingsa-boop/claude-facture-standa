@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Banknote, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
+import { AlertTriangle, Banknote, Bell, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, ShieldCheck, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { getPushPermissionState, isPushSupported, subscribeStaffToPush } from "@/lib/push";
 import { openSecureDocument } from "@/lib/secure-document";
 import { packageProgressPriority, sortPackagesAvailableFirst } from "@/lib/utils";
 import Logo from "@/components/Logo";
@@ -29,7 +30,7 @@ type ZoneBon = {
 };
 type AgentPayment = { id: string; invoice_id: string; invoice_number: string; customer_code: string; customer_name: string; amount: number; currency: string; amount_usd: number; amount_htg: number; payment_method: string; payment_reference: string; created_at: string };
 type CustomerBalanceReport = { customer_code: string; customer_name: string; balance_usd: number; balance_htg: number; invoice_id: string; invoice_number: string; invoice_count: number };
-type PortalData = { agent: { name: string; username: string }; zone: { name: string }; packages: ZonePackage[]; invoices: ZoneInvoice[]; bons: ZoneBon[]; report: { agent_payments: AgentPayment[]; customer_balances: CustomerBalanceReport[] } };
+type PortalData = { agent: { id: string; name: string; username: string }; zone: { name: string }; packages: ZonePackage[]; invoices: ZoneInvoice[]; bons: ZoneBon[]; report: { agent_payments: AgentPayment[]; customer_balances: CustomerBalanceReport[] } };
 type Tab = "home" | "dossiers" | "arrivals" | "ready" | "bons" | "history" | "reports";
 type ArrivalFilter = "all" | "miami" | "transit";
 type PaymentMethod = "Espèces" | "MonCash" | "NatCash" | "Zelle" | "Virement bancaire";
@@ -93,6 +94,8 @@ export default function PickupAgentPortal() {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showPushBanner, setShowPushBanner] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -121,6 +124,31 @@ export default function PickupAgentPortal() {
     window.addEventListener("focus", refresh);
     return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
   }, [load]);
+
+  /** Bando "Activer les notifications" — app "Standa Agence" (natif) sèlman. */
+  useEffect(() => {
+    if (!data?.agent.id) return;
+    let dismissed = false;
+    try { dismissed = window.localStorage.getItem("standa-agence:push-dismissed") === "1"; } catch { /* ignore */ }
+    if (dismissed) return;
+    isPushSupported() && getPushPermissionState().then((state) => setShowPushBanner(state === "default"));
+  }, [data?.agent.id]);
+
+  const dismissPushBanner = () => {
+    setShowPushBanner(false);
+    try { window.localStorage.setItem("standa-agence:push-dismissed", "1"); } catch { /* ignore */ }
+  };
+
+  const activatePush = async () => {
+    if (!data?.agent.id || pushBusy) return;
+    setPushBusy(true);
+    try {
+      const r = await subscribeStaffToPush(data.agent.id);
+      if (r.ok) { setMessage({ type: "ok", text: "Notifications activées." }); dismissPushBanner(); }
+      else if (r.reason === "denied") { setMessage({ type: "error", text: "Notifications refusées — activez-les depuis les réglages de l'application si vous changez d'avis." }); dismissPushBanner(); }
+      else setMessage({ type: "error", text: "Impossible d'activer les notifications pour le moment." });
+    } finally { setPushBusy(false); }
+  };
   const packages = data?.packages ?? [];
   const invoices = data?.invoices ?? [];
   const report = data?.report ?? { agent_payments: [] as AgentPayment[], customer_balances: [] as CustomerBalanceReport[] };
@@ -336,6 +364,21 @@ export default function PickupAgentPortal() {
           </div>}
 
           {message && <Notice message={message} close={() => setMessage(null)} />}
+          {showPushBanner && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#0d3b7a]/15 bg-[#0d3b7a]/5 px-4 py-3">
+              <div className="flex items-center gap-2.5">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#0d3b7a]/10 text-[#0d3b7a]"><Bell size={16} /></span>
+                <p className="text-[13px] font-semibold text-[#0a2b61]">Activer les notifications pour les nouveaux Bons de Remise ?</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={activatePush} disabled={pushBusy}
+                  className="rounded-xl bg-[#0d3b7a] px-3.5 py-2 text-[13px] font-bold text-white hover:bg-[#0f448f] disabled:opacity-60">
+                  {pushBusy ? "…" : "Activer"}
+                </button>
+                <button type="button" onClick={dismissPushBanner} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
+              </div>
+            </div>
+          )}
           {tab === "home" && <HomeDashboard search={search} onSearchChange={(value) => { setSearch(value); setFocusedPackageId(null); }} onOpenDossier={openDossier}
             bons={data.bons} selectedBonId={selectedBonId} onSelectBon={setSelectedBonId}
             bonBusy={bonBusy} bonConfirmedId={bonConfirmedId} onConfirmBon={confirmBonRemise} />}

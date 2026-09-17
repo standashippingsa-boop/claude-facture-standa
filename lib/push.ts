@@ -73,7 +73,14 @@ export async function getPushPermissionState(): Promise<NotificationPermission |
  * blòke oswa inyore demann otorizasyon ki parèt san rezon.
  */
 export async function subscribeToPush(customerCode: string): Promise<{ ok: boolean; reason?: string }> {
-  if (isNative()) return subscribeNative(customerCode);
+  if (isNative()) {
+    return subscribeNative(async (token) => {
+      const { error } = await supabase.from("fcm_device_tokens").upsert(
+        { customer_code: customerCode, token, platform: "android" }, { onConflict: "token" }
+      );
+      return { error };
+    });
+  }
   if (!isPushSupported()) return { ok: false, reason: "unsupported" };
   try {
     const permission = await Notification.requestPermission();
@@ -104,8 +111,15 @@ export async function subscribeToPush(customerCode: string): Promise<{ ok: boole
   }
 }
 
-/** Vèsyon FCM (app Android natif) — @capacitor/push-notifications. */
-async function subscribeNative(customerCode: string): Promise<{ ok: boolean; reason?: string }> {
+/**
+ * Vèsyon FCM (app Android natif) — @capacitor/push-notifications.
+ * `saveToken` fè ekri jeton an nan bon tab la (kliyan: fcm_device_tokens
+ * pa customer_code; pèsonèl: staff_fcm_tokens pa staff_id) — se sèl bagay
+ * ki chanje ant subscribeToPush() ak subscribeStaffToPush().
+ */
+async function subscribeNative(
+  saveToken: (token: string) => Promise<{ error: { message: string } | null }>
+): Promise<{ ok: boolean; reason?: string }> {
   try {
     const { PushNotifications } = await import("@capacitor/push-notifications");
     let perm = await PushNotifications.checkPermissions();
@@ -123,9 +137,7 @@ async function subscribeNative(customerCode: string): Promise<{ ok: boolean; rea
     });
 
     const regListener = await PushNotifications.addListener("registration", (token) => {
-      supabase.from("fcm_device_tokens").upsert({
-        customer_code: customerCode, token: token.value, platform: "android"
-      }, { onConflict: "token" }).then(({ error }: { error: { message: string } | null }) => {
+      saveToken(token.value).then(({ error }) => {
         finish(error ? { ok: false, reason: error.message } : { ok: true });
       });
     });
@@ -144,6 +156,22 @@ async function subscribeNative(customerCode: string): Promise<{ ok: boolean; rea
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : "error" };
   }
+}
+
+/**
+ * Menm bagay ak subscribeToPush(), men pou PÈSONÈL (ajan retrè ki gen app
+ * "Standa Agence" enstale). Web Push PA sipòte pou pèsonèl kounye a — sa
+ * a se natif sèlman (@capacitor/push-notifications), rezon: itilizasyon
+ * prensipal la se nan app dedye a, pa yon navigatè.
+ */
+export async function subscribeStaffToPush(staffId: string): Promise<{ ok: boolean; reason?: string }> {
+  if (!isNative()) return { ok: false, reason: "unsupported" };
+  return subscribeNative(async (token) => {
+    const { error } = await supabase.from("staff_fcm_tokens").upsert(
+      { staff_id: staffId, token, platform: "android" }, { onConflict: "token" }
+    );
+    return { error };
+  });
 }
 
 /** Dezabòne aparèy la (kliyan mande sa espresyèman). */

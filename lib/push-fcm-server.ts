@@ -39,25 +39,21 @@ function firebaseApp(): App | null {
 
 export interface SupabaseAdminConfig { url: string; key: string; }
 
-export async function sendFcmToCustomer(
-  config: SupabaseAdminConfig, customerCode: string, payload: { title: string; text: string; url?: string }
+/** Voye yon mesaj FCM bay yon lis jeton, netwaye jeton ki ekspire/envalid. */
+async function sendToTokens(
+  svc: any, table: string,
+  tokens: { id: string; token: string }[], payload: { title: string; text: string; url?: string }
 ): Promise<number> {
   const app = firebaseApp();
-  if (!app || !customerCode) return 0;
-
-  const svc = createClient(config.url, config.key, { auth: { persistSession: false } });
-  const { data: tokens } = await svc.from("fcm_device_tokens")
-    .select("id, token").eq("customer_code", customerCode);
-  if (!tokens?.length) return 0;
-
+  if (!app || !tokens.length) return 0;
   const messaging = getMessaging(app);
   let sent = 0;
-  await Promise.all(tokens.map(async (t: { id: string; token: string }) => {
+  await Promise.all(tokens.map(async (t) => {
     try {
       await messaging.send({
         token: t.token,
         notification: { title: payload.title, body: payload.text },
-        data: { url: payload.url || "/espace-client" },
+        data: { url: payload.url || "/" },
         android: { priority: "high" }
       });
       sent++;
@@ -66,9 +62,37 @@ export async function sendFcmToCustomer(
       const code = (e as { code?: string })?.code || "";
       if (code === "messaging/registration-token-not-registered"
         || code === "messaging/invalid-registration-token") {
-        await svc.from("fcm_device_tokens").delete().eq("id", t.id);
+        await svc.from(table).delete().eq("id", t.id);
       }
     }
   }));
   return sent;
+}
+
+export async function sendFcmToCustomer(
+  config: SupabaseAdminConfig, customerCode: string, payload: { title: string; text: string; url?: string }
+): Promise<number> {
+  if (!customerCode) return 0;
+  const svc = createClient(config.url, config.key, { auth: { persistSession: false } });
+  const { data: tokens } = await svc.from("fcm_device_tokens")
+    .select("id, token").eq("customer_code", customerCode);
+  return sendToTokens(svc, "fcm_device_tokens", (tokens ?? []) as { id: string; token: string }[],
+    { ...payload, url: payload.url || "/espace-client" });
+}
+
+/**
+ * Menm bagay ak sendFcmToCustomer, men pou PÈSONÈL (ex: ajan_retrait ki gen
+ * app "Standa Agence" la enstale) — jeton yo idantifye pa staff_id, pa
+ * customer_code. Itilize pou notifye yon ajan lè yon Bon de Remise kreye
+ * pou zòn li (/api/notify-agent).
+ */
+export async function sendFcmToStaff(
+  config: SupabaseAdminConfig, staffId: string, payload: { title: string; text: string; url?: string }
+): Promise<number> {
+  if (!staffId) return 0;
+  const svc = createClient(config.url, config.key, { auth: { persistSession: false } });
+  const { data: tokens } = await svc.from("staff_fcm_tokens")
+    .select("id, token").eq("staff_id", staffId);
+  return sendToTokens(svc, "staff_fcm_tokens", (tokens ?? []) as { id: string; token: string }[],
+    { ...payload, url: payload.url || "/espace-remise" });
 }

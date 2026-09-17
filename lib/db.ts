@@ -458,6 +458,25 @@ export async function createBonRemiseRecord(input: {
   await logAction("Bon de remise créé",
     `${bon.bon_number} — ${packageIds.length} colis, ${conduceIds.length} Conduce(s)${input.destination ? ` · ${input.destination}` : ""}`,
     "", "");
+
+  // Notifikasyon push pou ajan retrè zòn nan (app "Standa Agence") — kanal
+  // SEPARE: yon echèk isit la pa dwe janm anpeche Bon de Remise a kreye,
+  // se poutèt sa li nan pwòp try/catch li (menm prensip ak deklanchè
+  // komisyon afilye a nan SQL).
+  if (input.destination) {
+    try {
+      const { data } = await supabase.auth.getSession();
+      await fetch("/api/notify-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: data.session?.access_token ?? "",
+          destination: input.destination, bon_number: bon.bon_number, package_count: packageIds.length
+        })
+      });
+    } catch { /* Push la pa kritik — Bon de Remise a deja kreye ak siksè. */ }
+  }
+
   return bon as BonRemiseRecord;
 }
 

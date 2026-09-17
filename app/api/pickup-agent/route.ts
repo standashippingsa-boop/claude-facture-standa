@@ -427,7 +427,7 @@ export async function GET(req: Request) {
       };
     }).sort((left, right) => right.balance_usd - left.balance_usd || left.customer_code.localeCompare(right.customer_code, "fr-CA"));
 
-    return NextResponse.json({ ok: true, agent: { name: agentName(agent), username: agent.username }, zone: { name: zoneName },
+    return NextResponse.json({ ok: true, agent: { id: agent.id, name: agentName(agent), username: agent.username }, zone: { name: zoneName },
       packages: packageCards, invoices: invoiceCards, bons: bonCards,
       report: { agent_payments: agentPayments, customer_balances: customerBalances } }, {
       headers: { "Cache-Control": "no-store, max-age=0" }
