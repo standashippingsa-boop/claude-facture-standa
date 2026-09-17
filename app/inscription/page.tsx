@@ -27,7 +27,7 @@ export default function InscriptionPage() {
             <ArrowLeft size={15} /> Retour au site
           </Link>
           <div className="inline-flex items-center gap-2.5">
-            <Logo size={38} rounded="rounded-xl" />
+            <Logo size={38} rounded="rounded-xl" tone="light" />
             <span className="leading-none"><b className="block text-[13px] tracking-[.08em]">STANDA</b><span className="block mt-1 text-[8px] font-bold tracking-[.2em] text-accent">COMMERCIAL</span></span>
           </div>
         </header>
@@ -35,7 +35,7 @@ export default function InscriptionPage() {
         <main className="mx-auto mt-10 max-w-4xl pb-10 sm:mt-14 lg:mt-16 lg:pb-14">
           <section className="relative rounded-[2rem] border border-white/40 bg-white/[.13] px-3 pb-3 pt-14 shadow-[0_32px_90px_-35px_rgba(0,0,0,.8)] backdrop-blur-2xl sm:px-5 sm:pb-5">
             <div className="absolute left-1/2 top-0 grid h-20 w-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[5px] border-[#dbeafa] bg-navy shadow-[0_15px_35px_-10px_rgba(0,0,0,.65)]">
-              <Logo size={56} rounded="rounded-xl" />
+              <Logo size={56} rounded="rounded-xl" tone="light" />
             </div>
             <div className="px-3 pb-5 text-center sm:px-5">
               <p className="text-[11px] font-bold uppercase tracking-[.18em] text-orange-200">Inscription gratuite</p>

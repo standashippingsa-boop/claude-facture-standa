@@ -69,7 +69,7 @@ export default function SiteHeader() {
 
             {/* Logo + non */}
             <Link href="/accueil" className="flex items-center gap-2.5 min-w-0">
-              <Logo size={36} />
+              <Logo size={36} tone="light" />
               <span className="font-black tracking-tight leading-none truncate">
                 <span className="block text-[15px]">STANDA</span>
                 <span className="block text-[10px] font-semibold text-white/70 tracking-[0.18em]">
@@ -141,7 +141,7 @@ export default function SiteHeader() {
         {/* Tèt barre a */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-2.5">
-            <Logo size={32} />
+            <Logo size={32} tone="light" />
             <span className="font-black text-sm tracking-tight">STANDA</span>
           </div>
           <button

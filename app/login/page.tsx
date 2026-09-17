@@ -61,12 +61,12 @@ function LoginInner() {
       <div className="relative mx-auto max-w-5xl px-5 py-6 sm:px-8 sm:py-9">
         <header className="flex items-center justify-between gap-4">
           <Link href="/accueil" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-white/75 transition hover:text-white"><ArrowLeft size={15} /> Retour au site</Link>
-          <div className="inline-flex items-center gap-2.5"><Logo size={38} rounded="rounded-xl" /><span className="leading-none"><b className="block text-[13px] tracking-[.08em]">STANDA</b><span className="block mt-1 text-[8px] font-bold tracking-[.2em] text-accent">COMMERCIAL</span></span></div>
+          <div className="inline-flex items-center gap-2.5"><Logo size={38} rounded="rounded-xl" tone="light" /><span className="leading-none"><b className="block text-[13px] tracking-[.08em]">STANDA</b><span className="block mt-1 text-[8px] font-bold tracking-[.2em] text-accent">COMMERCIAL</span></span></div>
         </header>
 
         <main className="mx-auto mt-16 max-w-md pb-10 sm:mt-20">
           <section className="relative rounded-[2rem] border border-white/40 bg-white/[.13] p-3 pt-14 shadow-[0_32px_90px_-35px_rgba(0,0,0,.8)] backdrop-blur-2xl sm:p-5 sm:pt-14">
-            <div className="absolute left-1/2 top-0 grid h-20 w-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[5px] border-[#dbeafa] bg-navy shadow-[0_15px_35px_-10px_rgba(0,0,0,.65)]"><Logo size={56} rounded="rounded-xl" /></div>
+            <div className="absolute left-1/2 top-0 grid h-20 w-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[5px] border-[#dbeafa] bg-navy shadow-[0_15px_35px_-10px_rgba(0,0,0,.65)]"><Logo size={56} rounded="rounded-xl" tone="light" /></div>
             <div className="pb-5 text-center"><p className="text-[11px] font-bold uppercase tracking-[.18em] text-orange-200">Espace personnel</p><h1 className="mt-3 text-[31px] font-black tracking-[-.04em] text-white">Connectez-vous</h1><p className="mt-2 text-[14px] leading-relaxed text-white/72">Retrouvez vos colis et vos factures en toute simplicité.</p></div>
 
             <form onSubmit={(event) => { event.preventDefault(); void submit(); }} className="rounded-[1.5rem] bg-white p-5 text-ink shadow-[0_24px_60px_-36px_rgba(8,30,67,.55)] sm:p-7">

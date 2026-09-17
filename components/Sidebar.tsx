@@ -71,7 +71,7 @@ export default function Sidebar({ staff }: { staff?: Staff | null }) {
     <aside className="w-64 shrink-0 bg-navy text-white min-h-screen flex flex-col">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 h-16">
-        <Logo size={34} />
+        <Logo size={34} tone="light" />
         <div>
           <p className="font-extrabold text-sm leading-tight">STANDA</p>
           <p className="text-[10px] text-white/50 tracking-wide">COMMERCIAL</p>

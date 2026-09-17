@@ -40,7 +40,7 @@ export default function AffiliateLoginPage() {
           <ArrowLeft size={15} /> Retour au site
         </Link>
         <div className="mt-8 flex flex-col items-center text-center">
-          <Logo size={48} rounded="rounded-xl" />
+          <Logo size={48} rounded="rounded-xl" tone="light" />
           <p className="mt-4 text-[11px] font-bold uppercase tracking-[.18em] text-orange-200">Espace Affilié</p>
           <h1 className="text-[24px] font-black tracking-[-.03em]">Connexion</h1>
         </div>

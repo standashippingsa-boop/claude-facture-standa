@@ -32,7 +32,7 @@ export default function SiteFooter() {
           {/* ── Kolòn 1: mak la ── */}
           <div className="md:col-span-1">
             <div className="flex items-center gap-2.5 mb-4">
-              <Logo size={40} />
+              <Logo size={40} tone="light" />
               <span className="font-black tracking-tight leading-none">
                 <span className="block text-[15px]">STANDA</span>
                 <span className="block text-[10px] font-semibold text-white/60 tracking-[0.18em]">

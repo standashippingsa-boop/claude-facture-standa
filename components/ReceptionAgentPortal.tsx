@@ -127,7 +127,7 @@ export default function ReceptionAgentPortal() {
 
           <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4">
             <div className="flex items-center gap-2.5 rounded-full bg-white/15 py-1.5 pl-1.5 pr-3.5 backdrop-blur-md">
-              <Logo size={30} rounded="rounded-full" />
+              <Logo size={30} rounded="rounded-full" tone="light" />
               <span className="text-[13px] font-bold text-white">{agentName || "Réception"}</span>
             </div>
             <button onClick={logout} aria-label="Déconnexion"
