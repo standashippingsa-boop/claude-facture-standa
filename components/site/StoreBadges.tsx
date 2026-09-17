@@ -17,7 +17,7 @@ const APP_STORE_URL = safeStoreUrl(process.env.NEXT_PUBLIC_APP_STORE_URL);
 
 export default function StoreBadges({ className = "" }: { className?: string }) {
   return <div className={`flex flex-wrap gap-2 ${className}`} aria-label="Télécharger les applications mobiles STANDA">
-    <StoreBadge href={GOOGLE_PLAY_URL} logoSrc="/store-badges/google-play-logo.jpg" logoClassName="rounded bg-white object-contain" eyebrow="GET IT ON" name="Google Play" />
+    <StoreBadge href={GOOGLE_PLAY_URL} logoSrc="/store-badges/google-play-logo-transparent.png" logoClassName="object-contain" eyebrow="GET IT ON" name="Google Play" />
     <StoreBadge href={APP_STORE_URL} logoSrc="/store-badges/apple-store-logo.jpg" logoClassName="rounded-lg object-cover" eyebrow="Download on the" name="App Store" />
   </div>;
 }
