@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Check, MapPin, PackageCheck, Plane, ScanLine, Smartphone, Store, Truck, Warehouse } from "lucide-react";
+import { ArrowRight, Check, MapPin, PackageCheck, Plane, Smartphone, Store, Truck, Warehouse } from "lucide-react";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
 import StoreBadges from "@/components/site/StoreBadges";
@@ -95,8 +95,6 @@ export default function AccueilPage() {
           </div>
         </section>
 
-        <section className="parcel-wash border-b border-line bg-white"><div className="mx-auto grid max-w-7xl grid-cols-1 divide-y divide-line px-5 sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:px-8 lg:px-10 xl:px-6"><MiniPromise icon={MapPin} title="Un point de départ clair" text="Votre adresse de dépôt à Miami." /><MiniPromise icon={ScanLine} title="Chaque étape visible" text="Suivez le parcours de votre colis." /><MiniPromise icon={Store} title="Près de chez vous" text="Retrouvez nos agences en Haïti." /></div></section>
-
         <section className="parcel-wash-alt border-b border-line bg-[#fffdf9] py-16 sm:py-20"><div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10 xl:px-6"><SectionHeading eyebrow="Vos boutiques préférées" title="Commandez là où vous aimez déjà acheter." /><div className="mt-9 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{SHOPPING_PLATFORMS.map((platform) => <PlatformCard key={platform.name} {...platform} />)}</div></div></section>
 
         <section className="parcel-wash mx-auto max-w-7xl rounded-[2rem] px-5 py-20 sm:px-8 sm:py-28 lg:px-10 xl:px-6"><SectionHeading title="Tout devient plus simple, étape par étape." text="Nous avons pensé l'expérience autour de ce dont vous avez besoin : acheter, recevoir et savoir où en est votre colis." /><div className="mt-11 grid gap-4 lg:grid-cols-3">{STEPS.map((step) => <StepCard key={step.number} {...step} />)}</div></section>
@@ -116,7 +114,6 @@ export default function AccueilPage() {
 }
 
 function TrustItem({ children }: { children: React.ReactNode }) { return <span className="inline-flex items-center gap-2"><Check size={15} className="text-accent" />{children}</span>; }
-function MiniPromise({ icon: Icon, title, text }: { icon: typeof MapPin; title: string; text: string }) { return <div className="flex items-center gap-4 py-5 sm:px-7 sm:py-6 first:sm:pl-0 last:sm:pr-0"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-light text-accent-dark"><Icon size={18} /></span><div><p className="text-[13px] font-bold text-navy">{title}</p><p className="mt-0.5 text-[12.5px] text-mute">{text}</p></div></div>; }
 function PlatformCard({ name, image, wordmarkClass }: { name: string; image?: string; wordmarkClass?: string }) { return <article className="flex min-h-[96px] items-center justify-center rounded-2xl border border-line bg-white px-4 shadow-[0_10px_30px_-24px_rgba(15,23,42,.45)]">
   {image ? <Image src={image} alt={`Logo ${name}`} width={150} height={72} unoptimized className="h-12 w-auto max-w-[138px] object-contain mix-blend-multiply" /> : <span className={`font-black leading-none ${wordmarkClass ?? "text-navy"}`}>{name}</span>}
 </article>; }
