@@ -818,7 +818,7 @@ export default function EspaceClientPage() {
           </button>
 
           <button onClick={() => setView("infos")} aria-label="Messages et aide" title="Messages et aide"
-            className="client-header-icon hidden min-[390px]:grid">
+            className="client-header-icon">
             <MessageCircle size={20} />
           </button>
 

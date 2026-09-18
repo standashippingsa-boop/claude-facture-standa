@@ -15,8 +15,8 @@
  * (menm kont, menm modpas, menm bazdone). Anyen nan motè a pa chanje isit:
  * se sèlman abiman an.
  *
- * KOULÈ: paj sa a PA swiv koulè biznis la (desizyon konfime) — gradyan
- * endigo/sarsèl ak yon dekò anime. Rès aplikasyon an rete sou mak la.
+ * KOULÈ: menm dekorasyon ble STANDA ak paj Mon compte sou sit la. Sa kenbe
+ * ilistrasyon, liy wout ak logo yo vizib sou tout gwosè telefòn.
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -25,7 +25,7 @@ import { clientSignInErrorMessage, signInClientWithCode } from "@/lib/authx";
 import { setAuthRealm } from "@/lib/supabase";
 import { normalizeMcCode } from "@/lib/utils";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
-import AuthBackdrop from "@/components/AuthBackdrop";
+import AuthBackdrop from "@/components/site/AuthBackdrop";
 
 const WA = `https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`;
 /** Adrès ABSOLI: fòse sòti nan app la epi louvri navigatè a. */

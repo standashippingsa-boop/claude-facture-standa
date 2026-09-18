@@ -69,13 +69,16 @@ export async function POST(req: Request) {
     const email = clean(p.email, 120).toLowerCase();
     const phone = clean(p.phone, 30);
     const whatsapp = clean(p.whatsapp, 30);
-    const country = clean(p.country, 80);
+    // STANDA est actuellement réservé aux clients en Haïti. La valeur est
+    // fixée côté serveur : le formulaire n'affiche donc pas un choix inutile
+    // et un navigateur ne peut pas l'altérer.
+    const country = "Haïti";
     const address = clean(p.address, 200);
     const idType = clean(p.id_type, 50);
     const idNumber = clean(p.id_number, 80);
     const villeId = clean(p.ville_id, 36);
     if (fullname.length < 2) return NextResponse.json({ ok: false, reason: "Nom invalide." }, { status: 400 });
-    if (surname.length < 1 || country.length < 2 || address.length < 3) {
+    if (surname.length < 1 || address.length < 3) {
       return NextResponse.json({ ok: false, reason: "Informations personnelles incomplètes." }, { status: 400 });
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
@@ -107,7 +110,7 @@ export async function POST(req: Request) {
     }
 
     // Chan otorize SÈLMAN (pa gen customer_code, account_status, auth_user_id soti deyò)
-    const ALLOWED = ["fullname", "surname", "email", "phone", "whatsapp", "country",
+    const ALLOWED = ["fullname", "surname", "email", "phone", "whatsapp",
       "city", "address", "id_type", "id_number", "ville_id", "account_type"] as const;
     const profile: Record<string, unknown> = {};
     for (const k of ALLOWED) if (p[k] !== undefined && p[k] !== null) profile[k] = clean(p[k], 200);

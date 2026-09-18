@@ -20,7 +20,6 @@ const schema = z.object({
   email: z.string().email("L'adresse e-mail n'est pas valide"),
   phone: z.string().min(6, "Le téléphone est obligatoire"),
   whatsapp: z.string().min(6, "Le numéro WhatsApp est obligatoire"),
-  country: z.string().min(1, "Le pays est obligatoire"),
   city: z.string().min(1, "Sélectionnez votre ville dans la liste"),
   address: z.string().min(1, "L'adresse est obligatoire"),
   id_type: z.enum(["Carte d'identité nationale", "Passeport"], { errorMap: () => ({ message: "Sélectionnez votre pièce d'identité" }) }),
@@ -87,7 +86,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
         email: f.email.trim(),
         phone: f.phone.trim(),
         whatsapp: f.whatsapp.trim(),
-        country: f.country.trim(),
+        country: "Haïti",
         city: f.city,
         address: f.address.trim(),
         id_type: f.id_type,
@@ -142,7 +141,6 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
             <F name="email" label="E-mail *" type="email" placeholder="vous@exemple.com" />
             <F name="phone" label="Téléphone *" placeholder="+509 ..." />
             <F name="whatsapp" label="Numéro WhatsApp *" placeholder="+509 ..." />
-            <F name="country" label="Pays *" placeholder="Ex. : Haïti" />
             <label className="block">
               <span className="text-xs font-semibold text-slate-600">Ville *</span>
               <select
