@@ -48,14 +48,6 @@ export default function SiteFooter() {
 
           {/* ── Kolòn 2: aplikasyon ak navigasyon ── */}
           <div className="order-4 lg:order-none">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50 mb-3">
-              Application mobile
-            </p>
-            <StoreBadges className="flex-col items-start" />
-            <p className="mt-3 text-[11px] font-semibold text-accent/90">
-              Téléchargement disponible après publication officielle.
-            </p>
-            <div className="mt-6 border-t border-white/10 pt-6">
             <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50 mb-4">
               Navigation
             </h3>
@@ -64,9 +56,9 @@ export default function SiteFooter() {
               <li><Link href="/contact" className="text-white/80 hover:text-accent transition">Contact</Link></li>
               <li><Link href="/agences" className="text-white/80 hover:text-accent transition">Nos agences</Link></li>
               <li><Link href="/login" className="text-white/80 hover:text-accent transition">Mon compte</Link></li>
+              <li className="pt-1"><Link href="/app" className="text-white/80 hover:text-accent transition">Application mobile</Link><StoreBadges className="mt-3 flex-col items-start" /><p className="mt-3 text-[11px] font-semibold text-accent/90">Téléchargement disponible après publication officielle.</p></li>
               <li><Link href="/inscription" className="text-accent font-semibold hover:text-white transition">S&apos;inscrire</Link></li>
             </ul>
-            </div>
           </div>
 
           {/* ── Kolòn 3: kontak ── */}
