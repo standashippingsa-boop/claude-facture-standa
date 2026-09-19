@@ -5,7 +5,6 @@ import Logo from "@/components/Logo";
 import { SITE } from "@/lib/site";
 import { DEPOT } from "@/lib/depot";
 import { FacebookIcon, InstagramIcon, TikTokIcon, WhatsAppIcon } from "./BrandIcons";
-import StoreBadges from "./StoreBadges";
 
 /**
  * STANDA COMMERCIAL — FOOTER SIT PIBLIK LA
@@ -56,7 +55,6 @@ export default function SiteFooter() {
               <li><Link href="/contact" className="text-white/80 hover:text-accent transition">Contact</Link></li>
               <li><Link href="/agences" className="text-white/80 hover:text-accent transition">Nos agences</Link></li>
               <li><Link href="/login" className="text-white/80 hover:text-accent transition">Mon compte</Link></li>
-              <li className="pt-1"><Link href="/app" className="text-white/80 hover:text-accent transition">Application mobile</Link><StoreBadges className="mt-3 flex-col items-start" /><p className="mt-3 text-[11px] font-semibold text-accent/90">Téléchargement disponible après publication officielle.</p></li>
               <li><Link href="/inscription" className="text-accent font-semibold hover:text-white transition">S&apos;inscrire</Link></li>
             </ul>
           </div>
