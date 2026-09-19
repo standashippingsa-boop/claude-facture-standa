@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
+import { encryptPII } from "@/lib/pii-crypto";
+import { clientShippingSchema } from "@/lib/validation/shipping";
 
 /** Valè cookie ?ref= mete pa middleware.ts (parse manyèl — evite soud Next.js sou cookies() async). */
 function refCookie(req: Request): string {
@@ -25,7 +27,6 @@ function refCookie(req: Request): string {
  */
 const digits = (s: string) => String(s ?? "").replace(/\D/g, "");
 const clean = (v: unknown, max = 120) => String(v ?? "").trim().slice(0, max);
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ID_TYPES = new Set(["Carte d'identité nationale", "Passeport"]);
 
 export async function POST(req: Request) {
@@ -84,14 +85,18 @@ export async function POST(req: Request) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
       return NextResponse.json({ ok: false, reason: "Email invalide." }, { status: 400 });
     }
-    if (digits(phone).length < 7 || digits(whatsapp).length < 7) {
-      return NextResponse.json({ ok: false, reason: "Téléphone invalide." }, { status: 400 });
+    // Validation shipping (adresse, téléphone, ville) centralisée dans
+    // lib/validation/shipping.ts — même schéma que /api/ingest, au lieu
+    // d'un regex réinventé par route.
+    const shipping = clientShippingSchema.safeParse({ address, phone, whatsapp, ville_id: villeId });
+    if (!shipping.success) {
+      return NextResponse.json(
+        { ok: false, reason: shipping.error.issues[0]?.message ?? "Informations de livraison invalides." },
+        { status: 400 }
+      );
     }
     if (!ID_TYPES.has(idType) || idNumber.length < 2) {
       return NextResponse.json({ ok: false, reason: "Pièce d'identité invalide." }, { status: 400 });
-    }
-    if (!UUID.test(villeId)) {
-      return NextResponse.json({ ok: false, reason: "Sélectionnez une ville dans la liste." }, { status: 400 });
     }
 
     // Pa fè konfyans non vil ki sòti nan navigatè a. Nou verifye id la ak
@@ -127,6 +132,21 @@ export async function POST(req: Request) {
     // account_type: valè otorize sèlman — anpeche yon moun chwazi tarif "Business"
     // pou tèt li nan navigatè a. Admin nan ka chanje l apre nan paj Clients la.
     profile.account_type = p.account_type === "Business" ? "Business" : "Personnel";
+
+    // Chiffrement PII (AES-256-GCM, lib/pii-crypto.ts) — PHASE 1 (additive).
+    // ─────────────────────────────────────────────────────────────────────
+    // On écrit une copie chiffrée dans phone_encrypted/whatsapp_encrypted/
+    // address_encrypted (nouvelles colonnes, voir supabase/pii_encryption_columns.sql)
+    // SANS toucher aux colonnes phone/whatsapp/address en clair : lib/db.ts,
+    // app/espace-client/page.tsx et la génération PDF/factures lisent encore
+    // ces colonnes directement (parfois depuis le navigateur). Écraser leur
+    // valeur ici casserait ces écrans silencieusement (ils afficheraient du
+    // texte chiffré illisible). Le cutover complet (ces écrans déchiffrent
+    // côté serveur, puis on supprime les colonnes en clair) est un chantier
+    // séparé, à faire consciemment vu ce qu'il touche.
+    profile.phone_encrypted = encryptPII(phone);
+    profile.whatsapp_encrypted = encryptPII(whatsapp);
+    profile.address_encrypted = encryptPII(address);
 
     // ═══════════════════════════════════════════════════════════════════
     // DEDOUBLONAJ (V18) — YON KLIYAN KA GEN PLIZYÈ KONT SHIPPING.

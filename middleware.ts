@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { corsHeaders } from "@/lib/cors";
 
 /**
  * STANDA COMMERCIAL — DOMÈN KANONIK
@@ -49,8 +50,26 @@ function withRef(req: NextRequest, res: NextResponse): NextResponse {
   return res;
 }
 
+/**
+ * CORS pou /api/* — gade lib/cors.ts pou detay. Aplike ISIT (yon sèl kote)
+ * olye chak wout API jere pwòp header CORS pa li.
+ */
+function handleApiCors(req: NextRequest): NextResponse {
+  const headers = corsHeaders(req, req.nextUrl.pathname);
+  if (req.method === "OPTIONS") {
+    return new NextResponse(null, { status: 204, headers });
+  }
+  const res = NextResponse.next();
+  for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
+  return res;
+}
+
 export function middleware(req: NextRequest) {
   const host = req.headers.get("host") ?? "";
+
+  // API: pa gen redireksyon domèn (ekstansyon/entegrasyon yo ka gen ansyen
+  // URL konfigire) — men CORS aplike pou bloke lòt sit ki eseye li repons yo.
+  if (req.nextUrl.pathname.startsWith("/api/")) return handleApiCors(req);
 
   /*
    * RASIN DOMÈN NAN -> SIT PIBLIK LA
@@ -82,9 +101,6 @@ export function middleware(req: NextRequest) {
 
   // Deja sou domèn kanonik la
   if (host === CANONICAL_HOST) return withRef(req, NextResponse.next());
-
-  // API: pa redirije (ekstansyon/entegrasyon yo ka gen ansyen URL konfigire)
-  if (req.nextUrl.pathname.startsWith("/api/")) return NextResponse.next();
 
   const url = req.nextUrl.clone();
   url.protocol = "https:";
