@@ -144,9 +144,22 @@ export async function POST(req: Request) {
     // texte chiffré illisible). Le cutover complet (ces écrans déchiffrent
     // côté serveur, puis on supprime les colonnes en clair) est un chantier
     // séparé, à faire consciemment vu ce qu'il touche.
-    profile.phone_encrypted = encryptPII(phone);
-    profile.whatsapp_encrypted = encryptPII(whatsapp);
-    profile.address_encrypted = encryptPII(address);
+    //
+    // OPT-IN : le miroir chiffré ne s'active que si PII_ENCRYPTION_KEY est
+    // définie. Ordre d'activation : 1) exécuter supabase/pii_encryption_columns.sql,
+    // 2) définir PII_ENCRYPTION_KEY sur Vercel, 3) redéployer. Tant que la clé
+    // est absente (ou invalide), l'inscription fonctionne comme avant — un
+    // problème de configuration ne doit jamais empêcher un client de s'inscrire ;
+    // l'erreur est journalisée pour qu'on la voie dans les logs Vercel.
+    if (process.env.PII_ENCRYPTION_KEY?.trim()) {
+      try {
+        profile.phone_encrypted = encryptPII(phone);
+        profile.whatsapp_encrypted = encryptPII(whatsapp);
+        profile.address_encrypted = encryptPII(address);
+      } catch (e) {
+        console.error("[register-client] chiffrement PII désactivé (clé invalide) :", e instanceof Error ? e.message : e);
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════════
     // DEDOUBLONAJ (V18) — YON KLIYAN KA GEN PLIZYÈ KONT SHIPPING.
