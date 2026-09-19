@@ -39,6 +39,42 @@ const CANONICAL_HOST = "www.standacommercialsa.com";
 const REF_COOKIE = "standa_ref";
 const REF_RE = /^[A-Z0-9]{3,20}$/i;
 
+/**
+ * Chaque document HTML reçoit un nonce CSP unique. Next.js lit la politique
+ * transmise dans les headers de la requête et ajoute ce nonce aux scripts du
+ * framework, y compris aux scripts React Server Components générés à la
+ * volée. Sans cela, le navigateur bloque ces scripts après un rechargement et
+ * la page reste blanche.
+ */
+function createCspNonce() {
+  return btoa(crypto.randomUUID());
+}
+
+function contentSecurityPolicy(nonce: string) {
+  return [
+    "frame-ancestors 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    `script-src 'self' 'nonce-${nonce}'`
+  ].join("; ");
+}
+
+function nextPageResponse(req: NextRequest) {
+  const nonce = createCspNonce();
+  const csp = contentSecurityPolicy(nonce);
+  const requestHeaders = new Headers(req.headers);
+
+  // Ce header est lu par Next.js pendant le rendu pour propager le nonce aux
+  // scripts qu'il génère. La réponse porte exactement la même politique.
+  requestHeaders.set("content-security-policy", csp);
+  requestHeaders.set("x-nonce", nonce);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", csp);
+  return response;
+}
+
 /** Ajoute cookie ?ref= la sou repons lan, si prezan e valid. */
 function withRef(req: NextRequest, res: NextResponse): NextResponse {
   const ref = req.nextUrl.searchParams.get("ref");
@@ -97,10 +133,10 @@ export function middleware(req: NextRequest) {
   }
 
   // Devlopman lokal: apre redireksyon rasin lan, pa chanje lòt URL yo.
-  if (host.startsWith("localhost") || host.startsWith("127.0.0.1")) return withRef(req, NextResponse.next());
+  if (host.startsWith("localhost") || host.startsWith("127.0.0.1")) return withRef(req, nextPageResponse(req));
 
   // Deja sou domèn kanonik la
-  if (host === CANONICAL_HOST) return withRef(req, NextResponse.next());
+  if (host === CANONICAL_HOST) return withRef(req, nextPageResponse(req));
 
   const url = req.nextUrl.clone();
   url.protocol = "https:";
