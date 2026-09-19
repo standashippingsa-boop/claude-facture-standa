@@ -10,19 +10,47 @@
  *  • Permissions     — bloke micro/geo; KAMERA otorize (Scanner Réception!)
  *  • frame-ancestors — anpeche clickjacking (sit lòt moun pa ka anbake nou)
  *
- * NÒT: nou PA mete yon CSP script-src konplè pou kounye a — sa mande yon
- * nonce sou chak script Next.js; yon move konfigirasyon ta bloke app la nèt.
- * Direktiv ki anba yo (frame-ancestors, object-src, base-uri, form-action)
- * bay pwoteksyon reyèl (clickjacking, enjeksyon <base>/<object>, detounman
- * fòm) SAN okenn risk pou script Next.js yo.
+ * script-src (V19) — approche par HASH, pas par nonce.
+ * ────────────────────────────────────────────────────
+ * Un nonce doit changer à CHAQUE requête, ce qui casse le rendu statique
+ * (headers() dans le layout racine force TOUTE l'app en rendu dynamique —
+ * essayé, mesuré : /accueil, /contact, /agences passaient de ○ statique à
+ * ƒ dynamique). Le contenu des deux <script> inline de l'app (le garde
+ * "frontière site/application" dans app/layout.tsx et le JSON-LD dans
+ * app/accueil/page.tsx) ne dépend d'aucune donnée par requête — un hash
+ * SHA-256 de leur contenu EXACT les autorise sans jamais changer, donc
+ * sans sacrifier le rendu statique. C'est aussi strict qu'un nonce pour
+ * ce qu'on veut bloquer : un <script> injecté par XSS ne matchera jamais
+ * un hash existant, quel qu'il soit.
+ *
+ * ⚠️ Si le contenu d'un de ces deux <script> change (même un espace), son
+ * hash change aussi — régénérer avec (après `npm run build`) :
+ *   node -e "const c=require('fs').readFileSync('.next/server/app/accueil.html','utf8').match(/<script>(\(function\(\)\{[\s\S]*?\}\)\(\);)<\/script>/)[1];console.log('sha256-'+require('crypto').createHash('sha256').update(c).digest('base64'))"
+ * (remplacer le regex pour le <script type="application/ld+json"> au besoin).
+ * Un hash périmé ne casse rien de visible immédiatement : le navigateur
+ * bloque silencieusement CE script précis (garde de frontière ou JSON-LD),
+ * à surveiller via la console/Reporting-Api en cas de doute après un
+ * changement dans ces deux fichiers.
+ *
+ * 'self' couvre les <script src="/_next/..."> de Next.js lui-même (même
+ * origine) — aucun nonce ni 'strict-dynamic' n'est nécessaire pour ceux-là.
  */
+const INLINE_SCRIPT_HASHES = [
+  "'sha256-JsyxeOFYXFmS+WCxlI5jLDzGoJfL/ATWDM8lJSN7khk='", // app/layout.tsx — garde frontière site/application
+  "'sha256-iMPpEkA6dexlOrgFp3Ua00lgFUvJXi+b/ABsEO03fDw='", // app/accueil/page.tsx — JSON-LD
+];
+
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), interest-cohort=()" },
-  { key: "Content-Security-Policy", value: "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" },
+  {
+    key: "Content-Security-Policy",
+    value: `frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; `
+      + `script-src 'self' ${INLINE_SCRIPT_HASHES.join(" ")}`
+  },
   // Isole navigatè a: yon lòt sit pa ka gade nan fenèt nou an
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "X-DNS-Prefetch-Control", value: "off" },
