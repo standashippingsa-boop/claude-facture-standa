@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
 import "./globals.css";
 import Shell from "@/components/Shell";
 import PwaManager from "@/components/PwaManager";
@@ -86,11 +85,7 @@ export const viewport: Viewport = {
   viewportFit: "cover"
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // Lire le header rend la page à la requête. Next.js peut ainsi propager le
-  // nonce CSP unique créé par le middleware à tous ses scripts de rendu.
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ht" translate="no" className="notranslate">
       <head>
@@ -102,7 +97,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Uptodown, nou pa ankò mande kliyan yo "enstale" sit la kòm PWA.)
         */}
         <script
-          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `(function(){
               /*

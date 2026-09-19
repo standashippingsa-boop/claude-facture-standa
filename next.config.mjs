@@ -10,14 +10,11 @@
  *  • Permissions     — bloke micro/geo; KAMERA otorize (Scanner Réception!)
  *  • frame-ancestors — anpeche clickjacking (sit lòt moun pa ka anbake nou)
  *
- * CSP — nonce dynamique dans middleware.ts.
- * ───────────────────────────────────────────
- * Next.js ajoute à chaque page des scripts inline de transport React Server
- * Components (`self.__next_f.push(...)`) qui changent à chaque rendu. Une
- * liste de hashes statiques les bloque après un rafraîchissement et donne un
- * écran blanc. Le middleware génère donc un nonce par réponse HTML, le passe
- * à Next.js et ajoute la même politique à la réponse. Cette configuration
- * garde le blocage des scripts injectés sans autoriser `unsafe-inline`.
+ * NÒT: nou PA mete yon CSP script-src konplè pou kounye a — sa mande yon
+ * nonce sou chak script Next.js; yon move konfigirasyon ta bloke app la nèt.
+ * Direktiv ki anba yo (frame-ancestors, object-src, base-uri, form-action)
+ * bay pwoteksyon reyèl (clickjacking, enjeksyon <base>/<object>, detounman
+ * fòm) SAN okenn risk pou script Next.js yo.
  */
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
@@ -25,6 +22,7 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), interest-cohort=()" },
+  { key: "Content-Security-Policy", value: "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" },
   // Isole navigatè a: yon lòt sit pa ka gade nan fenèt nou an
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "X-DNS-Prefetch-Control", value: "off" },
