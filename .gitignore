@@ -23,3 +23,6 @@ next-env.d.ts
 
 .vercel
 supabase/.temp/
+
+# IDE (Android Studio / JetBrains) — config locale, jamais versionnée
+.idea/
