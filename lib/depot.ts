@@ -37,6 +37,11 @@ export function buildDepotMessage(c: Client, password?: string): string {
       `Mot de passe :\n${password}\n\n` +
       `Conservez ces informations. Vous pourrez modifier votre mot de passe dans votre espace personnel si vous le souhaitez.\n`;
   }
+  msg +=
+    `\nACCÉDER À VOTRE COMPTE\n\n` +
+    `https://www.standacommercialsa.com/espace-client/connexion\n\n` +
+    `📱 APPLICATION MOBILE\n\n` +
+    `L’application STANDA sera bientôt disponible sur Google Play et l’App Store.\n`;
   msg += `\nMerci.\nSTANDA COMMERCIAL`;
   return msg;
 }
