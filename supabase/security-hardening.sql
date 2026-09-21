@@ -695,6 +695,28 @@ select public._hard_policy('fcm_device_tokens', 'fcm_device_tokens_delete_own', 
   null);
 select public._hard_policy('fcm_device_tokens', 'fcm_device_tokens_select_staff', 'select', 'authenticated', 'public.is_staff()', null);
 
+-- ABONNEMENTS WEB PUSH DES AGENTS — un agent gère uniquement les appareils
+-- rattachés à son propre compte. L'envoi est fait côté serveur avec la clé
+-- de service, jamais depuis le navigateur.
+do $$ begin execute 'drop policy if exists "anon all staff_push_subscriptions" on public.staff_push_subscriptions';
+exception when undefined_table then null; end $$;
+do $$ begin execute 'drop policy if exists "staff_push_subscriptions_select_staff" on public.staff_push_subscriptions';
+exception when undefined_table then null; end $$;
+select public._hard_policy('staff_push_subscriptions', 'staff_push_subscriptions_insert_own', 'insert', 'authenticated',
+  null,
+  'exists (select 1 from public.staff s where s.auth_user_id = auth.uid() '
+  || 'and s.id = staff_push_subscriptions.staff_id)');
+select public._hard_policy('staff_push_subscriptions', 'staff_push_subscriptions_update_own', 'update', 'authenticated',
+  'exists (select 1 from public.staff s where s.auth_user_id = auth.uid() '
+  || 'and s.id = staff_push_subscriptions.staff_id)',
+  'exists (select 1 from public.staff s where s.auth_user_id = auth.uid() '
+  || 'and s.id = staff_push_subscriptions.staff_id)');
+select public._hard_policy('staff_push_subscriptions', 'staff_push_subscriptions_delete_own', 'delete', 'authenticated',
+  'exists (select 1 from public.staff s where s.auth_user_id = auth.uid() '
+  || 'and s.id = staff_push_subscriptions.staff_id)',
+  null);
+select public._hard_policy('staff_push_subscriptions', 'staff_push_subscriptions_select_admin', 'select', 'authenticated', 'public.is_admin()', null);
+
 -- NOTIFICATIONS INTERNES — seulement /api/staff-notifications, qui dérive
 -- le destinataire depuis la session. Les triggers créent les événements avec
 -- la clé service; aucune politique navigateur n'est volontairement accordée.

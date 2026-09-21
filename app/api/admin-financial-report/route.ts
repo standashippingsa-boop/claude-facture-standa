@@ -34,13 +34,25 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, reason: "Accès administrateur requis." }, { status: 403 });
     }
 
-    const [invoicesResult, paymentsResult, clientsResult, villesResult] = await Promise.all([
+    const paymentColumns = "id, invoice_id, amount, currency, amount_usd, amount_htg, applied_usd, applied_htg, overpayment_amount, payment_method, payment_reference, received_by_name, received_by_staff_id, recorded_by_role, created_at";
+    const [invoicesResult, initialPaymentsResult, clientsResult, villesResult, agentsResult] = await Promise.all([
       db.from("invoices").select("id, invoice_number, customer_code, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, payment_status, payment_paid_usd, payment_paid_htg, created_at").order("created_at", { ascending: false }).limit(5000),
-      db.from("invoice_payments").select("id, invoice_id, amount, currency, amount_usd, amount_htg, applied_usd, applied_htg, overpayment_amount, payment_method, payment_reference, received_by_name, recorded_by_role, created_at").order("created_at", { ascending: false }).limit(5000),
+      // `settled_at` / `settled_by` viennent de supabase/20260920_report_settlement.sql.
+      db.from("invoice_payments").select(paymentColumns + ", settled_at, settled_by").order("created_at", { ascending: false }).limit(5000),
       db.from("clients").select("customer_code, fullname, surname, ville_id").limit(5000),
-      db.from("villes").select("id, name, active").order("name", { ascending: true })
+      db.from("villes").select("id, name, active").order("name", { ascending: true }),
+      // Zone de chaque point de retrait : sert à rattacher un paiement à sa ville
+      // (y compris pour le compte central, qui n'a pas de ville client).
+      db.from("staff").select("id, pickup_ville_id").eq("role", "agent_retrait")
     ]);
-    for (const result of [invoicesResult, paymentsResult, clientsResult, villesResult]) {
+    let paymentsResult = initialPaymentsResult;
+    let settlementReady = true;
+    if (paymentsResult.error && /settled_(at|by)/i.test(String(paymentsResult.error.message ?? ""))) {
+      // Le site reste utilisable avant l'exécution de la migration de clôture.
+      settlementReady = false;
+      paymentsResult = await db.from("invoice_payments").select(paymentColumns).order("created_at", { ascending: false }).limit(5000);
+    }
+    for (const result of [invoicesResult, paymentsResult, clientsResult, villesResult, agentsResult]) {
       if (result.error) throw result.error;
     }
 
@@ -49,7 +61,9 @@ export async function GET(req: Request) {
       invoices: invoicesResult.data ?? [],
       payments: paymentsResult.data ?? [],
       clients: clientsResult.data ?? [],
-      villes: villesResult.data ?? []
+      villes: villesResult.data ?? [],
+      agents: agentsResult.data ?? [],
+      settlement_ready: settlementReady
     }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("[admin-financial-report]", error);

@@ -40,12 +40,16 @@ type ZonePayment = {
   amount_usd: number | null; amount_htg: number | null;
   payment_method: string | null; payment_reference: string | null;
   recorded_by_role: string | null; created_at: string;
+  settled_at?: string | null;
 };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 const money = (value: unknown) => Math.round(Number(value ?? 0) * 100) / 100;
 const code = (value: unknown) => String(value ?? "").trim();
-const PAYMENT_METHODS = new Set(["Espèces", "MonCash", "NatCash", "Zelle", "Virement bancaire"]);
+// Zelle n'est jamais encaissé au point de retrait : seul l'administrateur
+// l'enregistre (rapports financiers), donc il n'entre pas dans la caisse de l'agent.
+const AGENT_PAYMENT_METHODS = new Set(["Espèces", "MonCash", "NatCash", "Virement bancaire"]);
+const paymentSourceLabel = (role: string | null) => code(role) === "admin" ? "Administrateur" : "Point de retrait";
 
 function bearerToken(req: Request) {
   const value = req.headers.get("authorization") ?? "";
@@ -307,9 +311,15 @@ export async function GET(req: Request) {
     const issuedInvoiceIds = issuedInvoices.map((invoice) => code(invoice.id)).filter(Boolean);
     let paymentsByInvoice = new Map<string, ZonePayment[]>();
     if (issuedInvoiceIds.length) {
-      const paymentsResult = await db.from("invoice_payments")
-        .select("id, invoice_id, amount, currency, amount_usd, amount_htg, payment_method, payment_reference, recorded_by_role, created_at")
+      const paymentColumns = "id, invoice_id, amount, currency, amount_usd, amount_htg, payment_method, payment_reference, recorded_by_role, created_at";
+      // `settled_at` (clôture du rapport par l'administration) vient d'une
+      // migration séparée : le portail reste utilisable avant son exécution.
+      let paymentsResult = await db.from("invoice_payments").select(paymentColumns + ", settled_at")
         .in("invoice_id", issuedInvoiceIds).order("created_at", { ascending: true });
+      if (missingSchemaColumn(paymentsResult.error, "settled_at")) {
+        paymentsResult = await db.from("invoice_payments").select(paymentColumns)
+          .in("invoice_id", issuedInvoiceIds).order("created_at", { ascending: true });
+      }
       if (paymentsResult.error) throw paymentsResult.error;
       for (const payment of (paymentsResult.data ?? []) as ZonePayment[]) {
         const invoiceId = code(payment.invoice_id);
@@ -397,7 +407,13 @@ export async function GET(req: Request) {
       customer_name: customerName(customerByCode.get(customerCode)), customer_balance_usd: balance?.usd ?? 0, customer_balance_htg: balance?.htg ?? 0,
       package_count: Number(invoice.package_count ?? 0), grand_total_usd: amounts.grandTotalUsd, deposit_usd: amounts.depositUsd, amount_due_usd: amounts.payableUsd, amount_due_htg: amounts.payableHtg,
       amount_label: amounts.hasDeposit ? "Solde à payer selon la facture" : "Total de la facture", payment_status: paymentStatusFromAmounts(invoice), payment_details: paymentDetails(paymentStatusFromAmounts(invoice), paymentsByInvoice.get(invoice.id) ?? []), payment_paid_usd: money(invoice.payment_paid_usd),
-      payment_paid_htg: money(invoice.payment_paid_htg), delivery_status: deliveryStatus, delivered_packages_count: delivery.delivered, has_pdf: Boolean(invoice.has_pdf), created_at: code(invoice.created_at),
+      payment_paid_htg: money(invoice.payment_paid_htg),
+      exchange_rate: Number(invoice.exchange_rate_used) > 0 ? Number(invoice.exchange_rate_used) : money(amounts.payableHtg / Math.max(amounts.payableUsd, 1)),
+      payments: (paymentsByInvoice.get(invoice.id) ?? []).map((payment) => ({
+        method: code(payment.payment_method) || "Espèces", amount: money(payment.amount), currency: code(payment.currency),
+        created_at: code(payment.created_at), by: paymentSourceLabel(payment.recorded_by_role)
+      })),
+      delivery_status: deliveryStatus, delivered_packages_count: delivery.delivered, has_pdf: Boolean(invoice.has_pdf), created_at: code(invoice.created_at),
       is_central_account: customerCode.toUpperCase() === centralCode
     }; });
 
@@ -408,7 +424,10 @@ export async function GET(req: Request) {
       const invoice = invoiceMap.get(invoiceId);
       if (!invoice) return [];
       return payments
-        .filter((payment) => code(payment.recorded_by_role) === "agent_retrait")
+        // Zelle (administration seulement) et les paiements déjà clôturés par
+        // l'administration ne comptent plus dans la caisse de l'agent.
+        .filter((payment) => code(payment.recorded_by_role) === "agent_retrait"
+          && code(payment.payment_method) !== "Zelle" && !code(payment.settled_at))
         .map((payment) => ({
           id: code(payment.id), invoice_id: invoiceId, invoice_number: code(invoice.invoice_number),
           customer_code: code(invoice.customer_code), customer_name: customerName(customerByCode.get(code(invoice.customer_code))),
@@ -525,7 +544,13 @@ export async function POST(req: Request) {
       const currency = code(body.currency).toUpperCase();
       const paymentMethod = code(body.payment_method) || "Espèces";
       const paymentReference = code(body.payment_reference).slice(0, 120);
-      if (!uuid.test(invoiceId) || !["USD", "HTG"].includes(currency) || amount <= 0 || !PAYMENT_METHODS.has(paymentMethod)) {
+      if (!uuid.test(invoiceId) || !["USD", "HTG"].includes(currency) || amount <= 0) {
+        return NextResponse.json({ ok: false, reason: "Montant, devise ou méthode de paiement invalide." }, { status: 400 });
+      }
+      if (paymentMethod === "Zelle") {
+        return NextResponse.json({ ok: false, reason: "Le paiement Zelle est enregistré uniquement par l'administration, pas au point de retrait." }, { status: 400 });
+      }
+      if (!AGENT_PAYMENT_METHODS.has(paymentMethod)) {
         return NextResponse.json({ ok: false, reason: "Montant, devise ou méthode de paiement invalide." }, { status: 400 });
       }
       if ((currency === "USD" && amount > 100000) || (currency === "HTG" && amount > 50000000)) {

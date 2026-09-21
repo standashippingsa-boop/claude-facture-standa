@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { sendFcmToStaff } from "@/lib/push-fcm-server";
+import { sendPushToStaff } from "@/lib/push-server";
 
 /**
  * Notifikasyon PUSH pou AJAN RETRAIT — lè yon nouvo Bon de Remise kreye pou
@@ -53,7 +54,12 @@ export async function POST(req: Request) {
 
   let notified = 0;
   await Promise.all((agents as { id: string }[]).map(async (a) => {
-    notified += await sendFcmToStaff(config, a.id, { title, text, url: "/espace-remise" });
+    const [native, web] = await Promise.allSettled([
+      sendFcmToStaff(config, a.id, { title, text, url: "/espace-remise" }),
+      sendPushToStaff(config, a.id, { title, text, url: "/espace-remise" })
+    ]);
+    if (native.status === "fulfilled") notified += native.value;
+    if (web.status === "fulfilled") notified += web.value;
   }));
 
   return NextResponse.json({ ok: true, notified });

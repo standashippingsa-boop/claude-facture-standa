@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { RefreshCw, X } from "lucide-react";
 
 const CLIENT_PWA_SCOPE = "/espace-client";
+const AGENT_PWA_SCOPE = "/espace-remise";
 
 /**
  * PWA Manager — STANDA COMMERCIAL (v3)
@@ -45,14 +46,16 @@ const CLIENT_PWA_SCOPE = "/espace-client";
 export default function PwaManager() {
   const pathname = usePathname();
   const [waitingSW, setWaitingSW] = useState<ServiceWorker | null>(null);
-  // Se app kliyan an sèlman ki gen dwa enstale / kontwole pa PWA a.
-  // Espas admin, employé ak pwen retrè yo rete paj navigatè apa.
-  const isClientPwaPage = pathname === "/login"
+  // Espace client et espace de remise ont chacun leur propre scope : aucun
+  // lien ni retour ne peut faire basculer une session dans l'autre espace.
+  const isClientPwaPath = pathname === "/login"
     || pathname === "/inscription"
     || pathname === "/reset-password"
     || pathname === "/nouveau-mot-de-passe"
     || pathname === "/espace-client"
     || pathname.startsWith("/espace-client/");
+  const isAgentPwaPath = pathname === "/espace-remise" || pathname.startsWith("/espace-remise/");
+  const pwaScope = isClientPwaPath ? CLIENT_PWA_SCOPE : isAgentPwaPath ? AGENT_PWA_SCOPE : null;
 
   /**
    * Èske li san danje pou nou aplike mizajou a kounye a?
@@ -93,7 +96,7 @@ export default function PwaManager() {
   }, [waitingSW]);
 
   useEffect(() => {
-    if (!isClientPwaPage) return;
+    if (!pwaScope) return;
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
     /**
@@ -141,7 +144,7 @@ export default function PwaManager() {
           .filter((item) => new URL(item.scope).pathname === "/")
           .map((item) => item.unregister()));
         reg = await navigator.serviceWorker.register("/sw.js", {
-          scope: CLIENT_PWA_SCOPE,
+          scope: pwaScope,
           updateViaCache: "none"
         });
 
@@ -186,7 +189,7 @@ export default function PwaManager() {
       if (timer) clearInterval(timer);
       navigator.serviceWorker.removeEventListener("controllerchange", onCtrl);
     };
-  }, [isClientPwaPage]);
+  }, [pwaScope]);
 
   const doUpdate = () => {
     if (waitingSW) waitingSW.postMessage("SKIP_WAITING");

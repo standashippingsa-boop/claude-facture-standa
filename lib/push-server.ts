@@ -22,18 +22,35 @@ function vapidReady(): boolean {
 export async function sendPushToCustomer(
   config: SupabaseAdminConfig, customerCode: string, payload: { title: string; text: string; url?: string }
 ): Promise<number> {
-  if (!vapidReady() || !customerCode) return 0;
+  return sendPushToRecipient(config, "push_subscriptions", "customer_code", customerCode,
+    { ...payload, url: payload.url || "/espace-client" });
+}
+
+/** Envoie une alerte Web Push à un agent qui a activé les notifications. */
+export async function sendPushToStaff(
+  config: SupabaseAdminConfig, staffId: string, payload: { title: string; text: string; url?: string }
+): Promise<number> {
+  return sendPushToRecipient(config, "staff_push_subscriptions", "staff_id", staffId,
+    { ...payload, url: payload.url || "/espace-remise" });
+}
+
+async function sendPushToRecipient(
+  config: SupabaseAdminConfig, table: "push_subscriptions" | "staff_push_subscriptions",
+  recipientColumn: "customer_code" | "staff_id", recipient: string,
+  payload: { title: string; text: string; url?: string }
+): Promise<number> {
+  if (!vapidReady() || !recipient) return 0;
   webpush.setVapidDetails(
     process.env.VAPID_SUBJECT || "mailto:notifications@standacommercialsa.com",
     vapidPublicKey(), process.env.VAPID_PRIVATE_KEY!
   );
 
   const svc = createClient(config.url, config.key, { auth: { persistSession: false } });
-  const { data: subs } = await svc.from("push_subscriptions")
-    .select("id, endpoint, p256dh, auth").eq("customer_code", customerCode);
+  const { data: subs } = await svc.from(table)
+    .select("id, endpoint, p256dh, auth").eq(recipientColumn, recipient);
   if (!subs?.length) return 0;
 
-  const message = JSON.stringify({ title: payload.title, body: payload.text, url: payload.url || "/espace-client" });
+  const message = JSON.stringify({ title: payload.title, body: payload.text, url: payload.url || "/" });
   let sent = 0;
   await Promise.all(subs.map(async (s: { id: string; endpoint: string; p256dh: string; auth: string }) => {
     try {
@@ -44,7 +61,7 @@ export async function sendPushToCustomer(
       // navigatè a) — netwaye l pou nou pa reeseye l pou granmesi.
       const statusCode = (e as { statusCode?: number })?.statusCode;
       if (statusCode === 404 || statusCode === 410) {
-        await svc.from("push_subscriptions").delete().eq("id", s.id);
+        await svc.from(table).delete().eq("id", s.id);
       }
     }
   }));

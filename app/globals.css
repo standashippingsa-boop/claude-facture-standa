@@ -94,8 +94,22 @@ body { @apply bg-mist text-slate-700 antialiased; }
 .sd-d3 { animation-delay: .18s } .sd-d4 { animation-delay: .24s }
 .sd-d5 { animation-delay: .30s } .sd-d6 { animation-delay: .36s }
 
+/* Konfimasyon remise — sèk vèt ki gonfle, apre sa mak tchèk la trase tèt li */
+@keyframes sd-pop {
+  0%   { transform: scale(.4); opacity: 0; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes sd-check {
+  from { stroke-dashoffset: 34; }
+  to   { stroke-dashoffset: 0; }
+}
+.sd-pop   { animation: sd-pop .45s cubic-bezier(.22,1,.36,1) both; }
+.sd-check { stroke-dasharray: 34; stroke-dashoffset: 34; animation: sd-check .4s .3s ease-out forwards; }
+
 @media (prefers-reduced-motion: reduce) {
-  .sd-float, .sd-drift, .sd-rise, .sd-sheen { animation: none !important; }
+  .sd-float, .sd-drift, .sd-rise, .sd-sheen, .sd-pop { animation: none !important; }
+  .sd-check { animation: none !important; stroke-dashoffset: 0; }
 }
 
 /* Chan fòm sou fon fonse — vè depoli */

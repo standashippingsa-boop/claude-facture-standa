@@ -81,6 +81,20 @@ export async function subscribeToPush(customerCode: string): Promise<{ ok: boole
       return { error };
     });
   }
+  return subscribeWebPush(async ({ endpoint, p256dh, auth }) => {
+    const { error } = await supabase.from("push_subscriptions").upsert(
+      { customer_code: customerCode, endpoint, p256dh, auth }, { onConflict: "endpoint" }
+    );
+    return { error };
+  });
+}
+
+type WebPushSubscriptionData = { endpoint: string; p256dh: string; auth: string };
+
+/** Enregistre un abonnement Web Push, client ou membre du personnel. */
+async function subscribeWebPush(
+  saveSubscription: (subscription: WebPushSubscriptionData) => Promise<{ error: { message: string } | null }>
+): Promise<{ ok: boolean; reason?: string }> {
   if (!isPushSupported()) return { ok: false, reason: "unsupported" };
   try {
     const permission = await Notification.requestPermission();
@@ -98,12 +112,7 @@ export async function subscribeToPush(customerCode: string): Promise<{ ok: boole
     if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
       return { ok: false, reason: "invalid_subscription" };
     }
-    const { error } = await supabase.from("push_subscriptions").upsert({
-      customer_code: customerCode,
-      endpoint: json.endpoint,
-      p256dh: json.keys.p256dh,
-      auth: json.keys.auth
-    }, { onConflict: "endpoint" });
+    const { error } = await saveSubscription({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
     if (error) throw error;
     return { ok: true };
   } catch (e) {
@@ -159,16 +168,23 @@ async function subscribeNative(
 }
 
 /**
- * Menm bagay ak subscribeToPush(), men pou PÈSONÈL (ajan retrè ki gen app
- * "Standa Agence" enstale). Web Push PA sipòte pou pèsonèl kounye a — sa
- * a se natif sèlman (@capacitor/push-notifications), rezon: itilizasyon
- * prensipal la se nan app dedye a, pa yon navigatè.
+ * Menm bagay ak subscribeToPush(), men pou PÈSONÈL. Sou APK a, li sèvi ak
+ * Firebase Cloud Messaging. Sou navigatè/PWA a, li sèvi ak Web Push/VAPID.
+ * Sa pèmèt ajan an aktive alèt sou aparèy li sèvi chak jou a, san melanje
+ * jeton li ak sa kliyan yo.
  */
 export async function subscribeStaffToPush(staffId: string): Promise<{ ok: boolean; reason?: string }> {
-  if (!isNative()) return { ok: false, reason: "unsupported" };
-  return subscribeNative(async (token) => {
-    const { error } = await supabase.from("staff_fcm_tokens").upsert(
-      { staff_id: staffId, token, platform: "android" }, { onConflict: "token" }
+  if (isNative()) {
+    return subscribeNative(async (token) => {
+      const { error } = await supabase.from("staff_fcm_tokens").upsert(
+        { staff_id: staffId, token, platform: "android" }, { onConflict: "token" }
+      );
+      return { error };
+    });
+  }
+  return subscribeWebPush(async ({ endpoint, p256dh, auth }) => {
+    const { error } = await supabase.from("staff_push_subscriptions").upsert(
+      { staff_id: staffId, endpoint, p256dh, auth }, { onConflict: "endpoint" }
     );
     return { error };
   });
