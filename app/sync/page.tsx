@@ -212,20 +212,23 @@ export default function SyncPage() {
     try {
       const r = await commitFactureDisponible(factures);
       // Voye imèl — sèlman koli ki fèk vin Disponible (anti-doublon)
-      let sent = 0; const problems: string[] = [];
+      let sent = 0, pushed = 0; const problems: string[] = [];
       for (const [code, list] of Array.from(byClient.entries())) {
+        if (!code) continue;
         const c = clients.find((x) => x.customer_code === code);
-        if (!c?.email) continue;
+        // Sans email, le client reçoit quand même l'alerte sur son téléphone :
+        // le serveur envoie le push et ignore seulement l'email.
         try {
           const j = await notifyEmail({
             type: "disponible",
-            client: { name: c.fullname || list[0].customerName || code, code, ville: c.ville?.name ?? "", email: c.email },
+            client: { name: c?.fullname || list[0].customerName || code, code, ville: c?.ville?.name ?? "", email: c?.email || undefined },
             packages: list.map((f) => ({
               tracking_number: f.guia, tracking_manual: f.tracking,
               content: f.content, weight: f.pkgWeight
             }))
           });
-          if (j.ok) sent++; else problems.push(`${code}: ${j.reason ?? j.error ?? "erè"}`);
+          pushed += j.pushSent ?? 0;
+          if (j.ok) sent++; else if (c?.email) problems.push(`${code}: ${j.reason ?? j.error ?? "erè"}`);
         } catch (err: any) { problems.push(`${code}: ${err?.message ?? "erè rezo"}`); }
       }
       // Tras dirab: si imèl echwe, kite yon antre nan Journal (toast la disparèt)
@@ -236,7 +239,7 @@ export default function SyncPage() {
       }
       setApplyDone(
         `✅ Import Facture ${r.batchId}: ${r.updated} colis Disponible • ${sent} email(s) envoyé(s)` +
-        `${noEmail ? `, ${noEmail} sans email` : ""}.` +
+        `${noEmail ? `, ${noEmail} sans email` : ""} • ${pushed} notification(s) téléphone.` +
         (problems.length ? ` ⚠️ ${problems.slice(0, 2).join(" | ").slice(0, 200)}` : ""));
       setLastBatch(r.batchId);
       setFactures(null); setFactureText(""); setCorrections({});

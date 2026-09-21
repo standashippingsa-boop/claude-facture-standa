@@ -5,6 +5,7 @@ import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { sendPushToCustomer } from "@/lib/push-server";
 import { sendFcmToCustomer } from "@/lib/push-fcm-server";
+import { customerParcelCopy } from "@/lib/customer-push";
 
 /**
  * Email otomatik (Reçu à Miami / Disponible) via Resend (https://resend.com).
@@ -321,23 +322,15 @@ async function requireStaff(token: string): Promise<{ ok: true } | { ok: false; 
  */
 function pushCopy(body: NotifyBody): { title: string; text: string } {
   const n = body.packages?.length ?? 0;
-  const plural = n > 1;
-  if (body.type === "recu_miami") {
-    return {
-      title: "Colis reçu à Miami",
-      text: plural ? `${n} colis ont été reçus à notre entrepôt.` : "Votre colis a été reçu à notre entrepôt."
-    };
-  }
   if (body.type === "facture") {
+    const plural = n > 1;
     return {
       title: "Votre facture est prête",
       text: plural ? `Une facture pour ${n} colis est disponible dans l'application.` : "Votre facture est disponible dans l'application."
     };
   }
-  return {
-    title: "Colis disponible",
-    text: plural ? `${n} colis sont prêts à être retirés.` : "Votre colis est prêt à être retiré."
-  };
+  // Même texte que l'extension MCPACK et la confirmation du Bon de remise.
+  return customerParcelCopy(body.type === "recu_miami" ? "recu_miami" : "disponible", n);
 }
 
 interface ProbeBody { probe?: "diag" | "test"; token?: string; to?: string }

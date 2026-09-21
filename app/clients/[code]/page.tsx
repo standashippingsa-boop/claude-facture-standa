@@ -197,20 +197,23 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     try {
       await setPackagesStatus(targets.map((p) => p.id), bulkStatus);
       let mailInfo = "";
-      if ((bulkStatus === "Reçu à Miami" || bulkStatus === "Disponible") && client?.email) {
+      // Sans email, le client reçoit quand même l'alerte sur son téléphone :
+      // le serveur envoie le push et ignore seulement l'email.
+      if ((bulkStatus === "Reçu à Miami" || bulkStatus === "Disponible") && client?.customer_code) {
         try {
           const j = await notifyEmail({
             type: bulkStatus === "Reçu à Miami" ? "recu_miami" : "disponible",
             client: { name: [client.fullname, client.surname].filter(Boolean).join(" "),
-              code: client.customer_code, ville: client.ville?.name ?? "", email: client.email },
+              code: client.customer_code, ville: client.ville?.name ?? "", email: client.email || undefined },
             packages: targets.map((p) => ({
               tracking_number: p.tracking_number, tracking_manual: p.tracking_manual,
               content: p.content, weight: p.weight,
               fournisseur: p.mcpack_data?.["Proveedor"] ?? ""
             }))
           });
-          mailInfo = j.ok ? " Email voye." : ` ⚠️ Email: ${j.reason ?? j.error ?? "echwe"}`;
-          if (!j.ok) {
+          const phone = ` Notifikasyon telefòn: ${j.pushSent ?? 0} aparèy.`;
+          mailInfo = (j.ok ? " Email voye." : client.email ? ` ⚠️ Email: ${j.reason ?? j.error ?? "echwe"}` : " Kliyan san imèl.") + phone;
+          if (!j.ok && client.email) {
             await logAction("Notification email échouée",
               `${bulkStatus} — ${client.customer_code}: ${j.error ?? j.reason ?? "echwe"}`,
               "", client.customer_code);

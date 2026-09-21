@@ -8,6 +8,7 @@ import { computePrice, round2 } from "@/lib/pricing";
 import type { AccountType, Ville } from "@/lib/types";
 import { sendPushToCustomer } from "@/lib/push-server";
 import { sendFcmToCustomer } from "@/lib/push-fcm-server";
+import { pushParcelEventToCustomers } from "@/lib/customer-push";
 
 /**
  * API isolée des points de retrait.
@@ -535,6 +536,21 @@ export async function POST(req: Request) {
       await db.from("bons_remise").update({ received_at: new Date().toISOString(), received_by: agentName(agent) }).eq("id", bonId);
       await writeAudit(db, req, agent, "Bon de remise reçu",
         `${bon.bon_number} — ${updated} colis rendus disponibles${alreadyReady ? `, ${alreadyReady} déjà prêts` : ""} · ${zoneName}`, bon.bon_number, "");
+      // Les clients dont les colis viennent de devenir « Disponible » reçoivent
+      // l'alerte sur leur téléphone. `targets` exclut les colis déjà disponibles
+      // (pas de doublon) ; le compte central n'est pas un client. Une panne
+      // d'envoi ne doit jamais annuler la confirmation du Bon.
+      const availableConfig = getSupabaseAdminConfig();
+      if (availableConfig && updated > 0) {
+        const newlyAvailable = new Map<string, number>();
+        for (const parcel of targets) {
+          const customerCode = code(parcel.customer_code);
+          if (!customerCode || customerCode.toUpperCase() === centralCode) continue;
+          newlyAvailable.set(customerCode, (newlyAvailable.get(customerCode) ?? 0) + 1);
+        }
+        await pushParcelEventToCustomers(availableConfig, newlyAvailable, "disponible")
+          .catch((error) => console.error("[pickup-agent:available-push]", error));
+      }
       return NextResponse.json({ ok: true, updated, alreadyReady });
     }
 

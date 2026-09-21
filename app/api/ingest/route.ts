@@ -4,6 +4,7 @@ import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 import { safeParsePackage } from "@/lib/validation/shipping";
+import { pushParcelEventToCustomers } from "@/lib/customer-push";
 
 /**
  * ENDPOINT EKSTANSYON CHROME (V8 Faz 1 — preparasyon)
@@ -86,6 +87,9 @@ export async function POST(req: Request) {
     const now = new Date().toISOString();
     let created = 0, updated = 0, ignored = 0;
     const seen = new Set<string>();
+    // Colis NOUVEAUX seulement, par code client : une mise à jour ou un renvoi
+    // du même colis par l'extension ne renotifie jamais le client.
+    const newByCustomer = new Map<string, number>();
 
     for (const p of items) {
       const guia = cleanTk(p.guia);
@@ -120,7 +124,7 @@ export async function POST(req: Request) {
         await db.from("packages").update(patch).eq("tracking_number", guia);
         updated++;
       } else {
-        await db.from("packages").insert({
+        const insert = await db.from("packages").insert({
           tracking_number: guia,              // Guía WR = kle inik
           tracking_manual: tnum,              // Tracking Number transpòtè (kolòn separe)
           customer_code: code,
@@ -135,7 +139,10 @@ export async function POST(req: Request) {
           src_extension: true,
           mcpack_data: { Guia: guia, TrackingNumber: tnum }
         });
+        // Un colis non enregistré ne compte pas et ne déclenche aucune alerte.
+        if (insert.error) { ignored++; continue; }
         created++;
+        if (code) newByCustomer.set(code, (newByCustomer.get(code) ?? 0) + 1);
       }
     }
 
@@ -146,7 +153,17 @@ export async function POST(req: Request) {
       package_ref: "", customer_code: ""
     });
 
-    return NextResponse.json({ ok: true, created, updated, ignored, total: items.length });
+    // 5) Alerte push « Colis reçu à Miami » sur le téléphone de chaque client.
+    // On attend l'envoi AVANT de répondre : sur Vercel, une promesse laissée
+    // en arrière-plan est coupée à la fin de la fonction.
+    let pushSent = 0;
+    const pushConfig = getSupabaseAdminConfig();
+    if (pushConfig && newByCustomer.size) {
+      try { pushSent = await pushParcelEventToCustomers(pushConfig, newByCustomer, "recu_miami"); }
+      catch (e) { console.error("[ingest:push]", e); }
+    }
+
+    return NextResponse.json({ ok: true, created, updated, ignored, total: items.length, pushSent });
   } catch (e) {
     // Pa gen detay entèn (non tab, erè Postgres, stack) ki soti bay kliyan an.
     console.error("[ingest]", e);

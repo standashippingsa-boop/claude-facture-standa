@@ -386,15 +386,18 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
           const arr = byClient.get(p.customer_code) ?? [];
           arr.push(p); byClient.set(p.customer_code, arr);
         });
-        let sent = 0, noEmail = 0;
+        let sent = 0, noEmail = 0, pushed = 0;
         const problems: string[] = [];
         for (const [code, list] of Array.from(byClient.entries())) {
           const info = tarifMap.get(code);
-          if (!info?.email) { noEmail++; continue; }
+          if (!code) continue;
+          // Un client sans email reçoit quand même l'alerte sur son téléphone :
+          // le serveur envoie le push et ignore seulement l'email.
+          if (!info?.email) noEmail++;
           try {
             const j = await notifyEmail({
               type,
-              client: { name: info.fullname || list[0].customer_name, code, ville: info.ville?.name ?? "", email: info.email },
+              client: { name: info?.fullname || list[0].customer_name, code, ville: info?.ville?.name ?? "", email: info?.email || undefined },
               packages: list.map((p) => ({
                 tracking_number: p.tracking_number,
                 tracking_manual: p.tracking_manual,
@@ -403,11 +406,12 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
                 fournisseur: p.mcpack_data?.["Proveedor"] ?? p.mcpack_data?.["proveedor"] ?? ""
               }))
             });
+            pushed += j.pushSent ?? 0;
             if (j.ok) sent++;
-            else problems.push(`${code}: ${j.reason ?? j.error ?? "erè enkoni"}`);
+            else if (info?.email) problems.push(`${code}: ${j.reason ?? j.error ?? "erè enkoni"}`);
           } catch (err: any) { problems.push(`${code}: ${err?.message ?? "erè rezo"}`); }
         }
-        mailInfo = ` Email: ${sent} voye${noEmail ? `, ${noEmail} kliyan san imèl` : ""}.` +
+        mailInfo = ` Email: ${sent} voye${noEmail ? `, ${noEmail} kliyan san imèl` : ""}. Notifikasyon telefòn: ${pushed} aparèy.` +
           (problems.length ? ` ⚠️ ${problems.slice(0, 2).join(" | ").slice(0, 300)}` : "");
         // Tras dirab: si imèl echwe, kite yon antre nan Journal (toast la disparèt)
         if (problems.length) {
