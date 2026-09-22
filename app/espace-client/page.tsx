@@ -27,8 +27,9 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, ChevronDown, ChevronLeft, CircleCheck,
   ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
-  MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, ShieldCheck, Sparkles, Store, Truck, X
+  MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, ShieldCheck, Sparkles, Store, Trash2, Truck, X
 } from "lucide-react";
+import DeleteAccountModal from "@/components/DeleteAccountModal";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";
 import {
@@ -147,6 +148,7 @@ export default function EspaceClientPage() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const [pwd1, setPwd1] = useState("");
   const [pwd2, setPwd2] = useState("");
   const [pwdMsg, setPwdMsg] = useState<string | null>(null);
@@ -324,7 +326,11 @@ export default function EspaceClientPage() {
           <button className="btn btn-ghost justify-center w-full" onClick={logout}>
             <LogOut size={15} /> Se déconnecter
           </button>
+          <button className="w-full text-center text-xs font-semibold text-red-600 hover:underline" onClick={() => setShowDelete(true)}>
+            Supprimer mon compte
+          </button>
         </div>
+        {showDelete && <DeleteAccountModal whatsappHref={WA_LINK} onClose={() => setShowDelete(false)} />}
       </div>
     );
   }
@@ -803,6 +809,10 @@ export default function EspaceClientPage() {
                   <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-mist text-left text-red-600"
                     onClick={logout}>
                     <LogOut size={15} /> Dekonekte
+                  </button>
+                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-mist text-left text-red-600 border-t border-line"
+                    onClick={() => { setMenuOpen(false); setShowDelete(true); }}>
+                    <Trash2 size={15} /> Supprimer mon compte
                   </button>
                 </div>
               </>
@@ -1310,6 +1320,8 @@ export default function EspaceClientPage() {
           onContact={() => window.open(waPkgLink(detail, client.customer_code), "_blank", "noopener,noreferrer")}
         />
       )}
+
+      {showDelete && <DeleteAccountModal whatsappHref={WA_LINK} onClose={() => setShowDelete(false)} />}
 
       {/* ══ Modal: chanje modpas ══ */}
       {showPwd && (

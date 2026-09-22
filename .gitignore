@@ -24,5 +24,10 @@ next-env.d.ts
 .vercel
 supabase/.temp/
 
+# Clés de signature des apps — JAMAIS versionnées, où que le projet Android soit
+*.jks
+*.keystore
+keystore.properties
+
 # IDE (Android Studio / JetBrains) — config locale, jamais versionnée
 .idea/

@@ -11,11 +11,11 @@ import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 import { DEPOT } from "@/lib/depot";
 
 const WA = `https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`;
-const MAJ = "20 août 2026";
+const MAJ = "21 septembre 2026";
 
-function S({ n, t, children }: { n: string; t: string; children: React.ReactNode }) {
+function S({ n, t, id, children }: { n: string; t: string; id?: string; children: React.ReactNode }) {
   return (
-    <section className="card p-5 sm:p-6">
+    <section id={id} className="card scroll-mt-4 p-5 sm:p-6">
       <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-baseline gap-2">
         <span className="text-mute font-mono text-xs">{n}</span>{t}
       </h2>
@@ -108,7 +108,7 @@ export default function ConfidentialitePage() {
           <ul className="space-y-1.5">
             <Li><b>Compte et identité</b> — tant que votre compte est actif.</Li>
             <Li><b>Colis, factures et bons de remise</b> — conservés pour nos obligations comptables et douanières, même après la clôture du compte.</Li>
-            <Li><b>Compte inactif</b> — vous pouvez demander la fermeture à tout moment (voir section 7).</Li>
+            <Li><b>Compte supprimé</b> — votre identité et vos coordonnées sont effacées (voir section 7).</Li>
           </ul>
         </S>
 
@@ -125,14 +125,27 @@ export default function ConfidentialitePage() {
           </p>
         </S>
 
-        <S n="7" t="Vos droits">
+        <S n="7" t="Vos droits et suppression du compte" id="suppression-compte">
           <ul className="space-y-1.5">
             <Li><b>Consulter</b> les informations que nous détenons sur vous.</Li>
             <Li><b>Corriger</b> une information inexacte (nom, téléphone, adresse, ville).</Li>
-            <Li><b>Demander la suppression</b> de votre compte — sous réserve des documents que la loi nous oblige à conserver.</Li>
+            <Li><b>Supprimer votre compte</b> — sous réserve des documents que la loi nous oblige à conserver.</Li>
             <Li><b>Refuser les notifications</b> e-mail ou WhatsApp non essentielles.</Li>
           </ul>
-          <p>Pour exercer ces droits, contactez-nous (section 9). Nous répondons sous 30 jours.</p>
+          <p className="font-semibold text-ink">Comment supprimer votre compte</p>
+          <ul className="space-y-1.5">
+            <Li><b>Dans l&apos;application ou sur le site</b> : connectez-vous, ouvrez le menu en haut à droite, choisissez <b>« Supprimer mon compte »</b>, puis tapez SUPPRIMER pour confirmer.</Li>
+            <Li><b>Si vous ne pouvez plus vous connecter</b> : écrivez-nous sur WhatsApp (section 9) en indiquant votre code client ou l&apos;e-mail du compte. Nous répondons sous 30 jours.</Li>
+          </ul>
+          <p>
+            <b>Ce qui est effacé</b> : votre nom, vos coordonnées (téléphone, WhatsApp, e-mail, adresse), votre pièce
+            d&apos;identité, vos notifications et votre accès. <b>Ce qui est conservé</b> : vos colis, factures et reçus,
+            rattachés uniquement à votre code client et sans votre identité, pour nos obligations comptables et douanières.
+          </p>
+          <p>
+            La suppression est refusée tant qu&apos;un colis est encore en cours ou qu&apos;une facture reste à payer : elle
+            devient possible dès que tout est livré et réglé.
+          </p>
         </S>
 
         <S n="8" t="Application installée et cookies">
@@ -143,7 +156,7 @@ export default function ConfidentialitePage() {
           </p>
           <p>
             <b>Nous n&apos;utilisons aucun cookie publicitaire ni traceur tiers.</b> Vous pouvez
-            désinstaller l&apos;application à tout moment ; cela n&apos;efface pas votre compte.
+            désinstaller l&apos;application à tout moment ; cela n&apos;efface pas votre compte (pour cela, voir la section 7).
           </p>
         </S>
 

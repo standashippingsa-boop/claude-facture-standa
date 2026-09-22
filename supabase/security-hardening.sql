@@ -600,6 +600,13 @@ exception
 end
 $fn$;
 
+-- Outil de migration interne seulement (appelé UNIQUEMENT par ce script, avec
+-- des valeurs écrites par nous). Sans ce revoke, PostgreSQL accorde EXECUTE à
+-- PUBLIC par défaut à la création d'une fonction : n'importe qui pourrait
+-- l'appeler via /rest/v1/rpc/_hard_policy. p_using/p_check sont injectés tels
+-- quels dans un `execute format(...)` DDL — jamais d'entrée utilisateur ici.
+revoke all on function public._hard_policy(text, text, text, text, text, text) from public;
+
 -- retrait_items : un client doit pouvoir ajouter les lignes de SA demande
 -- de retrait (la politique existante n'autorisait que le staff -> demande
 -- créée sans ses colis).
