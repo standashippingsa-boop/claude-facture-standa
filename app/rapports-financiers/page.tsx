@@ -155,6 +155,11 @@ export default function RapportsFinanciersPage() {
   const customerHistory = useMemo(() => {
     const rows = new Map<string, { code: string; name: string; city: string; invoiceCount: number; paidUsd: number; paidHtg: number; lastInvoiceAt: string; lastPaymentAt: string }>();
     for (const customer of data?.clients ?? []) {
+      // Un profil en attente d'activation n'a pas encore de code client
+      // (customer_code = null, cf. /api/register-client) — rien à montrer
+      // ici tant qu'il n'a ni facture ni paiement, et code null ferait
+      // planter le tri plus bas (.localeCompare sur null).
+      if (!customer.customer_code) continue;
       if (!customerMatchesCity(customer.customer_code)) continue;
       rows.set(customer.customer_code, {
         code: customer.customer_code,
