@@ -11,7 +11,7 @@ import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 import { DEPOT } from "@/lib/depot";
 
 const WA = `https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`;
-const MAJ = "21 septembre 2026";
+const MAJ = "22 septembre 2026";
 
 function S({ n, t, id, children }: { n: string; t: string; id?: string; children: React.ReactNode }) {
   return (
@@ -104,15 +104,24 @@ export default function ConfidentialitePage() {
           </p>
         </S>
 
-        <S n="5" t="Durée de conservation">
+        <S n="5" t="Retrait, entreposage et responsabilité relative aux colis">
           <ul className="space-y-1.5">
-            <Li><b>Compte et identité</b> — tant que votre compte est actif.</Li>
-            <Li><b>Colis, factures et bons de remise</b> — conservés pour nos obligations comptables et douanières, même après la clôture du compte.</Li>
-            <Li><b>Compte supprimé</b> — votre identité et vos coordonnées sont effacées (voir section 7).</Li>
+            <Li><b>Délai de retrait</b> — dès qu&apos;un colis est disponible, vous disposez de <b>15 jours</b> pour venir le récupérer à votre point de retrait.</Li>
+            <Li><b>Frais d&apos;entreposage</b> — à compter du <b>16e jour</b>, des frais d&apos;entreposage de <b>5 $ US par jour</b> s&apos;appliquent jusqu&apos;au retrait du colis. Ces frais doivent être réglés avant la remise.</Li>
+            <Li><b>Colis non réclamé</b> — après <b>60 jours</b> sans retrait, le colis peut être remis aux autorités compétentes, conformément aux règles applicables. Le client perd alors tout droit de réclamation sur ce colis.</Li>
+            <Li><b>Adresse et code client</b> — vous êtes responsable de saisir correctement l&apos;adresse de dépôt et votre code MC lors de vos achats. Si l&apos;adresse est erronée, incomplète ou si le code MC est absent, STANDA COMMERCIAL ne peut garantir l&apos;identification, le suivi ou la récupération du colis. Le client assume la perte qui en résulte.</Li>
           </ul>
         </S>
 
-        <S n="6" t="Sécurité">
+        <S n="6" t="Durée de conservation">
+          <ul className="space-y-1.5">
+            <Li><b>Compte et identité</b> — tant que votre compte est actif.</Li>
+            <Li><b>Colis, factures et bons de remise</b> — conservés pour nos obligations comptables et douanières, même après la clôture du compte.</Li>
+            <Li><b>Compte supprimé</b> — votre identité et vos coordonnées sont effacées (voir section 8).</Li>
+          </ul>
+        </S>
+
+        <S n="7" t="Sécurité">
           <ul className="space-y-1.5">
             <Li>Les échanges avec l&apos;application sont chiffrés (HTTPS).</Li>
             <Li>Les mots de passe sont stockés sous forme chiffrée irréversible — personne chez nous ne peut les lire.</Li>
@@ -125,7 +134,7 @@ export default function ConfidentialitePage() {
           </p>
         </S>
 
-        <S n="7" t="Vos droits et suppression du compte" id="suppression-compte">
+        <S n="8" t="Vos droits et suppression du compte" id="suppression-compte">
           <ul className="space-y-1.5">
             <Li><b>Consulter</b> les informations que nous détenons sur vous.</Li>
             <Li><b>Corriger</b> une information inexacte (nom, téléphone, adresse, ville).</Li>
@@ -135,7 +144,7 @@ export default function ConfidentialitePage() {
           <p className="font-semibold text-ink">Comment supprimer votre compte</p>
           <ul className="space-y-1.5">
             <Li><b>Dans l&apos;application ou sur le site</b> : connectez-vous, ouvrez le menu en haut à droite, choisissez <b>« Supprimer mon compte »</b>, puis tapez SUPPRIMER pour confirmer.</Li>
-            <Li><b>Si vous ne pouvez plus vous connecter</b> : écrivez-nous sur WhatsApp (section 9) en indiquant votre code client ou l&apos;e-mail du compte. Nous répondons sous 30 jours.</Li>
+            <Li><b>Si vous ne pouvez plus vous connecter</b> : écrivez-nous sur WhatsApp (section 10) en indiquant votre code client ou l&apos;e-mail du compte. Nous répondons sous 30 jours.</Li>
           </ul>
           <p>
             <b>Ce qui est effacé</b> : votre nom, vos coordonnées (téléphone, WhatsApp, e-mail, adresse), votre pièce
@@ -148,7 +157,7 @@ export default function ConfidentialitePage() {
           </p>
         </S>
 
-        <S n="8" t="Application installée et cookies">
+        <S n="9" t="Application installée et cookies">
           <p>
             L&apos;application s&apos;installe sur votre téléphone pour fonctionner plus vite et
             rester accessible depuis votre écran d&apos;accueil. Elle stocke localement de quoi
@@ -156,11 +165,11 @@ export default function ConfidentialitePage() {
           </p>
           <p>
             <b>Nous n&apos;utilisons aucun cookie publicitaire ni traceur tiers.</b> Vous pouvez
-            désinstaller l&apos;application à tout moment ; cela n&apos;efface pas votre compte (pour cela, voir la section 7).
+            désinstaller l&apos;application à tout moment ; cela n&apos;efface pas votre compte (pour cela, voir la section 8).
           </p>
         </S>
 
-        <S n="9" t="Nous contacter">
+        <S n="10" t="Nous contacter">
           <p><b>STANDA COMMERCIAL</b> — Standa Shipping SA</p>
           <ul className="space-y-1.5">
             <Li>Téléphone / WhatsApp : <b>{SUPPORT_PHONE}</b></Li>
@@ -172,7 +181,7 @@ export default function ConfidentialitePage() {
           </a>
         </S>
 
-        <S n="10" t="Modifications">
+        <S n="11" t="Modifications">
           <p>
             Nous pouvons mettre à jour cette politique. La date en haut de page indique la
             dernière version. Pour tout changement important, nous vous préviendrons dans
