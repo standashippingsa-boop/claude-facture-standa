@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Check, MapPin, PackageCheck, Plane, Smartphone, Store, Truck, Warehouse } from "lucide-react";
@@ -22,26 +22,6 @@ export const metadata: Metadata = {
     description: "Une adresse à Miami, un suivi clair et la récupération de vos colis en agence en Haïti.",
     images: [{ url: "/hero-shopping.jpg", width: 1600, height: 1067, alt: "Colis STANDA COMMERCIAL" }]
   }
-};
-
-/**
- * DEMANDE EGZAK: paj sa a parèt nan MENM FÒMA ak òdinatè a, menm sou telefòn
- * — tankou "Afficher le site pour ordinateur" nan Chrome — olye de anpile an
- * yon sèl kolòn. Sa ranplase `viewport` global la (app/layout.tsx,
- * width: "device-width") SÈLMAN sou paj sa a.
- *
- * San `initialScale`, navigatè a kalkile eskal la limenm pou 1280px sa yo
- * antre nan lajè ekran an (egzakteman jan "Desktop site" fè l) — zoom nan
- * dwèt yo (pincer) rete posib ak `maximumScale`.
- *
- * KONPWOMI KONNI: tèks ak bouton vin pi piti pou li san zoome, e Google ka
- * make paj la "pa byen adapte pou telefòn" (risk referansman). Chwa kliyan.
- */
-export const viewport: Viewport = {
-  themeColor: "#122B5C",
-  width: 1280,
-  maximumScale: 5,
-  viewportFit: "cover"
 };
 
 const STEPS = [
@@ -89,7 +69,7 @@ export default function AccueilPage() {
       <SiteHeader />
       <main>
         <section className="relative isolate overflow-hidden bg-navy">
-          <Image src="/parcel-boxes-background.png" alt="" fill priority sizes="100vw" unoptimized className="object-cover object-center opacity-70" />
+          <Image src="/parcel-boxes-background.png" alt="" fill priority sizes="100vw" unoptimized className="object-contain object-center opacity-70 sm:object-cover" />
           <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,18,38,.98)_0%,rgba(8,18,38,.91)_42%,rgba(8,18,38,.56)_100%)]" />
           <div aria-hidden="true" className="site-grid absolute inset-0 opacity-[0.14]" />
           <div aria-hidden="true" className="absolute -right-36 -top-44 h-[34rem] w-[34rem] rounded-full bg-accent/20 blur-3xl" />
@@ -108,7 +88,7 @@ export default function AccueilPage() {
             <div className="relative site-fade site-fade-d2">
               <div aria-hidden="true" className="absolute -inset-4 rounded-[2rem] bg-accent/15 blur-2xl" />
               <div id="suivi" className="relative overflow-hidden rounded-[1.65rem] border border-white/15 bg-white/[0.09] p-3 shadow-[0_30px_80px_-28px_rgba(0,0,0,.7)] backdrop-blur-md sm:p-4">
-                <div className="relative overflow-hidden rounded-[1.15rem]"><Image src="/site-backgrounds/standa-package-scale.png" alt="Colis STANDA en préparation" width={1536} height={1024} priority unoptimized className="h-48 w-full object-cover object-center opacity-80 sm:h-56" /><div className="absolute inset-0 bg-gradient-to-t from-navy/75 via-navy/10 to-transparent" /><div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3 text-white"><div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-white/65">Un parcours maîtrisé</p><p className="mt-1 text-[15px] font-bold">De Miami à votre agence, vos colis avancent en toute confiance.</p></div><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/15 backdrop-blur-sm"><Plane size={19} /></div></div></div>
+                <div className="relative aspect-[3/2] overflow-hidden rounded-[1.15rem] bg-navy/30 sm:aspect-auto sm:h-56"><Image src="/site-backgrounds/standa-package-scale.png" alt="Colis STANDA en préparation" width={1536} height={1024} priority unoptimized className="h-full w-full object-contain object-center opacity-90 sm:object-cover sm:opacity-80" /><div className="absolute inset-0 bg-gradient-to-t from-navy/75 via-navy/10 to-transparent" /><div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3 text-white"><div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-white/65">Un parcours maîtrisé</p><p className="mt-1 text-[15px] font-bold">De Miami à votre agence, vos colis avancent en toute confiance.</p></div><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/15 backdrop-blur-sm"><Plane size={19} /></div></div></div>
                 <div className="mt-3"><TrackBox /></div>
               </div>
             </div>

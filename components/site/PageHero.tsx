@@ -15,7 +15,7 @@ export default function PageHero({ image, eyebrow, title, description, actions, 
     <section className="relative isolate overflow-hidden bg-navy">
       {/* L'image est décorative : une balise img évite le chargeur d'images dynamique qui échouait sur cette page. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover object-center" />
+      <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-contain object-center sm:object-cover" />
       <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,18,38,.98)_0%,rgba(7,18,38,.93)_44%,rgba(7,18,38,.52)_100%)]" />
       <div aria-hidden="true" className="site-grid absolute inset-0 opacity-[0.11]" />
       <div aria-hidden="true" className="absolute -left-28 -bottom-40 h-96 w-96 rounded-full bg-accent/15 blur-3xl" />
