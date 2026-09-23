@@ -8,11 +8,11 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, MapPin } from "lucide-react";
 import { registerClientProfile } from "@/lib/db";
 import { safeMessage } from "@/lib/safeerror";
 
-type PublicVille = { id: string; name: string };
+type PublicVille = { id: string; name: string; pickup_location: string };
 
 const schema = z.object({
   fullname: z.string().min(1, "Le prénom est obligatoire"),
@@ -52,6 +52,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
             && typeof city === "object"
             && typeof (city as PublicVille).id === "string"
             && typeof (city as PublicVille).name === "string"
+            && typeof (city as PublicVille).pickup_location === "string"
         );
 
         if (controller.signal.aborted) return;
@@ -67,7 +68,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
     void loadCities();
     return () => controller.abort();
   }, []);
-  const { register, handleSubmit, formState: { errors, isSubmitting } } =
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } =
     useForm<Form>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (f: Form) => {
@@ -132,6 +133,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
       {errors[name] && <span className="block text-xs text-red-600">{String(errors[name]!.message)}</span>}
     </label>
   );
+  const selectedVille = villes.find((ville) => ville.name === watch("city"));
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="rounded-[1.5rem] bg-white p-5 shadow-[0_24px_60px_-36px_rgba(8,30,67,.55)] md:p-7 space-y-5">
@@ -158,6 +160,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
                 {citiesState === "loading" && "La liste des villes est en cours de chargement."}
                 {citiesState === "unavailable" && "La liste des villes est momentanément indisponible. Réessayez dans un instant."}
               </span>
+              {selectedVille && <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-2 text-[11px] font-semibold text-emerald-800"><MapPin size={13} /> Lieu de récupération : {selectedVille.pickup_location}</p>}
               {errors.city && <span className="block text-xs text-red-600">{errors.city.message}</span>}
             </label>
           </div>

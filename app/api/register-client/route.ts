@@ -4,6 +4,7 @@ import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 import { encryptPII } from "@/lib/pii-crypto";
 import { clientShippingSchema } from "@/lib/validation/shipping";
+import { pickupLocationForCity } from "@/lib/pickup-location";
 
 /** Valè cookie ?ref= mete pa middleware.ts (parse manyèl — evite soud Next.js sou cookies() async). */
 function refCookie(req: Request): string {
@@ -114,6 +115,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "La ville sélectionnée n'est plus disponible. Choisissez-en une autre." }, { status: 400 });
     }
 
+    // Le lieu de récupération est choisi ici, côté serveur. Le navigateur ne
+    // peut ni l'envoyer ni le modifier : seule l'agence active correspondant
+    // à la ville sélectionnée est enregistrée sur le dossier client.
+    const { data: agencies, error: agenciesError } = await svc
+      .from("agences")
+      .select("nom,ordre")
+      .eq("active", true)
+      .order("ordre", { ascending: true });
+    if (agenciesError) {
+      return NextResponse.json({ ok: false, reason: "Les points de retrait sont temporairement indisponibles." }, { status: 503 });
+    }
+    const pickup = pickupLocationForCity(ville.name, agencies ?? []);
+    if (!pickup) {
+      return NextResponse.json({
+        ok: false,
+        reason: "Aucun point de retrait actif n'est configuré pour cette ville. Choisissez une autre ville ou contactez STANDA COMMERCIAL."
+      }, { status: 400 });
+    }
+
     // Chan otorize SÈLMAN (pa gen customer_code, account_status, auth_user_id soti deyò)
     const ALLOWED = ["fullname", "surname", "email", "phone", "whatsapp",
       "city", "address", "id_type", "id_number", "ville_id", "account_type"] as const;
@@ -128,6 +148,7 @@ export async function POST(req: Request) {
     profile.id_number = idNumber;
     profile.ville_id = ville.id;
     profile.city = ville.name;
+    profile.pickup_location = pickup.nom.trim();
     if (email) profile.email = email;
     // account_type: valè otorize sèlman — anpeche yon moun chwazi tarif "Business"
     // pou tèt li nan navigatè a. Admin nan ka chanje l apre nan paj Clients la.
@@ -250,7 +271,7 @@ export async function POST(req: Request) {
       ...profile,
       auth_user_id: authUserId,   // null si enskripsyon piblik (nòmal)
       customer_code: null,
-      pickup_location: "",
+      pickup_location: pickup.nom.trim(),
       account_status: "En attente d'activation",
       referred_by_affiliate_id: referredByAffiliateId,
     });
