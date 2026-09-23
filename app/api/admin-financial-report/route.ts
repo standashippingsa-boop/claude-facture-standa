@@ -60,7 +60,10 @@ export async function GET(req: Request) {
       ok: true,
       invoices: invoicesResult.data ?? [],
       payments: paymentsResult.data ?? [],
-      clients: clientsResult.data ?? [],
+      // customer_code est null tant qu'un profil n'est pas activé (cf.
+      // /api/register-client) — même normalisation que getClients() dans
+      // lib/db.ts, pour que le front n'ait jamais à s'en méfier lui-même.
+      clients: (clientsResult.data ?? []).map((c: { customer_code: string | null }) => ({ ...c, customer_code: c.customer_code ?? "" })),
       villes: villesResult.data ?? [],
       agents: agentsResult.data ?? [],
       settlement_ready: settlementReady
