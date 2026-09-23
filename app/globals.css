@@ -177,24 +177,37 @@ body { @apply bg-mist text-slate-700 antialiased; }
   color: #36577e;
 }
 
+/* Sou telefòn, lavis la te ba 97-97,5% opak — koulè foto a te prèske disparèt
+   nèt, kite yon seksyon ki sanble vid. Isit la sijè a (charyo, bwat, laptop)
+   rete rekonèt san li pa jennen lekti tèks la (koulè tèks yo deja fonse pi ba). */
 .parcel-wash::before {
   background-image:
-    linear-gradient(rgba(255, 255, 255, .975), rgba(255, 255, 255, .975)),
+    linear-gradient(rgba(255, 255, 255, .84), rgba(255, 255, 255, .84)),
     url("/site-backgrounds/shopping-cart-laptop.jpg");
 }
 
 .parcel-wash-alt::before {
   background-image:
-    linear-gradient(rgba(247, 249, 253, .97), rgba(247, 249, 253, .97)),
+    linear-gradient(rgba(247, 249, 253, .82), rgba(247, 249, 253, .82)),
     url("/site-backgrounds/online-shopping-cart.jpg");
 }
 
-/* Sou gwo ekran, yon sèl imaj dekoratif limyè bay paj la pwofondè san li pa
-   repete dèyè chak kat oswa li pa lave kontrast tèks yo. */
+/* Sou gwo ekran, lavis orijinal la — trè disrè, li bay paj la pwofondè san li
+   pa repete dèyè chak kat ni lave kontrast tèks yo. Vèsyon òdinatè a pa chanje. */
 @media (min-width: 1024px) {
   .parcel-wash::before,
   .parcel-wash-alt::before {
     background-position: center 45%;
+  }
+  .parcel-wash::before {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, .975), rgba(255, 255, 255, .975)),
+      url("/site-backgrounds/shopping-cart-laptop.jpg");
+  }
+  .parcel-wash-alt::before {
+    background-image:
+      linear-gradient(rgba(247, 249, 253, .97), rgba(247, 249, 253, .97)),
+      url("/site-backgrounds/online-shopping-cart.jpg");
   }
 }
 
