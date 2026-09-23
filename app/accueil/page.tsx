@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Check, MapPin, PackageCheck, Plane, Smartphone, Store, Truck, Warehouse } from "lucide-react";
@@ -22,6 +22,26 @@ export const metadata: Metadata = {
     description: "Une adresse à Miami, un suivi clair et la récupération de vos colis en agence en Haïti.",
     images: [{ url: "/hero-shopping.jpg", width: 1600, height: 1067, alt: "Colis STANDA COMMERCIAL" }]
   }
+};
+
+/**
+ * DEMANDE EGZAK: paj sa a parèt nan MENM FÒMA ak òdinatè a, menm sou telefòn
+ * — tankou "Afficher le site pour ordinateur" nan Chrome — olye de anpile an
+ * yon sèl kolòn. Sa ranplase `viewport` global la (app/layout.tsx,
+ * width: "device-width") SÈLMAN sou paj sa a.
+ *
+ * San `initialScale`, navigatè a kalkile eskal la limenm pou 1280px sa yo
+ * antre nan lajè ekran an (egzakteman jan "Desktop site" fè l) — zoom nan
+ * dwèt yo (pincer) rete posib ak `maximumScale`.
+ *
+ * KONPWOMI KONNI: tèks ak bouton vin pi piti pou li san zoome, e Google ka
+ * make paj la "pa byen adapte pou telefòn" (risk referansman). Chwa kliyan.
+ */
+export const viewport: Viewport = {
+  themeColor: "#122B5C",
+  width: 1280,
+  maximumScale: 5,
+  viewportFit: "cover"
 };
 
 const STEPS = [
