@@ -1800,6 +1800,47 @@ export async function recordInvoicePayment(input: RecordInvoicePaymentInput): Pr
 }
 
 /**
+ * Peman ajan ki poko clôturé, gwoupe pa fakti — pou bouton "Clôturer" nan
+ * /invoices. ADMIN sèlman (RLS invoice_payments) ; anplwaye resevwa yon
+ * Map vid san erè vizib (li pa bezwen done sa a, bouton an pa parèt pou li).
+ */
+export async function getUnsettledAgentPaymentIdsByInvoice(invoiceIds: string[]): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (!invoiceIds.length) return map;
+  const { data, error } = await supabase.from("invoice_payments")
+    .select("id, invoice_id")
+    .in("invoice_id", invoiceIds)
+    .eq("recorded_by_role", "agent_retrait")
+    .is("settled_at", null);
+  if (error) return map;
+  for (const row of (data ?? []) as { id: string; invoice_id: string }[]) {
+    map.set(row.invoice_id, [...(map.get(row.invoice_id) ?? []), row.id]);
+  }
+  return map;
+}
+
+/**
+ * CLÔTURER une facture payée — même mécanisme que "Clôturer le rapport"
+ * (/rapports-financiers, /api/admin-settle-report) mais ciblé sur les
+ * paiements agent d'UNE SEULE facture : ils sortent de la caisse à
+ * remettre de l'agent et passent dans l'historique ("Inclure les paiements
+ * clôturés"). Rien n'est jamais supprimé — paiement, reçu et solde client
+ * restent intacts.
+ */
+export async function closeInvoicePayments(invoiceNumber: string, paymentIds: string[]): Promise<{ settled: number; totalUsd: number; totalHtg: number }> {
+  if (!paymentIds.length) throw new Error("Aucun paiement à clôturer sur cette facture.");
+  const { data: sessionData } = await supabase.auth.getSession();
+  const response = await fetch("/api/admin-settle-report", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionData.session?.access_token ?? ""}` },
+    body: JSON.stringify({ payment_ids: paymentIds, ville_name: invoiceNumber })
+  });
+  const result = await response.json();
+  if (!response.ok || !result.ok) throw new Error(result.reason || "Clôture impossible.");
+  return { settled: result.settled, totalUsd: result.total_usd, totalHtg: result.total_htg };
+}
+
+/**
  * Detache koli yo de fakti yo epi remete yo "Disponible" (koreksyon erè, ADMIN).
  * Diferan de cancelInvoice: isit ou korije KÈK koli, pa tout fakti a.
  * • Retire invoice_id + remete pri/taks a zewo (kalkil refèt pwòp)

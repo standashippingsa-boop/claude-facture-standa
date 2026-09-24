@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Banknote, Eye, Download, Printer, Send, XCircle } from "lucide-react";
-import { cancelInvoice, getInvoiceItems, getInvoices, getSettings, recordInvoicePayment, saveInvoicePdfPath } from "@/lib/db";
+import { Banknote, Eye, Download, Printer, Send, XCircle, Scale } from "lucide-react";
+import { cancelInvoice, closeInvoicePayments, getInvoiceItems, getInvoices, getSettings, getUnsettledAgentPaymentIdsByInvoice, recordInvoicePayment, saveInvoicePdfPath } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
@@ -46,12 +46,41 @@ export default function InvoicesPage() {
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [unsettledByInvoice, setUnsettledByInvoice] = useState<Map<string, string[]>>(new Map());
 
   const load = async () => {
     await getInvoices().then(setInvoices).catch((e) => setNotice("Erè: " + e.message));
     await getSettings().then((s) => s.invoice_footer && setFooter(s.invoice_footer)).catch(() => {});
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  // Bouton "Clôturer" (ADMIN sèlman — RLS pa kite anplwaye li invoice_payments).
+  useEffect(() => {
+    if (role !== "admin" || !invoices.length) { setUnsettledByInvoice(new Map()); return; }
+    let cancelled = false;
+    getUnsettledAgentPaymentIdsByInvoice(invoices.map((inv) => inv.id))
+      .then((map) => { if (!cancelled) setUnsettledByInvoice(map); });
+    return () => { cancelled = true; };
+  }, [role, invoices]);
+
+  /** CLÔTURER une facture payée — sort ses paiements agent de la caisse à remettre (voir lib/db.ts). */
+  const cloturer = async (inv: Invoice) => {
+    const paymentIds = unsettledByInvoice.get(inv.id) ?? [];
+    if (!paymentIds.length) return;
+    if (!confirm(
+      `Clôturer la facture ${inv.invoice_number} ?\n\n` +
+      `Les paiements de point de retrait liés à cette facture sortiront de la caisse à remettre et passeront dans l'historique.\n` +
+      `➜ Rien n'est supprimé : le paiement, le reçu et le solde client restent intacts.`
+    )) return;
+    setBusy(true);
+    try {
+      const result = await closeInvoicePayments(inv.invoice_number, paymentIds);
+      setUnsettledByInvoice((prev) => { const next = new Map(prev); next.delete(inv.id); return next; });
+      setNotice(`✅ Facture ${inv.invoice_number} clôturée : ${result.settled} paiement(s).`);
+    } catch (e: any) {
+      setNotice("Erè clôture: " + (e?.message ?? String(e)));
+    } finally { setBusy(false); }
+  };
 
   const withItems = async (inv: Invoice) => ({ inv, items: await getInvoiceItems(inv.id) });
 
@@ -215,6 +244,11 @@ export default function InvoicesPage() {
                     <button title="Annuler la facture (colis redeviennent Disponible)"
                       className="text-slate-400 hover:text-red-600 ml-3" disabled={busy}
                       onClick={() => annuler(f)}><XCircle size={16} /></button>
+                  )}
+                  {role === "admin" && paymentStatus === "Payé" && (unsettledByInvoice.get(f.id)?.length ?? 0) > 0 && (
+                    <button title="Clôturer la facture (sort de la caisse à remettre de l'agent)"
+                      className="text-indigo-600 hover:text-indigo-800 ml-3" disabled={busy}
+                      onClick={() => cloturer(f)}><Scale size={16} /></button>
                   )}
                 </td>
               </tr>
