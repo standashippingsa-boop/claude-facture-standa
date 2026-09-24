@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { getPushPermissionState, isPushSupported, subscribeStaffToPush } from "@/lib/push";
 import { openSecureDocument } from "@/lib/secure-document";
 import { packageProgressPriority, sortPackagesAvailableFirst } from "@/lib/utils";
+import { parsePaymentAmount } from "@/lib/invoice-payable";
 import Logo from "@/components/Logo";
 import StaffNotifications from "@/components/StaffNotifications";
 
@@ -342,8 +343,8 @@ export default function PickupAgentPortal() {
   };
 
   const recordPayment = async () => {
-    const amount = Number(paymentDraft.amount);
-    if (!paymentDraft.invoiceId || !Number.isFinite(amount) || amount <= 0) { setPaymentError("Entrez un montant valide."); return; }
+    const amount = parsePaymentAmount(paymentDraft.amount);
+    if (!paymentDraft.invoiceId || amount === null || amount <= 0) { setPaymentError("Entrez un montant valide."); return; }
     setPaymentBusy(true);
     setPaymentError(null);
     try {
@@ -926,8 +927,8 @@ function PaymentPanel({ invoice, draft, setDraft, busy, error, onChange, onPay, 
   const remainingUsd = Math.max(0, invoice.amount_due_usd - invoice.payment_paid_usd);
   const remainingHtg = Math.max(0, invoice.amount_due_htg - invoice.payment_paid_htg);
   const rate = invoiceRate(invoice);
-  const typed = Number(draft.amount);
-  const hasAmount = Number.isFinite(typed) && typed > 0;
+  const typed = parsePaymentAmount(draft.amount) ?? 0;
+  const hasAmount = typed > 0;
   const converted = hasAmount ? (draft.currency === "HTG" ? typed / rate : typed * rate) : 0;
   const remainingAfter = Math.max(0, (draft.currency === "HTG" ? remainingHtg : remainingUsd) - (hasAmount ? typed : 0));
   const formatIn = (currency: "USD" | "HTG", value: number) => currency === "HTG" ? fmtHtg(value) : fmtUsd(value);
@@ -942,7 +943,7 @@ function PaymentPanel({ invoice, draft, setDraft, busy, error, onChange, onPay, 
 }
 
 function PaymentFields({ draft, setDraft, onChange }: { draft: PaymentDraft; setDraft: (value: PaymentDraft) => void; onChange: () => void }) {
-  return <div className="grid gap-2 sm:grid-cols-2"><input value={draft.amount} onChange={(event) => { setDraft({ ...draft, amount: event.target.value }); onChange(); }} type="number" inputMode="decimal" min="0.01" step="0.01" className="input" placeholder="Montant reçu" autoFocus /><select value={draft.currency} onChange={(event) => { setDraft({ ...draft, currency: event.target.value as "USD" | "HTG" }); onChange(); }} className="input"><option value="HTG">Gourdes</option><option value="USD">Dollars américains</option></select><select value={draft.method} onChange={(event) => { setDraft({ ...draft, method: event.target.value as PaymentMethod }); onChange(); }} className="input"><option value="Espèces">Espèces</option><option value="MonCash">MonCash</option><option value="NatCash">NatCash</option><option value="Virement bancaire">Virement bancaire</option></select><input value={draft.reference} onChange={(event) => { setDraft({ ...draft, reference: event.target.value.slice(0, 120) }); onChange(); }} className="input" placeholder="Référence (facultative)" /></div>;
+  return <div className="grid gap-2 sm:grid-cols-2"><input value={draft.amount} onChange={(event) => { setDraft({ ...draft, amount: event.target.value }); onChange(); }} type="text" inputMode="decimal" className="input" placeholder="Montant reçu (ex. 8 146,23)" autoFocus /><select value={draft.currency} onChange={(event) => { setDraft({ ...draft, currency: event.target.value as "USD" | "HTG" }); onChange(); }} className="input"><option value="HTG">Gourdes</option><option value="USD">Dollars américains</option></select><select value={draft.method} onChange={(event) => { setDraft({ ...draft, method: event.target.value as PaymentMethod }); onChange(); }} className="input"><option value="Espèces">Espèces</option><option value="MonCash">MonCash</option><option value="NatCash">NatCash</option><option value="Virement bancaire">Virement bancaire</option></select><input value={draft.reference} onChange={(event) => { setDraft({ ...draft, reference: event.target.value.slice(0, 120) }); onChange(); }} className="input" placeholder="Référence (facultative)" /></div>;
 }
 
 function ReportsView({ agentName, payments, balances, onOpenInvoice, onOpenReceipt }: { agentName: string; payments: AgentPayment[]; balances: CustomerBalanceReport[]; onOpenInvoice: (invoiceId: string) => void; onOpenReceipt: (paymentId: string) => void }) {

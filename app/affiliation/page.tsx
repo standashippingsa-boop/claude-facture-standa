@@ -35,6 +35,8 @@ export default function AffiliationPage() {
 
     const loadCities = async () => {
       try {
+        // Cette liste provient du serveur et ne contient que les agences
+        // actives; elle ne dépend donc pas de la clé publique du navigateur.
         const response = await fetch("/api/public/agences", { signal: controller.signal });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok || !Array.isArray(payload.cities)) throw new Error("Cities unavailable");

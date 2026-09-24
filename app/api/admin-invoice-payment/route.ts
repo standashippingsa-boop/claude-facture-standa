@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
-import { invoicePayableAmounts, paymentIsWithinRoundingMargin, paymentStatusFromAmounts } from "@/lib/invoice-payable";
+import { invoicePayableAmounts, money, parsePaymentAmount, paymentIsWithinRoundingMargin, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 const METHODS = new Set(["Espèces", "MonCash", "NatCash", "Zelle", "Virement bancaire"]);
-const money = (value: unknown) => Math.round(Number(value ?? 0) * 100) / 100;
 const text = (value: unknown) => String(value ?? "").trim();
 
 /** Paiement saisi par l'administrateur (ex: client qui paie directement). */
@@ -20,11 +19,11 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null);
     const token = text(body?.token);
     const invoiceId = text(body?.invoice_id);
-    const amount = money(body?.amount);
+    const amount = parsePaymentAmount(body?.amount);
     const currency = text(body?.currency).toUpperCase();
     const method = text(body?.payment_method) || "Espèces";
     const reference = text(body?.payment_reference).slice(0, 120);
-    if (!token || !UUID.test(invoiceId) || !["USD", "HTG"].includes(currency) || amount <= 0 || !METHODS.has(method)) {
+    if (!token || !UUID.test(invoiceId) || !["USD", "HTG"].includes(currency) || amount === null || amount <= 0 || !METHODS.has(method)) {
       return NextResponse.json({ ok: false, reason: "Informations de paiement invalides." }, { status: 400 });
     }
 

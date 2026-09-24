@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
-import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/supabase-server";
+import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 
 /**
  * Liste publique minimale des villes où une agence est actuellement active.
@@ -11,9 +11,8 @@ export async function GET(req: Request) {
   const limited = rateLimit(`public-agences:${clientIp(req)}`, 60, 60_000);
   if (!limited.ok) return tooMany(limited.retryAfter);
 
-  const url = getSupabaseUrl();
-  const key = getSupabasePublishableKey();
-  if (!url || !key) {
+  const config = getSupabaseAdminConfig();
+  if (!config) {
     return NextResponse.json(
       { ok: false, reason: "Service temporairement indisponible." },
       { status: 503 }
@@ -21,9 +20,9 @@ export async function GET(req: Request) {
   }
 
   try {
-    // La politique RLS ne laisse lire que les agences actives. Cette route
-    // publique n'a donc pas besoin de clé secrète pour fournir la liste.
-    const service = createClient(url, key, {
+    // La clé de service reste côté serveur. La réponse est volontairement
+    // minimale: seuls nom et ordre des agences actives sont exposés.
+    const service = createClient(config.url, config.key, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
     const { data, error } = await service

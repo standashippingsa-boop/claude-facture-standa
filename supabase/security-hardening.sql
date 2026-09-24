@@ -730,6 +730,22 @@ select public._hard_policy('staff_push_subscriptions', 'staff_push_subscriptions
 do $$ begin execute 'drop policy if exists "anon all staff_notifications" on public.staff_notifications';
 exception when undefined_table then null; end $$;
 
+-- AFFILIATION — candidatures, comptes et commissions: accès administratif
+-- seulement. L'inscription publique et le portail affilié passent par des
+-- routes serveur avec la clé service; aucune donnée personnelle ni session
+-- affiliée ne peut être lue depuis le navigateur via RLS.
+do $$ begin execute 'drop policy if exists "anon all affiliate_applications" on public.affiliate_applications';
+exception when undefined_table then null; end $$;
+do $$ begin execute 'drop policy if exists "anon all affiliates" on public.affiliates';
+exception when undefined_table then null; end $$;
+do $$ begin execute 'drop policy if exists "anon all affiliate_commissions" on public.affiliate_commissions';
+exception when undefined_table then null; end $$;
+do $$ begin execute 'drop policy if exists "anon all affiliate_sessions" on public.affiliate_sessions';
+exception when undefined_table then null; end $$;
+select public._hard_policy('affiliate_applications', 'affiliate_applications_admin_all', 'all', 'authenticated', 'public.is_admin()', 'public.is_admin()');
+select public._hard_policy('affiliates', 'affiliates_admin_all', 'all', 'authenticated', 'public.is_admin()', 'public.is_admin()');
+select public._hard_policy('affiliate_commissions', 'affiliate_commissions_admin_all', 'all', 'authenticated', 'public.is_admin()', 'public.is_admin()');
+
 -- JOURNAL — piste d'audit. Lecture staff. Écriture : uniquement via la route
 -- serveur /api/audit-log (clé service, qui contourne RLS) -> aucune politique
 -- INSERT pour anon/authenticated.

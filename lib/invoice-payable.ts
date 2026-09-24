@@ -17,7 +17,64 @@ export type InvoicePayableSource = {
   payment_paid_htg?: unknown;
 };
 
-export const money = (value: unknown) => Math.round(Number(value ?? 0) * 100) / 100;
+export const money = (value: unknown) => {
+  const amount = Number(value ?? 0);
+  return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
+};
+
+/**
+ * Lit un montant saisi dans les formats réellement utilisés par les clients
+ * et les équipes: `8146,23`, `8 146,23`, `8,146.23` ou `8146.23`.
+ *
+ * Les écrans de paiement doivent tous passer ici. Ainsi, un séparateur de
+ * milliers ou une virgule décimale ne peut plus se transformer en `NaN` et
+ * être affiché à tort comme un dépassement de solde.
+ */
+export function parsePaymentAmount(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? money(value) : null;
+  if (typeof value !== "string") return null;
+
+  const raw = value.trim();
+  if (!raw || !/^[\d\s\u00a0\u202f.,]+$/.test(raw)) return null;
+  const compact = raw.replace(/[\s\u00a0\u202f]/g, "");
+  if (!compact || !/\d/.test(compact)) return null;
+
+  const commas = [...compact].filter((character) => character === ",").length;
+  const dots = [...compact].filter((character) => character === ".").length;
+  const lastComma = compact.lastIndexOf(",");
+  const lastDot = compact.lastIndexOf(".");
+
+  let normalized = compact;
+  if (commas && dots) {
+    // Le dernier séparateur est le séparateur décimal: 8.146,23 et
+    // 8,146.23 restent donc tous deux lisibles.
+    const decimal = lastComma > lastDot ? "," : ".";
+    const grouping = decimal === "," ? /\./g : /,/g;
+    normalized = compact.replace(grouping, "").replace(decimal, ".");
+  } else if (commas || dots) {
+    const separator = commas ? "," : ".";
+    const parts = compact.split(separator);
+    if (parts.some((part) => !/^\d+$/.test(part))) return null;
+    const last = parts.at(-1) ?? "";
+    const groupsAreValid = parts.length > 1
+      && parts[0].length >= 1
+      && parts[0].length <= 3
+      && parts.slice(1).every((part) => part.length === 3);
+
+    if (last.length <= 2) {
+      // Une ou deux décimales : 8146,23 ou 8.146,23.
+      normalized = parts.slice(0, -1).join("") + "." + last;
+    } else if (groupsAreValid) {
+      // Séparateur de milliers seul : 8,146 ou 8.146.
+      normalized = parts.join("");
+    } else {
+      return null;
+    }
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? money(parsed) : null;
+}
 
 /**
  * Une différence inférieure à 50 gourdes ne devient jamais un solde client.
@@ -39,7 +96,15 @@ export function invoicePayableAmounts(invoice: InvoicePayableSource) {
   const grandTotal = definedMoney(invoice.grand_total) ?? definedMoney(invoice.total_usd) ?? 0;
   const deposit = Math.max(0, definedMoney(invoice.order_deposit) ?? 0);
   const explicitBalance = definedMoney(invoice.balance_due);
-  const payableUsd = Math.max(0, explicitBalance ?? money(grandTotal - deposit));
+  const computedBalance = Math.max(0, money(grandTotal - deposit));
+  // Des factures créées avant l'ajout de `balance_due` peuvent avoir reçu la
+  // valeur par défaut 0 malgré un total encore dû. Dans ce cas, le total moins
+  // l'acompte reste la référence plutôt que de bloquer ou masquer le solde.
+  const payableUsd = Math.max(0,
+    explicitBalance === null || (explicitBalance === 0 && computedBalance > 0.009)
+      ? computedBalance
+      : explicitBalance
+  );
   const rate = Math.max(0, definedMoney(invoice.exchange_rate_used) ?? 0);
   // Menm fallback ak lib/pdf.ts: total_htg estoke a deja se balans HTG a.
   const storedHtg = definedMoney(invoice.total_htg);
@@ -85,7 +150,11 @@ export function hasSignificantInvoiceBalance(invoice: InvoicePayableSource) {
  * afin d'éviter une erreur de montant.
  */
 export function paymentIsWithinRoundingMargin(amountHtg: unknown, remainingHtg: unknown) {
-  return money(amountHtg) <= money(remainingHtg) + HTG_ROUNDING_MARGIN;
+  const amount = Number(amountHtg);
+  const remaining = Number(remainingHtg);
+  return Number.isFinite(amount)
+    && Number.isFinite(remaining)
+    && money(amount) <= money(remaining) + HTG_ROUNDING_MARGIN;
 }
 
 export function paymentStatusFromAmounts(invoice: InvoicePayableSource) {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
-import { hasSignificantInvoiceBalance, invoicePayableAmounts, invoiceRemainingAmounts, paymentIsWithinRoundingMargin, paymentStatusFromAmounts } from "@/lib/invoice-payable";
+import { hasSignificantInvoiceBalance, invoicePayableAmounts, invoiceRemainingAmounts, parsePaymentAmount, paymentIsWithinRoundingMargin, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 import { specialPackageInfo } from "@/lib/special-package";
 import { computePrice, round2 } from "@/lib/pricing";
 import type { AccountType, Ville } from "@/lib/types";
@@ -556,11 +556,11 @@ export async function POST(req: Request) {
 
     if (body?.action === "record_payment") {
       const invoiceId = code(body.invoice_id);
-      const amount = money(body.amount);
+      const amount = parsePaymentAmount(body.amount);
       const currency = code(body.currency).toUpperCase();
       const paymentMethod = code(body.payment_method) || "Espèces";
       const paymentReference = code(body.payment_reference).slice(0, 120);
-      if (!uuid.test(invoiceId) || !["USD", "HTG"].includes(currency) || amount <= 0) {
+      if (!uuid.test(invoiceId) || !["USD", "HTG"].includes(currency) || amount === null || amount <= 0) {
         return NextResponse.json({ ok: false, reason: "Montant, devise ou méthode de paiement invalide." }, { status: 400 });
       }
       if (paymentMethod === "Zelle") {

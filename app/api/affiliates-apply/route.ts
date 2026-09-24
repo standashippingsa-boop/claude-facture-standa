@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
+import { pickupLocationForCity } from "@/lib/pickup-location";
 
 /**
  * Candidature au programme Affiliation — CÔTÉ SERVEUR.
@@ -13,10 +14,6 @@ import { createClient } from "@supabase/supabase-js";
 const clean = (v: unknown, max = 200) => String(v ?? "").trim().slice(0, max);
 const digits = (s: string) => String(s ?? "").replace(/\D/g, "");
 const ID_TYPES = new Set(["Carte d'identité nationale", "Carte d’identité nationale", "Passeport", "Permis de conduire"]);
-const cityKey = (city: string) => city
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .toLocaleLowerCase("fr-CA");
 
 export async function POST(req: Request) {
   const rl = rateLimit("affiliate-apply:" + clientIp(req), 5, 3600000);
@@ -53,15 +50,10 @@ export async function POST(req: Request) {
     // requête est fabriquée en dehors du formulaire.
     const { data: agencies, error: agenciesError } = await svc
       .from("agences")
-      .select("nom")
+      .select("nom,ordre")
       .eq("active", true);
     if (agenciesError) throw agenciesError;
-    const activeCities = new Set(
-      (agencies ?? [])
-        .map((agency) => typeof agency.nom === "string" ? cityKey(agency.nom.trim()) : "")
-        .filter(Boolean)
-    );
-    if (!city || !activeCities.has(cityKey(city))) {
+    if (!city || !pickupLocationForCity(city, (agencies ?? []).filter((agency) => typeof agency.nom === "string"))) {
       return NextResponse.json(
         { ok: false, reason: "Sélectionnez une ville où une agence est active." },
         { status: 400 }
@@ -72,10 +64,18 @@ export async function POST(req: Request) {
       fullname, email, phone, whatsapp, city, id_type: idType, id_number: idNumber, motivation,
       status: "pending"
     });
-    if (error) return NextResponse.json({ ok: false, reason: "Enregistrement impossible." }, { status: 500 });
+    if (error) {
+      console.error("[affiliates-apply]", error);
+      const detail = `${error.code ?? ""} ${error.message ?? ""}`.toLowerCase();
+      if (detail.includes("affiliate_applications") || detail.includes("pgrst205")) {
+        return NextResponse.json({ ok: false, reason: "Le programme d’affiliation doit être activé dans la base de données avant de recevoir des candidatures." }, { status: 503 });
+      }
+      return NextResponse.json({ ok: false, reason: "Enregistrement impossible pour le moment. Réessayez dans quelques instants." }, { status: 500 });
+    }
 
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    console.error("[affiliates-apply]", error);
     return NextResponse.json({ ok: false, reason: "Erreur serveur." }, { status: 500 });
   }
 }

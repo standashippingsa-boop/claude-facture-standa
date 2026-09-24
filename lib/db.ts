@@ -11,7 +11,7 @@ import { specialPackageInfo, withManualSpecialPackageMetadata, withSpecialPackag
 import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
 import { computeInvoice, invoiceLineContent, InvoiceComputation, verifyTotal } from "./invoice-engine";
-import { invoicePayableAmounts, paymentIsWithinRoundingMargin, paymentStatusFromAmounts } from "./invoice-payable";
+import { invoicePayableAmounts, parsePaymentAmount, paymentIsWithinRoundingMargin, paymentStatusFromAmounts } from "./invoice-payable";
 
 const asNum = <T extends Record<string, any>>(r: T, keys: string[]): T => {
   keys.forEach((k) => (r[k as keyof T] = Number(r[k]) as any));
@@ -1740,8 +1740,8 @@ export interface RecordInvoicePaymentResult {
  * anpeche de moun aplike menm peman an de fwa an menm tan.
  */
 export async function recordInvoicePayment(input: RecordInvoicePaymentInput): Promise<RecordInvoicePaymentResult> {
-  const amount = round2(input.amount);
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Montant invalide.");
+  const amount = parsePaymentAmount(input.amount);
+  if (amount === null || amount <= 0) throw new Error("Montant invalide.");
   if (!["USD", "HTG"].includes(input.currency)) throw new Error("Devise invalide.");
   const method = input.paymentMethod || "Espèces";
   if (!PAYMENT_METHODS.has(method)) throw new Error("Méthode de paiement invalide.");
