@@ -32,23 +32,39 @@ async function affiliateFromSession(svc: any, token: string) {
 }
 
 export async function POST(req: Request) {
-  const rl = rateLimit("affiliate-portal:" + clientIp(req), 30, 600000);
+  const body = await req.json().catch(() => ({}));
+  const action = String(body.action ?? "");
+
+  // "me" kouri sou CHAK chajman espas afilye a — li pa dwe manje menm
+  // bidjè ak tantativ koneksyon yo (sitou dèyè IP Digicel/Natcom pataje).
+  const rl = action === "login"
+    ? rateLimit("affiliate-login-ip:" + clientIp(req), 40, 600000)
+    : rateLimit("affiliate-portal:" + clientIp(req), 300, 600000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   const config = getSupabaseAdminConfig();
   if (!config) return NextResponse.json({ ok: false, reason: "Configuration serveur incomplète." }, { status: 500 });
   const svc: any = createClient(config.url, config.key, { auth: { persistSession: false } });
-  const body = await req.json().catch(() => ({}));
-  const action = String(body.action ?? "");
 
   if (action === "login") {
-    const username = String(body.username ?? "").trim();
-    const password = String(body.password ?? "");
+    // Idantifyan = kòd afilye a (toujou MAJISKIL, ex: FADONA5391). Klavye
+    // telefòn yo ekri "Fadona5391" — se pa yon move modpas, se menm kont lan.
+    const username = String(body.username ?? "").trim().toUpperCase();
+    const password = String(body.password ?? "").trim();
     if (!username || !password) return NextResponse.json({ ok: false, reason: "Identifiant et mot de passe requis." });
 
+    // Pwoteksyon brute-force REYÈL la: pa kont (kòd la piblik — li nan lyen referans lan).
+    const rlUser = rateLimit("affiliate-login-user:" + username, 10, 900000);
+    if (!rlUser.ok) return tooMany(rlUser.retryAfter);
+
     const { data: aff } = await svc.from("affiliates").select("*").eq("username", username).maybeSingle();
-    if (!aff || !verifyPassword(password, aff.password_hash as string)) {
-      return NextResponse.json({ ok: false, reason: "Identifiant ou mot de passe incorrect." });
+    // Modpas jenere yo gen SÈLMAN majiskil + chif: yon modpas tape an miniskil
+    // se menm modpas la. Nou eseye egzak la an premye (yon modpas admin chwazi
+    // ak miniskil rete valab tèl quel).
+    const passwordOk = !!aff && (verifyPassword(password, aff.password_hash as string)
+      || (password !== password.toUpperCase() && verifyPassword(password.toUpperCase(), aff.password_hash as string)));
+    if (!passwordOk) {
+      return NextResponse.json({ ok: false, reason: "Identifiant ou mot de passe incorrect. L’identifiant est votre code affilié (ex. : ABCDEF1234)." });
     }
     if (aff.status !== "active") {
       return NextResponse.json({ ok: false, reason: "Ce compte affilié n'est plus actif. Contactez Standa Commercial." });
@@ -56,6 +72,7 @@ export async function POST(req: Request) {
 
     const token = newSessionToken();
     const expiresAt = new Date(Date.now() + SESSION_DAYS * 86400000);
+    await svc.from("affiliate_sessions").delete().lt("expires_at", new Date().toISOString());
     await svc.from("affiliate_sessions").insert({
       affiliate_id: aff.id, token_hash: hashToken(token), expires_at: expiresAt.toISOString()
     });
@@ -98,7 +115,9 @@ export async function POST(req: Request) {
       packages = (data ?? []) as Array<{ customer_code: string }>;
     }
 
-    const list: any[] = commissions ?? [];
+    // amount (numeric Postgres) toujou yon nimewo pou espas afilye a — li fè
+    // `.toFixed()` dirèkteman; yon string ta kraze tout paj la.
+    const list: any[] = (commissions ?? []).map((c: any) => ({ ...c, amount: Number(c.amount) || 0 }));
     const totalDue = list.filter((c) => c.status === "due").reduce((s: number, c) => s + Number(c.amount), 0);
     const totalPaid = list.filter((c) => c.status === "paid").reduce((s: number, c) => s + Number(c.amount), 0);
     const daysLeft = Math.max(0, Math.ceil((new Date(aff.contract_end as string).getTime() - Date.now()) / 86400000));

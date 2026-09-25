@@ -47,12 +47,14 @@ export default function AffiliateLoginPage() {
         <form onSubmit={submit} className="mt-8 space-y-3 rounded-[1.75rem] border border-white/15 bg-white/[.08] p-6 backdrop-blur-2xl">
           <label className="block">
             <span className="mb-1.5 block text-[12px] font-semibold text-white/70">Identifiant</span>
-            <input value={username} onChange={(e) => setUsername(e.target.value)} required
+            <input value={username} onChange={(e) => setUsername(e.target.value.toUpperCase())} required
+              autoCapitalize="characters" autoCorrect="off" spellCheck={false} autoComplete="username" placeholder="Votre code affilié"
               className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-[14px] text-white outline-none focus:border-orange-300" />
           </label>
           <label className="block">
             <span className="mb-1.5 block text-[12px] font-semibold text-white/70">Mot de passe</span>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required
+              autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="current-password"
               className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-[14px] text-white outline-none focus:border-orange-300" />
           </label>
           {error && <p className="rounded-xl bg-red-500/15 px-3.5 py-2.5 text-[13px] text-red-200">{error}</p>}

@@ -244,17 +244,23 @@ export async function POST(req: Request) {
     if (action === "affiliate_approve") {
       if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
       const applicationId = String(body.application_id ?? "");
-      const { data: appRow } = await svc.from("affiliate_applications").select("*").eq("id", applicationId).maybeSingle();
-      if (!appRow) return NextResponse.json({ ok: false, reason: "Candidature introuvable." });
-      if (appRow.status !== "pending") return NextResponse.json({ ok: false, reason: "Cette candidature a déjà été traitée." });
+      // Reklame kandidati a ATOMIKMAN: de klik rapid (oswa de admin) te ka
+      // kreye DE afilye (de kòd, de modpas, de imèl) pou menm moun lan.
+      const { data: appRow } = await svc.from("affiliate_applications").update({ status: "approved" })
+        .eq("id", applicationId).eq("status", "pending").select("*").maybeSingle();
+      if (!appRow) {
+        const { data: exists } = await svc.from("affiliate_applications").select("id").eq("id", applicationId).maybeSingle();
+        return NextResponse.json({ ok: false, reason: exists ? "Cette candidature a déjà été traitée." : "Candidature introuvable." });
+      }
 
       const r = await createAffiliateAndNotify({
         application_id: appRow.id, fullname: appRow.fullname, email: appRow.email,
         phone: appRow.phone, whatsapp: appRow.whatsapp, renewed_from_affiliate_id: null
       });
-      if (!r.ok) return NextResponse.json(r);
-
-      await svc.from("affiliate_applications").update({ status: "approved" }).eq("id", appRow.id);
+      if (!r.ok) {
+        await svc.from("affiliate_applications").update({ status: "pending" }).eq("id", appRow.id);
+        return NextResponse.json(r);
+      }
       return NextResponse.json({ ok: true, affiliate: r.aff, username: r.username, password: r.password, referralLink: r.referralLink, mailSent: r.mailSent, mailError: r.mailError });
     }
 
@@ -287,6 +293,11 @@ export async function POST(req: Request) {
       const affiliateId = String(body.affiliate_id ?? "");
       const { data: old } = await svc.from("affiliates").select("*").eq("id", affiliateId).maybeSingle();
       if (!old) return NextResponse.json({ ok: false, reason: "Affilié introuvable." });
+      if (old.status === "revoked") return NextResponse.json({ ok: false, reason: "Cet affilié a été révoqué : il ne peut pas être renouvelé." });
+      // Sans ce contrôle, renouveler deux fois le même contrat créait deux
+      // lignes actives (deux liens valides) pour la même personne.
+      const { data: successor } = await svc.from("affiliates").select("id").eq("renewed_from_affiliate_id", old.id).limit(1).maybeSingle();
+      if (successor) return NextResponse.json({ ok: false, reason: "Ce contrat a déjà été renouvelé." });
 
       const r = await createAffiliateAndNotify({
         application_id: old.application_id, fullname: old.fullname, email: old.email,

@@ -69,6 +69,14 @@ export default function AffiliationPage() {
       setError("Veuillez remplir tous les champs obligatoires.");
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email.trim())) {
+      setError("Adresse courriel invalide. Vérifiez-la (exemple : nom@gmail.com).");
+      return;
+    }
+    if (f.phone.replace(/\D/g, "").length < 7) {
+      setError("Numéro de téléphone invalide.");
+      return;
+    }
     setBusy(true);
     try {
       const response = await fetch("/api/affiliates-apply", {
