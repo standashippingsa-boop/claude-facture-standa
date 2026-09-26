@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { BadgeDollarSign, CheckCircle2, Clock3, Copy, Download, Eye, FileSignature, HandCoins, Loader2, LogOut, PackageCheck, Upload, UserPlus, Users, Wallet } from "lucide-react";
 import Logo from "@/components/Logo";
 import {
-  AFFILIATE_PAYOUT_METHODS, AFFILIATE_PAYOUT_RATE_HTG, SIGNED_CONTRACT_MAX_BYTES, SIGNED_CONTRACT_TYPES,
+  AFFILIATE_PAYOUT_METHODS, AFFILIATE_PAYOUT_RATE_HTG, SIGNED_CONTRACT_MAX_BYTES, resolveSignedContractExt,
   formatHtg, toPayoutHtg, type AffiliatePayoutMethod
 } from "@/lib/affiliate-terms";
 
@@ -30,7 +30,7 @@ interface Me {
     payout_method: AffiliatePayoutMethod | null; payout_phone: string;
     signed_contract_uploaded_at: string | null;
   };
-  commissions: { id: string; amount: number; status: string; created_at: string; payout_method?: string | null }[];
+  commissions: { id: string; amount: number; status: string; created_at: string; payout_method?: string | null; paid_amount_htg?: number | null }[];
   totalDue: number; totalPaid: number; clientsCount: number;
   referredClients: {
     id: string; fullname: string; customer_code: string; created_at: string;
@@ -189,7 +189,7 @@ export default function AffiliatePortalPage() {
               {commissions.map((c) => (
                 <tr key={c.id} className="border-t border-line">
                   <td className="px-4 py-3 text-mute">{dateFr(c.created_at)}</td>
-                  <td className="px-4 py-3 font-semibold text-navy">{c.amount.toFixed(2)} USD<span className="block text-[11px] font-normal text-mute">{formatHtg(toPayoutHtg(c.amount))}</span></td>
+                  <td className="px-4 py-3 font-semibold text-navy">{c.amount.toFixed(2)} USD<span className="block text-[11px] font-normal text-mute">{formatHtg(c.status === "paid" && c.paid_amount_htg != null ? Number(c.paid_amount_htg) : toPayoutHtg(c.amount))}</span></td>
                   <td className="px-4 py-3">
                     {c.status === "paid"
                       ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700"><CheckCircle2 size={11} /> Payé{c.payout_method ? ` (${c.payout_method})` : ""}</span>
@@ -255,11 +255,11 @@ function ContractSection({ uploadedAt, onUploaded }: { uploadedAt: string | null
 
   const upload = async (file: File) => {
     setMessage(null);
-    if (!SIGNED_CONTRACT_TYPES[file.type]) { setMessage({ ok: false, text: "Format non accepté. Envoyez un PDF (ou une photo JPG/PNG)." }); return; }
+    if (!resolveSignedContractExt(file.type, file.name)) { setMessage({ ok: false, text: "Format non accepté. Envoyez un PDF (ou une photo JPG/PNG)." }); return; }
     if (file.size > SIGNED_CONTRACT_MAX_BYTES) { setMessage({ ok: false, text: "Fichier trop volumineux (15 Mo maximum)." }); return; }
     setBusy(true);
     try {
-      const start = await portal({ action: "contract_upload_url", content_type: file.type, size: file.size });
+      const start = await portal({ action: "contract_upload_url", content_type: file.type, filename: file.name, size: file.size });
       if (!start.ok) throw new Error(start.reason || "Envoi impossible.");
       const form = new FormData();
       form.append("cacheControl", "3600");

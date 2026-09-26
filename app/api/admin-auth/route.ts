@@ -5,7 +5,7 @@ import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 import { generateAffiliateCode, generateAffiliatePassword, hashPassword } from "@/lib/affiliate-crypto";
 import { buildAffiliateApprovalEmail, sendAffiliateApprovalEmail } from "@/lib/affiliate-mail";
-import { AFFILIATE_PAYOUT_METHODS, toPayoutHtg } from "@/lib/affiliate-terms";
+import { AFFILIATE_PAYOUT_METHODS, SIGNED_CONTRACT_BUCKET, toPayoutHtg } from "@/lib/affiliate-terms";
 import { SITE_URL } from "@/lib/branding";
 import { ensureClientAuthAccount } from "@/lib/client-auth-server";
 
@@ -19,6 +19,26 @@ const PAYOUT_METHODS = new Set<string>(AFFILIATE_PAYOUT_METHODS);
  */
 const SETUP_SECRET = process.env.SETUP_SECRET || "";
 const staffEmail = (u: string) => `${u.trim().toLowerCase()}@staff.standacommercialsa.com`;
+
+/**
+ * Piste odit pou aksyon sansib yo (kreye/efase anplwaye, reyajiste modpas
+ * anplwaye/kliyan/afilye, aksyon sou afilye). San sa a, yon kont admin
+ * konpwomèt te ka pran kontwòl nenpòt kont san okenn tras — journal la se
+ * SÈL prèv sa te fèt. Ekri isit la (sèvè), pa depann de frontend lan pou l
+ * sonje rele l chak fwa.
+ */
+async function writeAudit(svc: any, req: Request, actor: { username: string; prenom: string; nom: string; role: string }, action: string, details: string, customerCode = "") {
+  try {
+    const xff = req.headers.get("x-forwarded-for") ?? "";
+    const name = [actor.prenom, actor.nom].filter(Boolean).join(" ") || actor.username;
+    await svc.from("journal").insert({
+      user_name: `${name} (${actor.role})`, action, details: details.slice(0, 2000),
+      package_ref: "", customer_code: customerCode.slice(0, 60),
+      ip_address: (xff.split(",")[0] || req.headers.get("x-real-ip") || "").trim(),
+      user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400)
+    });
+  } catch (error) { console.error("[admin-auth:audit]", error); }
+}
 
 /** Konparezon konstant nan tan — anpeche atak timing sou SETUP_SECRET. */
 function secretOk(provided: string): boolean {
@@ -53,24 +73,28 @@ export async function POST(req: Request) {
     const body = await req.json();
     const action = String(body.action ?? "");
 
-    // ---------- caller role ----------
-    async function callerRole(): Promise<"admin" | "employe" | "agent_retrait" | "agent_reception" | null> {
+    // ---------- moun k ap fè demann lan (yon sèl rekèt, itilize pou wòl + piste odit) ----------
+    type CallerRow = { username: string; prenom: string; nom: string; role: string };
+    let callerRow: CallerRow | null = null;
+    async function caller(): Promise<CallerRow | null> {
+      if (callerRow) return callerRow;
       const token = String(body.token ?? "");
       if (!token) return null;
       const { data } = await svc.auth.getUser(token);
       if (!data.user) return null;
-      const { data: s } = await svc.from("staff").select("role").eq("auth_user_id", data.user.id).maybeSingle();
-      return (s?.role as "admin" | "employe" | "agent_retrait" | "agent_reception") ?? null;
+      const { data: s } = await svc.from("staff").select("username, prenom, nom, role").eq("auth_user_id", data.user.id).maybeSingle();
+      if (!s) return null;
+      callerRow = { username: String(s.username ?? ""), prenom: String(s.prenom ?? ""), nom: String(s.nom ?? ""), role: String(s.role ?? "") };
+      return callerRow;
     }
-
-    /** Username anplwaye k ap fè aksyon an (piste odit — ex: kilès ki make yon komisyon peye). */
-    async function callerUsername(): Promise<string> {
-      const token = String(body.token ?? "");
-      if (!token) return "";
-      const { data } = await svc.auth.getUser(token);
-      if (!data.user) return "";
-      const { data: s } = await svc.from("staff").select("username").eq("auth_user_id", data.user.id).maybeSingle();
-      return String(s?.username ?? "");
+    async function callerRole(): Promise<"admin" | "employe" | "agent_retrait" | "agent_reception" | null> {
+      const c = await caller();
+      return (c?.role as "admin" | "employe" | "agent_retrait" | "agent_reception") ?? null;
+    }
+    /** Piste odit (journal) — ne fait rien si, par un bug ailleurs, l'appelant n'a pas pu être identifié. */
+    async function auditCaller(req: Request, action: string, details: string, customerCode = "") {
+      const c = await caller();
+      if (c) await writeAudit(svc, req, c, action, details, customerCode);
     }
 
     // ---------- bootstrap: premye admin (sèlman si staff vid + SETUP_SECRET) ----------
@@ -97,6 +121,17 @@ export async function POST(req: Request) {
         nom: String(body.nom ?? ""), prenom: String(body.prenom ?? "")
       });
       if (e2) return NextResponse.json({ ok: false, reason: e2.message });
+      // Pa gen "caller" — se premye admin lan k ap kreye tèt li. Ekri jounal
+      // la dirèkteman, san pase pa auditCaller() ki mande yon sesyon staff.
+      try {
+        const xff = req.headers.get("x-forwarded-for") ?? "";
+        await svc.from("journal").insert({
+          user_name: `${username} (admin)`, action: "Premier administrateur créé (bootstrap)",
+          details: `Compte "${username}" créé via SETUP_SECRET.`, package_ref: "", customer_code: "",
+          ip_address: (xff.split(",")[0] || req.headers.get("x-real-ip") || "").trim(),
+          user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400)
+        });
+      } catch (error) { console.error("[admin-auth:audit-bootstrap]", error); }
       return NextResponse.json({ ok: true });
     }
 
@@ -128,6 +163,7 @@ export async function POST(req: Request) {
         pickup_ville_id: newRole === "agent_retrait" ? pickupVilleId : null
       });
       if (e2) { await svc.auth.admin.deleteUser(u.user.id); return NextResponse.json({ ok: false, reason: e2.message }); }
+      await auditCaller(req, "Employé créé", `${username} (${newRole})`);
       return NextResponse.json({ ok: true });
     }
 
@@ -141,10 +177,11 @@ export async function POST(req: Request) {
       if (!staffId || password.length < 6) {
         return NextResponse.json({ ok: false, reason: "Mot de passe (6+ karaktè) obligatwa." });
       }
-      const { data: member } = await svc.from("staff").select("auth_user_id").eq("id", staffId).maybeSingle();
+      const { data: member } = await svc.from("staff").select("auth_user_id, username").eq("id", staffId).maybeSingle();
       if (!member?.auth_user_id) return NextResponse.json({ ok: false, reason: "Compte employé introuvable." });
       const { error } = await svc.auth.admin.updateUserById(member.auth_user_id, { password });
       if (error) return NextResponse.json({ ok: false, reason: error.message });
+      await auditCaller(req, "Modpas anplwaye reyajiste", String(member.username ?? staffId));
       return NextResponse.json({ ok: true });
     }
 
@@ -152,9 +189,10 @@ export async function POST(req: Request) {
     if (action === "delete_staff") {
       if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
       const id = String(body.staff_id ?? "");
-      const { data: s } = await svc.from("staff").select("auth_user_id").eq("id", id).maybeSingle();
+      const { data: s } = await svc.from("staff").select("auth_user_id, username, role").eq("id", id).maybeSingle();
       if (s?.auth_user_id) await svc.auth.admin.deleteUser(s.auth_user_id).catch(() => null);
       await svc.from("staff").delete().eq("id", id);
+      await auditCaller(req, "Employé supprimé", `${s?.username ?? id} (${s?.role ?? "?"})`);
       return NextResponse.json({ ok: true });
     }
 
@@ -169,6 +207,7 @@ export async function POST(req: Request) {
       const pass = generatedPassword();
       const linked = await ensureClientAuthAccount(svc, clientId, code, pass, { activate: true });
       if (!linked.ok) return NextResponse.json({ ok: false, reason: linked.reason });
+      await auditCaller(req, "Compte client activé", `Kòd MC ${code}`, code);
       return NextResponse.json({ ok: true, password: pass, username: code });
     }
 
@@ -184,6 +223,7 @@ export async function POST(req: Request) {
       const pass = generatedPassword();
       const linked = await ensureClientAuthAccount(svc, clientId, code, pass);
       if (!linked.ok) return NextResponse.json({ ok: false, reason: linked.reason });
+      await auditCaller(req, "Modpas kliyan reyajiste", code, code);
       return NextResponse.json({ ok: true, password: pass, username: code });
     }
 
@@ -263,6 +303,7 @@ export async function POST(req: Request) {
         await svc.from("affiliate_applications").update({ status: "pending" }).eq("id", appRow.id);
         return NextResponse.json(r);
       }
+      await auditCaller(req, "Affilié approuvé", `${r.username} — ${appRow.fullname}`);
       return NextResponse.json({ ok: true, affiliate: r.aff, username: r.username, password: r.password, referralLink: r.referralLink, mailSent: r.mailSent, mailError: r.mailError });
     }
 
@@ -272,6 +313,7 @@ export async function POST(req: Request) {
       const applicationId = String(body.application_id ?? "");
       const { error } = await svc.from("affiliate_applications").update({ status: "rejected" }).eq("id", applicationId).eq("status", "pending");
       if (error) return NextResponse.json({ ok: false, reason: error.message });
+      await auditCaller(req, "Candidature affilié rejetée", applicationId);
       return NextResponse.json({ ok: true });
     }
 
@@ -282,6 +324,7 @@ export async function POST(req: Request) {
       const { error } = await svc.from("affiliates").update({ status: "revoked" }).eq("id", affiliateId);
       if (error) return NextResponse.json({ ok: false, reason: error.message });
       await svc.from("affiliate_sessions").delete().eq("affiliate_id", affiliateId);
+      await auditCaller(req, "Affilié révoqué", affiliateId);
       return NextResponse.json({ ok: true });
     }
 
@@ -311,6 +354,7 @@ export async function POST(req: Request) {
       // (jamais les deux à la fois inactifs si l'insert échoue plus haut).
       await svc.from("affiliates").update({ status: "expired" }).eq("id", old.id);
       await svc.from("affiliate_sessions").delete().eq("affiliate_id", old.id);
+      await auditCaller(req, "Affilié renouvelé", `${old.code} -> ${r.username}`);
 
       return NextResponse.json({
         ok: true, affiliate: r.aff, username: r.username, password: r.password, referralLink: r.referralLink,
@@ -330,6 +374,7 @@ export async function POST(req: Request) {
       const { error } = await svc.from("affiliates").update({ password_hash: hashPassword(password) }).eq("id", affiliateId);
       if (error) return NextResponse.json({ ok: false, reason: error.message });
       await svc.from("affiliate_sessions").delete().eq("affiliate_id", affiliateId);
+      await auditCaller(req, "Modpas affilié reyajiste", affiliateId);
       return NextResponse.json({ ok: true, password });
     }
 
@@ -339,7 +384,7 @@ export async function POST(req: Request) {
       const commissionId = String(body.commission_id ?? "");
       const method = String(body.payout_method ?? "");
       if (!PAYOUT_METHODS.has(method)) return NextResponse.json({ ok: false, reason: "Mode de paiement invalide." });
-      const paidBy = await callerUsername();
+      const paidBy = (await caller())?.username ?? "";
       const { data: commission } = await svc.from("affiliate_commissions").select("amount").eq("id", commissionId).maybeSingle();
       if (!commission) return NextResponse.json({ ok: false, reason: "Commission introuvable." });
       const { error } = await svc.from("affiliate_commissions").update({
@@ -347,6 +392,7 @@ export async function POST(req: Request) {
         paid_amount_htg: toPayoutHtg(Number(commission.amount))
       }).eq("id", commissionId).eq("status", "due");
       if (error) return NextResponse.json({ ok: false, reason: error.message });
+      await auditCaller(req, "Commission affilié payée", `${commissionId} · ${method}`);
       return NextResponse.json({ ok: true });
     }
 
@@ -357,7 +403,7 @@ export async function POST(req: Request) {
       const affiliateId = String(body.affiliate_id ?? "");
       const { data: aff } = await svc.from("affiliates").select("signed_contract_path").eq("id", affiliateId).maybeSingle();
       if (!aff?.signed_contract_path) return NextResponse.json({ ok: false, reason: "Cet affilié n'a pas encore envoyé son contrat signé." });
-      const { data, error } = await svc.storage.from("affiliate-contracts").createSignedUrl(aff.signed_contract_path, 300);
+      const { data, error } = await svc.storage.from(SIGNED_CONTRACT_BUCKET).createSignedUrl(aff.signed_contract_path, 300);
       if (error || !data?.signedUrl) return NextResponse.json({ ok: false, reason: "Contrat indisponible." });
       return NextResponse.json({ ok: true, url: data.signedUrl });
     }

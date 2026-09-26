@@ -4,9 +4,9 @@ import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { randomBytes } from "node:crypto";
 import { hashToken, newSessionToken, verifyPassword } from "@/lib/affiliate-crypto";
-import { AFFILIATE_PAYOUT_METHODS, AFFILIATE_PAYOUT_RATE_HTG, SIGNED_CONTRACT_MAX_BYTES, SIGNED_CONTRACT_TYPES } from "@/lib/affiliate-terms";
+import { AFFILIATE_PAYOUT_METHODS, SIGNED_CONTRACT_BUCKET, SIGNED_CONTRACT_MAX_BYTES, resolveSignedContractExt } from "@/lib/affiliate-terms";
 
-const CONTRACT_BUCKET = "affiliate-contracts";
+const CONTRACT_BUCKET = SIGNED_CONTRACT_BUCKET;
 
 /**
  * PÒTAY AFILYE — login/me/logout.
@@ -94,7 +94,7 @@ export async function POST(req: Request) {
     if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
 
     const { data: commissions, error: commissionsError } = await svc.from("affiliate_commissions")
-      .select("id, amount, status, paid_at, payout_method, created_at, client_id, invoice_id")
+      .select("id, amount, status, paid_at, paid_amount_htg, payout_method, created_at, client_id, invoice_id")
       .eq("affiliate_id", aff.id as string).order("created_at", { ascending: false });
     if (commissionsError) return NextResponse.json({ ok: false, reason: "Impossible de charger les commissions." }, { status: 500 });
 
@@ -153,7 +153,6 @@ export async function POST(req: Request) {
         payout_method: aff.payout_method ?? null, payout_phone: aff.payout_phone ?? "",
         signed_contract_uploaded_at: aff.signed_contract_path ? aff.signed_contract_uploaded_at : null
       },
-      payoutRate: AFFILIATE_PAYOUT_RATE_HTG,
       commissions: list, totalDue, totalPaid,
       clientsCount: referredClients.length,
       referredClients
@@ -183,7 +182,7 @@ export async function POST(req: Request) {
   if (action === "contract_upload_url") {
     const aff = await affiliateFromSession(svc, cookieValue(req));
     if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
-    const ext = SIGNED_CONTRACT_TYPES[String(body.content_type ?? "")];
+    const ext = resolveSignedContractExt(String(body.content_type ?? ""), String(body.filename ?? ""));
     const size = Number(body.size ?? 0);
     if (!ext) return NextResponse.json({ ok: false, reason: "Format non accepté. Envoyez un PDF (ou une photo JPG/PNG)." }, { status: 400 });
     if (!(size > 0) || size > SIGNED_CONTRACT_MAX_BYTES) {

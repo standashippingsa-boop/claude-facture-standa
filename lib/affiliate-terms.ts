@@ -12,10 +12,28 @@ export const toPayoutHtg = (usd: number) => Math.round(Number(usd || 0) * AFFILI
 export const formatHtg = (value: number) =>
   `${new Intl.NumberFormat("fr-HT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0))} HTG`;
 
+/** Bucket Storage kote kontra siyen yo antre (prive — sèlman lyen siyen). */
+export const SIGNED_CONTRACT_BUCKET = "affiliate-contracts";
+
 /** Kontra siyen: PDF (eskane) oswa foto. Limit = bucket affiliate-contracts. */
 export const SIGNED_CONTRACT_TYPES: Record<string, string> = {
   "application/pdf": "pdf",
   "image/jpeg": "jpg",
   "image/png": "png",
 };
+const SIGNED_CONTRACT_EXT_BY_FILE_EXT: Record<string, string> = { pdf: "pdf", jpg: "jpg", jpeg: "jpg", png: "png" };
 export const SIGNED_CONTRACT_MAX_BYTES = 15 * 1024 * 1024;
+
+/**
+ * Rezoud ekstansyon kontra siyen an: MIME an premye; si li vid (kèk
+ * navigatè/telefòn/app eskane pa bay MIME), nou tonbe sou ekstansyon non
+ * fichye a — menm apwòch ak `validateUpload` nan lib/upload.ts.
+ */
+export function resolveSignedContractExt(contentType: string, filename?: string): string | undefined {
+  const type = String(contentType ?? "").toLowerCase();
+  const byMime = SIGNED_CONTRACT_TYPES[type];
+  if (byMime) return byMime;
+  if (type) return undefined; // MIME prezan men pa rekonèt — pa fè sipozisyon
+  const ext = String(filename ?? "").split(".").pop()?.toLowerCase() ?? "";
+  return SIGNED_CONTRACT_EXT_BY_FILE_EXT[ext];
+}
