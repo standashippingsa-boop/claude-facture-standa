@@ -37,3 +37,13 @@ export function resolveSignedContractExt(contentType: string, filename?: string)
   const ext = String(filename ?? "").split(".").pop()?.toLowerCase() ?? "";
   return SIGNED_CONTRACT_EXT_BY_FILE_EXT[ext];
 }
+
+/**
+ * MIME kanonik pou yon ekstansyon rezoud. Bucket la refize tout lòt MIME
+ * (allowed_mime_types): yon fichye san MIME ta monte kòm
+ * application/octet-stream epi Storage ta rejte l — fò navigatè a re-etikte
+ * l ak MIME sa a anvan l voye l.
+ */
+export function signedContractMime(ext: string): string {
+  return Object.entries(SIGNED_CONTRACT_TYPES).find(([, e]) => e === ext)?.[0] ?? "application/octet-stream";
+}

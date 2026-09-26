@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { BadgeDollarSign, CheckCircle2, Clock3, Copy, Download, Eye, FileSignature, HandCoins, Loader2, LogOut, PackageCheck, Upload, UserPlus, Users, Wallet } from "lucide-react";
 import Logo from "@/components/Logo";
 import {
-  AFFILIATE_PAYOUT_METHODS, AFFILIATE_PAYOUT_RATE_HTG, SIGNED_CONTRACT_MAX_BYTES, resolveSignedContractExt,
+  AFFILIATE_PAYOUT_METHODS, AFFILIATE_PAYOUT_RATE_HTG, SIGNED_CONTRACT_MAX_BYTES, resolveSignedContractExt, signedContractMime,
   formatHtg, toPayoutHtg, type AffiliatePayoutMethod
 } from "@/lib/affiliate-terms";
 
@@ -255,15 +255,19 @@ function ContractSection({ uploadedAt, onUploaded }: { uploadedAt: string | null
 
   const upload = async (file: File) => {
     setMessage(null);
-    if (!resolveSignedContractExt(file.type, file.name)) { setMessage({ ok: false, text: "Format non accepté. Envoyez un PDF (ou une photo JPG/PNG)." }); return; }
+    const ext = resolveSignedContractExt(file.type, file.name);
+    if (!ext) { setMessage({ ok: false, text: "Format non accepté. Envoyez un PDF (ou une photo JPG/PNG)." }); return; }
+    // Telefòn ki pa bay MIME: re-etikte fichye a, sinon Storage rejte l (octet-stream).
+    const mime = signedContractMime(ext);
+    const payload = file.type === mime ? file : new File([file], file.name || `contrat.${ext}`, { type: mime });
     if (file.size > SIGNED_CONTRACT_MAX_BYTES) { setMessage({ ok: false, text: "Fichier trop volumineux (15 Mo maximum)." }); return; }
     setBusy(true);
     try {
-      const start = await portal({ action: "contract_upload_url", content_type: file.type, filename: file.name, size: file.size });
+      const start = await portal({ action: "contract_upload_url", content_type: payload.type, filename: file.name, size: payload.size });
       if (!start.ok) throw new Error(start.reason || "Envoi impossible.");
       const form = new FormData();
       form.append("cacheControl", "3600");
-      form.append("", file);
+      form.append("", payload);
       const apikey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
       const put = await fetch(start.signedUrl, { method: "PUT", body: form, headers: { "x-upsert": "false", ...(apikey ? { apikey } : {}) } });
       if (!put.ok) throw new Error("L'envoi du fichier a échoué. Vérifiez votre connexion et réessayez.");
