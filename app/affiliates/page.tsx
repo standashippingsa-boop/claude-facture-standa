@@ -1,15 +1,14 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import {
-  CalendarClock, CheckCircle2, Clock3, Copy, HandCoins, Inbox, KeyRound,
+  CalendarClock, CheckCircle2, Clock3, Copy, Eye, HandCoins, Inbox, KeyRound,
   Loader2, RefreshCw, Search, ShieldOff, UserCheck, Users, Wallet, XCircle
 } from "lucide-react";
 import { adminApi } from "@/lib/authx";
 import { getAffiliateApplications, getAffiliateCommissions, getAffiliates } from "@/lib/db";
 import { Affiliate, AffiliateApplication, AffiliateCommission } from "@/lib/types";
 import { dateFr, usd } from "@/lib/utils";
-
-const PAYOUT_METHODS = ["Espèces", "MonCash", "NatCash", "Virement bancaire", "Zelle"];
+import { AFFILIATE_PAYOUT_METHODS, AFFILIATE_PAYOUT_RATE_HTG, formatHtg, toPayoutHtg } from "@/lib/affiliate-terms";
 
 /** Jou ki rete anvan contract_end (0 si deja pase). */
 function daysLeft(endISO: string): number {
@@ -98,10 +97,29 @@ export default function AffiliatesPage() {
     } finally { setBusy(null); }
   };
 
-  const markPaid = async (id?: string, method?: string) => {
-    if (!id || !method) return;
+  const affiliateById = useMemo(() => new Map(affiliates.map((a) => [a.id, a])), [affiliates]);
+
+  const markPaid = async (c: AffiliateCommission, method?: string) => {
+    if (!c.id || !method) return;
+    const aff = affiliateById.get(c.affiliate_id);
+    const to = aff?.payout_method === method && aff.payout_phone ? ` au ${aff.payout_phone}` : "";
+    if (!confirm(`Confirmer le paiement de ${formatHtg(toPayoutHtg(Number(c.amount)))} par ${method}${to} ?\n(${usd(c.amount)} au taux de ${AFFILIATE_PAYOUT_RATE_HTG} HTG)`)) return;
+    setBusy(c.id);
+    try {
+      const j = await adminApi("affiliate_mark_commission_paid", { commission_id: c.id, payout_method: method });
+      if (!j.ok) setNotice("Erè: " + j.reason);
+      await load();
+    } finally { setBusy(null); }
+  };
+
+  const viewContract = async (id?: string) => {
+    if (!id) return;
     setBusy(id);
-    try { await adminApi("affiliate_mark_commission_paid", { commission_id: id, payout_method: method }); await load(); } finally { setBusy(null); }
+    try {
+      const j = await adminApi("affiliate_contract_url", { affiliate_id: id });
+      if (!j.ok) { setNotice("Erè: " + j.reason); return; }
+      window.open(j.url, "_blank", "noopener");
+    } finally { setBusy(null); }
   };
 
   return (
@@ -110,7 +128,7 @@ export default function AffiliatesPage() {
         <HandCoins className="text-accent" />
         <h1 className="text-2xl font-bold text-navy">Programme Affiliation</h1>
       </div>
-      <p className="mt-1 text-sm text-mute">Candidatures, affiliés actifs et commissions ($10 par facture qualifiée, pendant la durée du contrat).</p>
+      <p className="mt-1 text-sm text-mute">Candidatures, affiliés actifs et commissions ($10 par facture qualifiée, pendant la durée du contrat). Paiement uniquement en gourdes ({AFFILIATE_PAYOUT_RATE_HTG} HTG pour 1 USD), par MonCash ou NatCash.</p>
 
       {/* ── KPI — vue d'ensemble ─────────────────────────────────────── */}
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -190,7 +208,7 @@ export default function AffiliatesPage() {
             <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white">
               <table className="w-full text-[13px]">
                 <thead className="bg-mist text-left text-[11px] uppercase text-mute">
-                  <tr><th className="px-4 py-2.5">Nom</th><th className="px-4 py-2.5">Code / Lien</th><th className="px-4 py-2.5">Contrat</th><th className="px-4 py-2.5">Statut</th><th className="px-4 py-2.5"></th></tr>
+                  <tr><th className="px-4 py-2.5">Nom</th><th className="px-4 py-2.5">Code / Lien</th><th className="px-4 py-2.5">Contrat</th><th className="px-4 py-2.5">Contrat signé</th><th className="px-4 py-2.5">Paiement (HTG)</th><th className="px-4 py-2.5">Statut</th><th className="px-4 py-2.5"></th></tr>
                 </thead>
                 <tbody>
                   {visibleAffiliates.map((a) => {
@@ -214,6 +232,20 @@ export default function AffiliatesPage() {
                             </div>
                           )}
                         </td>
+                        <td className="px-4 py-3">
+                          {a.signed_contract_path ? (
+                            <div>
+                              <SpinButton busy={busy === a.id} onClick={() => viewContract(a.id)} icon={Eye}
+                                title="Ouvrir le contrat signé" compact className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100">Voir</SpinButton>
+                              <p className="mt-1 text-[11px] text-mute">Reçu le {dateFr(a.signed_contract_uploaded_at ?? "")}</p>
+                            </div>
+                          ) : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">Non reçu</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          {a.payout_method
+                            ? <><p className="font-semibold text-navy">{a.payout_method}</p><p className="font-mono text-[12px] text-mute">{a.payout_phone}</p></>
+                            : <span className="text-[12px] text-mute">Non choisi</span>}
+                        </td>
                         <td className="px-4 py-3"><StatusPill status={a.status} /></td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap justify-end gap-2">
@@ -233,10 +265,10 @@ export default function AffiliatesPage() {
                     );
                   })}
                   {!affiliates.length && (
-                    <tr><td colSpan={5} className="px-4 py-10"><EmptyState icon={Users} text="Aucun affilié pour le moment." /></td></tr>
+                    <tr><td colSpan={7} className="px-4 py-10"><EmptyState icon={Users} text="Aucun affilié pour le moment." /></td></tr>
                   )}
                   {!!affiliates.length && !visibleAffiliates.length && (
-                    <tr><td colSpan={5} className="px-4 py-10"><EmptyState icon={Search} text={`Aucun résultat pour « ${q} ».`} /></td></tr>
+                    <tr><td colSpan={7} className="px-4 py-10"><EmptyState icon={Search} text={`Aucun résultat pour « ${q} ».`} /></td></tr>
                   )}
                 </tbody>
               </table>
@@ -255,7 +287,10 @@ export default function AffiliatesPage() {
                       <td className="px-4 py-3 text-mute">{dateFr(c.created_at)}</td>
                       <td className="px-4 py-3">{c.invoice_number || "—"}</td>
                       <td className="px-4 py-3">{c.client_name || "—"}</td>
-                      <td className="px-4 py-3 font-semibold text-navy">{usd(c.amount)}</td>
+                      <td className="px-4 py-3 font-semibold text-navy">
+                        {usd(c.amount)}
+                        <span className="block text-[11px] font-normal text-mute">{formatHtg(c.status === "paid" && c.paid_amount_htg != null ? Number(c.paid_amount_htg) : toPayoutHtg(Number(c.amount)))}</span>
+                      </td>
                       <td className="px-4 py-3">
                         {c.status === "paid"
                           ? <span title={c.paid_by ? `Marqué payé par ${c.paid_by}` : undefined}
@@ -267,14 +302,22 @@ export default function AffiliatesPage() {
                             </span>}
                       </td>
                       <td className="px-4 py-3">
-                        {c.status === "due" && (
-                          <select disabled={busy === c.id} defaultValue=""
-                            onChange={(e) => { if (e.target.value) markPaid(c.id, e.target.value); }}
-                            className="rounded-lg border border-line px-2 py-1.5 text-[12px] disabled:opacity-60">
-                            <option value="" disabled>{busy === c.id ? "Enregistrement…" : "Marquer payé…"}</option>
-                            {PAYOUT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                          </select>
-                        )}
+                        {c.status === "due" && (() => {
+                          const aff = affiliateById.get(c.affiliate_id);
+                          const preferred = aff?.payout_method ?? null;
+                          const methods = preferred ? [preferred, ...AFFILIATE_PAYOUT_METHODS.filter((m) => m !== preferred)] : [...AFFILIATE_PAYOUT_METHODS];
+                          return (
+                            <div>
+                              <select disabled={busy === c.id} value=""
+                                onChange={(e) => { if (e.target.value) void markPaid(c, e.target.value); }}
+                                className="rounded-lg border border-line px-2 py-1.5 text-[12px] disabled:opacity-60">
+                                <option value="" disabled>{busy === c.id ? "Enregistrement…" : "Marquer payé…"}</option>
+                                {methods.map((m) => <option key={m} value={m}>{m}{m === preferred ? " (choix de l'affilié)" : ""}</option>)}
+                              </select>
+                              {aff && <p className="mt-1 text-[11px] text-mute">{preferred ? `${preferred} · ${aff.payout_phone}` : "Mode non choisi par l'affilié"}</p>}
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}

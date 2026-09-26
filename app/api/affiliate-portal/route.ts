@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
+import { randomBytes } from "node:crypto";
 import { hashToken, newSessionToken, verifyPassword } from "@/lib/affiliate-crypto";
+import { AFFILIATE_PAYOUT_METHODS, AFFILIATE_PAYOUT_RATE_HTG, SIGNED_CONTRACT_MAX_BYTES, SIGNED_CONTRACT_TYPES } from "@/lib/affiliate-terms";
+
+const CONTRACT_BUCKET = "affiliate-contracts";
 
 /**
  * PÒTAY AFILYE — login/me/logout.
@@ -145,12 +149,85 @@ export async function POST(req: Request) {
       affiliate: {
         fullname: aff.fullname, code: aff.code, referral_link: aff.referral_link,
         contract_start: aff.contract_start, contract_end: aff.contract_end, status: aff.status,
-        commission_amount: aff.commission_amount, days_left: daysLeft
+        commission_amount: aff.commission_amount, days_left: daysLeft,
+        payout_method: aff.payout_method ?? null, payout_phone: aff.payout_phone ?? "",
+        signed_contract_uploaded_at: aff.signed_contract_path ? aff.signed_contract_uploaded_at : null
       },
+      payoutRate: AFFILIATE_PAYOUT_RATE_HTG,
       commissions: list, totalDue, totalPaid,
       clientsCount: referredClients.length,
       referredClients
     });
+  }
+
+  // ── Mòd peman: SÈLMAN goud, MonCash oswa NatCash (kontra atik 6) ──
+  if (action === "set_payout") {
+    const aff = await affiliateFromSession(svc, cookieValue(req));
+    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
+    const method = String(body.method ?? "");
+    const phone = String(body.phone ?? "").replace(/[^\d+\s-]/g, "").trim().slice(0, 30);
+    if (!(AFFILIATE_PAYOUT_METHODS as readonly string[]).includes(method)) {
+      return NextResponse.json({ ok: false, reason: "Choisissez MonCash ou NatCash." }, { status: 400 });
+    }
+    if (phone.replace(/\D/g, "").length < 8) {
+      return NextResponse.json({ ok: false, reason: `Indiquez le numéro ${method} qui recevra vos paiements.` }, { status: 400 });
+    }
+    const { error } = await svc.from("affiliates").update({ payout_method: method, payout_phone: phone }).eq("id", aff.id);
+    if (error) return NextResponse.json({ ok: false, reason: "Enregistrement impossible. Réessayez." }, { status: 500 });
+    return NextResponse.json({ ok: true, payout_method: method, payout_phone: phone });
+  }
+
+  // ── Kontra siyen: navigatè a voye fichye a DIREK nan Storage ak yon URL
+  //    siyen (pa pase nan fonksyon Vercel la — limit 4,5 Mo li ta bloke yon
+  //    eskane telefòn). Chemen an toujou anba dosye afilye a li menm. ──
+  if (action === "contract_upload_url") {
+    const aff = await affiliateFromSession(svc, cookieValue(req));
+    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
+    const ext = SIGNED_CONTRACT_TYPES[String(body.content_type ?? "")];
+    const size = Number(body.size ?? 0);
+    if (!ext) return NextResponse.json({ ok: false, reason: "Format non accepté. Envoyez un PDF (ou une photo JPG/PNG)." }, { status: 400 });
+    if (!(size > 0) || size > SIGNED_CONTRACT_MAX_BYTES) {
+      return NextResponse.json({ ok: false, reason: "Fichier trop volumineux (15 Mo maximum)." }, { status: 400 });
+    }
+    const path = `${aff.id}/${Date.now()}-${randomBytes(8).toString("hex")}.${ext}`;
+    const { data, error } = await svc.storage.from(CONTRACT_BUCKET).createSignedUploadUrl(path);
+    if (error || !data?.signedUrl) {
+      console.error("[affiliate-portal] upload url", error);
+      return NextResponse.json({ ok: false, reason: "Envoi impossible pour le moment. Réessayez." }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, signedUrl: data.signedUrl, path });
+  }
+
+  if (action === "contract_confirm") {
+    const aff = await affiliateFromSession(svc, cookieValue(req));
+    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
+    const path = String(body.path ?? "");
+    const prefix = `${aff.id}/`;
+    const fileName = path.slice(prefix.length);
+    // Yon afilye pa ka janm anrejistre fichye yon lòt afilye kòm kontra pa l.
+    if (!path.startsWith(prefix) || !/^\d+-[0-9a-f]{16}\.(pdf|jpg|png)$/.test(fileName)) {
+      return NextResponse.json({ ok: false, reason: "Fichier invalide." }, { status: 400 });
+    }
+    const { data: found } = await svc.storage.from(CONTRACT_BUCKET).list(aff.id as string, { search: fileName });
+    if (!(found ?? []).some((f: { name: string }) => f.name === fileName)) {
+      return NextResponse.json({ ok: false, reason: "Le fichier n'a pas été reçu. Réessayez l'envoi." }, { status: 400 });
+    }
+    const previous = String(aff.signed_contract_path ?? "");
+    const uploadedAt = new Date().toISOString();
+    const { error } = await svc.from("affiliates")
+      .update({ signed_contract_path: path, signed_contract_uploaded_at: uploadedAt }).eq("id", aff.id);
+    if (error) return NextResponse.json({ ok: false, reason: "Enregistrement impossible. Réessayez." }, { status: 500 });
+    if (previous && previous !== path) await svc.storage.from(CONTRACT_BUCKET).remove([previous]);
+    return NextResponse.json({ ok: true, signed_contract_uploaded_at: uploadedAt });
+  }
+
+  if (action === "contract_view") {
+    const aff = await affiliateFromSession(svc, cookieValue(req));
+    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
+    if (!aff.signed_contract_path) return NextResponse.json({ ok: false, reason: "Aucun contrat envoyé." }, { status: 404 });
+    const { data, error } = await svc.storage.from(CONTRACT_BUCKET).createSignedUrl(aff.signed_contract_path as string, 300);
+    if (error || !data?.signedUrl) return NextResponse.json({ ok: false, reason: "Contrat indisponible." }, { status: 500 });
+    return NextResponse.json({ ok: true, url: data.signedUrl });
   }
 
   if (action === "logout") {

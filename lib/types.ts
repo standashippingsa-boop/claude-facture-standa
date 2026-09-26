@@ -403,6 +403,12 @@ export interface Affiliate {
   commission_amount: number;
   /** Si sa a se yon renouvèlman: ansyen liy afilye a (istorik, jamè efase). */
   renewed_from_affiliate_id?: string | null;
+  /** Kontra siyen/eskane afilye a voye (bucket prive affiliate-contracts). */
+  signed_contract_path?: string | null;
+  signed_contract_uploaded_at?: string | null;
+  /** Mòd peman afilye a chwazi (SÈLMAN goud): MonCash oswa NatCash + nimewo. */
+  payout_method?: "MonCash" | "NatCash" | null;
+  payout_phone?: string;
   created_at?: string;
 }
 
@@ -416,6 +422,8 @@ export interface AffiliateCommission {
   status: "due" | "paid";
   paid_at?: string | null;
   payout_method?: PayoutMethod | null;
+  /** Montan goud ki te peye a (amount × to fiks kontra a), anrejistre lè admin make l peye. */
+  paid_amount_htg?: number | null;
   /** Username anplwaye ki make peman an (piste odit — menm prensip ak invoices.payment_paid_by). */
   paid_by?: string | null;
   created_at?: string;

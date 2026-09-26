@@ -1,8 +1,22 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BadgeDollarSign, CheckCircle2, Clock3, Copy, HandCoins, LogOut, PackageCheck, UserPlus, Users } from "lucide-react";
+import { BadgeDollarSign, CheckCircle2, Clock3, Copy, Download, Eye, FileSignature, HandCoins, Loader2, LogOut, PackageCheck, Upload, UserPlus, Users, Wallet } from "lucide-react";
 import Logo from "@/components/Logo";
+import {
+  AFFILIATE_PAYOUT_METHODS, AFFILIATE_PAYOUT_RATE_HTG, SIGNED_CONTRACT_MAX_BYTES, SIGNED_CONTRACT_TYPES,
+  formatHtg, toPayoutHtg, type AffiliatePayoutMethod
+} from "@/lib/affiliate-terms";
+
+/** Kontra vid la (piblik — menm fichye admin nan voye pa Gmail). */
+const BLANK_CONTRACT_URL = "/contrat-affiliation-standa.pdf";
+
+const portal = async (payload: Record<string, unknown>) => {
+  const res = await fetch("/api/affiliate-portal", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+  });
+  return res.json().catch(() => ({ ok: false, reason: "Réponse invalide du serveur." }));
+};
 
 /**
  * PÒTAY AFILYE — tablo bò. Zewo enpòtasyon @/lib/db oswa @/lib/supabase:
@@ -13,6 +27,8 @@ interface Me {
   affiliate: {
     fullname: string; code: string; referral_link: string; contract_start: string;
     contract_end: string; status: string; commission_amount: number; days_left: number;
+    payout_method: AffiliatePayoutMethod | null; payout_phone: string;
+    signed_contract_uploaded_at: string | null;
   };
   commissions: { id: string; amount: number; status: string; created_at: string; payout_method?: string | null }[];
   totalDue: number; totalPaid: number; clientsCount: number;
@@ -132,8 +148,20 @@ export default function AffiliatePortalPage() {
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <Stat icon={Users} label="Clients parrainés" value={String(clientsCount)} />
-          <Stat icon={HandCoins} label="Commissions à venir" value={`${totalDue.toFixed(2)} USD`} tone="amber" />
-          <Stat icon={CheckCircle2} label="Déjà payé" value={`${totalPaid.toFixed(2)} USD`} tone="emerald" />
+          <Stat icon={HandCoins} label="Commissions à venir" value={`${totalDue.toFixed(2)} USD`} sub={`= ${formatHtg(toPayoutHtg(totalDue))}`} tone="amber" />
+          <Stat icon={CheckCircle2} label="Déjà payé" value={`${totalPaid.toFixed(2)} USD`} sub={`= ${formatHtg(toPayoutHtg(totalPaid))}`} tone="emerald" />
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <ContractSection
+            uploadedAt={affiliate.signed_contract_uploaded_at}
+            onUploaded={(at) => setMe((cur) => cur ? { ...cur, affiliate: { ...cur.affiliate, signed_contract_uploaded_at: at } } : cur)}
+          />
+          <PayoutSection
+            method={affiliate.payout_method}
+            phone={affiliate.payout_phone}
+            onSaved={(payout_method, payout_phone) => setMe((cur) => cur ? { ...cur, affiliate: { ...cur.affiliate, payout_method, payout_phone } } : cur)}
+          />
         </div>
 
         <section className="mt-6 rounded-2xl border border-line bg-white p-4 sm:p-5">
@@ -161,7 +189,7 @@ export default function AffiliatePortalPage() {
               {commissions.map((c) => (
                 <tr key={c.id} className="border-t border-line">
                   <td className="px-4 py-3 text-mute">{dateFr(c.created_at)}</td>
-                  <td className="px-4 py-3 font-semibold text-navy">{c.amount.toFixed(2)} USD</td>
+                  <td className="px-4 py-3 font-semibold text-navy">{c.amount.toFixed(2)} USD<span className="block text-[11px] font-normal text-mute">{formatHtg(toPayoutHtg(c.amount))}</span></td>
                   <td className="px-4 py-3">
                     {c.status === "paid"
                       ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700"><CheckCircle2 size={11} /> Payé{c.payout_method ? ` (${c.payout_method})` : ""}</span>
@@ -203,13 +231,152 @@ function ReferralClientRow({ client }: { client: Me["referredClients"][number] }
   </article>;
 }
 
-function Stat({ icon: Icon, label, value, tone }: { icon: typeof Users; label: string; value: string; tone?: "amber" | "emerald" }) {
+function Stat({ icon: Icon, label, value, sub, tone }: { icon: typeof Users; label: string; value: string; sub?: string; tone?: "amber" | "emerald" }) {
   const tones: Record<string, string> = { amber: "text-amber-600 bg-amber-100", emerald: "text-emerald-600 bg-emerald-100" };
   return (
     <div className="rounded-xl border border-line bg-white p-4">
       <span className={`grid h-9 w-9 place-items-center rounded-lg ${tone ? tones[tone] : "bg-accent-light text-accent"}`}><Icon size={17} /></span>
       <p className="mt-2 text-[20px] font-black text-navy">{value}</p>
+      {sub && <p className="text-[12px] font-semibold text-navy/70">{sub}</p>}
       <p className="text-[12px] text-mute">{label}</p>
     </div>
+  );
+}
+
+/**
+ * KONTRA SIYEN — afilye a telechaje kontra a, enprime l, siyen l, eskane l,
+ * epi voye l isit la. Fichye a ale DIREK nan Storage (bucket prive) ak yon
+ * URL siyen: li pa pase nan fonksyon sèvè a (limit 4,5 Mo Vercel).
+ */
+function ContractSection({ uploadedAt, onUploaded }: { uploadedAt: string | null; onUploaded: (at: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const upload = async (file: File) => {
+    setMessage(null);
+    if (!SIGNED_CONTRACT_TYPES[file.type]) { setMessage({ ok: false, text: "Format non accepté. Envoyez un PDF (ou une photo JPG/PNG)." }); return; }
+    if (file.size > SIGNED_CONTRACT_MAX_BYTES) { setMessage({ ok: false, text: "Fichier trop volumineux (15 Mo maximum)." }); return; }
+    setBusy(true);
+    try {
+      const start = await portal({ action: "contract_upload_url", content_type: file.type, size: file.size });
+      if (!start.ok) throw new Error(start.reason || "Envoi impossible.");
+      const form = new FormData();
+      form.append("cacheControl", "3600");
+      form.append("", file);
+      const apikey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+      const put = await fetch(start.signedUrl, { method: "PUT", body: form, headers: { "x-upsert": "false", ...(apikey ? { apikey } : {}) } });
+      if (!put.ok) throw new Error("L'envoi du fichier a échoué. Vérifiez votre connexion et réessayez.");
+      const done = await portal({ action: "contract_confirm", path: start.path });
+      if (!done.ok) throw new Error(done.reason || "Envoi impossible.");
+      onUploaded(done.signed_contract_uploaded_at);
+      setMessage({ ok: true, text: "Contrat signé reçu. Merci !" });
+    } catch (error) {
+      setMessage({ ok: false, text: error instanceof Error ? error.message : "Envoi impossible." });
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = "";
+    }
+  };
+
+  const view = async () => {
+    const j = await portal({ action: "contract_view" });
+    if (j.ok) window.open(j.url, "_blank", "noopener");
+    else setMessage({ ok: false, text: j.reason || "Contrat indisponible." });
+  };
+
+  return (
+    <section className="rounded-2xl border border-line bg-white p-4 sm:p-5">
+      <div className="flex items-center gap-2.5">
+        <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent-light text-accent"><FileSignature size={17} /></span>
+        <div>
+          <h2 className="text-[16px] font-bold text-navy">Mon contrat signé</h2>
+          {uploadedAt
+            ? <p className="text-[12px] font-semibold text-emerald-700">Reçu le {dateFr(uploadedAt)}</p>
+            : <p className="text-[12px] font-semibold text-amber-700">À envoyer</p>}
+        </div>
+      </div>
+      <ol className="mt-3 space-y-1.5 text-[13px] leading-relaxed text-mute">
+        <li><b className="text-navy">1.</b> Téléchargez le contrat et imprimez-le.</li>
+        <li><b className="text-navy">2.</b> Remplissez vos informations, paraphez chaque page et signez la dernière.</li>
+        <li><b className="text-navy">3.</b> Scannez les pages en un seul PDF (ex. : « Numériser » dans Google Drive, ou CamScanner).</li>
+        <li><b className="text-navy">4.</b> Envoyez le fichier ici.</li>
+      </ol>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <a href={BLANK_CONTRACT_URL} download className="inline-flex items-center gap-1.5 rounded-lg bg-mist px-3 py-2 text-[13px] font-bold text-navy hover:bg-accent-light">
+          <Download size={15} /> Télécharger le contrat
+        </a>
+        <button type="button" disabled={busy} onClick={() => input.current?.click()}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[13px] font-bold text-white hover:bg-accent-dark disabled:opacity-60">
+          {busy ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+          {busy ? "Envoi…" : uploadedAt ? "Remplacer le contrat" : "Envoyer le contrat signé"}
+        </button>
+        {uploadedAt && (
+          <button type="button" onClick={view} className="inline-flex items-center gap-1.5 rounded-lg bg-mist px-3 py-2 text-[13px] font-bold text-navy hover:bg-accent-light">
+            <Eye size={15} /> Voir
+          </button>
+        )}
+        <input ref={input} type="file" accept="application/pdf,image/jpeg,image/png" className="hidden"
+          onChange={(e) => { const file = e.target.files?.[0]; if (file) void upload(file); }} />
+      </div>
+      {message && <p className={`mt-3 rounded-lg px-3 py-2 text-[12.5px] font-semibold ${message.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{message.text}</p>}
+    </section>
+  );
+}
+
+/** MÒD PEMAN — SÈLMAN an goud, a to fiks kontra a, pa MonCash oswa NatCash. */
+function PayoutSection({ method, phone, onSaved }: {
+  method: AffiliatePayoutMethod | null; phone: string; onSaved: (method: AffiliatePayoutMethod, phone: string) => void;
+}) {
+  const [choice, setChoice] = useState<AffiliatePayoutMethod | null>(method);
+  const [number, setNumber] = useState(phone);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const dirty = choice !== method || number.trim() !== phone;
+
+  const save = async () => {
+    if (!choice) { setMessage({ ok: false, text: "Choisissez MonCash ou NatCash." }); return; }
+    setBusy(true); setMessage(null);
+    try {
+      const j = await portal({ action: "set_payout", method: choice, phone: number });
+      if (!j.ok) { setMessage({ ok: false, text: j.reason || "Enregistrement impossible." }); return; }
+      onSaved(j.payout_method, j.payout_phone);
+      setNumber(j.payout_phone);
+      setMessage({ ok: true, text: "Mode de paiement enregistré." });
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <section className="rounded-2xl border border-line bg-white p-4 sm:p-5">
+      <div className="flex items-center gap-2.5">
+        <span className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-100 text-emerald-600"><Wallet size={17} /></span>
+        <div>
+          <h2 className="text-[16px] font-bold text-navy">Comment recevoir mes commissions</h2>
+          <p className="text-[12px] text-mute">{method ? `${method} · ${phone}` : "Pas encore choisi"}</p>
+        </div>
+      </div>
+      <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] leading-relaxed text-amber-900">
+        Les commissions sont payées <b>uniquement en gourdes</b>, au taux fixe de <b>{AFFILIATE_PAYOUT_RATE_HTG.toString().replace(".", ",")} HTG pour 1 USD</b>
+        {" "}(ex. : 10 USD = {formatHtg(toPayoutHtg(10))}).
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {AFFILIATE_PAYOUT_METHODS.map((m) => (
+          <button key={m} type="button" onClick={() => { setChoice(m); setMessage(null); }}
+            className={`rounded-xl border-2 px-3 py-2.5 text-[14px] font-bold transition ${choice === m ? "border-accent bg-accent-light text-navy" : "border-line text-mute hover:border-accent/40"}`}>
+            {m}
+          </button>
+        ))}
+      </div>
+      <label className="mt-3 block">
+        <span className="mb-1 block text-[12px] font-semibold text-mute">Numéro {choice ?? "MonCash / NatCash"}</span>
+        <input value={number} onChange={(e) => { setNumber(e.target.value); setMessage(null); }} inputMode="tel" autoComplete="tel"
+          placeholder="Ex. : 3779 0068" className="w-full rounded-lg border border-line px-3 py-2 text-[14px] outline-none focus:border-accent" />
+      </label>
+      <button type="button" disabled={busy || !dirty} onClick={save}
+        className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-navy px-3 py-2 text-[13px] font-bold text-white disabled:opacity-50">
+        {busy && <Loader2 size={15} className="animate-spin" />} Enregistrer
+      </button>
+      {message && <p className={`mt-3 rounded-lg px-3 py-2 text-[12.5px] font-semibold ${message.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{message.text}</p>}
+    </section>
   );
 }

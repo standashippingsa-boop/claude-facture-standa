@@ -5,10 +5,12 @@ import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 import { generateAffiliateCode, generateAffiliatePassword, hashPassword } from "@/lib/affiliate-crypto";
 import { buildAffiliateApprovalEmail, sendAffiliateApprovalEmail } from "@/lib/affiliate-mail";
+import { AFFILIATE_PAYOUT_METHODS, toPayoutHtg } from "@/lib/affiliate-terms";
 import { SITE_URL } from "@/lib/branding";
 import { ensureClientAuthAccount } from "@/lib/client-auth-server";
 
-const PAYOUT_METHODS = new Set(["Espèces", "MonCash", "NatCash", "Virement bancaire", "Zelle"]);
+// Kontra afilye atik 6: komisyon peye SÈLMAN an goud, pa MonCash oswa NatCash.
+const PAYOUT_METHODS = new Set<string>(AFFILIATE_PAYOUT_METHODS);
 
 /**
  * API Authentication (kouri sou sèvè Vercel — kle sèvis la pa janm rive nan navigatè).
@@ -338,11 +340,26 @@ export async function POST(req: Request) {
       const method = String(body.payout_method ?? "");
       if (!PAYOUT_METHODS.has(method)) return NextResponse.json({ ok: false, reason: "Mode de paiement invalide." });
       const paidBy = await callerUsername();
+      const { data: commission } = await svc.from("affiliate_commissions").select("amount").eq("id", commissionId).maybeSingle();
+      if (!commission) return NextResponse.json({ ok: false, reason: "Commission introuvable." });
       const { error } = await svc.from("affiliate_commissions").update({
-        status: "paid", paid_at: new Date().toISOString(), payout_method: method, paid_by: paidBy
+        status: "paid", paid_at: new Date().toISOString(), payout_method: method, paid_by: paidBy,
+        paid_amount_htg: toPayoutHtg(Number(commission.amount))
       }).eq("id", commissionId).eq("status", "due");
       if (error) return NextResponse.json({ ok: false, reason: error.message });
       return NextResponse.json({ ok: true });
+    }
+
+    // ---------- affiliate_contract_url (admin sèlman) — kontra siyen afilye a ----------
+    // Bucket PRIVE: lyen siyen 5 minit, jamè yon URL piblik pèmanan.
+    if (action === "affiliate_contract_url") {
+      if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
+      const affiliateId = String(body.affiliate_id ?? "");
+      const { data: aff } = await svc.from("affiliates").select("signed_contract_path").eq("id", affiliateId).maybeSingle();
+      if (!aff?.signed_contract_path) return NextResponse.json({ ok: false, reason: "Cet affilié n'a pas encore envoyé son contrat signé." });
+      const { data, error } = await svc.storage.from("affiliate-contracts").createSignedUrl(aff.signed_contract_path, 300);
+      if (error || !data?.signedUrl) return NextResponse.json({ ok: false, reason: "Contrat indisponible." });
+      return NextResponse.json({ ok: true, url: data.signedUrl });
     }
 
     return NextResponse.json({ ok: false, reason: "Aksyon enkoni." });
