@@ -78,12 +78,11 @@ export async function POST(req: Request) {
       }
     }
 
-    const xff = req.headers.get("x-forwarded-for") ?? "";
     await db.from("journal").insert({
       user_name: `${staffName} (admin)`, action: "Rapport clôturé",
       details: `${count} paiement(s) de point de retrait clôturés${cityName ? ` · ${cityName}` : ""} · ${usd.toFixed(2)} USD · ${htg.toFixed(2)} HTG`,
       package_ref: "", customer_code: "",
-      ip_address: (xff.split(",")[0] || req.headers.get("x-real-ip") || "").trim(),
+      ip_address: clientIp(req),
       user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400)
     }).catch(() => null);
 

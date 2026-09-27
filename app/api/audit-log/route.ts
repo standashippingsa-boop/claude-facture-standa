@@ -62,9 +62,8 @@ export async function POST(req: Request) {
     const customerCode = cut(body?.customer_code, 60);
     if (!action) return NextResponse.json({ ok: false, reason: "action manquante." }, { status: 400 });
 
-    // IP: Vercel mete x-forwarded-for (premye a se kliyan an); fallback x-real-ip
-    const xff = req.headers.get("x-forwarded-for") ?? "";
-    const ip = (xff.split(",")[0] || req.headers.get("x-real-ip") || "").trim();
+    // IP: Cloudflare (si aktive) osnon Vercel; clientIp() jere lòd la.
+    const ip = clientIp(req);
     const userAgent = cut(req.headers.get("user-agent"), 400);
 
     await db.from("journal").insert({

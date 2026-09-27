@@ -60,11 +60,10 @@ function agentName(agent: Agent) {
   return [agent.prenom, agent.nom].filter(Boolean).join(" ") || agent.username;
 }
 function auditRow(req: Request, agent: Agent, action: string, details: string, packageRef = "", customerCode = "") {
-  const xff = req.headers.get("x-forwarded-for") ?? "";
   return {
     user_name: `${agentName(agent)} (agent_retrait)`, action, details,
     package_ref: packageRef.slice(0, 120), customer_code: customerCode.slice(0, 60),
-    ip_address: (xff.split(",")[0] || req.headers.get("x-real-ip") || "").trim(),
+    ip_address: clientIp(req),
     user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400)
   };
 }

@@ -80,12 +80,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "Le solde a changé. Actualisez avant d'enregistrer le paiement." }, { status: 409 });
     }
 
-    const xff = req.headers.get("x-forwarded-for") ?? "";
     await db.from("journal").insert({
       user_name: `${staffName} (admin)`, action: "Paiement client reçu",
       details: `${invoice.invoice_number} · ${amount} ${currency} · ${method} · paiement direct admin`,
       package_ref: invoice.invoice_number, customer_code: invoice.customer_code,
-      ip_address: (xff.split(",")[0] || req.headers.get("x-real-ip") || "").trim(),
+      ip_address: clientIp(req),
       user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400)
     }).catch(() => null);
 

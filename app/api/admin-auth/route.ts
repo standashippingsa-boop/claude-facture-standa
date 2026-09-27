@@ -30,12 +30,11 @@ const staffEmail = (u: string) => `${u.trim().toLowerCase()}@staff.standacommerc
  */
 async function writeAudit(svc: any, req: Request, actor: { username: string; prenom: string; nom: string; role: string }, action: string, details: string, customerCode = "") {
   try {
-    const xff = req.headers.get("x-forwarded-for") ?? "";
     const name = [actor.prenom, actor.nom].filter(Boolean).join(" ") || actor.username;
     await svc.from("journal").insert({
       user_name: `${name} (${actor.role})`, action, details: details.slice(0, 2000),
       package_ref: "", customer_code: customerCode.slice(0, 60),
-      ip_address: (xff.split(",")[0] || req.headers.get("x-real-ip") || "").trim(),
+      ip_address: clientIp(req),
       user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400)
     });
   } catch (error) { console.error("[admin-auth:audit]", error); }
@@ -133,11 +132,10 @@ export async function POST(req: Request) {
       // Pa gen "caller" — se premye admin lan k ap kreye tèt li. Ekri jounal
       // la dirèkteman, san pase pa auditCaller() ki mande yon sesyon staff.
       try {
-        const xff = req.headers.get("x-forwarded-for") ?? "";
         await svc.from("journal").insert({
           user_name: `${username} (admin)`, action: "Premier administrateur créé (bootstrap)",
           details: `Compte "${username}" créé via SETUP_SECRET.`, package_ref: "", customer_code: "",
-          ip_address: (xff.split(",")[0] || req.headers.get("x-real-ip") || "").trim(),
+          ip_address: clientIp(req),
           user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400)
         });
       } catch (error) { console.error("[admin-auth:audit-bootstrap]", error); }

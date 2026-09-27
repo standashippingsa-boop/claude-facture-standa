@@ -20,8 +20,17 @@ function sweep(now: number) {
   for (const [k, b] of buckets) if (b.resetAt <= now) buckets.delete(k);
 }
 
-/** IP kliyan an dèyè proxy Vercel la. */
+/**
+ * IP kliyan an — dèyè Cloudflare (si l aktive) epi/oswa proxy Vercel la.
+ *
+ * Lòd la enpòtan : depi domèn nan pase pa Cloudflare, `CF-Connecting-IP`
+ * se header ki pi fyab la — Cloudflare li menm ki ekri l, li pa vin
+ * SÈLMAN kopye sa vizitè a voye. `x-forwarded-for` rete fallback pou
+ * lokal/Vercel san Cloudflare (premye adrès nan lis la se kliyan an).
+ */
 export function clientIp(req: Request): string {
+  const cf = req.headers.get("cf-connecting-ip");
+  if (cf) return cf.trim();
   const xff = req.headers.get("x-forwarded-for") ?? "";
   return (xff.split(",")[0] || req.headers.get("x-real-ip") || "unknown").trim();
 }

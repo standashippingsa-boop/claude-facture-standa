@@ -116,12 +116,11 @@ export async function POST(req: Request) {
     await db.from("clients").update({ auth_user_id: null, username: null }).eq("id", client.id);
 
     // Journal : le code client suffit, aucune donnée personnelle.
-    const xff = req.headers.get("x-forwarded-for") ?? "";
     await db.from("journal").insert({
       user_name: "Client (self-service)", action: "Compte client supprimé",
       details: customerCode ? `Le client ${customerCode} a supprimé son compte.` : "Un compte non activé a été supprimé.",
       package_ref: "", customer_code: customerCode,
-      ip_address: (xff.split(",")[0] || req.headers.get("x-real-ip") || "").trim(),
+      ip_address: clientIp(req),
       user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400)
     }).catch(() => null);
 
