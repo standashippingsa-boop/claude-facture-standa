@@ -224,6 +224,9 @@ export default function EspaceClientPage() {
       const r = await subscribeToPush(client.customer_code);
       if (r.ok) { setToast("Notifications activées."); dismissPushBanner(); }
       else if (r.reason === "denied") { setToast("Notifications refusées — activez-les depuis les réglages de votre navigateur si vous changez d'avis."); dismissPushBanner(); }
+      // "timeout" (réseau lent, service worker pas encore prêt) : la bannière
+      // reste affichée pour que le client puisse simplement réessayer.
+      else if (r.reason === "timeout") setToast("La demande a pris trop de temps. Vérifiez votre connexion et réessayez.");
       else setToast("Impossible d'activer les notifications pour le moment.");
     } finally { setPushBusy(false); }
   };
@@ -876,7 +879,6 @@ export default function EspaceClientPage() {
                   </div>
                   <div className="p-5">
                     <p className="text-sm leading-relaxed text-slate-600">Recevez une alerte dans la barre de notifications de votre téléphone dès qu&apos;un colis est reçu, disponible, facturé ou remis.</p>
-                    <div className="mt-4 rounded-2xl bg-sky-50 px-3 py-2.5 text-[12px] leading-relaxed text-[#145ca8]">Après votre choix, votre téléphone affichera sa demande d&apos;autorisation officielle.</div>
                     <button onClick={activatePush} disabled={pushBusy} className="btn btn-brand mt-5 w-full justify-center !py-3 disabled:opacity-60">
                       {pushBusy ? <Spinner size={16} /> : <BellRing size={16} />} {pushBusy ? "Activation…" : "Autoriser les notifications"}
                     </button>

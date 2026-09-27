@@ -91,30 +91,45 @@ export async function subscribeToPush(customerCode: string): Promise<{ ok: boole
 
 type WebPushSubscriptionData = { endpoint: string; p256dh: string; auth: string };
 
-/** Enregistre un abonnement Web Push, client ou membre du personnel. */
+/**
+ * Enregistre un abonnement Web Push, client ou membre du personnel.
+ *
+ * ⚠️ `navigator.serviceWorker.ready` ne se résout JAMAIS si le service worker
+ * n'atteint pas l'état "activated" pour cette page (enregistrement encore en
+ * cours via components/PwaManager.tsx, réseau lent, bug du navigateur) — sans
+ * garde-fou, le bouton restait bloqué sur "Activation…" indéfiniment.
+ * subscribeNative() a déjà sa propre limite (10 s) ; celle-ci couvre
+ * l'équivalent Web Push, qui n'en avait aucune jusqu'ici.
+ */
 async function subscribeWebPush(
   saveSubscription: (subscription: WebPushSubscriptionData) => Promise<{ error: { message: string } | null }>
 ): Promise<{ ok: boolean; reason?: string }> {
   if (!isPushSupported()) return { ok: false, reason: "unsupported" };
   try {
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") return { ok: false, reason: permission };
+    return await Promise.race([
+      (async (): Promise<{ ok: boolean; reason?: string }> => {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") return { ok: false, reason: permission };
 
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource
-      });
-    }
-    const json = sub.toJSON();
-    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-      return { ok: false, reason: "invalid_subscription" };
-    }
-    const { error } = await saveSubscription({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
-    if (error) throw error;
-    return { ok: true };
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource
+          });
+        }
+        const json = sub.toJSON();
+        if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+          return { ok: false, reason: "invalid_subscription" };
+        }
+        const { error } = await saveSubscription({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
+        if (error) throw error;
+        return { ok: true };
+      })(),
+      new Promise<{ ok: boolean; reason?: string }>((resolve) =>
+        setTimeout(() => resolve({ ok: false, reason: "timeout" }), 15000))
+    ]);
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : "error" };
   }
