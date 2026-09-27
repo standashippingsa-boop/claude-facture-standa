@@ -1,4 +1,5 @@
 import "server-only";
+import { SITE_URL } from "@/lib/branding";
 
 /**
  * PWOGRAM AFFILIATION — imèl apwobasyon (kontra + lyen + login).
@@ -12,6 +13,28 @@ import "server-only";
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+
+const LOGIN_URL = `${SITE_URL}/espace-affilie/login`;
+
+const label = (text: string) =>
+  `<p style="margin:0;font-size:12px;font-weight:700;color:#374151">${esc(text)}</p>`;
+
+/**
+ * Bwat "fasil pou kopye". Okenn kliyan imèl (Gmail, Outlook, Apple Mail)
+ * pa egzekite JavaScript — yon vrè bouton "Copier" enposib nan yon imèl.
+ * Bwat sa a mete valè a POUKONT LI (san espas, gwo karaktè), konsa yon
+ * doub-tap / apiye-long seleksyone l nèt. user-select:all respekte pa
+ * kèk kliyan (Apple Mail); lòt yo inyore l san danje. Avèk `href`, valè a
+ * se yon vrè lyen: apiye-long nan Gmail bay « Copier l'adresse du lien ».
+ */
+const copyBox = (value: string, href?: string) => {
+  const inner = href
+    ? `<a href="${esc(href)}" style="color:#1E3A8A;text-decoration:none">${esc(value)}</a>`
+    : esc(value);
+  return `<div style="margin-top:6px;padding:12px 14px;background:#F4F7FC;border:1px dashed #9DB3D9;border-radius:8px;`
+    + `font-family:Menlo,Consolas,'Courier New',monospace;font-size:16px;font-weight:700;color:#111827;`
+    + `word-break:break-all;-webkit-user-select:all;user-select:all">${inner}</div>`;
+};
 
 function fromValue(): string {
   return process.env.EMAIL_FROM || "STANDA COMMERCIAL <notifications@standacommercialsa.com>";
@@ -37,20 +60,24 @@ export function buildAffiliateApprovalEmail(a: {
 <tr><td style="padding:24px 32px 0"><img src="https://www.standacommercialsa.com/logo.png" alt="STANDA COMMERCIAL" height="32" style="height:32px"></td></tr>
 <tr><td style="padding:16px 32px 0"><h1 style="margin:0;font-size:20px;color:#111827">${a.isRenewal ? `Bonne nouvelle, ${esc(a.fullname)} !` : `Félicitations, ${esc(a.fullname)} !`}</h1>
 <p style="margin:10px 0 0;font-size:14px;line-height:1.6;color:#4B5563">${intro}</p></td></tr>
-<tr><td style="padding:18px 32px 0">
+<tr><td style="padding:18px 32px 0">${label("Votre lien unique à partager")}${copyBox(a.referralLink, a.referralLink)}
+<p style="margin:6px 0 0;font-size:11px;line-height:1.5;color:#6B7280">Pour copier le lien : appuyez longuement dessus puis « Copier l'adresse du lien » (téléphone), ou clic droit puis « Copier l'adresse du lien » (ordinateur).</p></td></tr>
+<tr><td style="padding:14px 32px 0">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
-<tr><td style="padding:6px 0;color:#6B7280;font-size:13px">Votre lien unique</td><td align="right" style="padding:6px 0;font-size:13px;font-weight:700;color:#1E3A8A;word-break:break-all">${esc(a.referralLink)}</td></tr>
 <tr><td style="padding:6px 0;color:#6B7280;font-size:13px">Code</td><td align="right" style="padding:6px 0;font-size:13px;font-weight:700;font-family:monospace">${esc(a.code)}</td></tr>
 <tr><td style="padding:6px 0;color:#6B7280;font-size:13px">Commission par utilisation du service</td><td align="right" style="padding:6px 0;font-size:13px;font-weight:700">${a.commissionAmount.toFixed(2)} USD</td></tr>
 <tr><td style="padding:6px 0;color:#6B7280;font-size:13px">Contrat valide</td><td align="right" style="padding:6px 0;font-size:13px;font-weight:700">${esc(a.contractStart)} → ${esc(a.contractEnd)}</td></tr>
 </table></td></tr>
 <tr><td style="padding:18px 32px 0"><div style="height:1px;background:#EAECEF"></div></td></tr>
-<tr><td style="padding:14px 32px 0"><p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.06em">Accès à votre espace affilié</p>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
-<tr><td style="padding:4px 0;color:#6B7280;font-size:13px">Identifiant</td><td align="right" style="padding:4px 0;font-size:13px;font-weight:700;font-family:monospace">${esc(a.username)}</td></tr>
-<tr><td style="padding:4px 0;color:#6B7280;font-size:13px">Mot de passe</td><td align="right" style="padding:4px 0;font-size:13px;font-weight:700;font-family:monospace">${esc(a.password)}</td></tr>
-</table>
-<p style="margin:10px 0 0;font-size:12px;color:#9CA3AF">Connectez-vous sur standacommercialsa.com/espace-affilie/login pour suivre vos filleuls et vos commissions.</p></td></tr>
+<tr><td style="padding:14px 32px 0"><p style="margin:0 0 10px;font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.06em">Accès à votre espace affilié</p>
+${label("Identifiant")}${copyBox(a.username)}
+<div style="height:10px;line-height:10px">&nbsp;</div>
+${label("Mot de passe")}${copyBox(a.password)}
+<p style="margin:6px 0 0;font-size:11px;line-height:1.5;color:#6B7280">Pour copier : appuyez deux fois (ou longuement) sur le texte puis « Copier » (téléphone), ou double-cliquez dessus (ordinateur). Ne partagez jamais votre mot de passe.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:16px"><tr><td bgcolor="#E8650A" style="border-radius:8px">
+<a href="${esc(LOGIN_URL)}" style="display:inline-block;padding:13px 22px;font-size:14px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:8px">Me connecter à mon Espace Affilié</a>
+</td></tr></table>
+<p style="margin:8px 0 0;font-size:12px;color:#9CA3AF">Dans votre Espace Affilié : bouton « Copier » pour votre lien, suivi de vos clients et de vos commissions.</p></td></tr>
 <tr><td style="padding:18px 32px 0"><p style="margin:0;font-size:13px;line-height:1.6;color:#4B5563">Le contrat détaillant les conditions du programme est joint à cet e-mail (PDF).</p></td></tr>
 <tr><td style="padding:22px 32px 24px"><div style="height:2px;background:#1E3A8A;margin-bottom:12px"></div>
 <p style="margin:0;font-size:11px;color:#9CA3AF">STANDA COMMERCIAL — standacommercialsa.com</p></td></tr>
