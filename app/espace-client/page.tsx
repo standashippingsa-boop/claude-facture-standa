@@ -1217,18 +1217,21 @@ export default function EspaceClientPage() {
               </h2>
               <div className="mt-3 divide-y divide-line">
                 {([
+                  // Repons yo reflete règ sistèm nan EGZAKTEMAN (delè pibliye anwo a,
+                  // règ antrepozaj /confidentialite, lib/pricing.ts, flux retrait).
+                  // Si youn nan règ sa yo chanje, mete repons lan ajou tou.
                   ["Combien de temps prend mon colis ?",
-                   "Le délai dépend de son arrivée à Miami et du transport. Consultez chaque étape dans l'application en ouvrant le colis concerné."],
+                   "Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement entre 3 et 7 jours ouvrables (du lundi au vendredi) pour qu'il arrive à votre agence en Haïti. Ce délai peut varier selon la douane et le volume de colis. Ouvrez le colis dans l'application pour voir son étape : Reçu à Miami, En préparation, En transit, Arrivé en Haïti, En route vers agence, puis Disponible."],
                   ["Pourquoi mon colis n'apparaît-il pas encore ?",
-                   "Un colis apparaît lorsque notre dépôt de Miami l'a reçu et enregistré. Si le transporteur indique qu'il est livré, attendez quelques heures puis cliquez sur Actualiser."],
+                   "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. Si le transporteur (Amazon, UPS, FedEx…) indique « livré », comptez quelques heures pour l'enregistrement. L'application se met à jour toute seule chaque minute ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. Vérifiez aussi que votre code client (MC-…) figurait bien sur la ligne « Address 2 » de l'adresse de livraison : sans ce code, nous ne pouvons pas relier le colis à votre compte. S'il n'apparaît toujours pas, écrivez-nous sur WhatsApp avec votre numéro de tracking."],
                   ["Puis-je envoyer plusieurs colis ensemble ?",
-                   "Oui. Tous les colis associés à votre code client sont regroupés dans votre compte et peuvent être facturés ensemble."],
+                   "Oui. Vous pouvez commander dans plusieurs boutiques : chaque colis est reçu et pesé séparément à Miami, et tous ceux qui portent votre code client sont regroupés dans votre compte. Les colis disponibles en même temps peuvent être réunis sur une seule facture."],
                   ["Que signifie « Préparer mon retrait » ?",
-                   "Cette action indique les colis que vous viendrez chercher afin que notre équipe les prépare avant votre arrivée à l'agence."],
+                   "Quand un colis passe au statut « Disponible », ouvrez « Disponibles », cochez les colis que vous viendrez chercher et touchez « Préparer mon retrait ». L'agence prépare alors vos colis avant votre arrivée : votre demande passe de « En attente » à « Préparé », puis à « Remis » quand vous les avez récupérés. Les factures impayées doivent être réglées à l'agence avant la remise. Vous disposez de 15 jours pour retirer un colis disponible ; à partir du 16e jour, des frais d'entreposage de 5 $ US par jour s'appliquent."],
                   ["J'ai oublié mon mot de passe.",
-                   "Contactez-nous sur WhatsApp. Nous vous donnerons un nouveau mot de passe que vous pourrez modifier si vous le souhaitez."],
+                   "Écrivez-nous sur WhatsApp : nous vous envoyons un nouveau mot de passe. Connectez-vous avec votre code client (MC-XXXXX) et ce mot de passe. Vous pouvez ensuite le changer : touchez votre nom en haut de l'écran, puis « Changer mon mot de passe »."],
                   ["Le prix peut-il changer ?",
-                   "Le prix indiqué dans l'application est une estimation basée sur le poids. Le prix final est celui de la facture, après la pesée du colis à l'entrepôt."]
+                   "Oui : le calculateur donne une estimation. Le prix final est celui de votre facture, calculé sur le poids réel pesé à notre entrepôt de Miami, selon le tarif de votre ville. Il peut différer de l'estimation si le poids réel n'est pas celui que vous avez saisi, si le colis contient un article à tarif spécial (téléphone, ordinateur portable, tablette, caméra, téléviseur), ou si des frais d'entreposage s'ajoutent (retrait après 15 jours). Le montant en gourdes est calculé au taux du jour de la facture."]
                 ] as const).map(([q, a]) => (
                   <details key={q} className="py-2.5 group">
                     <summary className="text-[13px] font-semibold text-ink cursor-pointer list-none flex items-start gap-2">
