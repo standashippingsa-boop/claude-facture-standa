@@ -84,6 +84,10 @@ export default function AccueilPage() {
                 <Link href="/agences" className="inline-flex h-[3.25rem] items-center justify-center rounded-xl border border-white/20 bg-white/[0.06] px-6 text-[15px] font-bold text-white transition hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">Voir nos agences</Link>
               </div>
               <div className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-[13px] font-medium text-white/65"><TrustItem>Inscription gratuite</TrustItem><TrustItem>Code client personnel</TrustItem><TrustItem>Suivi de colis</TrustItem></div>
+              <div className="mt-8">
+                <p className="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[.16em] text-white/80"><Smartphone size={15} className="text-accent" />Application mobile · bientôt disponible</p>
+                <StoreBadges className="mt-3" />
+              </div>
             </div>
             <div className="relative site-fade site-fade-d2">
               <div aria-hidden="true" className="absolute -inset-4 rounded-[2rem] bg-accent/15 blur-2xl" />
