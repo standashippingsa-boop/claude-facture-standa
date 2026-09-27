@@ -328,6 +328,36 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    // ---------- affiliate_reactivate (admin sèlman) — anile yon revokasyon ----------
+    // MENM kòd, MENM lyen, MENM modpas: afilye a ka rekonekte touswit e
+    // komisyon yo rekòmanse pou fakti ki fèt APRE reaktivasyon an. Si kontra
+    // a te deja fini pandan revokasyon an, nou louvri yon nouvo peryòd 3 mwa
+    // (sinon trigger komisyon an — ki tcheke dat yo — pa ta janm peye l).
+    if (action === "affiliate_reactivate") {
+      if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
+      const affiliateId = String(body.affiliate_id ?? "");
+      const { data: aff } = await svc.from("affiliates").select("id, status, contract_start, contract_end").eq("id", affiliateId).maybeSingle();
+      if (!aff) return NextResponse.json({ ok: false, reason: "Affilié introuvable." });
+      if (aff.status !== "revoked") return NextResponse.json({ ok: false, reason: "Seul un affilié révoqué peut être réactivé." });
+
+      const today = new Date().toISOString().slice(0, 10);
+      const patch: Record<string, string> = { status: "active" };
+      const restarted = String(aff.contract_end) < today;
+      if (restarted) {
+        const end = new Date();
+        end.setMonth(end.getMonth() + 3);
+        patch.contract_start = today;
+        patch.contract_end = end.toISOString().slice(0, 10);
+      }
+      // Kondisyon status=revoked nan UPDATE la: de klik rapid pa fè de reaktivasyon.
+      const { data: updated, error } = await svc.from("affiliates").update(patch)
+        .eq("id", affiliateId).eq("status", "revoked").select("contract_start, contract_end").maybeSingle();
+      if (error) return NextResponse.json({ ok: false, reason: error.message });
+      if (!updated) return NextResponse.json({ ok: false, reason: "Cet affilié a déjà été réactivé." });
+      await auditCaller(req, "Affilié réactivé", `${affiliateId}${restarted ? ` · nouveau contrat ${updated.contract_start} → ${updated.contract_end}` : ""}`);
+      return NextResponse.json({ ok: true, restarted, contractStart: updated.contract_start, contractEnd: updated.contract_end });
+    }
+
     // ---------- affiliate_renew (admin sèlman) ----------
     // Renouvèlman = NOUVO liy afilye (nouvo kòd/lyen/login/imèl), JAMÈ yon
     // modifikasyon sou plas — jan STANDA konfime l la. Ansyen liy la pase

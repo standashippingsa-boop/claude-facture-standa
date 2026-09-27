@@ -121,6 +121,12 @@ export default function AffiliatePortalPage() {
             Votre contrat n'est plus actif ({affiliate.status}). Contactez Standa Commercial pour un renouvellement.
           </div>
         )}
+        {affiliate.status === "active" && affiliate.contract_end < new Date().toISOString().slice(0, 10) && (
+          <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+            Votre contrat est terminé depuis le {dateFr(affiliate.contract_end)} : les nouvelles factures de vos clients ne génèrent plus de commission.
+            Vos commissions déjà gagnées restent payables. Contactez Standa Commercial (+509 4673 8117) pour renouveler votre contrat.
+          </div>
+        )}
 
         <div className="mt-5 rounded-2xl bg-navy p-5 text-white">
           <p className="text-[11px] font-bold uppercase tracking-[.18em] text-white/50">Votre lien unique</p>

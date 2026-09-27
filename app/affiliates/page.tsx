@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarClock, CheckCircle2, Clock3, Copy, Eye, HandCoins, Inbox, KeyRound,
-  Loader2, RefreshCw, Search, ShieldOff, UserCheck, Users, Wallet, XCircle
+  Loader2, RefreshCw, RotateCcw, Search, ShieldOff, UserCheck, Users, Wallet, XCircle
 } from "lucide-react";
 import { adminApi } from "@/lib/authx";
 import { getAffiliateApplications, getAffiliateCommissions, getAffiliates } from "@/lib/db";
@@ -68,9 +68,33 @@ export default function AffiliatesPage() {
   };
 
   const revoke = async (id?: string) => {
-    if (!id || !confirm("Révoquer cet affilié ? Son lien cessera immédiatement de générer des commissions.")) return;
+    if (!id || !confirm("Révoquer cet affilié ? Son lien cessera immédiatement de générer des commissions et il sera déconnecté. Vous pourrez le réactiver plus tard.")) return;
     setBusy(id);
-    try { await adminApi("affiliate_revoke", { affiliate_id: id }); await load(); } finally { setBusy(null); }
+    try {
+      const j = await adminApi("affiliate_revoke", { affiliate_id: id });
+      if (!j.ok) setNotice("Erè: " + j.reason);
+      await load();
+    } finally { setBusy(null); }
+  };
+
+  const reactivate = async (a: Affiliate) => {
+    if (!a.id) return;
+    const expired = a.contract_end < new Date().toISOString().slice(0, 10);
+    if (!confirm(
+      `Réactiver ${a.fullname} ?\n\n`
+      + `➜ Même code, même lien et même mot de passe : il peut se reconnecter tout de suite.\n`
+      + `➜ Les commissions reprennent pour les factures émises à partir de maintenant (pas pour celles émises pendant la révocation).\n`
+      + (expired ? `➜ Son contrat était terminé : un nouveau contrat de 3 mois commence aujourd'hui.` : `➜ Le contrat reste valide jusqu'au ${dateFr(a.contract_end)}.`)
+    )) return;
+    setBusy(a.id);
+    try {
+      const j = await adminApi("affiliate_reactivate", { affiliate_id: a.id });
+      if (!j.ok) { setNotice("Erè: " + j.reason); return; }
+      setNotice(j.restarted
+        ? `${a.fullname} est réactivé, avec un nouveau contrat du ${dateFr(j.contractStart)} au ${dateFr(j.contractEnd)}.`
+        : `${a.fullname} est réactivé (contrat valide jusqu'au ${dateFr(j.contractEnd)}). Il peut se reconnecter avec ses accès habituels.`);
+      await load();
+    } finally { setBusy(null); }
   };
 
   const renew = async (id?: string) => {
@@ -227,7 +251,10 @@ export default function AffiliatesPage() {
                                 <div className={`h-full rounded-full ${urgent ? "bg-amber-500" : "bg-accent"}`} style={{ width: `${pct}%` }} />
                               </div>
                               <p className={`mt-1 text-[11px] font-semibold ${urgent ? "text-amber-700" : "text-mute"}`}>
-                                {left > 0 ? `${left} jour${left > 1 ? "s" : ""} restant${left > 1 ? "s" : ""}` : "Expire aujourd'hui"}
+                                {left > 0 ? `${left} jour${left > 1 ? "s" : ""} restant${left > 1 ? "s" : ""}`
+                                  : a.contract_end < new Date().toISOString().slice(0, 10)
+                                    ? "Contrat terminé — plus de commission, à renouveler"
+                                    : "Expire aujourd'hui"}
                               </p>
                             </div>
                           )}
@@ -249,8 +276,13 @@ export default function AffiliatesPage() {
                         <td className="px-4 py-3"><StatusPill status={a.status} /></td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap justify-end gap-2">
-                            <SpinButton busy={busy === a.id} onClick={() => renew(a.id)} icon={RefreshCw}
-                              title="Nouveau lien + nouveau contrat de 3 mois" compact className="bg-mist text-navy hover:bg-accent-light">Renouveler</SpinButton>
+                            {a.status === "revoked" ? (
+                              <SpinButton busy={busy === a.id} onClick={() => reactivate(a)} icon={RotateCcw}
+                                title="Annuler la révocation : même code, même lien" compact className="bg-emerald-600 text-white hover:bg-emerald-700">Réactiver</SpinButton>
+                            ) : (
+                              <SpinButton busy={busy === a.id} onClick={() => renew(a.id)} icon={RefreshCw}
+                                title="Nouveau lien + nouveau contrat de 3 mois" compact className="bg-mist text-navy hover:bg-accent-light">Renouveler</SpinButton>
+                            )}
                             {a.status === "active" && (
                               <>
                                 <SpinButton busy={busy === a.id} onClick={() => resetPassword(a.id)} icon={KeyRound}

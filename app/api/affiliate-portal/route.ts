@@ -71,7 +71,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "Identifiant ou mot de passe incorrect. L’identifiant est votre code affilié (ex. : ABCDEF1234)." });
     }
     if (aff.status !== "active") {
-      return NextResponse.json({ ok: false, reason: "Ce compte affilié n'est plus actif. Contactez Standa Commercial." });
+      // Mesaj egzak selon ka a, pou afilye a konnen kisa pou l fè (pa jis "pa aktif").
+      if (aff.status === "expired") {
+        const { data: successor } = await svc.from("affiliates").select("id")
+          .eq("renewed_from_affiliate_id", aff.id).eq("status", "active").limit(1).maybeSingle();
+        if (successor) {
+          return NextResponse.json({ ok: false, reason: "Ce code a été remplacé lors du renouvellement de votre contrat. Connectez-vous avec votre NOUVEAU code affilié et son mot de passe, reçus par e-mail." });
+        }
+        return NextResponse.json({ ok: false, reason: "Votre contrat d'affiliation est terminé. Contactez Standa Commercial (+509 4673 8117) pour le renouveler." });
+      }
+      return NextResponse.json({ ok: false, reason: "Votre compte affilié est suspendu. Contactez Standa Commercial (+509 4673 8117) pour le réactiver." });
     }
 
     const token = newSessionToken();
