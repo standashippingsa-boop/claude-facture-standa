@@ -33,6 +33,14 @@ export default function InvoicesPage() {
     setSearch(text("search")); setFromF(text("fromF")); setToF(text("toF"));
     setCustomerF(text("customerF")); setMinTotal(text("minTotal")); setMaxTotal(text("maxTotal"));
   });
+  // Lyen "Voir les factures" fich kliyan an (/invoices?client=MC-XXXX): kouri
+  // APRE restorasyon filtè sovgade yo (efè deklare apre), donk kliyan nan URL
+  // la toujou genyen, epi lòt filtè yo vide pou tout fakti li parèt.
+  useEffect(() => {
+    const client = new URLSearchParams(window.location.search).get("client")?.trim();
+    if (!client) return;
+    setCustomerF(client); setSearch(""); setFromF(""); setToF(""); setMinTotal(""); setMaxTotal("");
+  }, []);
   const [footer, setFooter] = useState("Mèsi paske ou fè STANDA COMMERCIAL konfyans.");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

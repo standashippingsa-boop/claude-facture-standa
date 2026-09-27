@@ -1,4 +1,5 @@
 import "server-only";
+import { affiliateWebsiteLink } from "@/lib/affiliate-terms";
 
 /**
  * VI ESPAS AFILYE — kalkil SÈL kote.
@@ -17,6 +18,8 @@ export type AffiliateOverviewResult =
 export interface AffiliateOverview {
   affiliate: {
     fullname: string; code: string; referral_link: string;
+    /** Lyen sit la (enfo sou sèvis la) ak kòd afilye a — kliyan an rete atribye si l enskri pita. */
+    website_link: string;
     contract_start: string; contract_end: string; status: string;
     commission_amount: number; days_left: number;
     payout_method: string | null; payout_phone: string; payout_updated_at: string | null;
@@ -91,6 +94,7 @@ export async function buildAffiliateOverview(svc: any, aff: any): Promise<Affili
     data: {
       affiliate: {
         fullname: aff.fullname, code: aff.code, referral_link: aff.referral_link,
+        website_link: affiliateWebsiteLink(aff.code),
         contract_start: aff.contract_start, contract_end: aff.contract_end, status: aff.status,
         commission_amount: aff.commission_amount, days_left: daysLeft,
         payout_method: aff.payout_method ?? null, payout_phone: aff.payout_phone ?? "", payout_updated_at: aff.payout_updated_at ?? null,

@@ -1,5 +1,6 @@
 import "server-only";
 import { SITE_URL } from "@/lib/branding";
+import { affiliateWebsiteLink } from "@/lib/affiliate-terms";
 
 /**
  * PWOGRAM AFFILIATION — imèl apwobasyon (kontra + lyen + login).
@@ -45,6 +46,7 @@ export function buildAffiliateApprovalEmail(a: {
   referralLink: string; contractStart: string; contractEnd: string; commissionAmount: number;
   isRenewal?: boolean;
 }): { subject: string; html: string } {
+  const websiteLink = affiliateWebsiteLink(a.code);
   const subject = a.isRenewal
     ? `Votre nouveau contrat Affiliation STANDA COMMERCIAL — ${a.code}`
     : `Bienvenue dans le programme Affiliation STANDA COMMERCIAL — ${a.code}`;
@@ -60,8 +62,16 @@ export function buildAffiliateApprovalEmail(a: {
 <tr><td style="padding:24px 32px 0"><img src="https://www.standacommercialsa.com/logo.png" alt="STANDA COMMERCIAL" height="32" style="height:32px"></td></tr>
 <tr><td style="padding:16px 32px 0"><h1 style="margin:0;font-size:20px;color:#111827">${a.isRenewal ? `Bonne nouvelle, ${esc(a.fullname)} !` : `Félicitations, ${esc(a.fullname)} !`}</h1>
 <p style="margin:10px 0 0;font-size:14px;line-height:1.6;color:#4B5563">${intro}</p></td></tr>
-<tr><td style="padding:18px 32px 0">${label("Votre lien unique à partager")}${copyBox(a.referralLink, a.referralLink)}
-<p style="margin:6px 0 0;font-size:11px;line-height:1.5;color:#6B7280">Pour copier le lien : appuyez longuement dessus puis « Copier l'adresse du lien » (téléphone), ou clic droit puis « Copier l'adresse du lien » (ordinateur).</p></td></tr>
+<tr><td style="padding:18px 32px 0"><p style="margin:0 0 10px;font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.06em">Vos deux liens personnels</p>
+${label("1. Lien d'inscription")}
+<p style="margin:2px 0 0;font-size:12px;line-height:1.5;color:#4B5563">Il ouvre directement la page où votre contact crée son compte client. À envoyer quand la personne est prête à s'inscrire.</p>
+${copyBox(a.referralLink, a.referralLink)}
+<div style="height:14px;line-height:14px">&nbsp;</div>
+${label("2. Lien du site (informations)")}
+<p style="margin:2px 0 0;font-size:12px;line-height:1.5;color:#4B5563">Pour une personne qui veut d'abord mieux connaître le service : le site explique tout (adresse à Miami, agences, suivi des colis). Si elle crée son compte ensuite depuis le site, sur le même téléphone et dans les 30 jours, elle vous est quand même rattachée.</p>
+${copyBox(websiteLink, websiteLink)}
+<p style="margin:8px 0 0;font-size:11px;line-height:1.5;color:#6B7280">Pour copier un lien : appuyez longuement dessus puis « Copier l'adresse du lien » (téléphone), ou clic droit puis « Copier l'adresse du lien » (ordinateur).</p>
+<p style="margin:8px 0 0;padding:8px 10px;background:#FFF7ED;border-radius:6px;font-size:12px;line-height:1.5;color:#9A3412"><strong>Important :</strong> partagez toujours l'un de ces deux liens. Une personne qui tape elle-même l'adresse du site, sans votre lien, ne peut pas vous être rattachée.</p></td></tr>
 <tr><td style="padding:14px 32px 0">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
 <tr><td style="padding:6px 0;color:#6B7280;font-size:13px">Code</td><td align="right" style="padding:6px 0;font-size:13px;font-weight:700;font-family:monospace">${esc(a.code)}</td></tr>

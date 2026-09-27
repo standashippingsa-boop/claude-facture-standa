@@ -19,7 +19,7 @@ import { formatHtg, toPayoutHtg } from "@/lib/affiliate-terms";
 type Line = { id: string; code: string; status: string; contract_start: string; contract_end: string };
 interface Overview {
   affiliate: {
-    fullname: string; code: string; referral_link: string; contract_start: string; contract_end: string;
+    fullname: string; code: string; referral_link: string; website_link: string; contract_start: string; contract_end: string;
     status: string; commission_amount: number; days_left: number;
     payout_method: string | null; payout_phone: string; payout_updated_at: string | null; signed_contract_uploaded_at: string | null;
   };
@@ -91,8 +91,11 @@ export default function AffiliateDetailPage() {
       {/* ── CE QUE VOIT L'AFFILIÉ ─────────────────────────────────────── */}
       <p className="mt-6 text-[11px] font-bold uppercase tracking-[.14em] text-accent">Ce que voit l’affilié dans son espace</p>
       <div className="mt-2 rounded-2xl bg-navy p-5 text-white">
-        <p className="text-[11px] font-bold uppercase tracking-[.18em] text-white/50">Son lien unique</p>
-        <code className="mt-2 block rounded-lg bg-white/10 px-3 py-2 text-[13px] break-all">{affiliate.referral_link}</code>
+        <p className="text-[11px] font-bold uppercase tracking-[.18em] text-white/50">Ses liens personnels</p>
+        <p className="mt-2 text-[12px] text-white/70">Inscription directe</p>
+        <code className="mt-1 block rounded-lg bg-white/10 px-3 py-2 text-[13px] break-all">{affiliate.referral_link}</code>
+        <p className="mt-2 text-[12px] text-white/70">Site (informations)</p>
+        <code className="mt-1 block rounded-lg bg-white/10 px-3 py-2 text-[13px] break-all">{affiliate.website_link}</code>
         <p className="mt-3 text-[12px] text-white/70">Contrat : {dateFr(affiliate.contract_start)} → {dateFr(affiliate.contract_end)} · {affiliate.days_left} jour{affiliate.days_left > 1 ? "s" : ""} restant{affiliate.days_left > 1 ? "s" : ""} · {usd(affiliate.commission_amount)} par facture</p>
       </div>
 

@@ -1,3 +1,5 @@
+import { SITE_URL } from "@/lib/branding";
+
 /**
  * PWOGRAM AFFILIATION — kondisyon peman (menm valè ak kontra PDF la, atik 6).
  * Komisyon yo kalkile an USD men yo peye SÈLMAN an goud, a to fiks sa a,
@@ -11,6 +13,16 @@ export const toPayoutHtg = (usd: number) => Math.round(Number(usd || 0) * AFFILI
 
 export const formatHtg = (value: number) =>
   `${new Intl.NumberFormat("fr-HT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0))} HTG`;
+
+/**
+ * DE LYEN AFILYE (tou de atribye kliyan an bay afilye a):
+ *  - referral_link  (/inscription?ref=KÒD): mennen DIREK sou kreyasyon kont kliyan an;
+ *  - website link   (/accueil?ref=KÒD): sit la, pou moun ki vle plis enfo anvan.
+ * middleware.ts sonje ?ref= sou NENPÒT paj pandan 30 jou (cookie standa_ref),
+ * donk yon moun ki li enfo yo epi ki enskri pita (menm aparèy) rete pou afilye a.
+ */
+export const affiliateWebsiteLink = (code: string) =>
+  `${SITE_URL}/accueil?ref=${encodeURIComponent(code)}`;
 
 /** Bucket Storage kote kontra siyen yo antre (prive — sèlman lyen siyen). */
 export const SIGNED_CONTRACT_BUCKET = "affiliate-contracts";

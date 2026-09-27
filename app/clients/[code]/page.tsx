@@ -19,7 +19,6 @@ import InvoiceDialog from "@/components/InvoiceDialog";
 import { Client, INTERNAL_STATUSES, Invoice, Pkg } from "@/lib/types";
 import { dateFr, sortPackagesAvailableFirst, usd } from "@/lib/utils";
 import { returnToOr, useRememberListContext } from "@/lib/list-context";
-import { openSecureDocument } from "@/lib/secure-document";
 import { specialPackageInfo } from "@/lib/special-package";
 
 type SelPkg = Pkg & { selected?: boolean };
@@ -122,6 +121,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   // ===== Estatistik =====
   const totalLbs = round2(pkgs.reduce((s, p) => s + p.weight, 0));
   const totalFacture = round2(invs.reduce((s, i) => s + Number(i.grand_total ?? 0), 0));
+  const lastInvoiceAt = invs.reduce((latest, i) => String(i.created_at ?? "") > latest ? String(i.created_at) : latest, "");
   const nonFacture = round2(visible.filter((p) => p.status === "Disponible")
     .reduce((s, p) => s + p.price_usd + p.tax_usd, 0));
 
@@ -367,28 +367,22 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
         </table>
       </section>
 
-      {/* ===== Fakti / Historique ===== */}
-      <section className="card overflow-x-auto">
-        <h2 className="text-xs font-bold text-navy uppercase tracking-wide p-3 pb-1">Factures ({invs.length})</h2>
-        <table className="w-full text-xs">
-          <thead><tr>{["No Facture", "Date", "Colis", "Total USD", "Total HTG", "PDF"]
-            .map((h) => <th key={h} className="thc">{h}</th>)}</tr></thead>
-          <tbody>
-            {invs.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-8 text-slate-400">Poko gen fakti.</td></tr>
-            ) : invs.map((f, i) => (
-              <tr key={f.id} className={i % 2 ? "bg-mist" : ""}>
-                <td className="tdc font-bold text-navy">{f.invoice_number}</td>
-                <td className="tdc">{dateFr(f.created_at)}</td>
-                <td className="tdc text-center">{f.package_count}</td>
-                <td className="tdc text-right font-semibold">{usd(f.grand_total)}</td>
-                <td className="tdc text-right text-slate-500">{Number(f.total_htg ?? 0).toFixed(0)} HTG</td>
-                <td className="tdc">{f.has_pdf || f.pdf_path || f.pdf_url
-                  ? <button type="button" onClick={() => void openSecureDocument("invoice", f.id).catch((error) => setNotice(error instanceof Error ? error.message : "PDF indisponible."))} className="text-navy underline font-semibold">PDF</button> : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* ===== Fakti: yon bouton ki mennen sou paj Factures la, filtre sou kliyan sa a
+          (voir, PDF, paiement, clôture — tout aksyon fakti yo rete yon sèl kote). ===== */}
+      <section className="card p-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xs font-bold text-navy uppercase tracking-wide">Factures du client</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            {invs.length
+              ? <>{invs.length} facture{invs.length > 1 ? "s" : ""} · {usd(totalFacture)} au total{lastInvoiceAt ? ` · dernière le ${dateFr(lastInvoiceAt)}` : ""}</>
+              : "Aucune facture pour ce client."}
+          </p>
+        </div>
+        {client?.customer_code && (
+          <Link href={`/invoices?client=${encodeURIComponent(client.customer_code)}`} className="btn">
+            <FileText size={14} /> Voir les factures{invs.length ? ` (${invs.length})` : ""}
+          </Link>
+        )}
       </section>
 
       {/* ===== Modal: apèsi Import PDF pou kliyan sa a ===== */}

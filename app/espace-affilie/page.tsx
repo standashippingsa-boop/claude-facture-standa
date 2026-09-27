@@ -14,7 +14,7 @@ import { ContractSection, PayoutSection, dateFr } from "@/components/affiliate/A
  */
 interface Me {
   affiliate: {
-    fullname: string; code: string; referral_link: string; contract_start: string;
+    fullname: string; code: string; referral_link: string; website_link: string; contract_start: string;
     contract_end: string; status: string; commission_amount: number; days_left: number;
     payout_method: AffiliatePayoutMethod | null; payout_phone: string; payout_updated_at: string | null;
     signed_contract_uploaded_at: string | null;
@@ -39,7 +39,7 @@ export default function AffiliatePortalPage() {
   const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"signup" | "website" | null>(null);
   const [justDone, setJustDone] = useState<string | null>(null);
 
   useEffect(() => {
@@ -62,9 +62,10 @@ export default function AffiliatePortalPage() {
     router.replace("/espace-affilie/login");
   };
 
-  const copyLink = async () => {
+  const copyLink = async (which: "signup" | "website") => {
     if (!me) return;
-    try { await navigator.clipboard.writeText(me.affiliate.referral_link); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ }
+    const value = which === "signup" ? me.affiliate.referral_link : me.affiliate.website_link;
+    try { await navigator.clipboard.writeText(value); setCopied(which); setTimeout(() => setCopied(null), 1500); } catch { /* ignore */ }
   };
 
   if (error) return <div className="grid min-h-screen place-items-center bg-[#061937] px-6 text-center text-white">{error}</div>;
@@ -124,13 +125,18 @@ export default function AffiliatePortalPage() {
         )}
 
         <div className="mt-5 rounded-2xl bg-navy p-5 text-white">
-          <p className="text-[11px] font-bold uppercase tracking-[.18em] text-white/50">Votre lien unique</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <code className="rounded-lg bg-white/10 px-3 py-2 text-[13px] break-all">{affiliate.referral_link}</code>
-            <button onClick={copyLink} className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-2 text-[12px] font-bold hover:bg-white/25">
-              {copied ? <CheckCircle2 size={14} /> : <Copy size={14} />} {copied ? "Copié" : "Copier"}
-            </button>
-          </div>
+          <p className="text-[11px] font-bold uppercase tracking-[.18em] text-white/50">Vos liens personnels</p>
+          <ShareLink
+            title="Lien d’inscription"
+            hint="Ouvre directement la page où votre contact crée son compte client. À envoyer quand la personne est prête à s’inscrire."
+            value={affiliate.referral_link} copied={copied === "signup"} onCopy={() => void copyLink("signup")}
+          />
+          <ShareLink
+            title="Lien du site (informations)"
+            hint="Pour une personne qui veut d’abord mieux connaître le service : le site explique tout (adresse à Miami, agences, suivi des colis). Si elle crée son compte ensuite depuis le site, sur le même téléphone et dans les 30 jours, elle vous est quand même rattachée."
+            value={affiliate.website_link} copied={copied === "website"} onCopy={() => void copyLink("website")}
+          />
+          <p className="mt-3 text-[11.5px] leading-relaxed text-white/60">Important : partagez toujours un de ces deux liens. Une personne qui tape elle-même l’adresse du site, sans votre lien, ne peut pas vous être rattachée.</p>
 
           {affiliate.status === "active" && (
             <div className="mt-4">
@@ -257,6 +263,21 @@ function Stat({ icon: Icon, label, value, sub, tone }: { icon: typeof Users; lab
       <p className="mt-2 text-[20px] font-black text-navy">{value}</p>
       {sub && <p className="text-[12px] font-semibold text-navy/70">{sub}</p>}
       <p className="text-[12px] text-mute">{label}</p>
+    </div>
+  );
+}
+
+function ShareLink({ title, hint, value, copied, onCopy }: { title: string; hint: string; value: string; copied: boolean; onCopy: () => void }) {
+  return (
+    <div className="mt-3 rounded-xl bg-white/[.06] p-3">
+      <p className="text-[13px] font-bold">{title}</p>
+      <p className="mt-0.5 text-[12px] leading-relaxed text-white/65">{hint}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <code className="rounded-lg bg-white/10 px-3 py-2 text-[12.5px] break-all">{value}</code>
+        <button onClick={onCopy} className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-2 text-[12px] font-bold hover:bg-white/25">
+          {copied ? <CheckCircle2 size={14} /> : <Copy size={14} />} {copied ? "Copié" : "Copier"}
+        </button>
+      </div>
     </div>
   );
 }

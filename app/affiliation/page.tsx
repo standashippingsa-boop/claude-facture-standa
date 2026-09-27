@@ -250,10 +250,19 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
         </p>
       </section>
 
+      <section className="mt-4 rounded-2xl border border-[#d7e7fb] bg-white p-4 shadow-sm">
+        <h3 className="text-[15px] font-semibold text-[#0b3778]">Vos deux liens personnels</h3>
+        <ul className="mt-2.5 space-y-2.5 text-[13px] leading-[1.6] text-[#4f6b91]">
+          <li className="flex gap-2"><Link2 size={16} className="mt-0.5 shrink-0 text-[#2563eb]" /><span><b className="text-[#0b3778]">Lien d’inscription :</b> il amène votre contact directement sur la page où il crée son compte client. C’est le plus simple quand la personne est prête.</span></li>
+          <li className="flex gap-2"><Link2 size={16} className="mt-0.5 shrink-0 text-[#2563eb]" /><span><b className="text-[#0b3778]">Lien du site :</b> si la personne veut d’abord plus d’informations sur le service (adresse à Miami, agences, suivi des colis), ce lien l’amène sur le site www.standacommercialsa.com, où elle trouve tout. Si elle crée son compte ensuite depuis le site, sur le même téléphone et dans les 30 jours, elle reste rattachée à vous.</span></li>
+        </ul>
+        <p className="mt-2.5 rounded-xl bg-orange-50 px-3 py-2 text-[12.5px] leading-[1.55] text-[#9a3a0e]">Partagez toujours l’un de vos deux liens : une personne qui tape elle-même l’adresse du site, sans votre lien, ne peut pas vous être rattachée.</p>
+      </section>
+
       <section className="mt-4 rounded-2xl border border-[#d7e7fb] bg-[#f7fbff] p-4">
         <h3 className="text-[15px] font-semibold text-[#0b3778]">Ce que vous aurez comme affilié</h3>
         <ul className="mt-2.5 space-y-2 text-[13px] leading-[1.55] text-[#4f6b91]">
-          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Un lien personnel à partager avec les personnes que vous recommandez.</li>
+          <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Deux liens personnels à partager : un pour l’inscription directe, un pour découvrir le site.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Un espace affilié pour voir les comptes créés avec votre lien et leur progression.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Le suivi des commissions à recevoir et des commissions déjà payées.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Vos accès et votre contrat, qui présente les conditions de votre entente.</li>
