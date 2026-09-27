@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateAffiliateCode, generateAffiliatePassword, hashPassword } from "@/lib/affiliate-crypto";
 import { buildAffiliateApprovalEmail, sendAffiliateApprovalEmail } from "@/lib/affiliate-mail";
 import { AFFILIATE_PAYOUT_METHODS, SIGNED_CONTRACT_BUCKET, toPayoutHtg } from "@/lib/affiliate-terms";
+import { buildAffiliateOverview } from "@/lib/affiliate-overview";
 import { SITE_URL } from "@/lib/branding";
 import { ensureClientAuthAccount } from "@/lib/client-auth-server";
 
@@ -60,8 +61,18 @@ function generatedPassword(len = 12): string {
 }
 
 export async function POST(req: Request) {
-  // Rate limiting — aksyon admin: 20 / 10 min pa IP (anti brute-force)
-  const rl = rateLimit("adminauth:" + clientIp(req), 20, 600000);
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") return NextResponse.json({ ok: false, reason: "Requête invalide." }, { status: 400 });
+  const action = String(body.action ?? "");
+
+  // Rate limiting — aksyon admin: 20 / 10 min pa IP (anti brute-force).
+  // Lekti sèlman (gade espas yon afilye, louvri kontra siyen li) gen pwòp
+  // bidjè pa yo: fè navigasyon nan dosye afilye yo pa dwe bloke yon admin
+  // ki bezwen apwouve oswa peye apre sa.
+  const readOnly = action === "affiliate_overview" || action === "affiliate_contract_url";
+  const rl = readOnly
+    ? rateLimit("adminauth-read:" + clientIp(req), 150, 600000)
+    : rateLimit("adminauth:" + clientIp(req), 20, 600000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {
@@ -70,8 +81,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "SUPABASE_SECRET_KEY pa konfigire sou sèvè a (Settings > Environment Variables) + Redeploy." });
     }
     const svc = createClient(config.url, config.key, { auth: { persistSession: false, autoRefreshToken: false } });
-    const body = await req.json();
-    const action = String(body.action ?? "");
 
     // ---------- moun k ap fè demann lan (yon sèl rekèt, itilize pou wòl + piste odit) ----------
     type CallerRow = { username: string; prenom: string; nom: string; role: string };
@@ -436,6 +445,79 @@ export async function POST(req: Request) {
       const { data, error } = await svc.storage.from(SIGNED_CONTRACT_BUCKET).createSignedUrl(aff.signed_contract_path, 300);
       if (error || !data?.signedUrl) return NextResponse.json({ ok: false, reason: "Contrat indisponible." });
       return NextResponse.json({ ok: true, url: data.signedUrl });
+    }
+
+    // ---------- affiliate_overview (admin sèlman) — "antre" nan espas yon afilye ----------
+    // LEKTI SÈLMAN. Admin nan wè EGZAKTEMAN sa afilye a wè (menm fonksyon
+    // buildAffiliateOverview ak /api/affiliate-portal "me"), plis tout sa ki
+    // gen rapò ak li: kandidati + pyès idantite, istorik renouvèlman,
+    // koneksyon, detay chak komisyon, eta kont kliyan li refere yo.
+    // Pa gen enpèsonasyon (admin pa janm resevwa yon sesyon afilye): li pa ka
+    // aji nan non afilye a (chanje nimewo peman li, voye yon kontra, elatriye).
+    if (action === "affiliate_overview") {
+      if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
+      const affiliateId = String(body.affiliate_id ?? "");
+      const { data: aff } = await svc.from("affiliates").select("*").eq("id", affiliateId).maybeSingle();
+      if (!aff) return NextResponse.json({ ok: false, reason: "Affilié introuvable." });
+
+      const overview = await buildAffiliateOverview(svc, aff);
+      if (!overview.ok) return NextResponse.json({ ok: false, reason: overview.reason });
+
+      const commissionIds = overview.data.commissions.map((c: { invoice_id: string }) => c.invoice_id).filter(Boolean);
+      const clientIds = overview.data.referredClients.map((c) => c.id);
+      const [applicationRes, predecessorRes, successorsRes, sessionsRes, invoicesRes, clientsRes, eventsRes] = await Promise.all([
+        aff.application_id
+          ? svc.from("affiliate_applications").select("fullname, email, phone, whatsapp, city, id_type, id_number, motivation, status, created_at").eq("id", aff.application_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+        aff.renewed_from_affiliate_id
+          ? svc.from("affiliates").select("id, code, status, contract_start, contract_end").eq("id", aff.renewed_from_affiliate_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+        svc.from("affiliates").select("id, code, status, contract_start, contract_end").eq("renewed_from_affiliate_id", aff.id).order("created_at", { ascending: true }),
+        svc.from("affiliate_sessions").select("created_at, expires_at").eq("affiliate_id", aff.id).order("created_at", { ascending: false }).limit(20),
+        commissionIds.length
+          ? svc.from("invoices").select("id, invoice_number, customer_code, customer_name").in("id", commissionIds)
+          : Promise.resolve({ data: [] }),
+        clientIds.length
+          ? svc.from("clients").select("id, account_status, phone, whatsapp").in("id", clientIds)
+          : Promise.resolve({ data: [] }),
+        svc.from("staff_notifications").select("event_key, title, message, created_at")
+          .eq("source_affiliate_id", aff.id).order("created_at", { ascending: false }).limit(200),
+      ]);
+      // Yon evènman = yon liy pa admin; nou regwoupe yo pa eventId (event_key = affiliate:<eventId>:staff:<id>).
+      const seenEvents = new Set<string>();
+      const events = ((eventsRes.data ?? []) as Array<{ event_key: string; title: string; message: string; created_at: string }>)
+        .filter((e) => { const k = e.event_key.split(":staff:")[0]; if (seenEvents.has(k)) return false; seenEvents.add(k); return true; })
+        .slice(0, 50)
+        .map(({ title, message, created_at }) => ({ title, message, created_at }));
+
+      const nowIso = new Date().toISOString();
+      const sessions = (sessionsRes.data ?? []) as Array<{ created_at: string; expires_at: string }>;
+      const invoiceById = new Map(((invoicesRes.data ?? []) as Array<{ id: string; invoice_number: string; customer_code: string; customer_name: string }>).map((i) => [i.id, i]));
+      const clientById = new Map(((clientsRes.data ?? []) as Array<{ id: string; account_status: string | null; phone: string | null; whatsapp: string | null }>).map((c) => [c.id, c]));
+
+      return NextResponse.json({
+        ok: true,
+        ...overview.data,
+        commissions: overview.data.commissions.map((c: { invoice_id: string }) => {
+          const inv = invoiceById.get(c.invoice_id);
+          return { ...c, invoice_number: inv?.invoice_number ?? "", customer_code: inv?.customer_code ?? "", customer_name: inv?.customer_name ?? "" };
+        }),
+        referredClients: overview.data.referredClients.map((c) => ({
+          ...c,
+          account_status: clientById.get(c.id)?.account_status ?? "",
+          phone: clientById.get(c.id)?.phone ?? clientById.get(c.id)?.whatsapp ?? ""
+        })),
+        admin: {
+          id: aff.id, email: aff.email, phone: aff.phone, whatsapp: aff.whatsapp, username: aff.username,
+          created_at: aff.created_at, has_signed_contract: !!aff.signed_contract_path,
+          application: applicationRes.data ?? null,
+          predecessor: predecessorRes.data ?? null,
+          successors: successorsRes.data ?? [],
+          last_login_at: sessions[0]?.created_at ?? null,
+          active_sessions: sessions.filter((s) => s.expires_at > nowIso).length,
+          events
+        }
+      });
     }
 
     return NextResponse.json({ ok: false, reason: "Aksyon enkoni." });

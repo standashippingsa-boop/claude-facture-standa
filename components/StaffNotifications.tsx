@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Bell, BellRing, CheckCheck, LoaderCircle, ReceiptText, Truck, X } from "lucide-react";
+import { Bell, BellRing, CheckCheck, HandCoins, LoaderCircle, ReceiptText, Truck, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type StaffNotification = {
   id: string;
-  kind: "agency_payment" | "bon_remise_created";
+  kind: "agency_payment" | "bon_remise_created" | "affiliate_update";
   title: string;
   message: string;
   href: string;
@@ -81,13 +81,13 @@ export default function StaffNotifications({ variant = "icon" }: { variant?: Var
   };
 
   const Icon = ({ kind }: { kind: StaffNotification["kind"] }) => kind === "agency_payment"
-    ? <ReceiptText size={17} /> : <Truck size={17} />;
+    ? <ReceiptText size={17} /> : kind === "affiliate_update" ? <HandCoins size={17} /> : <Truck size={17} />;
 
   if (variant === "section") {
     if (!loading && !unread.length) return null;
     return <section className="card overflow-hidden border border-blue-100">
       <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
-        <div className="flex items-center gap-2"><BellRing size={17} className="text-brand" /><div><h2 className="h-sec">Notifications d&apos;opérations</h2><p className="mt-0.5 text-xs text-mute">Paiements reçus en agence et Bons de remise à traiter.</p></div></div>
+        <div className="flex items-center gap-2"><BellRing size={17} className="text-brand" /><div><h2 className="h-sec">Notifications d&apos;opérations</h2><p className="mt-0.5 text-xs text-mute">Paiements reçus en agence, Bons de remise à traiter et changements des affiliés.</p></div></div>
         {unread.length > 0 && <button type="button" disabled={updating} onClick={() => void markRead()} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 text-xs font-bold text-navy hover:bg-slate-50 disabled:opacity-50"><CheckCheck size={15} />Tout lire</button>}
       </div>
       {loading ? <div className="grid min-h-24 place-items-center"><LoaderCircle size={20} className="animate-spin text-slate-400" /></div> : <div className="divide-y divide-line">{unread.slice(0, 6).map((item) => <NotificationRow key={item.id} item={item} icon={<Icon kind={item.kind} />} onOpen={openNotification} />)}</div>}
@@ -113,7 +113,7 @@ export default function StaffNotifications({ variant = "icon" }: { variant?: Var
 
 function NotificationRow({ item, icon, onOpen }: { item: StaffNotification; icon: ReactNode; onOpen: (item: StaffNotification) => void }) {
   return <button type="button" onClick={() => void onOpen(item)} className={`flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50 ${item.read_at ? "opacity-70" : "bg-blue-50/35"}`}>
-    <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${item.kind === "agency_payment" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"}`}>{icon}</span>
+    <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${item.kind === "agency_payment" ? "bg-emerald-100 text-emerald-700" : item.kind === "affiliate_update" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"}`}>{icon}</span>
     <span className="min-w-0 flex-1"><span className="flex items-start gap-2"><b className="flex-1 text-sm text-navy">{item.title}</b>{!item.read_at && <i className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-orange-500" />}</span><small className="mt-0.5 block text-xs leading-relaxed text-slate-600">{item.message}</small><small className="mt-1 block text-[11px] font-medium text-slate-400">{formatDate(item.created_at)}</small></span>
   </button>;
 }

@@ -2812,7 +2812,7 @@ export async function getAffiliateApplications(): Promise<AffiliateApplication[]
 // Jamè `password_hash` — menm si se admin ki li, l pa gen rezon rive nan navigatè a.
 const AFFILIATE_SELECT = "id, application_id, fullname, email, phone, whatsapp, code, username, "
   + "referral_link, contract_start, contract_end, status, commission_amount, renewed_from_affiliate_id, created_at, "
-  + "signed_contract_path, signed_contract_uploaded_at, payout_method, payout_phone";
+  + "signed_contract_path, signed_contract_uploaded_at, payout_method, payout_phone, payout_updated_at";
 
 export async function getAffiliates(): Promise<Affiliate[]> {
   const { data } = await supabase.from("affiliates").select(AFFILIATE_SELECT).order("created_at", { ascending: false });

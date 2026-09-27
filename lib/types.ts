@@ -409,6 +409,8 @@ export interface Affiliate {
   /** Mòd peman afilye a chwazi (SÈLMAN goud): MonCash oswa NatCash + nimewo. */
   payout_method?: "MonCash" | "NatCash" | null;
   payout_phone?: string;
+  /** Dènye fwa afilye a chanje mòd/nimewo peman li (admin avèti chak fwa). */
+  payout_updated_at?: string | null;
   created_at?: string;
 }
 

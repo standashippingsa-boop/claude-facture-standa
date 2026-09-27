@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   CalendarClock, CheckCircle2, Clock3, Copy, Eye, HandCoins, Inbox, KeyRound,
   Loader2, RefreshCw, RotateCcw, Search, ShieldOff, UserCheck, Users, Wallet, XCircle
@@ -241,7 +242,7 @@ export default function AffiliatesPage() {
                     const urgent = a.status === "active" && left <= 14;
                     return (
                       <tr key={a.id} className="border-t border-line align-top">
-                        <td className="px-4 py-3"><p className="font-semibold text-navy">{a.fullname}</p><p className="text-mute">{a.email}</p></td>
+                        <td className="px-4 py-3"><Link href={`/affiliates/${a.id}`} className="font-semibold text-navy hover:underline">{a.fullname}</Link><p className="text-mute">{a.email}</p><Link href={`/affiliates/${a.id}`} className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-accent hover:underline"><Eye size={11} /> Voir son espace</Link></td>
                         <td className="px-4 py-3"><CopyField label="" value={a.referral_link} compact /></td>
                         <td className="px-4 py-3 text-mute">
                           <p>{dateFr(a.contract_start)} → {dateFr(a.contract_end)}</p>
@@ -270,7 +271,7 @@ export default function AffiliatesPage() {
                         </td>
                         <td className="px-4 py-3">
                           {a.payout_method
-                            ? <><p className="font-semibold text-navy">{a.payout_method}</p><p className="font-mono text-[12px] text-mute">{a.payout_phone}</p></>
+                            ? <><p className="font-semibold text-navy">{a.payout_method}</p><p className="font-mono text-[12px] text-mute">{a.payout_phone}</p>{a.payout_updated_at && <p className="text-[11px] text-mute">modifié le {dateFr(a.payout_updated_at)}</p>}</>
                             : <span className="text-[12px] text-mute">Non choisi</span>}
                         </td>
                         <td className="px-4 py-3"><StatusPill status={a.status} /></td>
