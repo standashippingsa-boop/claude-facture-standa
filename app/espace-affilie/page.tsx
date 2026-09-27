@@ -360,7 +360,7 @@ function PayoutSection({ method, phone, onSaved }: {
         </div>
       </div>
       <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] leading-relaxed text-amber-900">
-        Les commissions sont payées <b>uniquement en gourdes</b>, au taux fixe de <b>{AFFILIATE_PAYOUT_RATE_HTG.toString().replace(".", ",")} HTG pour 1 USD</b>
+        Les commissions sont payées <b>une fois par mois</b>, <b>uniquement en gourdes</b>, au taux fixe de <b>{AFFILIATE_PAYOUT_RATE_HTG.toString().replace(".", ",")} HTG pour 1 USD</b>
         {" "}(ex. : 10 USD = {formatHtg(toPayoutHtg(10))}).
       </p>
       <div className="mt-3 grid grid-cols-2 gap-2">
