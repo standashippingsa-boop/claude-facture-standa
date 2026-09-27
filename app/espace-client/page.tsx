@@ -194,12 +194,18 @@ export default function EspaceClientPage() {
    * Premye koneksyon sou APARÈY sa a: montre demann otorizasyon an pou KLIYAN
    * sa a. Demann natif la dwe soti apre yon klik "Activer"; Chrome, Safari ak
    * Android bloke demann ki lanse otomatikman san aksyon kliyan an.
+   *
+   * "v2" (2026-09-27): STANDA mande pou TOUT kliyan jwenn demann sa a ankò,
+   * menm sa ki te fè "Pas maintenant" anvan — clé localStorage la chanje non
+   * yon sèl fwa pou sa. Yon dezyèm "Pas maintenant" apre jodi a rete respekte
+   * san nou pa re-mande chak jou (pa gen okenn lòt chanjman pou vèsyon sa a).
    */
+  const PUSH_DISMISS_KEY_PREFIX = "standa:push-permission-dismissed-v2:";
   useEffect(() => {
     const customerCode = client?.customer_code;
     if (!customerCode || !isPushSupported()) return;
     let dismissed = false;
-    try { dismissed = window.localStorage.getItem(`standa:push-permission-dismissed:${customerCode}`) === "1"; } catch { /* ignore */ }
+    try { dismissed = window.localStorage.getItem(`${PUSH_DISMISS_KEY_PREFIX}${customerCode}`) === "1"; } catch { /* ignore */ }
     if (dismissed) return;
     getPushPermissionState().then((state) => setShowPushBanner(state === "default"));
   }, [client?.customer_code]);
@@ -207,7 +213,7 @@ export default function EspaceClientPage() {
   const dismissPushBanner = () => {
     setShowPushBanner(false);
     try {
-      if (client?.customer_code) window.localStorage.setItem(`standa:push-permission-dismissed:${client.customer_code}`, "1");
+      if (client?.customer_code) window.localStorage.setItem(`${PUSH_DISMISS_KEY_PREFIX}${client.customer_code}`, "1");
     } catch { /* ignore */ }
   };
 
