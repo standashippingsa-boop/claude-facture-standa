@@ -1090,7 +1090,7 @@ export default function EspaceClientPage() {
                 Un <b>jour ouvrable</b> va du lundi au vendredi — les samedis et dimanches ne comptent pas dans ce délai. Un colis reçu un vendredi peut donc arriver le mardi ou mercredi suivant sans retard de notre part.
               </p>
               <p className="text-[11px] text-mute mt-2 leading-relaxed">
-                Ce délai peut varier selon la douane et le volume de colis. Suivez chaque étape directement dans l&apos;application, sans avoir à nous contacter.
+                Ce délai peut varier seulement selon la douane, ou si votre code client ne figure pas dans l&apos;adresse du colis : une réclamation doit alors être faite avant que le colis puisse être envoyé en Haïti, ce qui prend du temps. Suivez chaque étape directement dans l&apos;application, sans avoir à nous contacter.
               </p>
             </div>
 
@@ -1221,9 +1221,9 @@ export default function EspaceClientPage() {
                   // règ antrepozaj /confidentialite, lib/pricing.ts, flux retrait).
                   // Si youn nan règ sa yo chanje, mete repons lan ajou tou.
                   ["Combien de temps prend mon colis ?",
-                   "Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement entre 3 et 7 jours ouvrables (du lundi au vendredi) pour qu'il arrive à votre agence en Haïti. Ce délai peut varier selon la douane et le volume de colis. Ouvrez le colis dans l'application pour voir son étape : Reçu à Miami, En préparation, En transit, Arrivé en Haïti, En route vers agence, puis Disponible."],
+                   "Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement entre 3 et 7 jours ouvrables (du lundi au vendredi) pour qu'il arrive à votre agence en Haïti. Ce délai peut varier seulement selon la douane, ou si votre code client ne figure pas dans l'adresse du colis : une réclamation doit alors être faite avant que le colis puisse être envoyé en Haïti, ce qui prend du temps. Ouvrez le colis dans l'application pour voir son étape : Reçu à Miami, En préparation, En transit, Arrivé en Haïti, En route vers agence, puis Disponible."],
                   ["Pourquoi mon colis n'apparaît-il pas encore ?",
-                   "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. Si le transporteur (Amazon, UPS, FedEx…) indique « livré », comptez quelques heures pour l'enregistrement. L'application se met à jour toute seule chaque minute ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. Vérifiez aussi que votre code client (MC-…) figurait bien sur la ligne « Address 2 » de l'adresse de livraison : sans ce code, nous ne pouvons pas relier le colis à votre compte. S'il n'apparaît toujours pas, écrivez-nous sur WhatsApp avec votre numéro de tracking."],
+                   "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. Si le transporteur (Amazon, UPS, FedEx…) indique « livré », comptez quelques heures pour l'enregistrement. L'application se met à jour toute seule chaque minute ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. Si votre colis n'apparaît pas, c'est souvent que l'adresse a été mal saisie lors de l'achat ou que votre code client (MC-…) n'a pas été mis sur la ligne « Address 2 » : sans ce code, nous ne pouvons pas relier le colis à votre compte. Recopiez toujours exactement l'adresse de la page « Mon adresse ». Dans ce cas, écrivez-nous sur WhatsApp avec votre numéro de tracking pour faire une réclamation."],
                   ["Puis-je envoyer plusieurs colis ensemble ?",
                    "Oui. Vous pouvez commander dans plusieurs boutiques : chaque colis est reçu et pesé séparément à Miami, et tous ceux qui portent votre code client sont regroupés dans votre compte. Les colis disponibles en même temps peuvent être réunis sur une seule facture."],
                   ["Que signifie « Préparer mon retrait » ?",
