@@ -17,6 +17,7 @@ Exécuter `npm run verify`. Cette commande vérifie, dans cet ordre :
 - **RLS** : ne JAMAIS créer de politique `anon all ... using(true)`. L'accès aux données passe par une session Supabase authentifiée (`security-hardening.sql`) ou par une route serveur avec la clé service. Toute nouvelle table doit recevoir ses politiques dans `security-hardening.sql`.
 - Ordre d'exécution SQL sur Supabase : `migration.sql` → `security-hardening.sql` → `20260831_public_reviews.sql`.
 - Chemins de fichiers Storage (`lib/upload.ts`, `lib/pdf.ts`) : garder un jeton aléatoire cryptographique — les buckets sont publics par lien.
+- **Sentry** (`lib/sentry-options.ts`, `instrumentation*.ts`, `app/global-error.tsx`) : opt-in via `NEXT_PUBLIC_SENTRY_DSN` (vide = aucun octet dans les bundles). Ne JAMAIS activer `sendDefaultPii`, Session Replay, `tracesSampleRate` ni les breadcrumbs `console` : l'app manipule des PII clients (téléphone, adresse, pièces d'identité) et des jetons (corps `/api/*`, `#access_token=` des liens mot de passe). Toute donnée envoyée passe par `scrubEvent`/`scrubBreadcrumb`. Garder la forme `if (process.env.NEXT_PUBLIC_SENTRY_DSN) { import(...) }` (pas `if (!DSN) return`) et `@sentry/browser` via `lib/sentry-client.ts` côté client (SDK Next.js ≈ 145 kB gzip vs ≈ 31 kB).
 
 ## Commandes utiles
 

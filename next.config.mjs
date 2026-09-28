@@ -32,6 +32,11 @@ export default {
   // Pa pibliye source maps pwodiksyon (mwens detay entèn ekspoze)
   productionBrowserSourceMaps: false,
 
+  // Sentry OPT-IN : valè a antre nan build MENM SI VID, konsa Next retire kòd
+  // `if (process.env.NEXT_PUBLIC_SENTRY_DSN) import("@sentry/nextjs")` nèt
+  // (zewo oktè nan bundle/middleware lè DSN pa mete). Gade lib/sentry-options.ts.
+  env: { NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN ?? "" },
+
   async headers() {
     return [
       {

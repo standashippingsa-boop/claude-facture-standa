@@ -63,6 +63,13 @@ Ré-exécutables sans risque (idempotents).
 - **PDF factures / photos** : nom de fichier avec jeton aléatoire
   (non énumérable) — bucket public *par lien* car WhatsApp ne peut pas
   joindre de fichier.
+- **Sentry (rapport d'erreurs)** : opt-in par `NEXT_PUBLIC_SENTRY_DSN`
+  (le DSN est public par conception, ce n'est pas un secret). Les événements
+  passent par `scrubEvent` / `scrubBreadcrumb` (`lib/sentry-options.ts`) :
+  suppression de l'utilisateur, des en-têtes, cookies, corps et query
+  strings ; masquage des JWT, e-mails, codes MC et numéros ; fragments
+  d'URL `#access_token=` retirés ; breadcrumbs `console` supprimés ; ni
+  Replay ni tracing. Vérifié de bout en bout (serveur réel + faux ingest).
 - En-têtes de sécurité + host canonique : `next.config.mjs`,
   `middleware.ts`.
 
