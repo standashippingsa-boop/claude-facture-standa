@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Banknote, Bell, BellRing, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, RefreshCw, Search, Settings, ShieldCheck, Truck, X } from "lucide-react";
+import { AlertTriangle, Banknote, Bell, BellRing, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, Printer, RefreshCw, Search, Settings, ShieldCheck, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getPushPermissionState, isPushSupported, subscribeStaffToPush } from "@/lib/push";
 import { openSecureDocument } from "@/lib/secure-document";
@@ -314,8 +314,13 @@ export default function PickupAgentPortal() {
       const result = await call({ action: "release_many", package_ids: selectedPackageIds });
       const confirmed = Array.isArray(result.package_ids) ? result.package_ids : selectedPackageIds;
       setConfirmedParcelIds(confirmed);
-      setMessage({ type: "ok", text: confirmed.length + " colis marqués « Livré » et ajoutés à l’historique." });
-      window.setTimeout(() => { setConfirmedParcelIds([]); setSelectedPackageIds([]); void load(); }, 1_800);
+      setMessage({ type: "ok", text: confirmed.length + " colis marqués « Livré ». Ouverture du ticket de remise à imprimer…" });
+      // Chaque remise produit son ticket : on l'ouvre directement, prêt à imprimer.
+      window.setTimeout(() => {
+        setConfirmedParcelIds([]); setSelectedPackageIds([]);
+        if (confirmed[0]) router.push("/espace-remise/ticket?package=" + encodeURIComponent(confirmed[0]) + "&print=1");
+        else void load();
+      }, 1_200);
     } catch (error) {
       setMessage({ type: "error", text: error instanceof Error ? error.message : "Remise impossible." });
     } finally {
@@ -438,7 +443,7 @@ export default function PickupAgentPortal() {
           {tab === "dossiers" && <ClientDossiersView dossiers={matchingDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={setSelectedInvoiceId} />}
           {tab === "arrivals" && <ArrivalsView groups={groups} expanded={expandedCustomer} section={arrivalSection} onToggleCustomer={toggleArrivalCustomer} onSelectSection={(value) => setArrivalSection((current) => current === value ? null : value)} />}
           {tab === "ready" && <ReadyView groups={groups} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={setSelectedInvoiceId} />}
-          {tab === "history" && <RemiseHistoryView packages={filteredPackages} invoices={invoices} onOpenInvoice={setSelectedInvoiceId} />}
+          {tab === "history" && <RemiseHistoryView packages={filteredPackages} invoices={invoices} onOpenInvoice={setSelectedInvoiceId} onOpenTicket={(packageId) => router.push("/espace-remise/ticket?package=" + encodeURIComponent(packageId))} />}
           {tab === "history" && <DeliveredInvoicesView invoices={deliveredInvoices} onOpenInvoice={setSelectedInvoiceId} />}
           {tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
           {tab === "reports" && <ReportsView agentName={data.agent.name} payments={reportPayments} balances={reportBalances} onOpenInvoice={setSelectedInvoiceId} onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} />}
@@ -791,7 +796,7 @@ function ArrivalsView({ groups, expanded, section, onToggleCustomer, onSelectSec
  * avec le code client, la date et l'heure, le numéro de facture et comment
  * la facture a été payée. Les colis remis n'apparaissent plus ailleurs.
  */
-function RemiseHistoryView({ packages, invoices, onOpenInvoice }: { packages: ZonePackage[]; invoices: ZoneInvoice[]; onOpenInvoice: (invoiceId: string) => void }) {
+function RemiseHistoryView({ packages, invoices, onOpenInvoice, onOpenTicket }: { packages: ZonePackage[]; invoices: ZoneInvoice[]; onOpenInvoice: (invoiceId: string) => void; onOpenTicket: (packageId: string) => void }) {
   const [visible, setVisible] = useState(40);
   const remises = useMemo(() => {
     const byRemise = new Map<string, { key: string; customerCode: string; customerName: string; deliveredAt: string; packages: ZonePackage[] }>();
@@ -817,6 +822,7 @@ function RemiseHistoryView({ packages, invoices, onOpenInvoice }: { packages: Zo
           <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Code client</p><p className="text-lg font-black text-[#0a2b61]">{remise.customerCode}{remise.customerName && <span className="ml-1 text-xs font-semibold text-slate-500 sm:text-sm">· {remise.customerName}</span>}</p></div>
           <div className="text-right"><StatusChip status={DONE} /><p className="mt-1 text-xs font-semibold text-slate-600">{remise.deliveredAt ? "Remis le " + dateTimeText(remise.deliveredAt) : "Date de remise non archivée"}</p></div>
         </div>
+        <button type="button" onClick={() => onOpenTicket(remise.packages[0].id)} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0a2b61] px-3 text-sm font-bold text-white hover:bg-[#0c397a] sm:w-auto"><Printer size={16} /> Ticket de remise</button>
         <div className="mt-3"><p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">Colis remis · {remise.packages.length} · {quantityTotal(remise.packages)} article{quantityTotal(remise.packages) > 1 ? "s" : ""}</p>
           <div className="space-y-1">{remise.packages.map((item) => <div key={item.id} className="rounded-lg border-l-4 border-emerald-400 bg-emerald-50/50 px-2.5 py-1.5"><p className="break-all text-[13px] font-bold text-[#0a2b61]">{packageReference(item)}</p><p className="text-[11px] text-slate-500">Qté {item.quantity}{item.content ? " · " + item.content : ""}</p><SpecialPackageNotice item={item} compact /></div>)}</div>
         </div>

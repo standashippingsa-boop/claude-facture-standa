@@ -1329,15 +1329,47 @@ export async function setPackageStatus(id: string, status: string): Promise<void
   if (error) throw error;
 }
 /** Admin SÈLMAN: mete menm statut entèn nan sou plizyè koli alafwa */
-export async function setPackagesStatus(ids: string[], status: string): Promise<void> {
-  if (!ids.length) return;
-  const { error } = await supabase.from("packages")
-    .update({ status }).in("id", ids);
-  if (error) throw error;
+/**
+ * Chanje statut koli yo. Pou « Livré », nou make tou dat remiz la ak moun ki
+ * remèt yo (delivered_at / delivered_by): koli yo remèt ansanm fòme yon sèl
+ * TICKET DE REMISE. Retounen `delivered_at` la (oswa null) pou louvri ticket la.
+ * Kolòn yo soti nan migrasyon apa: si youn manke, operasyon an kontinye san li.
+ */
+export async function setPackagesStatus(ids: string[], status: string): Promise<string | null> {
+  if (!ids.length) return null;
+  if (status !== "Livré") {
+    const { error } = await supabase.from("packages")
+      .update({ status }).in("id", ids);
+    if (error) throw error;
+    return null;
+  }
+  const deliveredAt = new Date().toISOString();
+  let deliveredBy = "";
+  try {
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      const { data: s } = await supabase.from("staff")
+        .select("prenom, nom, username, role").eq("auth_user_id", data.user.id).maybeSingle();
+      if (s) deliveredBy = `${[s.prenom, s.nom].filter(Boolean).join(" ") || s.username || "STANDA"} (${s.role === "admin" ? "Administration" : "Employé"})`;
+    }
+  } catch { /* nom facultatif : la remise reste enregistrée */ }
+  const missing = (error: { message?: string } | null, column: string) =>
+    Boolean(error?.message?.toLowerCase().includes(column));
+  const patches: Record<string, string>[] = [
+    { status, delivered_at: deliveredAt, delivered_by: deliveredBy },
+    { status, delivered_at: deliveredAt },
+    { status }
+  ];
+  for (const patch of patches) {
+    const { error } = await supabase.from("packages").update(patch).in("id", ids);
+    if (!error) return "delivered_at" in patch ? deliveredAt : null;
+    if (!missing(error, "delivered_by") && !missing(error, "delivered_at")) throw error;
+  }
+  return null;
 }
 /** Konpatibilite: rakousi pou "Disponible" */
 export async function markDisponible(ids: string[]): Promise<void> {
-  return setPackagesStatus(ids, "Disponible");
+  await setPackagesStatus(ids, "Disponible");
 }
 /** Tracking Number (transpòtè) — admin antre l manyèlman; sync pa janm ranplase l */
 export async function saveTrackingManual(id: string, tracking_manual: string): Promise<void> {

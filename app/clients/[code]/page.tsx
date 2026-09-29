@@ -2,7 +2,7 @@
 import { use, useEffect, useState } from "react";
 import Loader from "@/components/Loader";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import RefreshButton from "@/components/RefreshButton";
@@ -18,7 +18,7 @@ import { computePrice, round2 } from "@/lib/pricing";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import { Client, INTERNAL_STATUSES, Invoice, Pkg } from "@/lib/types";
 import { dateFr, sortPackagesAvailableFirst, usd } from "@/lib/utils";
-import { returnToOr, useRememberListContext } from "@/lib/list-context";
+import { returnToOr, useRememberListContext, withReturnTo } from "@/lib/list-context";
 import { specialPackageInfo } from "@/lib/special-package";
 
 type SelPkg = Pkg & { selected?: boolean };
@@ -32,6 +32,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   const { code } = use(params);
   const decoded = decodeURIComponent(code);
   const searchParams = useSearchParams();
+  const router = useRouter();
   const backHref = returnToOr(searchParams.get("returnTo"), "/clients");
   const [client, setClient] = useState<Client | null>(null);
   const [pkgs, setPkgs] = useState<SelPkg[]>([]);
@@ -196,6 +197,13 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     setBusy(true);
     try {
       await setPackagesStatus(targets.map((p) => p.id), bulkStatus);
+      if (bulkStatus === "Livré") {
+        // Remise au client : son ticket de remise s'ouvre, prêt à imprimer.
+        await logAction("Remise colis", `${targets.length} colis remis au client (administration)`, targets[0]?.tracking_number ?? "", decoded);
+        sel.setMany(targets.map(snap), false);
+        router.push(withReturnTo(`/ticket-remise?package=${encodeURIComponent(targets[0].id)}&print=1`, `/clients/${encodeURIComponent(decoded)}`));
+        return;
+      }
       let mailInfo = "";
       // Sans email, le client reçoit quand même l'alerte sur son téléphone :
       // le serveur envoie le push et ignore seulement l'email.

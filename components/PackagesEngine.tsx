@@ -73,6 +73,8 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  /** Remises confirmées ici : un ticket imprimable par client. */
+  const [remiseTickets, setRemiseTickets] = useState<{ code: string; packageId: string; count: number }[]>([]);
   const [showWaQueue, setShowWaQueue] = useState(false);
   const [specialEditor, setSpecialEditor] = useState<Pkg | null>(null);
   const { role, staff } = useRole();
@@ -373,7 +375,20 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
     const targets = selectedAll.filter((p) => p.status !== "Facturé");
     if (!targets.length) { setNotice("Koli Facturé yo ka sèlman pase « Disponible » (koreksyon)."); return; }
     try {
-      await setPackagesStatus(targets.map((p) => p.id), bulkStatus);
+      setRemiseTickets([]);
+      if (bulkStatus === "Livré") {
+        // Une remise = un client : chaque client reçoit son propre ticket de remise.
+        const byCustomer = new Map<string, string[]>();
+        targets.forEach((p) => byCustomer.set(p.customer_code, [...(byCustomer.get(p.customer_code) ?? []), p.id]));
+        const tickets: { code: string; packageId: string; count: number }[] = [];
+        for (const [code, ids] of Array.from(byCustomer.entries())) {
+          await setPackagesStatus(ids, bulkStatus);
+          tickets.push({ code, packageId: ids[0], count: ids.length });
+        }
+        setRemiseTickets(tickets);
+      } else {
+        await setPackagesStatus(targets.map((p) => p.id), bulkStatus);
+      }
       await logAction("Changement Statut", `${targets.length} colis → ${bulkStatus}`, "", targets[0]?.customer_code ?? "");
       setPkgs((prev) => prev.map((p) =>
         targets.some((t) => t.id === p.id) ? { ...p, status: bulkStatus } : p));
@@ -987,6 +1002,18 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       })()}
 
       {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
+      {remiseTickets.length > 0 && (
+        <div className="card flex flex-wrap items-center gap-2 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm">
+          <span className="font-semibold text-emerald-800">Tickets de remise à imprimer :</span>
+          {remiseTickets.map((ticket) => (
+            <Link key={ticket.packageId} className="btn !py-1.5 !text-xs"
+              href={withReturnTo(`/ticket-remise?package=${encodeURIComponent(ticket.packageId)}&print=1`, pathname)}>
+              <Receipt size={14} /> {ticket.code} ({ticket.count})
+            </Link>
+          ))}
+          <button type="button" className="ml-auto text-xs text-slate-500 hover:text-navy" onClick={() => setRemiseTickets([])}>Fermer</button>
+        </div>
+      )}
     </div>
   );
 }

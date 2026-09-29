@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Camera } from "lucide-react";
+import { CheckCircle2, Camera, Printer } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import RefreshButton from "@/components/RefreshButton";
@@ -139,7 +139,7 @@ export default function HistoriquePage() {
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr>{["", "No Facture", "Code Client", "Nom", "Tracking ID (Guía)", "Conduce", "Date", "Lb", "Content", "Total (USD)", "Validation", "Status", ""]
+          <thead><tr>{["", "No Facture", "Code Client", "Nom", "Tracking ID (Guía)", "Conduce", "Date", "Lb", "Content", "Total (USD)", "Validation", "Status", "Remise"]
             .map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody>
             {rows.length === 0 ? (
@@ -190,7 +190,7 @@ export default function HistoriquePage() {
                     </div>
                   </td>
                   <td className="td"><StatusBadge status={p.status} /></td>
-                  <td className="td whitespace-nowrap"><span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><CheckCircle2 size={14} /> Confirmé</span></td>
+                  <td className="td whitespace-nowrap"><Link href={withReturnTo(`/ticket-remise?package=${encodeURIComponent(p.id)}`, pathname)} className="inline-flex items-center gap-1 rounded-lg bg-navy px-2 py-1 text-xs font-bold text-white hover:opacity-90" title="Imprimer le ticket de remise de ce client"><Printer size={13} /> Ticket</Link></td>
                 </tr>
               );
             })}

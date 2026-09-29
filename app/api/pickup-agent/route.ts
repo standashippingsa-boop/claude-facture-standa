@@ -129,6 +129,25 @@ function missingSchemaColumn(error: unknown, column: string) {
   return message.toLowerCase().includes(column.toLowerCase());
 }
 
+/**
+ * Marque des colis « Livré » avec la date ET l'agent de la remise (ticket de
+ * remise). Les colonnes `delivered_by` puis `delivered_at` viennent de
+ * migrations séparées : on retombe proprement sur ce qui existe déjà.
+ */
+async function markDelivered(run: (patch: Record<string, string>) => Promise<any>, deliveredAt: string, deliveredBy: string) {
+  const patches: Record<string, string>[] = [
+    { status: "Livré", delivered_at: deliveredAt, delivered_by: deliveredBy },
+    { status: "Livré", delivered_at: deliveredAt },
+    { status: "Livré" }
+  ];
+  let result: any = null;
+  for (const patch of patches) {
+    result = await run(patch);
+    if (!missingSchemaColumn(result.error, "delivered_by") && !missingSchemaColumn(result.error, "delivered_at")) return result;
+  }
+  return result;
+}
+
 async function customerBelongsToZone(db: any, customerCode: string, villeId: string) {
   const result = await db.from("clients").select("ville_id").eq("customer_code", customerCode).maybeSingle();
   return result.data?.ville_id === villeId;
@@ -689,12 +708,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, reason: `Client avec un solde de ${total.toFixed(2)} USD (${refs}). Réglez ce solde avant toute remise.` }, { status: 409 });
       }
       const deliveredAt = new Date().toISOString();
-      let update = await db.from("packages").update({ status: "Livré", delivered_at: deliveredAt })
-        .in("id", packageIds).in("status", ["Disponible", "Facturé"]).select("id");
-      if (missingSchemaColumn(update.error, "delivered_at")) {
-        update = await db.from("packages").update({ status: "Livré" })
-          .in("id", packageIds).in("status", ["Disponible", "Facturé"]).select("id");
-      }
+      const update = await markDelivered((patch) => db.from("packages").update(patch)
+        .in("id", packageIds).in("status", ["Disponible", "Facturé"]).select("id"), deliveredAt, `${agentName(agent)} (Point de retrait)`);
       if (update.error) throw update.error;
       if ((update.data ?? []).length !== packageIds.length) {
         return NextResponse.json({ ok: false, reason: "Un colis vient déjà d'être traité. Actualisez la liste." }, { status: 409 });
@@ -713,7 +728,7 @@ export async function POST(req: Request) {
           sendFcmToCustomer(pushConfig, customerCode, copy)
         ]);
       }
-      return NextResponse.json({ ok: true, package_ids: packageIds });
+      return NextResponse.json({ ok: true, package_ids: packageIds, delivered_at: deliveredAt });
     }
 
     if (body?.action === "release") {
@@ -767,12 +782,8 @@ export async function POST(req: Request) {
         const refs = outstanding.map((row: { number: string }) => row.number).filter(Boolean).join(", ");
         return NextResponse.json({ ok: false, reason: `Client avec un solde de ${total.toFixed(2)} USD (${refs}). Réglez ce solde avant toute remise.` }, { status: 409 });
       }
-      let update = await db.from("packages").update({ status: "Livré", delivered_at: new Date().toISOString() })
-        .eq("id", packageId).in("status", ["Disponible", "Facturé"]).select("id").maybeSingle();
-      if (missingSchemaColumn(update.error, "delivered_at")) {
-        update = await db.from("packages").update({ status: "Livré" })
-          .eq("id", packageId).in("status", ["Disponible", "Facturé"]).select("id").maybeSingle();
-      }
+      const update = await markDelivered((patch) => db.from("packages").update(patch)
+        .eq("id", packageId).in("status", ["Disponible", "Facturé"]).select("id").maybeSingle(), new Date().toISOString(), `${agentName(agent)} (Point de retrait)`);
       if (update.error) throw update.error;
       if (!update.data) return NextResponse.json({ ok: false, reason: "Ce colis vient déjà d'être traité. Actualisez la liste." }, { status: 409 });
       const completedRetraits = await completePreparedRetraits(db, parcel.customer_code);
