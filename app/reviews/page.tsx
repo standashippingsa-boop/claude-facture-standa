@@ -6,6 +6,7 @@ import Loader from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
 import { supabase } from "@/lib/supabase";
 
+import { useNoticeToast } from "@/lib/notify";
 type AdminReview = {
   id: string;
   author_name: string;
@@ -29,6 +30,7 @@ function Rating({ value }: { value: number }) {
 export default function ReviewsAdminPage() {
   const [reviews, setReviews] = useState<AdminReview[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  useNoticeToast(notice, setNotice);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function request(body: Record<string, unknown>) {
@@ -79,7 +81,6 @@ export default function ReviewsAdminPage() {
         <RefreshButton onRefresh={load} />
       </div>
 
-      {notice && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{notice}</p>}
 
       {reviews === null ? <Loader inline /> : <>
         <div className="grid gap-3 sm:grid-cols-3">

@@ -55,6 +55,7 @@ import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import { openSecureDocument } from "@/lib/secure-document";
 import { ClientLogisticsDashboard, ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
 
+import { useNoticeToast } from "@/lib/notify";
 type View = "home" | "disponibles" | "receptions" | "factures" | "historique" | "retraits" | "notifications" | "adresse" | "calc" | "infos";
 type NoticeKind = "available" | "invoice" | "pickup" | "shipment";
 type ClientNotice = {
@@ -144,6 +145,7 @@ export default function EspaceClientPage() {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  useNoticeToast(msg, setMsg);
   const [toast, setToast] = useState<string | null>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -152,6 +154,7 @@ export default function EspaceClientPage() {
   const [pwd1, setPwd1] = useState("");
   const [pwd2, setPwd2] = useState("");
   const [pwdMsg, setPwdMsg] = useState<string | null>(null);
+  useNoticeToast(pwdMsg, setPwdMsg);
   const [pwdBusy, setPwdBusy] = useState(false);
 
   const [calcW, setCalcW] = useState("");
@@ -944,7 +947,6 @@ export default function EspaceClientPage() {
                 </button>
               </div>
             )}
-            {msg && <p className="card px-4 py-3 text-sm text-navy">{msg}</p>}
           </>
         )}
 
@@ -1352,9 +1354,6 @@ export default function EspaceClientPage() {
                 onChange={(e) => setPwd2(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && changePassword()} />
             </label>
-            {pwdMsg && <p className={`text-sm rounded-lg px-3 py-2 ${pwdMsg.startsWith("✅")
-              ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
-              : "text-red-600 bg-red-50 border border-red-200"}`}>{pwdMsg}</p>}
             <button className="btn w-full justify-center" onClick={changePassword} disabled={pwdBusy}>
               {pwdBusy ? "Modification en cours…" : "Enregistrer"}
             </button>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, LogIn } from "lucide-react";
 import Logo from "@/components/Logo";
 
+import { useNoticeToast } from "@/lib/notify";
 /**
  * PÒTAY AFILYE — koneksyon.
  * Afilye yo PA Supabase Auth: fòm sa a rele /api/affiliate-portal (cookie
@@ -15,6 +16,7 @@ export default function AffiliateLoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  useNoticeToast(error, setError, { tone: "error", title: "Connexion impossible" });
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -57,7 +59,6 @@ export default function AffiliateLoginPage() {
               autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="current-password"
               className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-[14px] text-white outline-none focus:border-orange-300" />
           </label>
-          {error && <p className="rounded-xl bg-red-500/15 px-3.5 py-2.5 text-[13px] text-red-200">{error}</p>}
           <button type="submit" disabled={busy}
             className="mt-1 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-[14px] font-bold text-white transition hover:-translate-y-0.5 hover:bg-orange-600 disabled:opacity-60">
             {busy ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />} {busy ? "Connexion…" : "Se connecter"}

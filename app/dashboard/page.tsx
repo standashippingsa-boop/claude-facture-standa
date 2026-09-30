@@ -19,11 +19,13 @@ import RefreshButton from "@/components/RefreshButton";
 import StaffNotifications from "@/components/StaffNotifications";
 import { dateFr, usd } from "@/lib/utils";
 
+import { useNoticeToast } from "@/lib/notify";
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [nouvo, setNouvo] = useState<Client[]>([]);       // nouvo kliyan annatant
   const [retraits, setRetraits] = useState<Retrait[]>([]); // demandes de retrait annatant
   const [err, setErr] = useState<string | null>(null);
+  useNoticeToast(err, setErr, { tone: "error", title: "Connexion à la base impossible" });
 
   const load = async () => {
     await getStats().then(setStats).catch((e) => setErr(e.message ?? String(e)));
@@ -56,7 +58,6 @@ export default function Dashboard() {
         <RefreshButton onRefresh={load} />
       </div>
 
-      {err && <p className="card p-4 text-sm text-red-600">Erè koneksyon bazdone: {err} — verifye .env.local ou a.</p>}
 
       <StaffNotifications variant="section" />
 

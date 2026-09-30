@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { CheckCircle2, Package, RotateCcw, Search, X } from "lucide-react";
 import { dateFr } from "@/lib/utils";
 
+import { useNoticeToast } from "@/lib/notify";
 /**
  * STANDA COMMERCIAL — BWAT TRACKING PIBLIK
  * ═════════════════════════════════════════
@@ -54,6 +55,7 @@ export default function TrackBox() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Found | null>(null);
   const [message, setMessage] = useState("");
+  useNoticeToast(message, setMessage, { tone: "error", title: "Suivi indisponible" });
 
   async function search() {
     const q = value.trim();
@@ -181,14 +183,6 @@ export default function TrackBox() {
       </form>
 
       {/* ══════════ MESAJ (pa jwenn / erè) ══════════ */}
-      {message && (
-        <div className="mt-3 flex items-start gap-3 rounded-xl bg-amber-50 ring-1 ring-amber-200 px-4 py-3.5">
-          <p className="flex-1 text-[14px] text-amber-800 leading-relaxed">{message}</p>
-          <button type="button" onClick={closeResult} aria-label="Fermer" className="rounded-lg p-1 text-amber-700 hover:bg-amber-100">
-            <X size={16} />
-          </button>
-        </div>
-      )}
 
       {/* ══════════ REZILTA ══════════ */}
       {result && <ResultCard result={result} onClose={closeResult} onNewSearch={clearAll} />}

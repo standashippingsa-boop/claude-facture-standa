@@ -27,6 +27,7 @@ import { normalizeMcCode } from "@/lib/utils";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 import AuthBackdrop from "@/components/site/AuthBackdrop";
 
+import { useNoticeToast } from "@/lib/notify";
 const WA = `https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`;
 /** Adrès ABSOLI: fòse sòti nan app la epi louvri navigatè a. */
 const SITE_INSCRIPTION = `${SITE_URL}/inscription`;
@@ -37,6 +38,7 @@ export default function AppConnexionPage() {
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  useNoticeToast(err, setErr, { tone: "error", title: "Connexion impossible" });
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
@@ -117,16 +119,6 @@ export default function AppConnexionPage() {
             </div>
           </label>
 
-          {err && (
-            <div className="rounded-2xl bg-red-500/15 border border-red-400/30 px-4 py-3 space-y-2.5 sd-rise">
-              <p className="text-[13px] text-red-100 leading-relaxed">{err}</p>
-              <a href={WA} target="_blank" rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-[12px] font-bold text-white
-                           bg-indigo-600 hover:bg-indigo-500 rounded-lg px-3 py-2 transition">
-                <MessageCircle size={14} /> Mande èd sou WhatsApp
-              </a>
-            </div>
-          )}
 
           <button type="submit" disabled={busy}
             className={`w-full rounded-2xl py-4 text-[15px] font-bold text-white transition

@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle2, LoaderCircle, Printer, ReceiptText, ShieldChec
 import Logo from "@/components/Logo";
 import { supabase } from "@/lib/supabase";
 
+import { MessageScreen } from "@/components/Toaster";
 type ReceiptData = {
   receipt_number: string;
   payment: {
@@ -46,7 +47,7 @@ export default function PaymentReceiptPage({ paymentId, backHref }: { paymentId:
   }, [paymentId]);
 
   if (!receipt && !error) return <div className="grid min-h-[60vh] place-items-center"><LoaderCircle className="animate-spin text-navy" size={34} /></div>;
-  if (error) return <section className="mx-auto max-w-xl rounded-3xl border border-red-200 bg-red-50 p-6 text-center"><ReceiptText className="mx-auto text-red-600" size={34} /><h1 className="mt-3 text-xl font-black text-navy">Reçu indisponible</h1><p className="mt-2 text-sm text-red-700">{error}</p><button type="button" onClick={() => router.push(backHref)} className="btn btn-primary mt-5">Retour</button></section>;
+  if (error) return <MessageScreen tone="error" title="Reçu indisponible" text={error} actionLabel="Retour" onAction={() => router.push(backHref)} />;
   if (!receipt) return null;
 
   const { payment, invoice, customer } = receipt;

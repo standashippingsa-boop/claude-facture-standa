@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, FileDown, LoaderCircle, Printer, ReceiptText } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useNoticeToast } from "@/lib/notify";
 import {
   generateRemiseTicketPdf, qrSvgPath, ticketAmount, ticketDateTime, ticketHtg, ticketQrMatrix,
   ticketShortDateTime, ticketUsd, type RemiseTicket, type TicketWidth
@@ -22,6 +23,7 @@ export default function RemiseTicketPage({ packageId, backHref, autoPrint }: { p
   const [ticket, setTicket] = useState<RemiseTicket | null>(null);
   const [qr, setQr] = useState<boolean[][] | null>(null);
   const [error, setError] = useState("");
+  useNoticeToast(error, setError, { tone: "error", title: "Ticket indisponible" });
   const [width, setWidth] = useState<TicketWidth>(80);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pageHeight, setPageHeight] = useState(0);
@@ -112,7 +114,6 @@ export default function RemiseTicketPage({ packageId, backHref, autoPrint }: { p
         <span className="font-semibold text-slate-600">Papier de l’imprimante</span>
         <div className="flex gap-1">{([80, 58] as TicketWidth[]).map((value) => <button key={value} type="button" aria-pressed={width === value} onClick={() => chooseWidth(value)} className={`rounded-lg px-3 py-1.5 font-bold ${width === value ? "bg-[#09295e] text-white" : "bg-slate-100 text-slate-700"}`}>{value} mm</button>)}</div>
       </div>
-      {error && <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{error}</p>}
     </div>
 
     <article id="remise-ticket" ref={ticketRef} className="mx-auto bg-white text-black shadow-md ring-1 ring-slate-200"

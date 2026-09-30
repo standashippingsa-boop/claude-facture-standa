@@ -21,6 +21,7 @@ import { dateFr, sortPackagesAvailableFirst, usd } from "@/lib/utils";
 import { returnToOr, useRememberListContext, withReturnTo } from "@/lib/list-context";
 import { specialPackageInfo } from "@/lib/special-package";
 
+import { useNoticeToast } from "@/lib/notify";
 type SelPkg = Pkg & { selected?: boolean };
 
 /**
@@ -52,6 +53,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     setSpecialF(text("specialF")); setMinWeight(text("minWeight")); setMaxWeight(text("maxWeight"));
   });
   const [notice, setNotice] = useState<string | null>(null);
+  useNoticeToast(notice, setNotice);
   const [busy, setBusy] = useState(false);
   const { role } = useRole();
   const sel = usePackageSelection();
@@ -449,7 +451,6 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
         />
       )}
 
-      {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
     </div>
   );
 }

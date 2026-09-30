@@ -21,6 +21,7 @@ import { createPendingConduces } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import { withReturnTo } from "@/lib/list-context";
 
+import { useNoticeToast } from "@/lib/notify";
 export default function ImportConduces({ onLinked }: { onLinked?: () => void }) {
   const pathname = usePathname() ?? "/sync";
   const { staff } = useRole();
@@ -29,6 +30,7 @@ export default function ImportConduces({ onLinked }: { onLinked?: () => void }) 
   const [numbersRaw, setNumbersRaw] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ t: "ok" | "err"; s: string } | null>(null);
+  useNoticeToast(msg, setMsg);
   const [results, setResults] = useState<{ number: string; id: string; alreadyExisted: boolean }[]>([]);
 
   const creer = async () => {
@@ -67,12 +69,6 @@ export default function ImportConduces({ onLinked }: { onLinked?: () => void }) 
         <CheckCircle2 size={15} /> Créer les conduces en attente
       </button>
 
-      {msg && (
-        <div className={`rounded-lg px-4 py-2.5 text-sm font-semibold flex items-center gap-2 ${
-          msg.t === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
-          {msg.t === "ok" ? <CheckCircle2 size={16} /> : null} {msg.s}
-        </div>
-      )}
 
       {results.length > 0 && (
         <div className="border-t border-line pt-3">

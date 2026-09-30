@@ -14,6 +14,7 @@ import { getClientsByCodes, logAction } from "@/lib/db";
 import { openPackagesWhatsApp } from "@/lib/whatsapp";
 import { Pkg, Client } from "@/lib/types";
 
+import { Spinner } from "@/components/Loader";
 export default function WhatsAppQueue({ pkgs, onClose }: { pkgs: Pkg[]; onClose: () => void }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +59,7 @@ export default function WhatsAppQueue({ pkgs, onClose }: { pkgs: Pkg[]; onClose:
         </p>
 
         <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2">
-          {loading && <p className="text-sm text-mute">Chargement…</p>}
+          {loading && <div className="flex justify-center py-6 text-navy" role="status" aria-label="Chargement"><Spinner size={22} /></div>}
           {!loading && codes.map((code) => {
             const c = clients.find((x) => x.customer_code === code);
             const list = byClient.get(code) ?? [];

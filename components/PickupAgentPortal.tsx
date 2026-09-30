@@ -14,6 +14,7 @@ import type { PaymentInvoice } from "@/lib/payment-allocation";
 import Logo from "@/components/Logo";
 import StaffNotifications from "@/components/StaffNotifications";
 
+import { MessageScreen } from "@/components/Toaster";
 type ZonePackage = {
   id: string; tracking_number: string; tracking_manual: string; customer_code: string; customer_name: string;
   customer_balance_usd: number; customer_balance_htg: number; balance_invoice_id: string; balance_invoice_number: string;
@@ -322,7 +323,6 @@ export default function PickupAgentPortal() {
       const result = await call({ action: "release_many", package_ids: selectedPackageIds });
       const confirmed = Array.isArray(result.package_ids) ? result.package_ids : selectedPackageIds;
       setConfirmedParcelIds(confirmed);
-      setMessage({ type: "ok", text: confirmed.length + " colis marqués « Livré ». Ouverture du ticket de remise à imprimer…" });
       // Chaque remise produit son ticket : on l'ouvre directement, prêt à imprimer.
       window.setTimeout(() => {
         setConfirmedParcelIds([]); setSelectedPackageIds([]);
@@ -379,11 +379,11 @@ export default function PickupAgentPortal() {
       if (!result) return;
       const lines = (result.payments ?? []) as Array<{ invoice_number: string; payment_status: string }>;
       const amountText = payload.currency === "HTG" ? fmtHtg(payload.amount) : fmtUsd(payload.amount);
-      notify.success(`${amountText} par ${payload.method} · ${lines.map((line) => `${line.invoice_number} : ${line.payment_status}`).join(" · ")}`, { title: `Paiement enregistré — ${paymentTarget?.customerCode ?? ""}` });
+      notify.success(`${amountText} par ${payload.method}\n${lines.map((line) => `${line.invoice_number} : ${line.payment_status}`).join("\n")}`, { title: `Paiement enregistré — ${paymentTarget?.customerCode ?? ""}` });
       setPaymentTarget(null);
       await load(true);
     } catch (error) {
-      setPaymentError(error instanceof Error ? error.message : "Paiement impossible.");
+      notify.error(error instanceof Error ? error.message : "Paiement impossible.", { title: "Paiement non enregistré" });
     } finally {
       setPaymentBusy(false);
     }
@@ -431,7 +431,7 @@ export default function PickupAgentPortal() {
 
     <main className="mx-auto max-w-6xl px-3 py-3 pb-20 sm:px-6 sm:py-8 sm:pb-12">
       {loading && <div className="grid min-h-[45vh] place-items-center"><Loader inline size={64} /></div>}
-      {!loading && !data && <section className="mx-auto max-w-xl rounded-3xl border border-red-100 bg-white p-7 text-center shadow-sm"><ShieldCheck className="mx-auto mb-3 text-red-500" size={36} /><h1 className="text-xl font-extrabold text-[#0a2b61]">Accès à vérifier</h1><p className="mt-2 text-sm text-slate-600">{loadError || "Impossible de préparer votre espace."}</p><button type="button" className="btn mt-5" onClick={() => void load()}>Réessayer</button></section>}
+      {!loading && !data && <MessageScreen tone="error" title="Accès à vérifier" text={loadError || "Impossible de préparer votre espace."} actionLabel="Réessayer" onAction={() => void load()} />}
       {!loading && data && <>
         <div className="md:grid md:grid-cols-[190px_minmax(0,1fr)] md:gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
         <SideNavigation tab={tab} incoming={incoming.length} ready={ready.length} dossiers={dossiers.length} delivered={delivered.length} bons={data.bons.length} balanceCount={report.customer_balances.length} onHome={() => setTab("home")} onArrivals={() => { setTab("arrivals"); setArrivalSection(null); }} onReady={() => setTab("ready")} onDossiers={() => setTab("dossiers")} onHistory={() => setTab("history")} onBons={() => setTab("bons")} onReports={() => setTab("reports")} onSettings={() => setTab("settings")} />

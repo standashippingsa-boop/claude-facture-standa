@@ -14,6 +14,7 @@ import { specialPackageInfo } from "@/lib/special-package";
 import { Package } from "lucide-react";
 import { ShoppingBag } from "lucide-react";
 
+import { useNoticeToast } from "@/lib/notify";
 /**
  * FENÊTRE DE FACTURATION — CONFIGURATION UNIQUE (STANDA COMMERCIAL)
  * ════════════════════════════════════════════════════════════════
@@ -107,6 +108,7 @@ export default function InvoiceDialog({
   const [comp, setComp] = useState<InvoiceComputation | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  useNoticeToast(err, setErr, { tone: "error", title: "Facture non enregistrée" });
 
   // Chaje to + konfigirasyon ti koli (Paramètres)
   useEffect(() => {
@@ -475,7 +477,6 @@ export default function InvoiceDialog({
             {comp.errors.map((e, i) => <p key={i} className="text-[11px] text-red-600">• {e}</p>)}
           </div>
         )}
-        {err && <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2 text-xs text-red-700">❌ {err}</div>}
 
         {/* APERÇU */}
         <div className="bg-mist rounded-lg p-3 space-y-1.5 text-sm">

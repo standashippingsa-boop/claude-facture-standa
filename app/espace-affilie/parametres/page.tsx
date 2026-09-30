@@ -7,6 +7,7 @@ import Logo from "@/components/Logo";
 import type { AffiliatePayoutMethod } from "@/lib/affiliate-terms";
 import { ContractSection, PayoutSection, dateFr, portal } from "@/components/affiliate/AffiliateAccountCards";
 
+import Loader from "@/components/Loader";
 /**
  * PÒTAY AFILYE — Paramètres. Kontra siyen + mòd peman rete ISIT pou afilye a
  * ka modifye yo nenpòt ki lè (tablo bò a montre yo sèlman pandan yo poko fèt).
@@ -47,7 +48,7 @@ export default function AffiliateSettingsPage() {
         </div>
 
         {!account ? (
-          <div className="mt-8 flex items-center gap-2 text-sm text-mute"><Loader2 size={16} className="animate-spin" /> Chargement…</div>
+          <div className="mt-8"><Loader inline size={56} /></div>
         ) : (
           <div className="mt-6 space-y-4">
             <section className="rounded-2xl border border-line bg-white p-4 sm:p-5">

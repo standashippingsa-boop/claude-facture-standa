@@ -17,7 +17,7 @@
 import { useEffect, useState } from "react";
 import { FileText, Inbox, Loader2 } from "lucide-react";
 import RefreshButton from "@/components/RefreshButton";
-import { SavedToast } from "@/components/Loader";
+import { SavedToast, Spinner } from "@/components/Loader";
 import FilterConsole from "@/components/FilterConsole";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import {
@@ -27,6 +27,7 @@ import { Client, Pkg, Retrait, RetraitStatus } from "@/lib/types";
 import { dateFr, usd } from "@/lib/utils";
 import { useRememberListContext } from "@/lib/list-context";
 
+import { useNoticeToast } from "@/lib/notify";
 const STATUTS: RetraitStatus[] = ["En attente", "Préparé", "Remis"];
 const BADGE: Record<RetraitStatus, string> = {
   "En attente": "bg-amber-100 text-amber-700",
@@ -51,6 +52,7 @@ export default function RetraitsPage() {
     setFromF(text("fromF")); setToF(text("toF"));
   });
   const [notice, setNotice] = useState<string | null>(null);
+  useNoticeToast(notice, setNotice);
   const [toast, setToast] = useState<string | null>(null);
 
   /** Koli reyèl yo chaje depi bazdone a, pa demann: { [retraitId]: Pkg[] } */
@@ -187,7 +189,6 @@ export default function RetraitsPage() {
         </table>
       </div>
 
-      {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
       {toast && <SavedToast message={toast} onClose={() => setToast(null)} />}
 
       {/* MÊME fenêtre de facturation que Packages / Dossier client */}
@@ -240,9 +241,7 @@ function RetraitRow({
         <tr className="bg-blue-50/50">
           <td colSpan={8} className="px-8 py-3">
             {loading && !pkgs ? (
-              <p className="py-4 text-center text-xs text-mute flex items-center justify-center gap-2">
-                <Loader2 size={14} className="animate-spin" /> Chargement des colis…
-              </p>
+              <div className="flex justify-center py-5 text-navy" role="status" aria-label="Chargement"><Spinner size={22} /></div>
             ) : (pkgs ?? []).length === 0 ? (
               <p className="py-4 text-center text-xs text-mute">
                 Aucun colis trouvé dans la base pour cette demande (déjà facturés ou supprimés).

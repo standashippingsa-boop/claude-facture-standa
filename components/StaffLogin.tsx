@@ -16,6 +16,7 @@ import { getMyStaff, staffEmail } from "@/lib/authx";
 import type { StaffRole } from "@/lib/types";
 import PasswordInput from "@/components/PasswordInput";
 
+import { useNoticeToast } from "@/lib/notify";
 export default function StaffLogin({
   title,
   subtitle,
@@ -36,6 +37,7 @@ export default function StaffLogin({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  useNoticeToast(err, setErr, { tone: "error", title: "Connexion impossible" });
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
@@ -120,7 +122,6 @@ export default function StaffLogin({
 
         <PasswordInput dark value={password} onChange={setPassword} onEnter={submit} />
 
-        {err && <p className="text-sm text-red-200 bg-red-500/10 border border-red-400/30 rounded-xl px-4 py-3">{err}</p>}
 
         <button type="submit" disabled={busy}
           className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm disabled:opacity-50">

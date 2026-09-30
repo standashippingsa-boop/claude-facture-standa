@@ -13,6 +13,7 @@ import { dateFr, htg, usd } from "@/lib/utils";
 import { useRememberListContext } from "@/lib/list-context";
 import { openSecureDocument } from "@/lib/secure-document";
 
+import { useNoticeToast } from "@/lib/notify";
 const PAYMENT_METHODS = ["Espèces", "MonCash", "NatCash", "Zelle", "Virement bancaire"];
 const PAYMENT_TONE: Record<string, string> = {
   "Payé": "bg-emerald-100 text-emerald-700",
@@ -43,6 +44,7 @@ export default function InvoicesPage() {
   }, []);
   const [footer, setFooter] = useState("Mèsi paske ou fè STANDA COMMERCIAL konfyans.");
   const [notice, setNotice] = useState<string | null>(null);
+  useNoticeToast(notice, setNotice);
   const [busy, setBusy] = useState(false);
   const { role, staff } = useRole();
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
@@ -54,6 +56,7 @@ export default function InvoicesPage() {
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  useNoticeToast(paymentError, setPaymentError, { tone: "error", title: "Paiement non enregistré" });
   const [unsettledByInvoice, setUnsettledByInvoice] = useState<Map<string, string[]>>(new Map());
 
   const load = async () => {
@@ -266,7 +269,6 @@ export default function InvoicesPage() {
         </table>
       </div>
 
-      {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
 
       {paymentTarget && (() => {
         const remainingUsd = invoiceRemainingAmounts(paymentTarget).remainingUsd;
@@ -304,7 +306,6 @@ export default function InvoicesPage() {
                   <input type="text" className="input mt-1" value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} disabled={paymentBusy} placeholder="No transaction, chèque…" />
                 </label>
               </div>
-              {paymentError && <p className="mt-3 text-xs font-semibold text-red-600">{paymentError}</p>}
               <div className="mt-5 flex justify-end gap-2">
                 <button className="btn btn-ghost" onClick={() => setPaymentTarget(null)} disabled={paymentBusy}>Annuler</button>
                 <button className="btn btn-brand" onClick={confirmPayment} disabled={paymentBusy || !paymentAmount}>

@@ -12,6 +12,7 @@ import { CheckCircle2, MapPin } from "lucide-react";
 import { registerClientProfile } from "@/lib/db";
 import { safeMessage } from "@/lib/safeerror";
 
+import { useNoticeToast } from "@/lib/notify";
 type PublicVille = { id: string; name: string; pickup_location: string };
 
 const schema = z.object({
@@ -31,6 +32,7 @@ type Form = z.infer<typeof schema>;
 export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
   const [done, setDone] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  useNoticeToast(err, setErr, { tone: "error", title: "Inscription impossible" });
   const [villes, setVilles] = useState<PublicVille[]>([]);
   const [citiesState, setCitiesState] = useState<"loading" | "ready" | "unavailable">("loading");
   const [website, setWebsite] = useState(""); // Honeypot : doit rester vide.
@@ -186,7 +188,6 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
             value={website} onChange={(e) => setWebsite(e.target.value)}
             className="absolute h-px w-px -m-px overflow-hidden opacity-0" />
 
-          {err && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{err}</p>}
 
           <button type="submit" className="btn w-full justify-center py-3" disabled={isSubmitting || citiesState !== "ready"}>
             {isSubmitting ? "Création du compte..." : citiesState === "loading" ? "Chargement des villes..." : "Créer mon compte"}

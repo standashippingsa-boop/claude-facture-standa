@@ -15,6 +15,7 @@ import { dateFr } from "@/lib/utils";
 import { openDepotWhatsApp } from "@/lib/whatsapp";
 import { useRememberListContext, withReturnTo } from "@/lib/list-context";
 
+import { useNoticeToast } from "@/lib/notify";
 const schema = z.object({
   customer_code: z.string().min(1, "Kòd obligatwa"),
   fullname: z.string().min(1, "Non obligatwa"),
@@ -44,6 +45,7 @@ export default function ClientsPage() {
     setAccountStatusF(text("accountStatusF")); setFromF(text("fromF")); setToF(text("toF"));
   });
   const [notice, setNotice] = useState<string | null>(null);
+  useNoticeToast(notice, setNotice);
   const [mcClient, setMcClient] = useState<Client | null>(null);  // modal "Créer compte MCPACK"
   const [mcCode, setMcCode] = useState("");
   // Apre aktivasyon: kredansyèl yo (pou montre + voye WhatsApp)
@@ -297,7 +299,6 @@ export default function ClientsPage() {
         </table>
       </div>
 
-      {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
 
       {/* ===== Modal: Fusionner les comptes (V7.2) ===== */}
       {dups !== null && (

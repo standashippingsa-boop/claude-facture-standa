@@ -13,6 +13,8 @@ import {
 import { validateUpload } from "@/lib/upload";
 import type { McpackInvoice } from "@/lib/types";
 
+import { useNoticeToast } from "@/lib/notify";
+import { Spinner } from "@/components/Loader";
 type Notice = { tone: "ok" | "error" | "info"; text: string } | null;
 
 /**
@@ -34,6 +36,7 @@ export default function McpackInvoiceWorkspace({
   const [saving, setSaving] = useState(false);
   const [payingId, setPayingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
+  useNoticeToast(notice, setNotice);
 
   const load = async () => {
     setLoading(true);
@@ -139,16 +142,6 @@ export default function McpackInvoiceWorkspace({
           Le PDF est lu sur cet appareil et n&apos;est pas conservé sur le site. STANDA filtre tous les numéros de tracking présents dans le PDF, puis retrouve toutes les Conduces concernées, même si les colis sont livrés, archivés ou rangés dans des folders différents.
         </p>
 
-        {notice && (
-          <div className={`rounded-xl px-3 py-2.5 text-xs font-semibold flex items-start gap-2 ${
-            notice.tone === "ok" ? "bg-emerald-50 text-emerald-800" :
-            notice.tone === "error" ? "bg-red-50 text-red-700" : "bg-blue-50 text-navy"
-          }`}>
-            {notice.tone === "error" ? <AlertCircle size={15} className="shrink-0 mt-0.5" /> :
-              notice.tone === "ok" ? <CheckCircle2 size={15} className="shrink-0 mt-0.5" /> : <FileSearch size={15} className="shrink-0 mt-0.5" />}
-            <span>{notice.text}</span>
-          </div>
-        )}
 
         {analysis && (
           <div className="rounded-2xl border border-navy/15 bg-slate-50/70 p-3.5 space-y-3">
@@ -215,7 +208,7 @@ export default function McpackInvoiceWorkspace({
         )}
 
         {loading ? (
-          <div className="flex items-center gap-2 text-xs text-mute py-1"><LoaderCircle size={14} className="animate-spin" />Chargement du registre…</div>
+          <div className="flex justify-center py-2 text-navy" role="status" aria-label="Chargement"><Spinner size={18} /></div>
         ) : unpaid.length > 0 ? (
           <div className="space-y-2 pt-1">
             <p className="text-xs font-extrabold uppercase tracking-wide text-amber-800">À payer à MCPACK · {unpaid.length}</p>

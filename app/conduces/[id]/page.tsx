@@ -20,6 +20,7 @@ import { dateFr, usd } from "@/lib/utils";
 import type { Conduce } from "@/lib/types";
 import { returnToOr } from "@/lib/list-context";
 
+import { MessageScreen } from "@/components/Toaster";
 export default function ConduceDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const searchParams = useSearchParams();
@@ -57,8 +58,7 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
       <div className="card p-6 space-y-3">
         {err ? (
           <>
-            <p className="text-sm font-bold text-red-700">Erreur de chargement</p>
-            <p className="text-xs text-mute break-all">{err}</p>
+            <MessageScreen tone="error" title="Erreur de chargement" text={err} />
           </>
         ) : (
           <>

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
+import { notify } from "@/lib/notify";
 const CONFIRMATION = "SUPPRIMER";
 
 /**
@@ -18,6 +19,13 @@ export default function DeleteAccountModal({ whatsappHref, onClose }: { whatsapp
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<{ text: string; blocked: boolean } | null>(null);
+  const [blocked, setBlocked] = useState(false);
+  useEffect(() => {
+    if (!error) return;
+    if (error.blocked) setBlocked(true);
+    notify.error(error.text, { title: "Compte non supprimé" });
+    setError(null);
+  }, [error]);
   const ready = typed.trim().toUpperCase() === CONFIRMATION;
 
   const submit = async () => {
@@ -66,10 +74,7 @@ export default function DeleteAccountModal({ whatsappHref, onClose }: { whatsapp
           <span className="text-xs font-semibold text-mute">Tapez {CONFIRMATION} pour confirmer</span>
           <input className="input mt-1" value={typed} onChange={(event) => setTyped(event.target.value)} autoCapitalize="characters" autoComplete="off" onKeyDown={(event) => { if (event.key === "Enter") void submit(); }} />
         </label>
-        {error && <div role="alert" className="space-y-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          <p>{error.text}</p>
-          {error.blocked && <a href={whatsappHref} target="_blank" rel="noreferrer" className="inline-block font-bold underline">Écrire à STANDA sur WhatsApp</a>}
-        </div>}
+        {blocked && <a href={whatsappHref} target="_blank" rel="noreferrer" className="inline-block text-sm font-bold text-red-700 underline">Écrire à STANDA sur WhatsApp</a>}
         <button type="button" onClick={() => void submit()} disabled={!ready || busy} className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40">
           {busy ? "Suppression en cours…" : "Supprimer définitivement mon compte"}
         </button>

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import Logo from "@/components/Logo";
 
+import { useNoticeToast } from "@/lib/notify";
 /** Page publique de candidature au programme d’affiliation. */
 const ID_TYPES = ["Carte d’identité nationale", "Passeport", "Permis de conduire"] as const;
 
@@ -26,6 +27,7 @@ export default function AffiliationPage() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useNoticeToast(error, setError, { tone: "error", title: "Demande non envoyée" });
   const [cities, setCities] = useState<AgencyCity[]>([]);
   const [citiesState, setCitiesState] = useState<"loading" | "ready" | "unavailable">("loading");
   const [showProgramInfo, setShowProgramInfo] = useState(false);
@@ -199,7 +201,6 @@ export default function AffiliationPage() {
                 <div className="sm:col-span-2"><FormField label="Pourquoi souhaitez-vous devenir affilié? (facultatif)"><textarea value={f.motivation} onChange={set("motivation")} rows={3} placeholder="Parlez-nous brièvement de votre réseau ou de votre expérience." className="w-full resize-y rounded-xl border border-[#d4dfed] bg-white px-3.5 py-3 text-sm font-normal leading-relaxed text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100" /></FormField></div>
               </div>
 
-              {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-sm font-medium text-red-700">{error}</p>}
 
               <button type="submit" disabled={busy} className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#ff671d] px-5 text-[16px] font-bold tracking-[.012em] text-white shadow-[0_14px_22px_rgba(255,103,29,0.24)] transition hover:-translate-y-0.5 hover:bg-[#e85712] disabled:cursor-not-allowed disabled:opacity-60">
                 {busy && <Loader2 size={18} className="animate-spin" />}{busy ? "Envoi en cours…" : "Soumettre ma candidature"}<ArrowRight size={19} />

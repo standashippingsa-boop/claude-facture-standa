@@ -17,6 +17,7 @@ import { dateFr, parseMcpackDate } from "@/lib/utils";
 import StatusBadge from "@/components/StatusBadge";
 import type { Pkg } from "@/lib/types";
 
+import { useNoticeToast } from "@/lib/notify";
 type Mode = "manuel" | "continu";
 type BeepKind = "ok" | "already" | "notfound" | "error";
 
@@ -28,6 +29,7 @@ export default function ReceptionScanner() {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ t: "ok" | "warn" | "err"; s: string } | null>(null);
+  useNoticeToast(msg, setMsg);
   const [toVerify, setToVerify] = useState<string[]>([]); // koli introuvables (À Vérifier)
   const [counts, setCounts] = useState({ scanned: 0, found: 0, already: 0, notfound: 0, validated: 0 });
   // ===== Faz 3 — Photo de Preuve =====
@@ -150,7 +152,7 @@ export default function ReceptionScanner() {
       if (r.ok) {
         beep("ok");
         setCounts((c) => ({ ...c, validated: c.validated + 1 }));
-        setMsg({ t: "ok", s: `✔ Vérifié — ${pkg.tracking_number} → ${r.status}` });
+        setMsg({ t: "ok", s: `Vérifié — ${pkg.tracking_number} → ${r.status}` });
         setResult(null);
         // Faz 3: pwopoze foto de preuve (sèlman mòd manuel — pou pa ralanti mòd continu)
         if (mode === "manuel") setPhotoFor(pkg);
@@ -172,7 +174,7 @@ export default function ReceptionScanner() {
     try {
       const { savePackageProofPhoto } = await import("@/lib/db");
       const r = await savePackageProofPhoto(pkg.id, file, staffName);
-      if (r.ok) { beep("ok"); setMsg({ t: "ok", s: "📷 Photo de preuve enregistrée." }); }
+      if (r.ok) { beep("ok"); setMsg({ t: "ok", s: "Photo de preuve enregistrée." }); }
       else { beep("error"); setMsg({ t: "err", s: "Échec enregistrement photo." }); }
     } catch (e: any) {
       beep("error"); setMsg({ t: "err", s: "Erreur photo : " + (e?.message ?? String(e)) });
@@ -315,14 +317,6 @@ export default function ReceptionScanner() {
         </div>
       </div>
 
-      {/* Mesaj feedback */}
-      {msg && (
-        <div className={`rounded-lg px-4 py-2.5 text-sm font-semibold flex items-center gap-2 ${
-          msg.t === "ok" ? "bg-emerald-50 text-emerald-700" :
-          msg.t === "warn" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>
-          {msg.t === "ok" ? <CheckCircle2 size={16} /> : <X size={16} />} {msg.s}
-        </div>
-      )}
 
       {/* Faz 3 — Photo de Preuve (apre validasyon, mòd manuel) */}
       {photoFor && (

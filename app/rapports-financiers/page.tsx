@@ -214,11 +214,11 @@ export default function RapportsFinanciersPage() {
       if (!response.ok || !result.ok) throw new Error(result.reason || "Paiement impossible.");
       const lines = (result.payments ?? []) as Array<{ invoice_number: string; payment_status: string }>;
       const amountText = payload.currency === "USD" ? usd(payload.amount) : htg(payload.amount);
-      notify.success(`${amountText} par ${payload.method} · ${lines.map((line) => `${line.invoice_number} : ${line.payment_status}`).join(" · ")}`, { title: `Paiement enregistré — ${paymentCustomer}` });
+      notify.success(`${amountText} par ${payload.method}\n${lines.map((line) => `${line.invoice_number} : ${line.payment_status}`).join("\n")}`, { title: `Paiement enregistré — ${paymentCustomer}` });
       setPaymentCustomer(null);
       await load();
     } catch (error) {
-      setPaymentError(error instanceof Error ? error.message : "Paiement impossible.");
+      notify.error(error instanceof Error ? error.message : "Paiement impossible.", { title: "Paiement non enregistré" });
     } finally {
       setPaymentBusy(false);
     }

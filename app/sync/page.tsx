@@ -15,6 +15,7 @@ import {
 import { Client, ImportLog, Ville } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
 
+import { useNoticeToast } from "@/lib/notify";
 export default function SyncPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [filename, setFilename] = useState("");
@@ -25,12 +26,14 @@ export default function SyncPage() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<ImportLog | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  useNoticeToast(err, setErr, { tone: "error", title: "Opération échouée" });
   const [clients, setClients] = useState<Client[]>([]);
   const photoRef = useRef<HTMLInputElement>(null);
   const [scans, setScans] = useState<PhotoMatch[] | null>(null);
   const [scanProg, setScanProg] = useState("");
   const [accepted, setAccepted] = useState<Set<string>>(new Set());
   const [applyDone, setApplyDone] = useState<string | null>(null);
+  useNoticeToast(applyDone, setApplyDone, { tone: "success" });
   const [lastBatch, setLastBatch] = useState<string | null>(null);
   // ===== Import Facture MCPACK (pwen #6a) =====
   const factureRef = useRef<HTMLInputElement>(null);
@@ -354,7 +357,6 @@ export default function SyncPage() {
         </div>
         {scanProg && <p className="mt-3 text-sm text-navy-light flex items-center gap-2"><RefreshCw size={14} className="animate-spin" /> {scanProg}</p>}
 
-        {applyDone && <p className="mt-3 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">{applyDone}</p>}
 
         {scans && (() => {
           const ok = scans.filter((s) => s.verdict === "validated");
@@ -460,7 +462,6 @@ export default function SyncPage() {
       </div>
 
       {busy && !preview && <p className="text-sm text-slate-500">Analyse en cours...</p>}
-      {err && <p className="card px-4 py-3 text-sm text-red-600">{err}</p>}
 
       {/* ===== Modal: chwazi kliyan pou koli PDF yo ===== */}
       {preview && (

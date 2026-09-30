@@ -9,6 +9,7 @@ import { Plus, Trash2, Pencil, MapPin, ArrowLeft } from "lucide-react";
 import { useRole } from "@/lib/authx";
 import { Agence, blankAgence, deleteAgence, getAllAgences, toggleAgence, upsertAgence } from "@/lib/agences";
 
+import { useNoticeToast } from "@/lib/notify";
 /**
  * STANDA COMMERCIAL — PAJ ADMIN "AJANS / PWEN RETRAIT"
  * ══════════════════════════════════════════════════════
@@ -36,6 +37,7 @@ export default function AgencesSettingsPage() {
   const [editing, setEditing] = useState<Agence | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  useNoticeToast(notice, setNotice);
   const [loading, setLoading] = useState(true);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
@@ -170,7 +172,7 @@ export default function AgencesSettingsPage() {
               .map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="text-center py-8 text-slate-400">Chargement…</td></tr>
+                <tr><td colSpan={7}><Loader inline size={48} /></td></tr>
               ) : agences.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-8 text-slate-400">
                   Aucune agence. Ajoutez la première.
@@ -203,7 +205,6 @@ export default function AgencesSettingsPage() {
         </div>
       </section>
 
-      {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
     </div>
   );
 }

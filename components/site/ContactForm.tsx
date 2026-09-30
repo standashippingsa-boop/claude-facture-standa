@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SITE } from "@/lib/site";
 import { WhatsAppIcon } from "./BrandIcons";
 
+import { useNoticeToast, notify } from "@/lib/notify";
 /**
  * STANDA COMMERCIAL — FÒM MESAJ PAJ CONTACT LA
  * ═══════════════════════════════════════════════
@@ -42,6 +43,13 @@ export default function ContactForm() {
 
   const [status, setStatus] = useState<Status>("idle");
   const [validationMsg, setValidationMsg] = useState("");
+  useNoticeToast(validationMsg, setValidationMsg, { tone: "error", title: "Message incomplet" });
+  // Résultat de l'envoi : page plein écran (✓ vert / ✕ rouge).
+  useEffect(() => {
+    if (status === "sent") notify.success("Merci, nous vous répondrons rapidement.", { title: "Message envoyé" });
+    else if (status === "skipped") notify.warning("L'envoi par email n'est pas disponible pour le moment. Utilisez WhatsApp — c'est le moyen le plus rapide de nous joindre.", { title: "Email indisponible" });
+    else if (status === "error") notify.error("Le message n'est pas parti. Réessayez ou écrivez-nous sur WhatsApp.", { title: "Envoi impossible" });
+  }, [status]);
 
   function validate(): boolean {
     if (!name.trim() || !message.trim()) {
@@ -154,23 +162,8 @@ export default function ContactForm() {
           <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Écrivez votre message ici..." rows={4} className={`${FLD} py-3 resize-none`} />
         </Field>
 
-        {validationMsg && (
-          <p className="text-[13px] font-semibold text-red-600 leading-relaxed">
-            {validationMsg}
-          </p>
-        )}
 
-        {status === "sent" && (
-          <p className="text-[13.5px] font-semibold text-accent-dark bg-accent-light rounded-xl px-4 py-3">
-            Message envoyé. Merci, nous vous répondrons rapidement.
-          </p>
-        )}
 
-        {status === "skipped" && (
-          <p className="text-[13.5px] font-semibold text-amber-800 bg-amber-50 rounded-xl px-4 py-3">
-            L&apos;envoi par email n&apos;est pas disponible pour le moment. Utilisez WhatsApp ci-dessous — c&apos;est le moyen le plus rapide de nous joindre.
-          </p>
-        )}
 
         <div className="flex flex-col sm:flex-row gap-3 pt-1">
           <button type="button" onClick={sendByEmail} disabled={status === "sending"} className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-accent hover:bg-accent-dark disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-[15px] transition">

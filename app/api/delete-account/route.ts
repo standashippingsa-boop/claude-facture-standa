@@ -116,13 +116,18 @@ export async function POST(req: Request) {
     await db.from("clients").update({ auth_user_id: null, username: null }).eq("id", client.id);
 
     // Journal : le code client suffit, aucune donnée personnelle.
-    await db.from("journal").insert({
+    // Le journal ne doit jamais faire échouer l'opération déjà faite
+    // (les requêtes Supabase n'ont pas de méthode .catch()).
+    try {
+      const journal = await db.from("journal").insert({
       user_name: "Client (self-service)", action: "Compte client supprimé",
       details: customerCode ? `Le client ${customerCode} a supprimé son compte.` : "Un compte non activé a été supprimé.",
       package_ref: "", customer_code: customerCode,
       ip_address: clientIp(req),
       user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400)
-    }).catch(() => null);
+      });
+      if (journal.error) console.error("[journal]", journal.error);
+    } catch (journalError) { console.error("[journal]", journalError); }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

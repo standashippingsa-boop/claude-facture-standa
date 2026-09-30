@@ -7,6 +7,8 @@ import Logo from "@/components/Logo";
 import { formatHtg, toPayoutHtg, type AffiliatePayoutMethod } from "@/lib/affiliate-terms";
 import { ContractSection, PayoutSection, dateFr } from "@/components/affiliate/AffiliateAccountCards";
 
+import { useNoticeToast } from "@/lib/notify";
+import { MessageScreen } from "@/components/Toaster";
 /**
  * PÒTAY AFILYE — tablo bò. Zewo enpòtasyon @/lib/db oswa @/lib/supabase:
  * tout done soti nan /api/affiliate-portal (cookie httpOnly, service role
@@ -41,6 +43,7 @@ export default function AffiliatePortalPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<"signup" | "website" | null>(null);
   const [justDone, setJustDone] = useState<string | null>(null);
+  useNoticeToast(justDone, setJustDone, { tone: "success" });
 
   useEffect(() => {
     let active = true;
@@ -68,7 +71,7 @@ export default function AffiliatePortalPage() {
     try { await navigator.clipboard.writeText(value); setCopied(which); setTimeout(() => setCopied(null), 1500); } catch { /* ignore */ }
   };
 
-  if (error) return <div className="grid min-h-screen place-items-center bg-[#061937] px-6 text-center text-white">{error}</div>;
+  if (error) return <MessageScreen tone="error" title="Espace indisponible" text={error} fullPage />;
 
   if (!me) {
     return (
@@ -181,11 +184,6 @@ export default function AffiliatePortalPage() {
               )}
             </div>
           </div>
-        )}
-        {justDone && (
-          <p className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-[13px] font-semibold text-emerald-800">
-            <CheckCircle2 size={16} /> {justDone} Vous pouvez le modifier à tout moment dans <Link href="/espace-affilie/parametres" className="underline">Paramètres</Link>.
-          </p>
         )}
 
         <section className="mt-6 rounded-2xl border border-line bg-white p-4 sm:p-5">

@@ -2,11 +2,11 @@
 /**
  * STANDA — notifications de l'application (une seule source pour TOUT le système).
  *
- * Tout message de fond (succès, erreur, information, avertissement) passe par
- * ici et s'affiche dans <Toaster /> (monté une fois dans app/layout.tsx) :
- * une carte propre en haut à droite (en bas sur mobile), avec icône, titre,
- * texte et fermeture automatique. Aucune page ne dessine plus sa propre
- * bannière de texte brut.
+ * Tout message (succès, erreur, information, avertissement) passe par ici et
+ * s'affiche dans <Toaster /> (monté une fois dans app/layout.tsx) : une page
+ * blanche plein écran avec un grand ✓ vert (succès) ou un grand ✕ rouge
+ * (échec) et le texte de ce qui s'est passé. Aucune page ne dessine plus sa
+ * propre bannière de texte.
  *
  *   notify.success("3 colis rendus disponibles.")
  *   notify.error("Paiement impossible.", { title: "Erreur de paiement" })
@@ -19,12 +19,13 @@ export type ToastItem = { id: number; tone: ToastTone; title: string; text: stri
 type ToastOptions = { title?: string; duration?: number };
 
 const DEFAULT_TITLES: Record<ToastTone, string> = {
-  success: "Opération réussie",
-  error: "Action impossible",
-  info: "Information",
+  success: "Opération confirmée",
+  error: "Opération échouée",
+  info: "À savoir",
   warning: "Attention"
 };
-const DEFAULT_DURATION: Record<ToastTone, number> = { success: 4200, info: 5000, warning: 6500, error: 7000 };
+// 0 = reste à l'écran jusqu'à ce que la personne touche le bouton.
+const DEFAULT_DURATION: Record<ToastTone, number> = { success: 2800, info: 0, warning: 0, error: 0 };
 
 let items: ToastItem[] = [];
 let nextId = 1;
@@ -53,7 +54,7 @@ function push(tone: ToastTone, text: string, options: ToastOptions = {}) {
     title: options.title ?? DEFAULT_TITLES[tone],
     duration: options.duration ?? DEFAULT_DURATION[tone]
   };
-  items = [...items, item].slice(-4);
+  items = [...items, item].slice(-6);
   emit();
   return item.id;
 }
@@ -86,11 +87,16 @@ export function useNoticeToast(
   notice: string | { type?: string; tone?: string; ok?: boolean; text?: string; s?: string; t?: string } | null | undefined,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   clear?: (value: any) => void,
-  options?: ToastOptions
+  options?: ToastOptions & { tone?: ToastTone }
 ) {
   useEffect(() => {
     if (!notice) return;
-    if (typeof notice === "string") notify.auto(notice, options);
+    if (typeof notice === "string") {
+      const marked = /^\s*(✅|✔️?|❌|⚠️?)\s*/.exec(notice);
+      const clean = marked ? notice.slice(marked[0].length) : notice;
+      const markTone: ToastTone | undefined = marked ? (/✅|✔/.test(marked[1]) ? "success" : /❌/.test(marked[1]) ? "error" : "warning") : undefined;
+      push(options?.tone ?? markTone ?? guessTone(clean), clean, options);
+    }
     else {
       const text = notice.text ?? notice.s ?? "";
       const kind = notice.type ?? notice.tone ?? notice.t ?? (notice.ok === true ? "ok" : notice.ok === false ? "error" : "");

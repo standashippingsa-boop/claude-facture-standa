@@ -3,12 +3,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
+import { useNoticeToast } from "@/lib/notify";
 /** Chanjman modpas volontè pou kliyan ki prefere paj apa sa a. */
 export default function NouveauMotDePassePage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  useNoticeToast(err, setErr, { tone: "error", title: "Mot de passe non modifié" });
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
@@ -49,7 +51,6 @@ export default function NouveauMotDePassePage() {
           <input type="password" className="mt-1 w-full rounded-xl bg-[#122A52] border border-white/10 px-3 py-3 text-sm text-white focus:outline-none focus:border-blue-400"
             value={confirm} onChange={(e) => setConfirm(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()} /></label>
-        {err && <p className="text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl px-4 py-3">{err}</p>}
         <button className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm disabled:opacity-50"
           onClick={submit} disabled={busy}>
           {busy ? "Enregistrement..." : "Enregistrer le mot de passe"}

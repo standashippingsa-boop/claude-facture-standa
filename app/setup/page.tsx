@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useNoticeToast } from "@/lib/notify";
 /** Kreye PREMYE administratè a (mache sèlman si tab staff la vid). */
 export default function SetupPage() {
   const router = useRouter();
@@ -10,6 +11,7 @@ export default function SetupPage() {
   const [nom, setNom] = useState("");
   const [setupSecret, setSetupSecret] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  useNoticeToast(err, setErr, { tone: "error", title: "Configuration impossible" });
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
@@ -43,7 +45,6 @@ export default function SetupPage() {
         <label className="block"><span className="text-xs font-semibold text-slate-600">Clé d&apos;installation * (SETUP_SECRET)</span>
           <input type="password" className="input mt-1" value={setupSecret} onChange={(e) => setSetupSecret(e.target.value)}
             placeholder="valè SETUP_SECRET nan Vercel" autoComplete="off" /></label>
-        {err && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{err}</p>}
         <button className="btn w-full justify-center py-3" onClick={submit} disabled={busy}>
           {busy ? "Ap kreye..." : "Kreye administratè a"}
         </button>

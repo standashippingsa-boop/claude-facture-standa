@@ -10,6 +10,8 @@ import { adminApi } from "@/lib/authx";
 import { dateFr, usd } from "@/lib/utils";
 import { formatHtg, toPayoutHtg } from "@/lib/affiliate-terms";
 
+import Loader from "@/components/Loader";
+import { MessageScreen } from "@/components/Toaster";
 /**
  * ADMIN — "antre" nan espas yon afilye (LEKTI SÈLMAN).
  * Pati anwo a montre EGZAKTEMAN sa afilye a wè nan Espace Affilié li
@@ -72,8 +74,8 @@ export default function AffiliateDetailPage() {
     } finally { setOpening(false); }
   };
 
-  if (error) return <Shell><p className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p></Shell>;
-  if (!data) return <Shell><div className="mt-6 flex items-center gap-2 text-sm text-mute"><Loader2 size={16} className="animate-spin" /> Chargement de l’espace de l’affilié…</div></Shell>;
+  if (error) return <Shell><MessageScreen tone="error" title="Espace indisponible" text={error} /></Shell>;
+  if (!data) return <Shell><div className="mt-6"><Loader inline size={56} /></div></Shell>;
 
   const { affiliate, admin, commissions, referredClients } = data;
   const status = STATUS[affiliate.status] ?? { label: affiliate.status, tone: "bg-mist text-mute" };

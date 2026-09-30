@@ -5,6 +5,7 @@ import { Banknote, Building2, Check, CircleDollarSign, Landmark, Smartphone, X }
 import { parsePaymentAmount } from "@/lib/invoice-payable";
 import { PAYMENT_METHODS, planPaymentAllocation, type PaymentInvoice } from "@/lib/payment-allocation";
 import { Spinner } from "@/components/Loader";
+import { notify } from "@/lib/notify";
 
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 export type ClientPaymentSubmit = { invoiceIds: string[]; amount: number; currency: "USD" | "HTG"; method: PaymentMethod; reference: string };
@@ -30,9 +31,9 @@ function remainingOf(invoice: PaymentInvoice) {
  * Le caissier entre le montant TOTAL remis ; la répartition (la plus ancienne
  * d'abord) est affichée avant confirmation et refaite à l'identique par le serveur.
  */
-export default function ClientPaymentForm({ customerCode, customerName, invoices, initialSelected, busy, error, onSubmit, onClose, title = "Enregistrer un paiement", className = "" }: {
+export default function ClientPaymentForm({ customerCode, customerName, invoices, initialSelected, busy, onSubmit, onClose, title = "Enregistrer un paiement", className = "" }: {
   customerCode: string; customerName?: string; invoices: PaymentInvoice[]; initialSelected?: string[];
-  busy: boolean; error: string | null; onSubmit: (payload: ClientPaymentSubmit) => void; onClose: () => void;
+  busy: boolean; error?: string | null; onSubmit: (payload: ClientPaymentSubmit) => void; onClose: () => void;
   title?: string; className?: string;
 }) {
   const open = useMemo(() => invoices
@@ -48,7 +49,7 @@ export default function ClientPaymentForm({ customerCode, customerName, invoices
   const [currency, setCurrency] = useState<"USD" | "HTG">("HTG");
   const [method, setMethod] = useState<PaymentMethod | "">("");
   const [reference, setReference] = useState("");
-  const [localError, setLocalError] = useState<string | null>(null);
+  const fail = (text: string) => notify.error(text, { title: "Paiement non enregistré" });
 
   const chosen = open.filter((row) => selected.includes(row.invoice.id));
   const dueUsd = round2(chosen.reduce((total, row) => total + row.remaining.usd, 0));
@@ -58,19 +59,17 @@ export default function ClientPaymentForm({ customerCode, customerName, invoices
   const paidAll = (value: "USD" | "HTG") => typed !== null && currency === value && Math.abs(typed - (value === "HTG" ? dueHtg : dueUsd)) < 0.01;
   const needsReference = method === "Zelle" || method === "Virement bancaire" || method === "MonCash" || method === "NatCash";
 
-  const toggle = (id: string) => { setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]); setLocalError(null); };
-  const fillAll = (value: "USD" | "HTG") => { setCurrency(value); setAmount(String(round2(value === "HTG" ? dueHtg : dueUsd))); setLocalError(null); };
+  const toggle = (id: string) => { setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]); };
+  const fillAll = (value: "USD" | "HTG") => { setCurrency(value); setAmount(String(round2(value === "HTG" ? dueHtg : dueUsd))); };
 
   const submit = () => {
-    if (!chosen.length) return setLocalError("Cochez au moins une facture.");
-    if (typed === null || typed <= 0) return setLocalError("Entrez le montant remis par le client.");
-    if (!method) return setLocalError("Choisissez le moyen de paiement.");
-    if (plan && !plan.ok) return setLocalError(plan.reason);
-    setLocalError(null);
+    if (!chosen.length) return fail("Cochez au moins une facture.");
+    if (typed === null || typed <= 0) return fail("Entrez le montant remis par le client.");
+    if (!method) return fail("Choisissez le moyen de paiement.");
+    if (plan && !plan.ok) return fail(plan.reason);
+   
     onSubmit({ invoiceIds: chosen.map((row) => row.invoice.id), amount: typed, currency, method, reference: reference.trim() });
   };
-
-  const shownError = localError ?? error;
 
   return <section className={cn("overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.10)]", className)}>
     <header className="flex items-start justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-[#0b3270] to-[#1a5bc0] px-4 py-3 text-white">
@@ -107,8 +106,8 @@ export default function ClientPaymentForm({ customerCode, customerName, invoices
         </div>
 
         <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-          <label className="block"><span className="mb-1 block text-xs font-bold text-slate-600">Montant remis par le client</span><input value={amount} onChange={(event) => { setAmount(event.target.value); setLocalError(null); }} type="text" inputMode="decimal" className="input" placeholder={currency === "HTG" ? "ex. 13 200" : "ex. 100"} /></label>
-          <label className="block"><span className="mb-1 block text-xs font-bold text-slate-600">Devise</span><select value={currency} onChange={(event) => { setCurrency(event.target.value as "USD" | "HTG"); setLocalError(null); }} className="input"><option value="HTG">Gourdes (HTG)</option><option value="USD">Dollars (USD)</option></select></label>
+          <label className="block"><span className="mb-1 block text-xs font-bold text-slate-600">Montant remis par le client</span><input value={amount} onChange={(event) => { setAmount(event.target.value); }} type="text" inputMode="decimal" className="input" placeholder={currency === "HTG" ? "ex. 13 200" : "ex. 100"} /></label>
+          <label className="block"><span className="mb-1 block text-xs font-bold text-slate-600">Devise</span><select value={currency} onChange={(event) => { setCurrency(event.target.value as "USD" | "HTG"); }} className="input"><option value="HTG">Gourdes (HTG)</option><option value="USD">Dollars (USD)</option></select></label>
         </div>
 
         <div>
@@ -116,7 +115,7 @@ export default function ClientPaymentForm({ customerCode, customerName, invoices
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{PAYMENT_METHODS.map((value) => {
             const Icon = METHOD_ICONS[value];
             const active = method === value;
-            return <button key={value} type="button" aria-pressed={active} onClick={() => { setMethod(value); setLocalError(null); }} className={cn("flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl border-2 px-2 py-1.5 text-[12px] font-bold transition", active ? "border-[#0b3270] bg-[#0b3270] text-white" : "border-slate-200 bg-white text-slate-700 hover:border-[#0b3270]/40")}><Icon size={16} />{value}</button>;
+            return <button key={value} type="button" aria-pressed={active} onClick={() => { setMethod(value); }} className={cn("flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl border-2 px-2 py-1.5 text-[12px] font-bold transition", active ? "border-[#0b3270] bg-[#0b3270] text-white" : "border-slate-200 bg-white text-slate-700 hover:border-[#0b3270]/40")}><Icon size={16} />{value}</button>;
           })}</div>
         </div>
 
@@ -127,8 +126,6 @@ export default function ClientPaymentForm({ customerCode, customerName, invoices
           <ul className="mt-1 space-y-0.5">{plan.allocations.map((allocation) => <li key={allocation.invoice.id} className="flex justify-between gap-2"><span>{allocation.invoice.invoice_number}</span><span className="font-bold">{fmt(currency, allocation.amount)} · {allocation.status}</span></li>)}</ul>
           {(() => { const rest = round2((currency === "HTG" ? dueHtg : dueUsd) - (typed ?? 0)); return rest > 0.009 ? <p className="mt-1.5 font-semibold">Reste à payer après ce paiement : {fmt(currency, rest)}</p> : null; })()}
         </div>}
-
-        {shownError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{shownError}</p>}
 
         <button type="button" disabled={busy || !chosen.length} onClick={submit} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#ce4e0d] disabled:opacity-60">
           {busy ? <><Spinner size={16} /> Enregistrement…</> : <><CircleDollarSign size={18} /> Confirmer le paiement{typed ? ` · ${fmt(currency, typed)}` : ""}</>}

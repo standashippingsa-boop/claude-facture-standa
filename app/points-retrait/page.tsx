@@ -122,10 +122,10 @@ export default function PointsRetraitPage() {
       const result = await response.json().catch(() => ({ ok: false, reason: "Réponse du serveur illisible. Actualisez avant de réessayer." }));
       if (!response.ok || !result.ok) throw new Error(result.reason || "Paiement impossible.");
       const lines = (result.payments ?? []) as Array<{ invoice_number: string; payment_status: string }>;
-      notify.success(`${payload.currency === "USD" ? usd(payload.amount) : htg(payload.amount)} par ${payload.method} · ${lines.map((line) => `${line.invoice_number} : ${line.payment_status}`).join(" · ")}`, { title: `Paiement enregistré — ${paymentTarget?.customerCode ?? ""}` });
+      notify.success(`${payload.currency === "USD" ? usd(payload.amount) : htg(payload.amount)} par ${payload.method}\n${lines.map((line) => `${line.invoice_number} : ${line.payment_status}`).join("\n")}`, { title: `Paiement enregistré — ${paymentTarget?.customerCode ?? ""}` });
       setPaymentTarget(null);
       await load();
-    } catch (error) { setPaymentError(error instanceof Error ? error.message : "Paiement impossible."); }
+    } catch (error) { notify.error(error instanceof Error ? error.message : "Paiement impossible.", { title: "Paiement non enregistré" }); }
     finally { setPaymentBusy(false); }
   };
 

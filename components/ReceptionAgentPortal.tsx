@@ -7,6 +7,7 @@ import { ClipboardList, LogOut, MapPin, PackagePlus, Search, User } from "lucide
 import { supabase } from "@/lib/supabase";
 import Logo from "@/components/Logo";
 
+import { useNoticeToast } from "@/lib/notify";
 /**
  * PÒTAY AJAN RESEPSYON — Conduce + chèche kliyan.
  * ═══════════════════════════════════════════════════════════════════
@@ -35,12 +36,14 @@ export default function ReceptionAgentPortal() {
   const [results, setResults] = useState<ClientResult[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  useNoticeToast(searchError, setSearchError, { tone: "error", title: "Recherche sans résultat" });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [conduceNumber, setConduceNumber] = useState("");
   const [office, setOffice] = useState("");
   const [conduceBusy, setConduceBusy] = useState(false);
   const [conduceMessage, setConduceMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
+  useNoticeToast(conduceMessage, setConduceMessage);
 
   const authHeader = useCallback(async (): Promise<string | null> => {
     const session = await supabase.auth.getSession();
@@ -168,7 +171,6 @@ export default function ReceptionAgentPortal() {
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
                   </div>
                 )}
-                {searchError && <p className="rounded-xl bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{searchError}</p>}
                 {!searching && results && results.length === 0 && (
                   <div className="flex flex-col items-center gap-2 py-10 text-center">
                     <span className="grid h-12 w-12 place-items-center rounded-full bg-mist text-mute"><Search size={20} /></span>
@@ -217,11 +219,6 @@ export default function ReceptionAgentPortal() {
                   : <PackagePlus size={18} />}
                 {conduceBusy ? "Enregistrement…" : "Enregistrer"}
               </button>
-              {conduceMessage && (
-                <p className={`rounded-2xl px-4 py-3 text-center text-[14px] font-semibold ${conduceMessage.type === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
-                  {conduceMessage.text}
-                </p>
-              )}
             </div>
           )}
         </div>

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";
 
+import { useNoticeToast } from "@/lib/notify";
 /**
  * Paj chanjman modpas — kliyan an rive isit la atravè lyen imèl
  * "Mot de passe oublié ?" a (Supabase Auth recovery).
@@ -13,6 +14,7 @@ export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  useNoticeToast(err, setErr, { tone: "error", title: "Demande impossible" });
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
@@ -60,7 +62,6 @@ export default function ResetPasswordPage() {
           </div>
         </label>
 
-        {err && <p className="text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl px-4 py-3">{err}</p>}
 
         <button className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm shadow-lg shadow-blue-900/40 transition-colors disabled:opacity-50"
           onClick={submit} disabled={busy}>

@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { Download, Eye, FileSignature, Loader2, Upload, Wallet } from "lucide-react";
+import { useNoticeToast } from "@/lib/notify";
 import {
   AFFILIATE_PAYOUT_METHODS, AFFILIATE_PAYOUT_RATE_HTG, SIGNED_CONTRACT_MAX_BYTES, resolveSignedContractExt, signedContractMime,
   formatHtg, toPayoutHtg, type AffiliatePayoutMethod
@@ -35,6 +36,7 @@ export function ContractSection({ uploadedAt, onUploaded }: { uploadedAt: string
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  useNoticeToast(message, setMessage);
 
   const upload = async (file: File) => {
     setMessage(null);
@@ -108,7 +110,6 @@ export function ContractSection({ uploadedAt, onUploaded }: { uploadedAt: string
         <input ref={input} type="file" accept="application/pdf,image/jpeg,image/png" className="hidden"
           onChange={(e) => { const file = e.target.files?.[0]; if (file) void upload(file); }} />
       </div>
-      {message && <p className={`mt-3 rounded-lg px-3 py-2 text-[12.5px] font-semibold ${message.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{message.text}</p>}
     </section>
   );
 }
@@ -122,6 +123,7 @@ export function PayoutSection({ method, phone, updatedAt, onSaved }: {
   const [number, setNumber] = useState(phone);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  useNoticeToast(message, setMessage);
   const dirty = choice !== method || number.trim() !== phone;
 
   const save = async () => {
@@ -169,7 +171,6 @@ export function PayoutSection({ method, phone, updatedAt, onSaved }: {
         {busy && <Loader2 size={15} className="animate-spin" />} Enregistrer
       </button>
       <p className="mt-2 text-[11px] text-mute">Pour votre sécurité, Standa Commercial est avertie de chaque changement de numéro.</p>
-      {message && <p className={`mt-3 rounded-lg px-3 py-2 text-[12.5px] font-semibold ${message.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{message.text}</p>}
     </section>
   );
 }

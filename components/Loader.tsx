@@ -10,12 +10,13 @@
  *   <Loader inline />     -> ti spinner nan mitan yon paj/tablo
  *   <Spinner size={16} /> -> spinner tou piti pou anndan yon bouton
  *   <SuccessCheck />      -> ✅ vèt anime, parèt apre yon anrejistreman reyisi
- *   <SavedToast msg />    -> ti bànyè vèt flotan ak ✅ (anrejistreman fini)
+ *   <SavedToast msg />    -> notifikasyon « Enregistré » (lib/notify + Toaster)
  *
  * Zewo depandans: tout bagay se SVG + CSS. Pa gen GIF pou telechaje,
  * donk li parèt menm lè koneksyon an fèb.
  */
 import { useEffect } from "react";
+import { notify } from "@/lib/notify";
 
 /* ───────────────────────── SPINNER (sèk k ap vire) ───────────────────────── */
 export function Spinner({ size = 20, className = "" }: { size?: number; className?: string }) {
@@ -76,24 +77,18 @@ export function SuccessCheck({ size = 68, className = "" }: { size?: number; cla
 }
 
 /**
- * Ti bànyè vèt flotan ak ✅ — parèt apre CHAK anrejistreman reyisi.
- * Li fèmen pou kont li apre `duration` ms.
+ * Confirmation d'enregistrement : passe désormais par le système central de
+ * notifications (components/Toaster.tsx) pour que toute l'application affiche
+ * les mêmes cartes propres. L'API du composant reste la même pour les pages.
  */
 export function SavedToast({
-  message = "Enregistré", onClose, duration = 2200
+  message = "Enregistré", onClose
 }: { message?: string; onClose?: () => void; duration?: number }) {
   useEffect(() => {
-    if (!onClose) return;
-    const t = setTimeout(onClose, duration);
-    return () => clearTimeout(t);
-  }, [onClose, duration]);
-
-  return (
-    <div className="fixed inset-x-0 bottom-6 z-[95] flex justify-center px-4 pointer-events-none">
-      <div className="pointer-events-auto flex items-center gap-2.5 rounded-full bg-white shadow-lift border border-brand/30 pl-2 pr-5 py-2">
-        <SuccessCheck size={26} />
-        <span className="text-sm font-semibold text-ink">{message}</span>
-      </div>
-    </div>
-  );
+    notify.auto(message);
+    onClose?.();
+    // Une notification par message affiché.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message]);
+  return null;
 }

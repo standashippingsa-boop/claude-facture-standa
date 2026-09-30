@@ -1,71 +1,103 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 import { dismissToast, subscribeToasts, type ToastItem, type ToastTone } from "@/lib/notify";
 
-const TONES: Record<ToastTone, { icon: typeof Info; ring: string; iconBox: string; bar: string }> = {
-  success: { icon: CheckCircle2, ring: "ring-emerald-100", iconBox: "bg-emerald-50 text-emerald-600", bar: "bg-emerald-500" },
-  error: { icon: XCircle, ring: "ring-red-100", iconBox: "bg-red-50 text-red-600", bar: "bg-red-500" },
-  warning: { icon: AlertTriangle, ring: "ring-amber-100", iconBox: "bg-amber-50 text-amber-600", bar: "bg-amber-500" },
-  info: { icon: Info, ring: "ring-blue-100", iconBox: "bg-blue-50 text-[#122B5C]", bar: "bg-[#122B5C]" }
+/**
+ * Message plein écran de toute l'application (monté une fois dans app/layout.tsx).
+ * Une page blanche couvre l'écran et dit ce qui s'est passé :
+ *   succès  -> grand cercle vert avec ✓ (comme « Remise confirmée »)
+ *   échec   -> grand cercle rouge avec ✕
+ *   avis    -> grand cercle orange avec !
+ * Un succès se ferme seul ; un échec reste jusqu'à « Compris » pour être lu.
+ */
+const TONES: Record<ToastTone, { circle: string; shadow: string; button: string; bar: string }> = {
+  success: { circle: "bg-emerald-500", shadow: "shadow-[0_18px_50px_rgba(16,185,129,0.45)]", button: "bg-emerald-600 hover:bg-emerald-700", bar: "bg-emerald-500" },
+  error: { circle: "bg-red-600", shadow: "shadow-[0_18px_50px_rgba(220,38,38,0.40)]", button: "bg-red-600 hover:bg-red-700", bar: "bg-red-600" },
+  warning: { circle: "bg-amber-500", shadow: "shadow-[0_18px_50px_rgba(245,158,11,0.40)]", button: "bg-[#0a2b61] hover:bg-[#0c397a]", bar: "bg-amber-500" },
+  info: { circle: "bg-amber-500", shadow: "shadow-[0_18px_50px_rgba(245,158,11,0.40)]", button: "bg-[#0a2b61] hover:bg-[#0c397a]", bar: "bg-amber-500" }
 };
 
-/** Pile de notifications de l'application — montée une seule fois dans app/layout.tsx. */
 export default function Toaster() {
   const [items, setItems] = useState<ToastItem[]>([]);
   useEffect(() => subscribeToasts(setItems), []);
-  return <div aria-live="polite" aria-atomic="false" className="pointer-events-none fixed inset-x-0 bottom-0 z-[120] flex flex-col items-center gap-2 px-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:items-end sm:px-0 sm:pb-0">
-    {items.map((item) => <ToastCard key={item.id} item={item} />)}
+  const current = items[0];
+  // Un message à la fois : le suivant apparaît quand le premier est fermé.
+  return current ? <MessagePage key={current.id} item={current} waiting={items.length - 1} /> : null;
+}
+
+function ToneIcon({ tone }: { tone: ToastTone }) {
+  return <svg viewBox="0 0 24 24" className="h-[4.5rem] w-[4.5rem] sm:h-20 sm:w-20" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {tone === "success" && <path className="sd-check" d="M5 12.5l4.5 4.5L19 7.5" />}
+    {tone === "error" && <><path className="sd-check" d="M7 7l10 10" /><path className="sd-check sd-check-late" d="M17 7L7 17" /></>}
+    {(tone === "warning" || tone === "info") && <><path className="sd-check" d="M12 6.5v7" /><path d="M12 17.5h.01" strokeWidth={3.6} /></>}
+  </svg>;
+}
+
+/**
+ * Même message, mais DANS la page : pour un écran qui ne peut pas s'afficher
+ * du tout (reçu introuvable, espace indisponible…) — il n'y a rien derrière.
+ */
+export function MessageScreen({ tone, title, text, actionLabel, onAction, fullPage = false }: {
+  tone: ToastTone; title: string; text: string; actionLabel?: string; onAction?: () => void; fullPage?: boolean;
+}) {
+  const style = TONES[tone];
+  return <div role={tone === "error" ? "alert" : "status"} className={`flex flex-col items-center justify-center bg-white px-6 py-12 text-center ${fullPage ? "min-h-screen" : "min-h-[60vh] rounded-3xl"}`}>
+    <div className={`sd-pop grid h-32 w-32 place-items-center rounded-full sm:h-36 sm:w-36 ${style.circle} ${style.shadow}`}><ToneIcon tone={tone} /></div>
+    <h2 className="mt-7 text-balance text-2xl font-black tracking-tight text-[#0a2b61] sm:text-3xl">{title}</h2>
+    <p className="mx-auto mt-3 max-w-md whitespace-pre-line break-words text-base font-semibold leading-relaxed text-slate-600">{text}</p>
+    {actionLabel && onAction && <button type="button" onClick={onAction} className={`mt-8 flex min-h-12 w-full max-w-xs items-center justify-center rounded-2xl px-6 text-base font-black text-white shadow-sm outline-none transition focus-visible:ring-4 focus-visible:ring-slate-300 ${style.button}`}>{actionLabel}</button>}
   </div>;
 }
 
-function ToastCard({ item }: { item: ToastItem }) {
+function MessagePage({ item, waiting }: { item: ToastItem; waiting: number }) {
   const tone = TONES[item.tone];
-  const Icon = tone.icon;
   const [leaving, setLeaving] = useState(false);
-  const [paused, setPaused] = useState(false);
-  const remaining = useRef(item.duration);
-  const startedAt = useRef(Date.now());
+  const close = () => setLeaving(true);
 
   useEffect(() => {
-    if (paused || leaving) return;
-    startedAt.current = Date.now();
-    const timer = window.setTimeout(() => setLeaving(true), remaining.current);
-    return () => {
-      window.clearTimeout(timer);
-      remaining.current = Math.max(800, remaining.current - (Date.now() - startedAt.current));
-    };
-  }, [paused, leaving]);
+    if (!item.duration) return;
+    const timer = window.setTimeout(close, item.duration);
+    return () => window.clearTimeout(timer);
+  }, [item.duration]);
 
   useEffect(() => {
     if (!leaving) return;
-    const timer = window.setTimeout(() => dismissToast(item.id), 180);
+    const timer = window.setTimeout(() => dismissToast(item.id), 160);
     return () => window.clearTimeout(timer);
   }, [leaving, item.id]);
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape" || event.key === "Enter") close(); };
+    window.addEventListener("keydown", onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = previous; };
+  }, []);
+
   return <div
-    role={item.tone === "error" ? "alert" : "status"}
-    onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
-    className={`standa-toast pointer-events-auto relative w-full max-w-[380px] overflow-hidden rounded-2xl bg-white shadow-[0_12px_40px_rgba(15,23,42,0.16)] ring-1 ${tone.ring} ${leaving ? "standa-toast-out" : ""}`}
+    role={item.tone === "error" ? "alertdialog" : "status"} aria-live="assertive" aria-modal="true"
+    aria-labelledby={`msg-title-${item.id}`} aria-describedby={`msg-text-${item.id}`}
+    onClick={item.tone === "success" ? close : undefined}
+    className={`fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white px-6 pb-[env(safe-area-inset-bottom)] text-center transition-opacity duration-150 ${leaving ? "opacity-0" : "opacity-100"}`}
   >
-    <div className="flex items-start gap-3 py-3 pl-3 pr-2">
-      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${tone.iconBox}`}><Icon size={19} strokeWidth={2.4} /></span>
-      <div className="min-w-0 flex-1 pt-0.5">
-        <p className="text-[13.5px] font-bold leading-tight text-[#0F172A]">{item.title}</p>
-        <p className="mt-0.5 text-[13px] leading-snug text-slate-600">{item.text}</p>
+    <div className="w-full max-w-xl">
+      <div className={`sd-pop mx-auto grid h-32 w-32 place-items-center rounded-full sm:h-36 sm:w-36 ${tone.circle} ${tone.shadow}`}>
+        <ToneIcon tone={item.tone} />
       </div>
-      <button type="button" onClick={() => setLeaving(true)} aria-label="Fermer la notification" className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"><X size={15} /></button>
+      <h2 id={`msg-title-${item.id}`} className="mt-7 text-balance text-2xl font-black tracking-tight text-[#0a2b61] sm:text-3xl">{item.title}</h2>
+      <p id={`msg-text-${item.id}`} className="mx-auto mt-3 max-w-md whitespace-pre-line text-base font-semibold leading-relaxed text-slate-600">{item.text}</p>
+      <button type="button" autoFocus onClick={(event) => { event.stopPropagation(); close(); }} className={`mx-auto mt-8 flex min-h-12 w-full max-w-xs items-center justify-center rounded-2xl px-6 text-base font-black text-white shadow-sm outline-none transition focus-visible:ring-4 focus-visible:ring-slate-300 ${tone.button}`}>
+        {item.tone === "error" ? "Compris" : "OK"}
+      </button>
+      {waiting > 0 && <p className="mt-3 text-xs font-semibold text-slate-400">{waiting} autre{waiting > 1 ? "s" : ""} message{waiting > 1 ? "s" : ""} à suivre</p>}
     </div>
-    <span className={`standa-toast-bar absolute bottom-0 left-0 h-[3px] ${tone.bar}`} style={{ animationDuration: `${item.duration}ms`, animationPlayState: paused || leaving ? "paused" : "running" }} />
+    {item.duration > 0 && !leaving && <span className="absolute inset-x-0 bottom-0 h-1.5 bg-slate-100"><span className={`msg-bar block h-full ${tone.bar}`} style={{ animationDuration: `${item.duration}ms` }} /></span>}
     <style jsx>{`
-      .standa-toast { animation: toastIn .22s cubic-bezier(.2,.8,.2,1); }
-      .standa-toast-out { animation: toastOut .18s ease-in forwards; }
-      .standa-toast-bar { width: 100%; opacity: .55; animation-name: toastBar; animation-timing-function: linear; animation-fill-mode: forwards; }
-      @keyframes toastIn { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
-      @keyframes toastOut { to { opacity: 0; transform: translateY(-6px) scale(.98); } }
-      @keyframes toastBar { from { width: 100%; } to { width: 0%; } }
-      @media (prefers-reduced-motion: reduce) { .standa-toast, .standa-toast-out, .standa-toast-bar { animation: none; } }
+      .msg-bar { width: 100%; animation-name: msgBar; animation-timing-function: linear; animation-fill-mode: forwards; }
+      :global(.sd-check-late) { animation-delay: .5s !important; }
+      @keyframes msgBar { from { width: 100%; } to { width: 0%; } }
+      @media (prefers-reduced-motion: reduce) { .msg-bar { animation: none; } }
     `}</style>
   </div>;
 }

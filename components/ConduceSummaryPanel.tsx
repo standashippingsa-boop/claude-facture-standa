@@ -22,6 +22,7 @@ import { getConduceStats, getConduceSummary } from "@/lib/db";
 import { MCPACK_COST_PER_LB, PROFIT_PER_LB, estimateProfit } from "@/lib/pricing";
 import { usd } from "@/lib/utils";
 
+import { Spinner } from "@/components/Loader";
 type Summary = Awaited<ReturnType<typeof getConduceSummary>>;
 type Stats = Awaited<ReturnType<typeof getConduceStats>>;
 
@@ -38,7 +39,7 @@ export default function ConduceSummaryPanel({ conduceId, refreshKey }: {
   }, [conduceId, refreshKey]);
 
   if (!s || !st) return (
-    <div className="card p-4"><p className="text-xs text-mute">Chargement du résumé…</p></div>
+    <div className="card p-4"><div className="flex justify-center py-2 text-navy" role="status" aria-label="Chargement"><Spinner size={20} /></div></div>
   );
 
   const vide = st.count === 0;

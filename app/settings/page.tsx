@@ -16,6 +16,7 @@ import { usd } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { adminApi, useRole } from "@/lib/authx";
 
+import { useNoticeToast } from "@/lib/notify";
 const schema = z.object({
   name: z.string().min(1, "Non vil la obligatwa"),
   price_personal: z.coerce.number().min(0, "Dwe >= 0"),
@@ -43,11 +44,14 @@ export default function SettingsPage() {
   // ── Atik a pri fiks (fòfè): telefòn, laptòp, kamera… ──
   const [articles, setArticles] = useState<SpecialArticle[]>([]);
   const [artMsg, setArtMsg] = useState<string | null>(null);
+  useNoticeToast(artMsg, setArtMsg);
   // ── Kont santral biznis (ex: MC-36191) ──
   const [centralCode, setCentralCode] = useState("");
   const [centralMsg, setCentralMsg] = useState<string | null>(null);
+  useNoticeToast(centralMsg, setCentralMsg);
   const [rate, setRate] = useState("0");
   const [notice, setNotice] = useState<string | null>(null);
+  useNoticeToast(notice, setNotice);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
     useForm<Form>({ resolver: zodResolver(schema) });
@@ -289,7 +293,6 @@ export default function SettingsPage() {
             Laissez vide pour désactiver. Le code doit correspondre exactement à un client existant.
           </span>
         </label>
-        {centralMsg && <p className="text-xs text-emerald-700">{centralMsg}</p>}
       </section>
 
       {/* ===== Articles à prix fixe (forfaits) ===== */}
@@ -345,7 +348,6 @@ export default function SettingsPage() {
             }}>
             Enregistrer les articles
           </button>
-          {artMsg && <span className="text-xs text-emerald-700 self-center">{artMsg}</span>}
         </div>
         <p className="text-[11px] text-slate-400">
           Un article sans nom ou sans prix est ignoré à l&apos;enregistrement.
@@ -440,7 +442,6 @@ export default function SettingsPage() {
 
       <EmployesSection onNotice={setNotice} />
 
-      {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
     </div>
   );
 }
@@ -748,6 +749,7 @@ function EmailNotificationsSection() {
   const [testTo, setTestTo] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  useNoticeToast(result ? { ok: result.ok, text: result.msg } : null, setResult);
 
   const callProbe = async (probe: "diag" | "test", to?: string) => {
     const { data } = await supabase.auth.getSession();
@@ -815,13 +817,6 @@ function EmailNotificationsSection() {
         </button>
       </div>
 
-      {result && (
-        <div className={`text-xs rounded-lg px-3 py-2 ${result.ok
-          ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
-          : "bg-red-50 border border-red-200 text-red-800"}`}>
-          {result.ok ? "✅ " : "⚠️ "}{result.msg}
-        </div>
-      )}
 
       <details className="text-xs text-slate-500">
         <summary className="cursor-pointer font-semibold text-navy">Si le test échoue…</summary>
@@ -855,6 +850,7 @@ function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
    * bouton an — pa gen tan pou li vwayaje jouk anba paj la.
    */
   const [localErr, setLocalErr] = useState<string | null>(null);
+  useNoticeToast(localErr, setLocalErr, { tone: "error" });
 
   const load = async () => {
     const { getApiTokens } = await import("@/lib/db");
@@ -907,12 +903,6 @@ function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
       </div>
 
       {/* Repons DIRÈK, jis anba bouton an — pa gen mesaj ki disparèt nan lwen. */}
-      {localErr && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <p className="text-xs font-bold text-red-800 mb-1">❌ Échec de la création du token</p>
-          <p className="text-xs text-red-700">{localErr}</p>
-        </div>
-      )}
 
       {newToken && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">

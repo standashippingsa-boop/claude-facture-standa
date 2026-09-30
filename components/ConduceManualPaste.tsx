@@ -19,6 +19,7 @@ import { extractAnyCodesFromText } from "@/lib/factureimport";
 import { parseConduceWorkbook, ConduceExcelRow } from "@/lib/conduceexcel";
 import { useRole } from "@/lib/authx";
 
+import { useNoticeToast } from "@/lib/notify";
 type Mode = "excel" | "texte";
 
 export default function ConduceManualPaste({
@@ -30,6 +31,7 @@ export default function ConduceManualPaste({
   const [mode, setMode] = useState<Mode>("excel");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ t: "ok" | "err"; s: string } | null>(null);
+  useNoticeToast(msg, setMsg);
 
   // ----- Chemen A: Fichier Excel -----
   const fileRef = useRef<HTMLInputElement>(null);
@@ -188,12 +190,6 @@ export default function ConduceManualPaste({
         </div>
       )}
 
-      {msg && (
-        <div className={`rounded-lg px-3 py-2 text-xs font-semibold ${
-          msg.t === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
-          {msg.s}
-        </div>
-      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { JournalRow, clearJournal, getJournal } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import { useRememberListContext } from "@/lib/list-context";
 
+import { useNoticeToast } from "@/lib/notify";
 const PER_PAGE = 30;
 
 /** Kalite aksyon yo (pou filtre) — badge koulè pou chak. */
@@ -58,6 +59,7 @@ export default function JournalPage() {
   });
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+  useNoticeToast(notice, setNotice);
 
   const load = async () => {
     setLoading(true);
@@ -172,7 +174,6 @@ export default function JournalPage() {
         <Pagination page={page} pages={pages} onPage={setPage} />
       </div>
 
-      {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
     </div>
   );
 }

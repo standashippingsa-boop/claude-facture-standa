@@ -26,6 +26,7 @@ import InvoiceDialog from "@/components/InvoiceDialog";
 import { useRole } from "@/lib/authx";
 import { useRememberListContext, withReturnTo } from "@/lib/list-context";
 
+import { useNoticeToast } from "@/lib/notify";
 const PER_PAGE = 25;
 
 /** Sous MILTIP yon koli — yon koli ka gen plizyè (Extension + Caribe + Facture). */
@@ -73,6 +74,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  useNoticeToast(notice, setNotice);
   /** Remises confirmées ici : un ticket imprimable par client. */
   const [remiseTickets, setRemiseTickets] = useState<{ code: string; packageId: string; count: number }[]>([]);
   const [showWaQueue, setShowWaQueue] = useState(false);
@@ -1001,7 +1003,6 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
         );
       })()}
 
-      {notice && <p className="card px-4 py-3 text-sm text-navy">{notice}</p>}
       {remiseTickets.length > 0 && (
         <div className="card flex flex-wrap items-center gap-2 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm">
           <span className="font-semibold text-emerald-800">Tickets de remise à imprimer :</span>
@@ -1044,6 +1045,7 @@ function SpecialPackageEditor({
   const [kind, setKind] = useState<ManualSpecialPackageKind>(initialKind);
   const [note, setNote] = useState(initialNote);
   const [formError, setFormError] = useState("");
+  useNoticeToast(formError, setFormError, { tone: "error", title: "Colis non enregistré" });
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1098,7 +1100,6 @@ function SpecialPackageEditor({
         </label>
         <p className="mt-1 text-[11px] text-slate-500">Cette note sera imprimée sur la ligne de facture et conservée dans l&apos;historique.</p>
 
-        {formError && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">{formError}</p>}
 
         <div className="mt-5 flex gap-3">
           {!isInvoiced && (

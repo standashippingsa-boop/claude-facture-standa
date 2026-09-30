@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { MessageSquareText, Send, Star, UserRound } from "lucide-react";
 
+import { notify } from "@/lib/notify";
 type Review = {
   id: string;
   author_name: string;
@@ -40,6 +41,13 @@ export default function ReviewSection() {
   const [status, setStatus] = useState<"loading" | "ready" | "sending" | "error">("loading");
   const [notice, setNotice] = useState("");
   const [noticeKind, setNoticeKind] = useState<"success" | "error">("error");
+  // Chaque message du formulaire devient une notification (succès ou erreur).
+  useEffect(() => {
+    if (!notice) return;
+    if (noticeKind === "success") notify.success(notice, { title: "Merci pour votre avis" });
+    else notify.error(notice, { title: "Avis non envoyé" });
+    setNotice("");
+  }, [notice, noticeKind]);
 
   async function loadReviews() {
     try {
@@ -123,7 +131,6 @@ export default function ReviewSection() {
             <div className="flex items-center justify-between gap-3 text-[12px] text-mute"><span>Votre avis sera affiché publiquement.</span><span>{message.length}/600</span></div>
             <button type="submit" disabled={status === "sending"} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 text-[14px] font-bold text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:bg-slate-300"><Send size={16} />{status === "sending" ? "Publication..." : "Publier mon commentaire"}</button>
           </form>
-          {notice && <p aria-live="polite" className={`mt-4 rounded-xl px-4 py-3 text-[13px] font-semibold leading-relaxed ${noticeKind === "success" ? "bg-accent-light text-accent-dark" : "bg-red-50 text-red-700"}`}>{notice}</p>}
         </div>
       </div>
 

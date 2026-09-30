@@ -11,6 +11,7 @@ import { Affiliate, AffiliateApplication, AffiliateCommission } from "@/lib/type
 import { dateFr, usd } from "@/lib/utils";
 import { AFFILIATE_PAYOUT_METHODS, AFFILIATE_PAYOUT_RATE_HTG, formatHtg, toPayoutHtg } from "@/lib/affiliate-terms";
 
+import { useNoticeToast } from "@/lib/notify";
 /** Jou ki rete anvan contract_end (0 si deja pase). */
 function daysLeft(endISO: string): number {
   const ms = new Date(endISO).getTime() - Date.now();
@@ -32,6 +33,7 @@ export default function AffiliatesPage() {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  useNoticeToast(notice, setNotice);
   const [creds, setCreds] = useState<{ username: string; password: string; referralLink: string; mailSent: boolean; mailError: string } | null>(null);
 
   const load = async () => {
@@ -162,13 +164,6 @@ export default function AffiliatesPage() {
         <Kpi icon={Wallet} tone="amber" label="Commissions dues" value={loading ? "—" : usd(totalDue)} />
         <Kpi icon={CheckCircle2} tone="navy" label="Commissions payées" value={loading ? "—" : usd(totalPaid)} />
       </div>
-
-      {notice && (
-        <div className="mt-4 flex items-start justify-between gap-3 rounded-xl bg-mist px-4 py-3 text-sm text-navy">
-          <span>{notice}</span>
-          <button onClick={() => setNotice(null)} className="text-mute hover:text-navy"><XCircle size={16} /></button>
-        </div>
-      )}
 
       {creds && (
         <div className="mt-4 rounded-xl border border-accent/30 bg-accent-light/40 px-4 py-3.5 text-sm">

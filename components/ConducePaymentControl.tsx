@@ -6,6 +6,7 @@ import { useRole } from "@/lib/authx";
 import { setConducePaymentStatus } from "@/lib/db";
 import type { Conduce, McpackInvoiceStatus } from "@/lib/types";
 
+import { notify } from "@/lib/notify";
 /**
  * État de règlement de la facture MCPACK.
  *
@@ -46,7 +47,7 @@ export default function ConducePaymentControl({
         payment_paid_by: next === "Payé" ? staffName : null,
       });
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "Impossible de mettre à jour le paiement MCPACK.");
+      notify.error(error instanceof Error ? error.message : "Impossible de mettre à jour le paiement MCPACK.", { title: "Paiement MCPACK non mis à jour" });
     } finally {
       setBusy(false);
     }

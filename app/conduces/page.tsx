@@ -39,6 +39,7 @@ import { usd } from "@/lib/utils";
 import type { Conduce, McpackInvoiceStatus, Ville } from "@/lib/types";
 import { useRememberListContext, withReturnTo } from "@/lib/list-context";
 
+import { useNoticeToast } from "@/lib/notify";
 interface Row extends Conduce {
   count: number; weight: number; facturedCount: number; verifiedCount: number;
   specialCount: number;
@@ -80,6 +81,7 @@ export default function ConducesPage() {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [bonRemiseRegistryReady, setBonRemiseRegistryReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  useNoticeToast(notice, setNotice);
   const [adding, setAdding] = useState(false);
   const [newConduceNumber, setNewConduceNumber] = useState("");
   const [creating, setCreating] = useState(false);
@@ -428,13 +430,6 @@ export default function ConducesPage() {
           {classeurs.map((cl) => (
             <ClasseurTile key={cl.key} cl={cl} onOpen={() => setOpenDay(cl.key)} />
           ))}
-        </div>
-      )}
-
-      {notice && (
-        <div className="card px-4 py-3 flex items-start gap-2">
-          <p className="text-sm text-navy flex-1">{notice}</p>
-          <button onClick={() => setNotice(null)} className="text-slate-400 hover:text-ink shrink-0">✕</button>
         </div>
       )}
 
