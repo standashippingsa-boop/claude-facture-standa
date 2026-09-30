@@ -35,7 +35,9 @@ export type RemiseTicketPackage = {
 export type RemiseTicket = {
   ticket_number: string;
   security_code: string;
-  company: { name: string; phone: string; website: string };
+  company: { name: string; phone: string; website: string; email?: string };
+  /** Agence qui remet les colis (table `agences`), si elle est configurée. */
+  agency?: { name: string; address: string; phone: string; hours: string } | null;
   point: string;
   delivered_at: string;
   delivered_by: string;
@@ -183,9 +185,16 @@ function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: strin
   }
   centered(t.company.name, base + 4, "bold");
   y += 0.5;
-  if (t.point) centered(`Point de retrait : ${t.point}`);
-  centered(t.company.phone);
+  centered(`Tél / WhatsApp : ${t.company.phone}`);
+  if (t.company.email) centered(t.company.email);
   centered(t.company.website);
+  if (t.point || t.agency) {
+    y += 1;
+    centered(`Agence : ${t.agency?.name || t.point}`, base, "bold");
+    if (t.agency?.address) centered(t.agency.address);
+    if (t.agency?.phone && t.agency.phone !== t.company.phone) centered(`Tél agence : ${t.agency.phone}`);
+    if (t.agency?.hours) centered(t.agency.hours);
+  }
   dashed();
 
   centered("TICKET DE REMISE", base + 2, "bold");

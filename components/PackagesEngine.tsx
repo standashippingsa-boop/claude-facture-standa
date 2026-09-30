@@ -27,6 +27,7 @@ import { useRole } from "@/lib/authx";
 import { useRememberListContext, withReturnTo } from "@/lib/list-context";
 
 import { useNoticeToast } from "@/lib/notify";
+import { RemiseTicketOverlay } from "@/components/RemiseTicketPage";
 const PER_PAGE = 25;
 
 /** Sous MILTIP yon koli — yon koli ka gen plizyè (Extension + Caribe + Facture). */
@@ -77,6 +78,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
   useNoticeToast(notice, setNotice);
   /** Remises confirmées ici : un ticket imprimable par client. */
   const [remiseTickets, setRemiseTickets] = useState<{ code: string; packageId: string; count: number }[]>([]);
+  const [ticketPackageId, setTicketPackageId] = useState<string | null>(null);
   const [showWaQueue, setShowWaQueue] = useState(false);
   const [specialEditor, setSpecialEditor] = useState<Pkg | null>(null);
   const { role, staff } = useRole();
@@ -1003,14 +1005,14 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
         );
       })()}
 
+      {ticketPackageId && <RemiseTicketOverlay packageId={ticketPackageId} onClose={() => setTicketPackageId(null)} />}
       {remiseTickets.length > 0 && (
         <div className="card flex flex-wrap items-center gap-2 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm">
           <span className="font-semibold text-emerald-800">Tickets de remise à imprimer :</span>
           {remiseTickets.map((ticket) => (
-            <Link key={ticket.packageId} className="btn !py-1.5 !text-xs"
-              href={withReturnTo(`/ticket-remise?package=${encodeURIComponent(ticket.packageId)}&print=1`, pathname)}>
+            <button type="button" key={ticket.packageId} className="btn !py-1.5 !text-xs" onClick={() => setTicketPackageId(ticket.packageId)}>
               <Receipt size={14} /> {ticket.code} ({ticket.count})
-            </Link>
+            </button>
           ))}
           <button type="button" className="ml-auto text-xs text-slate-500 hover:text-navy" onClick={() => setRemiseTickets([])}>Fermer</button>
         </div>

@@ -3,7 +3,7 @@ import { use, useEffect, useState } from "react";
 import Loader from "@/components/Loader";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X, Trash2 } from "lucide-react";
+import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X, Trash2, Printer } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
@@ -22,6 +22,7 @@ import { returnToOr, useRememberListContext, withReturnTo } from "@/lib/list-con
 import { specialPackageInfo } from "@/lib/special-package";
 
 import { useNoticeToast } from "@/lib/notify";
+import { RemiseTicketOverlay } from "@/components/RemiseTicketPage";
 type SelPkg = Pkg & { selected?: boolean };
 
 /**
@@ -53,6 +54,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     setSpecialF(text("specialF")); setMinWeight(text("minWeight")); setMaxWeight(text("maxWeight"));
   });
   const [notice, setNotice] = useState<string | null>(null);
+  const [ticketPackageId, setTicketPackageId] = useState<string | null>(null);
   useNoticeToast(notice, setNotice);
   const [busy, setBusy] = useState(false);
   const { role } = useRole();
@@ -203,7 +205,8 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
         // Remise au client : son ticket de remise s'ouvre, prêt à imprimer.
         await logAction("Remise colis", `${targets.length} colis remis au client (administration)`, targets[0]?.tracking_number ?? "", decoded);
         sel.setMany(targets.map(snap), false);
-        router.push(withReturnTo(`/ticket-remise?package=${encodeURIComponent(targets[0].id)}&print=1`, `/clients/${encodeURIComponent(decoded)}`));
+        // Le ticket de remise s'ouvre ici même : aperçu + bouton Imprimer.
+        setTicketPackageId(targets[0].id);
         return;
       }
       let mailInfo = "";
@@ -363,7 +366,11 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
                 <td className="tdc text-right">{usd(p.price_usd)}</td>
                 <td className="tdc text-right font-semibold">{usd(p.total_usd)}</td>
                 <td className="tdc"><StatusBadge status={p.status} /></td>
-                <td className="tdc">
+                <td className="tdc whitespace-nowrap">
+                  {p.status === "Livré" && (
+                    <button type="button" className="mr-2 inline-flex items-center gap-1 rounded-md bg-navy px-2 py-1 text-[11px] font-bold text-white hover:bg-navy-light"
+                      title="Ticket de remise" onClick={() => setTicketPackageId(p.id)}><Printer size={12} /> Ticket</button>
+                  )}
                   {role === "admin" && (
                     <button className="text-slate-300 hover:text-red-600"
                       title="Supprimer définitivement (données cassées — à ré-importer)"
@@ -451,6 +458,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
         />
       )}
 
+      {ticketPackageId && <RemiseTicketOverlay packageId={ticketPackageId} onClose={() => setTicketPackageId(null)} />}
     </div>
   );
 }

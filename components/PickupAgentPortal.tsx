@@ -8,6 +8,7 @@ import { getPushPermissionState, isPushSupported, subscribeStaffToPush } from "@
 import { openSecureDocument } from "@/lib/secure-document";
 import { packageProgressPriority, sortPackagesAvailableFirst } from "@/lib/utils";
 import Loader from "@/components/Loader";
+import { RemiseTicketOverlay } from "@/components/RemiseTicketPage";
 import ClientPaymentForm, { PaymentModal, type ClientPaymentSubmit } from "@/components/ClientPaymentForm";
 import { notify, useNoticeToast } from "@/lib/notify";
 import type { PaymentInvoice } from "@/lib/payment-allocation";
@@ -111,6 +112,10 @@ export default function PickupAgentPortal() {
   const [bonConfirmedId, setBonConfirmedId] = useState<string | null>(null);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState<PaymentTarget | null>(null);
+  // Ticket de remise affiché à l'écran (aperçu + impression) et proposition de
+  // remise juste après un paiement qui rend les colis du client remettables.
+  const [ticketPackageId, setTicketPackageId] = useState<string | null>(null);
+  const [remiseOffer, setRemiseOffer] = useState<{ customerCode: string; packageIds: string[]; paymentText: string } | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -125,12 +130,13 @@ export default function PickupAgentPortal() {
     try {
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
-      if (!token) { router.replace("/point-retrait"); return; }
+      if (!token) { router.replace("/point-retrait"); return null; }
       const response = await fetch("/api/pickup-agent", { cache: "no-store", headers: { Authorization: "Bearer " + token } });
       const json = await response.json();
       if (!response.ok || !json.ok) throw new Error(json.reason || "Chargement impossible.");
       setData(json as PortalData);
       setLoadError("");
+      return json as PortalData;
     } catch (error) {
       if (!silent) {
         setData(null);
@@ -139,6 +145,7 @@ export default function PickupAgentPortal() {
     } finally {
       if (!silent) setLoading(false);
     }
+    return null;
   }, [router]);
 
   useEffect(() => { void load(); }, [load]);
@@ -315,19 +322,21 @@ export default function PickupAgentPortal() {
     });
   };
 
-  const releaseSelectedPackages = async () => {
-    if (releasing || !selectedPackageIds.length) return;
+  const releasePackages = async (packageIds: string[]) => {
+    if (releasing || !packageIds.length) return;
     setReleasing(true);
     setMessage(null);
     try {
-      const result = await call({ action: "release_many", package_ids: selectedPackageIds });
-      const confirmed = Array.isArray(result.package_ids) ? result.package_ids : selectedPackageIds;
+      const result = await call({ action: "release_many", package_ids: packageIds });
+      if (!result) return;
+      const confirmed: string[] = Array.isArray(result.package_ids) ? result.package_ids : packageIds;
+      setSelectedPackageIds(confirmed);
       setConfirmedParcelIds(confirmed);
-      // Chaque remise produit son ticket : on l'ouvre directement, prêt à imprimer.
+      // Chaque remise produit son ticket : il s'ouvre ici même, avec l'aperçu et le bouton Imprimer.
       window.setTimeout(() => {
         setConfirmedParcelIds([]); setSelectedPackageIds([]);
-        if (confirmed[0]) router.push("/espace-remise/ticket?package=" + encodeURIComponent(confirmed[0]) + "&print=1");
-        else void load();
+        if (confirmed[0]) setTicketPackageId(confirmed[0]);
+        void load(true);
       }, 1_200);
     } catch (error) {
       setMessage({ type: "error", text: error instanceof Error ? error.message : "Remise impossible." });
@@ -335,6 +344,7 @@ export default function PickupAgentPortal() {
       setReleasing(false);
     }
   };
+  const releaseSelectedPackages = () => releasePackages(selectedPackageIds);
 
   const confirmBonRemise = async (bonId: string) => {
     if (bonBusy) return;
@@ -379,9 +389,13 @@ export default function PickupAgentPortal() {
       if (!result) return;
       const lines = (result.payments ?? []) as Array<{ invoice_number: string; payment_status: string }>;
       const amountText = payload.currency === "HTG" ? fmtHtg(payload.amount) : fmtUsd(payload.amount);
-      notify.success(`${amountText} par ${payload.method}\n${lines.map((line) => `${line.invoice_number} : ${line.payment_status}`).join("\n")}`, { title: `Paiement enregistré — ${paymentTarget?.customerCode ?? ""}` });
+      const paymentText = `${amountText} par ${payload.method}\n${lines.map((line) => `${line.invoice_number} : ${line.payment_status}`).join("\n")}`;
+      const customerCode = paymentTarget?.customerCode ?? "";
       setPaymentTarget(null);
-      await load(true);
+      const fresh = await load(true);
+      const releasable = (fresh?.packages ?? []).filter((item) => item.customer_code === customerCode && canReleaseParcel(item)).map((item) => item.id);
+      if (releasable.length) setRemiseOffer({ customerCode, packageIds: releasable, paymentText });
+      else notify.success(paymentText, { title: `Paiement enregistré — ${customerCode}` });
     } catch (error) {
       notify.error(error instanceof Error ? error.message : "Paiement impossible.", { title: "Paiement non enregistré" });
     } finally {
@@ -479,7 +493,7 @@ export default function PickupAgentPortal() {
           {tab === "dossiers" && <ClientDossiersView dossiers={matchingDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
           {tab === "arrivals" && <ArrivalsView groups={groups} expanded={expandedCustomer} section={arrivalSection} onToggleCustomer={toggleArrivalCustomer} onSelectSection={(value) => setArrivalSection((current) => current === value ? null : value)} />}
           {tab === "ready" && <ReadyView groups={groups} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
-          {tab === "history" && <RemiseHistoryView packages={filteredPackages} invoices={invoices} onOpenInvoice={openInvoice} onOpenTicket={(packageId) => router.push("/espace-remise/ticket?package=" + encodeURIComponent(packageId))} />}
+          {tab === "history" && <RemiseHistoryView packages={filteredPackages} invoices={invoices} onOpenInvoice={openInvoice} onOpenTicket={(packageId) => setTicketPackageId(packageId)} />}
           {tab === "history" && <DeliveredInvoicesView invoices={deliveredInvoices} onOpenInvoice={openInvoice} />}
           {tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
           {tab === "reports" && <ReportsView agentName={data.agent.name} payments={reportPayments} balances={reportBalances} onOpenInvoice={openInvoice} onStartPayment={(customerCode) => startPayment(customerCode)} onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} />}
@@ -491,6 +505,8 @@ export default function PickupAgentPortal() {
         <MobileNavigation tab={tab} moreOpen={mobileMoreOpen} onHome={() => { setTab("home"); setMobileMoreOpen(false); }} onArrivals={() => { setTab("arrivals"); setArrivalSection(null); setMobileMoreOpen(false); }} onReports={() => { setTab("reports"); setMobileMoreOpen(false); }} onReady={() => { setTab("ready"); setMobileMoreOpen(false); }} onToggleMore={() => setMobileMoreOpen((open) => !open)} onDossiers={() => { setTab("dossiers"); setMobileMoreOpen(false); }} onHistory={() => { setTab("history"); setMobileMoreOpen(false); }} onBons={() => { setTab("bons"); setMobileMoreOpen(false); }} onSettings={() => { setTab("settings"); setMobileMoreOpen(false); }} />
         {selectedPackageIds.length > 0 && confirmedParcelIds.length === 0 && !mobileMoreOpen && <RemiseConfirmBar customerCode={selectedCustomerCode} count={selectedPackageIds.length} busy={releasing} onConfirm={() => void releaseSelectedPackages()} onClear={() => setSelectedPackageIds([])} />}
         {confirmedParcelIds.length > 0 && <RemiseSuccessOverlay customerCode={selectedCustomerCode} count={confirmedParcelIds.length} />}
+        {remiseOffer && <RemiseOffer offer={remiseOffer} busy={releasing} onRelease={() => { const ids = remiseOffer.packageIds; setRemiseOffer(null); void releasePackages(ids); }} onLater={() => setRemiseOffer(null)} />}
+        {ticketPackageId && <RemiseTicketOverlay packageId={ticketPackageId} onClose={() => setTicketPackageId(null)} />}
       </>}
     </main>
   </div>;
@@ -723,6 +739,23 @@ function RemiseConfirmBar({ customerCode, count, busy, onConfirm, onClear }: { c
 }
 
 /** Grande coche verte animée, comme à la fin d'une commande : la remise est enregistrée. */
+/** Juste après un paiement : proposer la remise immédiate des colis devenus remettables, puis le ticket. */
+function RemiseOffer({ offer, busy, onRelease, onLater }: { offer: { customerCode: string; packageIds: string[]; paymentText: string }; busy: boolean; onRelease: () => void; onLater: () => void }) {
+  const count = offer.packageIds.length;
+  return <div role="dialog" aria-modal="true" aria-labelledby="remise-offer-title" className="fixed inset-0 z-[140] flex flex-col items-center justify-center overflow-y-auto bg-white px-6 py-8 text-center">
+    <div className="w-full max-w-md">
+      <div className="sd-pop mx-auto grid h-32 w-32 place-items-center rounded-full bg-emerald-500 shadow-[0_18px_50px_rgba(16,185,129,0.45)]">
+        <svg viewBox="0 0 24 24" className="h-[4.5rem] w-[4.5rem]" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className="sd-check" d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+      </div>
+      <h2 id="remise-offer-title" className="mt-7 text-2xl font-black tracking-tight text-[#0a2b61]">Paiement enregistré — {offer.customerCode}</h2>
+      <p className="mx-auto mt-3 whitespace-pre-line text-base font-semibold leading-relaxed text-slate-600">{offer.paymentText}</p>
+      <p className="mx-auto mt-5 rounded-2xl bg-orange-50 px-4 py-3 text-sm font-bold text-[#bd450b]">{count} colis {count > 1 ? "sont prêts" : "est prêt"} à être remis au client.</p>
+      <button type="button" autoFocus disabled={busy} onClick={onRelease} className="mx-auto mt-6 flex min-h-12 w-full max-w-xs items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 text-base font-black text-white shadow-sm outline-none transition hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:opacity-60"><Printer size={19} />Remettre et voir le ticket</button>
+      <button type="button" disabled={busy} onClick={onLater} className="mx-auto mt-3 flex min-h-11 w-full max-w-xs items-center justify-center rounded-2xl border border-slate-200 px-6 text-sm font-bold text-slate-600 hover:bg-slate-50">Plus tard</button>
+    </div>
+  </div>;
+}
+
 function RemiseSuccessOverlay({ customerCode, count }: { customerCode: string; count: number }) {
   return <div role="status" aria-live="polite" className="fixed inset-0 z-[60] grid place-items-center bg-white/85 px-6 backdrop-blur-sm">
     <div className="text-center">

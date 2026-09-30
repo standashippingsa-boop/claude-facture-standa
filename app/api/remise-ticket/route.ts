@@ -5,6 +5,7 @@ import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
 import { invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
+import { SITE } from "@/lib/site";
 import type { RemiseTicket } from "@/lib/remise-ticket";
 
 /**
@@ -173,6 +174,17 @@ export async function GET(req: Request) {
       };
     });
 
+    // ===== Ajans ki remèt koli yo (adrès, telefòn, lè) — tab `agences`, menm non ak vil la =====
+    const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    let agency: RemiseTicket["agency"] = null;
+    if (point) {
+      const agencesResult = await db.from("agences").select("nom, adresse, telephone, horaire_1, horaire_2").eq("active", true);
+      const wanted = normalize(point.split(", ")[0] ?? "");
+      const match = ((agencesResult.data ?? []) as Array<{ nom: string; adresse: string; telephone: string; horaire_1: string; horaire_2: string }>)
+        .find((row) => normalize(text(row.nom)) === wanted) ?? null;
+      if (match) agency = { name: text(match.nom), address: text(match.adresse), phone: text(match.telephone), hours: [text(match.horaire_1), text(match.horaire_2)].filter(Boolean).join(" · ") };
+    }
+
     // ===== Nimewo ticket + kòd sekirite (detèminis) =====
     const deliveredAt = text(anchor.delivered_at);
     const fingerprint = parcels.map((row) => row.id).sort().join(",") + "|" + deliveredAt;
@@ -195,7 +207,8 @@ export async function GET(req: Request) {
     const ticket: RemiseTicket = {
       ticket_number: ticketNumber,
       security_code: securityCode,
-      company: { name: "STANDA COMMERCIAL", phone: SUPPORT_PHONE, website: SITE_URL.replace(/^https?:\/\//, "") },
+      company: { name: "STANDA COMMERCIAL", phone: SUPPORT_PHONE, website: SITE_URL.replace(/^https?:\/\//, ""), email: SITE.email },
+      agency,
       point,
       delivered_at: deliveredAt,
       delivered_by: deliveredBy,
