@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Shell from "@/components/Shell";
 import PwaManager from "@/components/PwaManager";
+import Toaster from "@/components/Toaster";
 import SelectionBar from "@/components/SelectionBar";
 import { SelectionProvider } from "@/lib/selection";
 import { SITE_URL } from "@/lib/branding";
@@ -134,6 +135,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SelectionBar />
         </SelectionProvider>
         <PwaManager />
+        <Toaster />
       </body>
     </html>
   );

@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
-import { hasSignificantInvoiceBalance, invoicePayableAmounts, invoiceRemainingAmounts, parsePaymentAmount, paymentIsWithinRoundingMargin, paymentStatusFromAmounts } from "@/lib/invoice-payable";
+import { hasSignificantInvoiceBalance, invoicePayableAmounts, invoiceRemainingAmounts, parsePaymentAmount, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 import { specialPackageInfo } from "@/lib/special-package";
 import { computePrice, round2 } from "@/lib/pricing";
 import type { AccountType, Ville } from "@/lib/types";
 import { sendPushToCustomer } from "@/lib/push-server";
 import { sendFcmToCustomer } from "@/lib/push-fcm-server";
 import { pushParcelEventToCustomers } from "@/lib/customer-push";
+import { commitPaymentAllocations, PAYMENT_INVOICE_COLUMNS, PAYMENT_METHOD_SET, planPaymentAllocation, readInvoiceIds, type PaymentInvoice } from "@/lib/invoice-payment-server";
 
 /**
  * API isolée des points de retrait.
@@ -47,9 +48,6 @@ type ZonePayment = {
 const uuid = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 const money = (value: unknown) => Math.round(Number(value ?? 0) * 100) / 100;
 const code = (value: unknown) => String(value ?? "").trim();
-// Zelle n'est jamais encaissé au point de retrait : seul l'administrateur
-// l'enregistre (rapports financiers), donc il n'entre pas dans la caisse de l'agent.
-const AGENT_PAYMENT_METHODS = new Set(["Espèces", "MonCash", "NatCash", "Virement bancaire"]);
 const paymentSourceLabel = (role: string | null) => code(role) === "admin" ? "Administrateur" : "Point de retrait";
 
 function bearerToken(req: Request) {
@@ -443,10 +441,10 @@ export async function GET(req: Request) {
       const invoice = invoiceMap.get(invoiceId);
       if (!invoice) return [];
       return payments
-        // Zelle (administration seulement) et les paiements déjà clôturés par
-        // l'administration ne comptent plus dans la caisse de l'agent.
-        .filter((payment) => code(payment.recorded_by_role) === "agent_retrait"
-          && code(payment.payment_method) !== "Zelle" && !code(payment.settled_at))
+        // Les paiements déjà clôturés par l'administration sortent du rapport.
+        // Zelle y figure (le point de retrait l'a enregistré) mais l'écran le
+        // sépare de l'argent liquide à remettre.
+        .filter((payment) => code(payment.recorded_by_role) === "agent_retrait" && !code(payment.settled_at))
         .map((payment) => ({
           id: code(payment.id), invoice_id: invoiceId, invoice_number: code(invoice.invoice_number),
           customer_code: code(invoice.customer_code), customer_name: customerName(customerByCode.get(code(invoice.customer_code))),
@@ -573,78 +571,56 @@ export async function POST(req: Request) {
     }
 
     if (body?.action === "record_payment") {
-      const invoiceId = code(body.invoice_id);
+      // Le client remet un montant total : il est réparti automatiquement sur
+      // ses factures choisies (la plus ancienne d'abord). Ancien champ
+      // `invoice_id` toujours accepté.
+      const invoiceIds = readInvoiceIds(body, uuid);
       const amount = parsePaymentAmount(body.amount);
-      const currency = code(body.currency).toUpperCase();
+      const currency = code(body.currency).toUpperCase() as "USD" | "HTG";
       const paymentMethod = code(body.payment_method) || "Espèces";
       const paymentReference = code(body.payment_reference).slice(0, 120);
-      if (!uuid.test(invoiceId) || !["USD", "HTG"].includes(currency) || amount === null || amount <= 0) {
-        return NextResponse.json({ ok: false, reason: "Montant, devise ou méthode de paiement invalide." }, { status: 400 });
+      if (!invoiceIds) return NextResponse.json({ ok: false, reason: "Choisissez au moins une facture." }, { status: 400 });
+      if (!["USD", "HTG"].includes(currency) || amount === null || amount <= 0) {
+        return NextResponse.json({ ok: false, reason: "Entrez un montant et une devise valides." }, { status: 400 });
       }
-      if (paymentMethod === "Zelle") {
-        return NextResponse.json({ ok: false, reason: "Le paiement Zelle est enregistré uniquement par l'administration, pas au point de retrait." }, { status: 400 });
-      }
-      if (!AGENT_PAYMENT_METHODS.has(paymentMethod)) {
-        return NextResponse.json({ ok: false, reason: "Montant, devise ou méthode de paiement invalide." }, { status: 400 });
+      if (!PAYMENT_METHOD_SET.has(paymentMethod)) {
+        return NextResponse.json({ ok: false, reason: "Choisissez le moyen de paiement." }, { status: 400 });
       }
       if ((currency === "USD" && amount > 100000) || (currency === "HTG" && amount > 50000000)) {
-        return NextResponse.json({ ok: false, reason: "Montant trop élevé: vérifiez votre saisie." }, { status: 400 });
+        return NextResponse.json({ ok: false, reason: "Montant trop élevé : vérifiez votre saisie." }, { status: 400 });
       }
-      const invoiceResult = await db.from("invoices")
-        .select("id, invoice_number, customer_code, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, payment_paid_usd, payment_paid_htg")
-        .eq("id", invoiceId).maybeSingle();
-      const invoice = invoiceResult.data as {
-        id: string; invoice_number: string; customer_code: string; grand_total: number; total_usd: number; total_htg: number;
-        exchange_rate_used: number; order_deposit: number; balance_due: number; has_pdf: boolean; payment_paid_usd: number; payment_paid_htg: number;
-      } | null;
-      if (!invoice || !(await invoiceBelongsToAgentZone(db, invoice.id, invoice.customer_code, agent.pickup_ville_id!, zoneName, centralCode))) {
-        return NextResponse.json({ ok: false, reason: "Cette facture n'appartient pas à votre zone." }, { status: 403 });
+      const invoiceResult = await db.from("invoices").select(PAYMENT_INVOICE_COLUMNS).in("id", invoiceIds);
+      if (invoiceResult.error) throw invoiceResult.error;
+      const invoices = (invoiceResult.data ?? []) as PaymentInvoice[];
+      if (invoices.length !== invoiceIds.length) {
+        return NextResponse.json({ ok: false, reason: "Facture introuvable. Actualisez l'écran." }, { status: 404 });
       }
-      if (!invoice.has_pdf) {
-        return NextResponse.json({ ok: false, reason: "La facture doit être générée pour le client avant tout encaissement." }, { status: 409 });
+      if (new Set(invoices.map((invoice) => code(invoice.customer_code))).size > 1) {
+        return NextResponse.json({ ok: false, reason: "Un paiement ne peut couvrir que les factures d'un seul client." }, { status: 400 });
       }
-      const payable = invoicePayableAmounts(invoice);
-      const rate = Number(invoice.exchange_rate_used) > 0 ? Number(invoice.exchange_rate_used) : payable.payableHtg / Math.max(payable.payableUsd, 1);
-      if (!Number.isFinite(rate) || rate <= 0) return NextResponse.json({ ok: false, reason: "Taux de la facture introuvable. Contactez un administrateur." }, { status: 409 });
-      const amountUsd = currency === "USD" ? amount : money(amount / rate);
-      const amountHtg = currency === "HTG" ? amount : money(amount * rate);
-      const priorUsd = money(invoice.payment_paid_usd);
-      const priorHtg = money(invoice.payment_paid_htg);
-      const remainingUsd = Math.max(0, money(payable.payableUsd - priorUsd));
-      const remainingHtg = Math.max(0, money(payable.payableHtg - priorHtg));
-      // Aksepte yon ti depase lajan (eg. 11 675 pou yon balans 11 673 HTG),
-      // men pa kite yon gwo montan pase pa erè. Se sèlman balans la ki aplike.
-      if (!paymentIsWithinRoundingMargin(amountHtg, remainingHtg)) {
-        return NextResponse.json({ ok: false, reason: `Le montant dépasse le reste à payer (${remainingUsd.toFixed(2)} USD).` }, { status: 409 });
+      for (const invoice of invoices) {
+        if (!(await invoiceBelongsToAgentZone(db, invoice.id, invoice.customer_code, agent.pickup_ville_id!, zoneName, centralCode))) {
+          return NextResponse.json({ ok: false, reason: `La facture ${invoice.invoice_number} n'appartient pas à votre zone.` }, { status: 403 });
+        }
+        if (!invoice.has_pdf) {
+          return NextResponse.json({ ok: false, reason: `La facture ${invoice.invoice_number} doit être générée pour le client avant tout encaissement.` }, { status: 409 });
+        }
       }
-      const appliedUsd = Math.min(amountUsd, remainingUsd);
-      const appliedHtg = Math.min(amountHtg, remainingHtg);
-      const overpaymentAmount = money(currency === "HTG" ? amount - appliedHtg : amount - appliedUsd);
-      const newUsd = money(priorUsd + appliedUsd);
-      const newHtg = money(priorHtg + appliedHtg);
-      const status = paymentStatusFromAmounts({ ...invoice, payment_paid_usd: newUsd, payment_paid_htg: newHtg });
-      // Écriture optimiste: une seule caisse peut ajouter un paiement à partir
-      // du même solde. Si deux appareils valident au même instant, le second
-      // enregistrement est retiré et doit actualiser l'écran.
-      const payment = await db.from("invoice_payments").insert({
-        invoice_id: invoice.id, amount, currency, amount_usd: amountUsd, amount_htg: amountHtg,
-        applied_usd: appliedUsd, applied_htg: appliedHtg, overpayment_amount: overpaymentAmount,
-        payment_method: paymentMethod, payment_reference: paymentReference, exchange_rate_used: rate,
-        received_by_staff_id: agent.id, received_by_name: agentName(agent), recorded_by_role: "agent_retrait"
-      }).select("id").single();
-      if (payment.error || !payment.data?.id) throw payment.error ?? new Error("Paiement non enregistré.");
-      const update = await db.from("invoices").update({
-        payment_status: status, payment_paid_usd: newUsd, payment_paid_htg: newHtg,
-        payment_paid_at: status === "Payé" ? new Date().toISOString() : null,
-        payment_paid_by: status === "Payé" ? agentName(agent) : null
-      }).eq("id", invoice.id).eq("payment_paid_usd", priorUsd).select("id").maybeSingle();
-      if (update.error || !update.data) {
-        await db.from("invoice_payments").delete().eq("id", payment.data.id);
-        if (update.error) throw update.error;
-        return NextResponse.json({ ok: false, reason: "Le solde vient de changer. Actualisez avant d'enregistrer ce paiement." }, { status: 409 });
-      }
-      await writeAudit(db, req, agent, "Paiement client reçu", `${invoice.invoice_number} · ${amount} ${currency} · ${paymentMethod} · ${zoneName}`, invoice.invoice_number, invoice.customer_code);
-      return NextResponse.json({ ok: true, payment_status: status, payment_paid_usd: newUsd, payment_paid_htg: newHtg, overpayment_amount: overpaymentAmount, currency });
+      const plan = planPaymentAllocation(invoices, amount, currency);
+      if (!plan.ok) return NextResponse.json({ ok: false, reason: plan.reason }, { status: 409 });
+      const committed = await commitPaymentAllocations(db, plan.allocations, {
+        currency, method: paymentMethod, reference: paymentReference,
+        recorder: { staffId: agent.id, staffName: agentName(agent), role: "agent_retrait" }
+      });
+      if (!committed.ok) return NextResponse.json({ ok: false, reason: committed.reason }, { status: committed.conflict ? 409 : 500 });
+      const numbers = committed.payments.map((payment) => payment.invoice_number).join(", ");
+      await writeAudit(db, req, agent, "Paiement client reçu", `${numbers} · ${amount} ${currency} · ${paymentMethod} · ${zoneName}`, numbers, code(invoices[0].customer_code));
+      const last = committed.payments[committed.payments.length - 1];
+      return NextResponse.json({
+        ok: true, currency, payments: committed.payments,
+        payment_status: last?.payment_status ?? "",
+        overpayment_amount: committed.payments.reduce((total, payment) => total + payment.overpayment_amount, 0)
+      });
     }
 
     if (body?.action === "release_many") {

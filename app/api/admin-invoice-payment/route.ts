@@ -2,13 +2,17 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
-import { invoicePayableAmounts, money, parsePaymentAmount, paymentIsWithinRoundingMargin, paymentStatusFromAmounts } from "@/lib/invoice-payable";
+import { parsePaymentAmount } from "@/lib/invoice-payable";
+import { commitPaymentAllocations, PAYMENT_INVOICE_COLUMNS, PAYMENT_METHOD_SET, planPaymentAllocation, readInvoiceIds, safeJournal, type PaymentInvoice } from "@/lib/invoice-payment-server";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
-const METHODS = new Set(["Espèces", "MonCash", "NatCash", "Zelle", "Virement bancaire"]);
 const text = (value: unknown) => String(value ?? "").trim();
 
-/** Paiement saisi par l'administrateur (ex: client qui paie directement). */
+/**
+ * Paiement saisi par l'administrateur (client qui paie directement, Zelle…).
+ * Le montant total remis par le client est réparti automatiquement sur ses
+ * factures sélectionnées, de la plus ancienne à la plus récente.
+ */
 export async function POST(req: Request) {
   const rl = rateLimit(`admin-invoice-payment:${clientIp(req)}`, 30, 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
@@ -17,80 +21,66 @@ export async function POST(req: Request) {
     const config = getSupabaseAdminConfig();
     if (!config) return NextResponse.json({ ok: false, reason: "Service indisponible." }, { status: 503 });
     const body = await req.json().catch(() => null);
-    const token = text(body?.token);
-    const invoiceId = text(body?.invoice_id);
+    const token = text(body?.token) || (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+    const invoiceIds = readInvoiceIds(body, UUID);
     const amount = parsePaymentAmount(body?.amount);
-    const currency = text(body?.currency).toUpperCase();
+    const currency = text(body?.currency).toUpperCase() as "USD" | "HTG";
     const method = text(body?.payment_method) || "Espèces";
     const reference = text(body?.payment_reference).slice(0, 120);
-    if (!token || !UUID.test(invoiceId) || !["USD", "HTG"].includes(currency) || amount === null || amount <= 0 || !METHODS.has(method)) {
-      return NextResponse.json({ ok: false, reason: "Informations de paiement invalides." }, { status: 400 });
+    if (!token) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
+    if (!invoiceIds) return NextResponse.json({ ok: false, reason: "Choisissez au moins une facture." }, { status: 400 });
+    if (!["USD", "HTG"].includes(currency)) return NextResponse.json({ ok: false, reason: "Devise invalide." }, { status: 400 });
+    if (amount === null || amount <= 0) return NextResponse.json({ ok: false, reason: "Entrez un montant valide." }, { status: 400 });
+    if (!PAYMENT_METHOD_SET.has(method)) return NextResponse.json({ ok: false, reason: "Moyen de paiement invalide." }, { status: 400 });
+    if ((currency === "USD" && amount > 100000) || (currency === "HTG" && amount > 50000000)) {
+      return NextResponse.json({ ok: false, reason: "Montant trop élevé : vérifiez votre saisie." }, { status: 400 });
     }
 
     const db: any = createClient(config.url, config.key, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: auth } = await db.auth.getUser(token);
-    if (!auth.user) return NextResponse.json({ ok: false, reason: "Session invalide." }, { status: 401 });
+    if (!auth.user) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
     const { data: staff } = await db.from("staff").select("id, username, prenom, nom, role")
       .eq("auth_user_id", auth.user.id).maybeSingle();
     if (!staff || staff.role !== "admin") return NextResponse.json({ ok: false, reason: "Accès administrateur requis." }, { status: 403 });
 
-    const { data: invoice } = await db.from("invoices")
-      .select("id, invoice_number, customer_code, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, payment_paid_usd, payment_paid_htg")
-      .eq("id", invoiceId).maybeSingle();
-    if (!invoice) return NextResponse.json({ ok: false, reason: "Facture introuvable." }, { status: 404 });
-    if (!invoice.has_pdf) return NextResponse.json({ ok: false, reason: "Générez d'abord la facture destinée au client." }, { status: 409 });
-    const payable = invoicePayableAmounts(invoice);
-    const rate = Number(invoice.exchange_rate_used) > 0 ? Number(invoice.exchange_rate_used) : payable.payableHtg / Math.max(payable.payableUsd, 1);
-    if (!Number.isFinite(rate) || rate <= 0) return NextResponse.json({ ok: false, reason: "Taux de la facture introuvable." }, { status: 409 });
-
-    const amountUsd = currency === "USD" ? amount : money(amount / rate);
-    const amountHtg = currency === "HTG" ? amount : money(amount * rate);
-    const priorUsd = money(invoice.payment_paid_usd);
-    const priorHtg = money(invoice.payment_paid_htg);
-    const remainingUsd = Math.max(0, money(payable.payableUsd - priorUsd));
-    const remainingHtg = Math.max(0, money(payable.payableHtg - priorHtg));
-    if (!paymentIsWithinRoundingMargin(amountHtg, remainingHtg)) {
-      return NextResponse.json({ ok: false, reason: `Le montant dépasse le reste à payer (${remainingUsd.toFixed(2)} USD).` }, { status: 409 });
+    const invoicesResult = await db.from("invoices").select(PAYMENT_INVOICE_COLUMNS).in("id", invoiceIds);
+    if (invoicesResult.error) throw invoicesResult.error;
+    const invoices = (invoicesResult.data ?? []) as PaymentInvoice[];
+    if (invoices.length !== invoiceIds.length) return NextResponse.json({ ok: false, reason: "Facture introuvable. Actualisez la page." }, { status: 404 });
+    if (new Set(invoices.map((invoice) => text(invoice.customer_code))).size > 1) {
+      return NextResponse.json({ ok: false, reason: "Un paiement ne peut couvrir que les factures d'un seul client." }, { status: 400 });
     }
+    const withoutPdf = invoices.find((invoice) => !invoice.has_pdf);
+    if (withoutPdf) return NextResponse.json({ ok: false, reason: `Générez d'abord la facture ${withoutPdf.invoice_number} destinée au client.` }, { status: 409 });
 
-    const appliedUsd = Math.min(amountUsd, remainingUsd);
-    const appliedHtg = Math.min(amountHtg, remainingHtg);
-    const overpaymentAmount = money(currency === "HTG" ? amount - appliedHtg : amount - appliedUsd);
-    const newUsd = money(priorUsd + appliedUsd);
-    const newHtg = money(priorHtg + appliedHtg);
-    const status = paymentStatusFromAmounts({ ...invoice, payment_paid_usd: newUsd, payment_paid_htg: newHtg });
+    const plan = planPaymentAllocation(invoices, amount, currency);
+    if (!plan.ok) return NextResponse.json({ ok: false, reason: plan.reason }, { status: 409 });
+
     const staffName = [text(staff.prenom), text(staff.nom)].filter(Boolean).join(" ") || text(staff.username) || "Administrateur";
+    const committed = await commitPaymentAllocations(db, plan.allocations, {
+      currency, method, reference, recorder: { staffId: staff.id, staffName, role: "admin" }
+    });
+    if (!committed.ok) return NextResponse.json({ ok: false, reason: committed.reason }, { status: committed.conflict ? 409 : 500 });
 
-    const payment = await db.from("invoice_payments").insert({
-      invoice_id: invoice.id, amount, currency, amount_usd: amountUsd, amount_htg: amountHtg,
-      applied_usd: appliedUsd, applied_htg: appliedHtg, overpayment_amount: overpaymentAmount,
-      payment_method: method, payment_reference: reference, exchange_rate_used: rate,
-      received_by_staff_id: staff.id, received_by_name: staffName, recorded_by_role: "admin"
-    }).select("id").single();
-    if (payment.error || !payment.data?.id) throw payment.error ?? new Error("Paiement non enregistré.");
-
-    const update = await db.from("invoices").update({
-      payment_status: status, payment_paid_usd: newUsd, payment_paid_htg: newHtg,
-      payment_paid_at: status === "Payé" ? new Date().toISOString() : null,
-      payment_paid_by: status === "Payé" ? staffName : null
-    }).eq("id", invoice.id).eq("payment_paid_usd", priorUsd).select("id").maybeSingle();
-    if (update.error || !update.data) {
-      await db.from("invoice_payments").delete().eq("id", payment.data.id);
-      if (update.error) throw update.error;
-      return NextResponse.json({ ok: false, reason: "Le solde a changé. Actualisez avant d'enregistrer le paiement." }, { status: 409 });
-    }
-
-    await db.from("journal").insert({
+    const customerCode = text(invoices[0].customer_code);
+    const numbers = committed.payments.map((payment) => payment.invoice_number).join(", ");
+    await safeJournal(db, {
       user_name: `${staffName} (admin)`, action: "Paiement client reçu",
-      details: `${invoice.invoice_number} · ${amount} ${currency} · ${method} · paiement direct admin`,
-      package_ref: invoice.invoice_number, customer_code: invoice.customer_code,
+      details: `${numbers} · ${amount} ${currency} · ${method} · paiement direct admin`,
+      package_ref: numbers.slice(0, 120), customer_code: customerCode,
       ip_address: clientIp(req),
       user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400)
-    }).catch(() => null);
+    });
 
-    return NextResponse.json({ ok: true, payment_status: status, overpayment_amount: overpaymentAmount, currency });
+    const last = committed.payments[committed.payments.length - 1];
+    return NextResponse.json({
+      ok: true, currency,
+      payments: committed.payments,
+      payment_status: last?.payment_status ?? "",
+      overpayment_amount: committed.payments.reduce((total, payment) => total + payment.overpayment_amount, 0)
+    });
   } catch (error) {
     console.error("[admin-invoice-payment]", error);
-    return NextResponse.json({ ok: false, reason: "Impossible d'enregistrer le paiement." }, { status: 500 });
+    return NextResponse.json({ ok: false, reason: "Impossible d'enregistrer le paiement. Réessayez." }, { status: 500 });
   }
 }

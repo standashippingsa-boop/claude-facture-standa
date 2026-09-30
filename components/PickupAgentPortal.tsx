@@ -7,7 +7,10 @@ import { supabase } from "@/lib/supabase";
 import { getPushPermissionState, isPushSupported, subscribeStaffToPush } from "@/lib/push";
 import { openSecureDocument } from "@/lib/secure-document";
 import { packageProgressPriority, sortPackagesAvailableFirst } from "@/lib/utils";
-import { parsePaymentAmount } from "@/lib/invoice-payable";
+import Loader from "@/components/Loader";
+import ClientPaymentForm, { PaymentModal, type ClientPaymentSubmit } from "@/components/ClientPaymentForm";
+import { notify, useNoticeToast } from "@/lib/notify";
+import type { PaymentInvoice } from "@/lib/payment-allocation";
 import Logo from "@/components/Logo";
 import StaffNotifications from "@/components/StaffNotifications";
 
@@ -37,9 +40,7 @@ type PortalData = { agent: { id: string; name: string; username: string }; zone:
 type Tab = "home" | "dossiers" | "arrivals" | "ready" | "bons" | "history" | "reports" | "settings";
 /** « À venir » : deux étapes seulement — arrivés en Haïti, ou encore en cours (Miami / transit). */
 type ArrivalSection = "haiti" | "miami";
-// Zelle est encaissé uniquement par l'administration (rapports financiers).
-type PaymentMethod = "Espèces" | "MonCash" | "NatCash" | "Virement bancaire";
-type PaymentDraft = { invoiceId: string; amount: string; currency: "USD" | "HTG"; method: PaymentMethod; reference: string };
+type PaymentTarget = { customerCode: string; invoiceIds?: string[] };
 type PushPermission = NotificationPermission | "unsupported" | "checking";
 type ClientDossier = { customerCode: string; customerName: string; packages: ZonePackage[]; invoices: ZoneInvoice[] };
 type DossierCounts = { active: ZonePackage[]; enRoute: number; available: number; latestActiveAt: number; latestActivityAt: number };
@@ -47,7 +48,6 @@ type PackageGroup = { customerCode: string; customerName: string; packages: Zone
 
 const DONE = "Livré";
 const READY_STATUSES = new Set(["Disponible", "Facturé"]);
-const emptyPaymentDraft = (): PaymentDraft => ({ invoiceId: "", amount: "", currency: "HTG", method: "Espèces", reference: "" });
 const fmtUsd = (value: number) => "$" + Number(value || 0).toFixed(2);
 const fmtHtg = (value: number) => new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 }).format(Number(value || 0)) + " HTG";
 const dateText = (value: string) => value ? new Date(value).toLocaleDateString("fr-CA", { day: "numeric", month: "short", year: "numeric" }) : "—";
@@ -60,8 +60,13 @@ const HAITI_STATUSES = new Set(["Arrivé en Haïti", "En route vers agence"]);
 // Un colis « Disponible » sans facture est déjà en Haïti : il attend seulement sa facture.
 const arrivalSectionOf = (item: ZonePackage): ArrivalSection => HAITI_STATUSES.has(item.status) || READY_STATUSES.has(item.status) ? "haiti" : "miami";
 const dateTimeText = (value: string) => value ? new Date(value).toLocaleString("fr-CA", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
-const invoiceRate = (invoice: ZoneInvoice) => invoice.exchange_rate > 0 ? invoice.exchange_rate : invoice.amount_due_htg / Math.max(invoice.amount_due_usd, 1);
-const round2 = (value: number) => Math.round(value * 100) / 100;
+/** Facture de zone -> format du calcul de répartition (montant = solde de la facture envoyée au client). */
+const toPaymentInvoice = (invoice: ZoneInvoice): PaymentInvoice => ({
+  id: invoice.id, invoice_number: invoice.invoice_number, customer_code: invoice.customer_code,
+  grand_total: invoice.amount_due_usd, total_usd: invoice.amount_due_usd, total_htg: invoice.amount_due_htg,
+  exchange_rate_used: invoice.exchange_rate, order_deposit: 0, balance_due: invoice.amount_due_usd, has_pdf: invoice.has_pdf,
+  payment_paid_usd: invoice.payment_paid_usd, payment_paid_htg: invoice.payment_paid_htg, created_at: invoice.created_at
+});
 const cn = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" ");
 const dateTimestamp = (value: string) => {
   const parsed = value ? Date.parse(value) : 0;
@@ -104,9 +109,11 @@ export default function PickupAgentPortal() {
   const [bonBusy, setBonBusy] = useState(false);
   const [bonConfirmedId, setBonConfirmedId] = useState<string | null>(null);
   const [paymentBusy, setPaymentBusy] = useState(false);
-  const [paymentDraft, setPaymentDraft] = useState<PaymentDraft>(emptyPaymentDraft);
+  const [paymentTarget, setPaymentTarget] = useState<PaymentTarget | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
+  const [loadError, setLoadError] = useState("");
+  useNoticeToast(message, setMessage);
   const [loading, setLoading] = useState(true);
   const [showPushBanner, setShowPushBanner] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
@@ -122,10 +129,11 @@ export default function PickupAgentPortal() {
       const json = await response.json();
       if (!response.ok || !json.ok) throw new Error(json.reason || "Chargement impossible.");
       setData(json as PortalData);
+      setLoadError("");
     } catch (error) {
       if (!silent) {
         setData(null);
-        setMessage({ type: "error", text: error instanceof Error ? error.message : "Chargement impossible." });
+        setLoadError(error instanceof Error ? error.message : "Chargement impossible.");
       }
     } finally {
       if (!silent) setLoading(false);
@@ -347,20 +355,33 @@ export default function PickupAgentPortal() {
     }
   };
 
-  const recordPayment = async () => {
-    const amount = parsePaymentAmount(paymentDraft.amount);
-    if (!paymentDraft.invoiceId || amount === null || amount <= 0) { setPaymentError("Entrez un montant valide."); return; }
+  const hostHasCustomer = (customerCode: string) => tab === "dossiers"
+    ? matchingDossiers.some((dossier) => dossier.customerCode === customerCode)
+    : tab === "ready" ? groups.some((group) => group.customerCode === customerCode) : false;
+  // Paiement et détail de facture s'ouvrent DANS la carte du client quand elle est
+  // ouverte à l'écran ; sinon (rapport, historique) dans une fenêtre au-dessus.
+  const inlineCustomer = (tab === "dossiers" || tab === "ready") && expandedCustomer && hostHasCustomer(expandedCustomer) ? expandedCustomer : null;
+  const selectedInvoice = selectedInvoiceId ? invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null : null;
+  const invoiceInline = Boolean(selectedInvoice && inlineCustomer === selectedInvoice.customer_code);
+  const paymentInline = Boolean(paymentTarget && inlineCustomer === paymentTarget.customerCode);
+  const paymentInvoicesFor = (customerCode: string) => invoices
+    .filter((invoice) => invoice.customer_code === customerCode && invoice.has_pdf && invoice.payment_status !== "Payé")
+    .map(toPaymentInvoice);
+
+  const recordPayment = async (payload: ClientPaymentSubmit) => {
     setPaymentBusy(true);
     setPaymentError(null);
     try {
       const result = await call({
-        action: "record_payment", invoice_id: paymentDraft.invoiceId, amount,
-        currency: paymentDraft.currency, payment_method: paymentDraft.method, payment_reference: paymentDraft.reference
+        action: "record_payment", invoice_ids: payload.invoiceIds, amount: payload.amount,
+        currency: payload.currency, payment_method: payload.method, payment_reference: payload.reference
       });
-      const extra = Number(result.overpayment_amount || 0) > 0.009 ? " Arrondi accepté : " + Number(result.overpayment_amount).toFixed(2) + " " + result.currency + "." : "";
-      setMessage({ type: "ok", text: "Paiement enregistré : " + result.payment_status + "." + extra });
-      setPaymentDraft(emptyPaymentDraft());
-      await load();
+      if (!result) return;
+      const lines = (result.payments ?? []) as Array<{ invoice_number: string; payment_status: string }>;
+      const amountText = payload.currency === "HTG" ? fmtHtg(payload.amount) : fmtUsd(payload.amount);
+      notify.success(`${amountText} par ${payload.method} · ${lines.map((line) => `${line.invoice_number} : ${line.payment_status}`).join(" · ")}`, { title: `Paiement enregistré — ${paymentTarget?.customerCode ?? ""}` });
+      setPaymentTarget(null);
+      await load(true);
     } catch (error) {
       setPaymentError(error instanceof Error ? error.message : "Paiement impossible.");
     } finally {
@@ -368,14 +389,30 @@ export default function PickupAgentPortal() {
     }
   };
 
-  const startPayment = (invoiceId: string) => {
-    if (!invoiceId) return;
-    setPaymentDraft({ ...emptyPaymentDraft(), invoiceId });
+  const startPayment = (customerCode: string, invoiceIds?: string[]) => {
+    if (!customerCode) return;
+    setPaymentTarget({ customerCode, invoiceIds });
     setPaymentError(null);
     setSelectedInvoiceId(null);
-    setMessage(null);
-    window.setTimeout(() => document.getElementById("payment-panel")?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
+    if ((tab === "dossiers" || tab === "ready") && hostHasCustomer(customerCode)) setExpandedCustomer(customerCode);
+    else if (dossiers.some((dossier) => dossier.customerCode === customerCode)) {
+      // Depuis le rapport : on entre dans le dossier du client pour encaisser.
+      setTab("dossiers"); setSearch(customerCode); setFocusedPackageId(null); setExpandedCustomer(customerCode);
+    }
+    window.setTimeout(() => document.getElementById("payment-inline-" + customerCode)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   };
+
+  const openInvoice = (invoiceId: string) => {
+    setSelectedInvoiceId((current) => current === invoiceId ? null : invoiceId);
+    window.setTimeout(() => document.getElementById("invoice-inline-" + invoiceId)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
+  };
+
+  const renderPayment = (customerCode: string) => paymentInline && paymentTarget?.customerCode === customerCode
+    ? <div id={"payment-inline-" + customerCode} className="scroll-mt-24"><ClientPaymentForm key={customerCode + (paymentTarget.invoiceIds ?? []).join()} title="Paiement avant remise" customerCode={customerCode} customerName={dossiers.find((dossier) => dossier.customerCode === customerCode)?.customerName} invoices={paymentInvoicesFor(customerCode)} initialSelected={paymentTarget.invoiceIds} busy={paymentBusy} error={paymentError} onSubmit={(payload) => void recordPayment(payload)} onClose={() => { setPaymentTarget(null); setPaymentError(null); }} /></div>
+    : null;
+  const renderInvoice = (customerCode: string) => invoiceInline && selectedInvoice && selectedInvoice.customer_code === customerCode
+    ? <div id={"invoice-inline-" + selectedInvoice.id} className="scroll-mt-24"><InvoiceDetails invoice={selectedInvoice} packages={packages.filter((item) => item.invoice_id === selectedInvoice.id)} onClose={() => setSelectedInvoiceId(null)} onPay={selectedInvoice.payment_status !== "Payé" && selectedInvoice.has_pdf ? () => startPayment(selectedInvoice.customer_code, [selectedInvoice.id]) : undefined} /></div>
+    : null;
 
   const openDocument = async (kind: "invoice" | "bon-remise", id: string) => {
     try { await openSecureDocument(kind, id); }
@@ -393,8 +430,8 @@ export default function PickupAgentPortal() {
     </header>
 
     <main className="mx-auto max-w-6xl px-3 py-3 pb-20 sm:px-6 sm:py-8 sm:pb-12">
-      {loading && <div className="grid min-h-[45vh] place-items-center"><div className="text-center"><RefreshCw className="mx-auto mb-3 animate-spin text-[#0d3b7a]" size={30} /><p className="text-sm text-slate-500">Chargement des opérations…</p></div></div>}
-      {!loading && !data && <section className="mx-auto max-w-xl rounded-3xl border border-red-100 bg-white p-7 text-center shadow-sm"><ShieldCheck className="mx-auto mb-3 text-red-500" size={36} /><h1 className="text-xl font-extrabold text-[#0a2b61]">Accès à vérifier</h1><p className="mt-2 text-sm text-slate-600">{message?.text || "Impossible de préparer votre espace."}</p><button type="button" className="btn mt-5" onClick={() => void load()}>Réessayer</button></section>}
+      {loading && <div className="grid min-h-[45vh] place-items-center"><Loader inline size={64} /></div>}
+      {!loading && !data && <section className="mx-auto max-w-xl rounded-3xl border border-red-100 bg-white p-7 text-center shadow-sm"><ShieldCheck className="mx-auto mb-3 text-red-500" size={36} /><h1 className="text-xl font-extrabold text-[#0a2b61]">Accès à vérifier</h1><p className="mt-2 text-sm text-slate-600">{loadError || "Impossible de préparer votre espace."}</p><button type="button" className="btn mt-5" onClick={() => void load()}>Réessayer</button></section>}
       {!loading && data && <>
         <div className="md:grid md:grid-cols-[190px_minmax(0,1fr)] md:gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
         <SideNavigation tab={tab} incoming={incoming.length} ready={ready.length} dossiers={dossiers.length} delivered={delivered.length} bons={data.bons.length} balanceCount={report.customer_balances.length} onHome={() => setTab("home")} onArrivals={() => { setTab("arrivals"); setArrivalSection(null); }} onReady={() => setTab("ready")} onDossiers={() => setTab("dossiers")} onHistory={() => setTab("history")} onBons={() => setTab("bons")} onReports={() => setTab("reports")} onSettings={() => setTab("settings")} />
@@ -420,7 +457,6 @@ export default function PickupAgentPortal() {
             ] as Array<[Tab, string, number]>).map(([id, label, count]) => <button key={id} type="button" onClick={() => { setTab(id); if (id === "arrivals") setArrivalSection(null); }} className={cn("whitespace-nowrap rounded-xl px-3 py-2 text-sm font-bold transition", tab === id ? "bg-[#0b3270] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}>{label} <span className={cn("ml-1 rounded-full px-1.5 py-0.5 text-xs", tab === id ? "bg-white/20" : "bg-white")}>{count}</span></button>)}</nav>
           </div>}
 
-          {message && <Notice message={message} close={() => setMessage(null)} />}
           {showPushBanner && tab !== "settings" && (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#0d3b7a]/15 bg-[#0d3b7a]/5 px-4 py-3">
               <div className="flex items-center gap-2.5">
@@ -440,15 +476,15 @@ export default function PickupAgentPortal() {
           {tab === "home" && <HomeDashboard search={search} onSearchChange={(value) => { setSearch(value); setFocusedPackageId(null); }} onOpenDossier={openDossier}
             bons={data.bons} selectedBonId={selectedBonId} onSelectBon={setSelectedBonId}
             bonBusy={bonBusy} bonConfirmedId={bonConfirmedId} onConfirmBon={confirmBonRemise} />}
-          {tab === "dossiers" && <ClientDossiersView dossiers={matchingDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={setSelectedInvoiceId} />}
+          {tab === "dossiers" && <ClientDossiersView dossiers={matchingDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
           {tab === "arrivals" && <ArrivalsView groups={groups} expanded={expandedCustomer} section={arrivalSection} onToggleCustomer={toggleArrivalCustomer} onSelectSection={(value) => setArrivalSection((current) => current === value ? null : value)} />}
-          {tab === "ready" && <ReadyView groups={groups} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={setSelectedInvoiceId} />}
-          {tab === "history" && <RemiseHistoryView packages={filteredPackages} invoices={invoices} onOpenInvoice={setSelectedInvoiceId} onOpenTicket={(packageId) => router.push("/espace-remise/ticket?package=" + encodeURIComponent(packageId))} />}
-          {tab === "history" && <DeliveredInvoicesView invoices={deliveredInvoices} onOpenInvoice={setSelectedInvoiceId} />}
+          {tab === "ready" && <ReadyView groups={groups} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
+          {tab === "history" && <RemiseHistoryView packages={filteredPackages} invoices={invoices} onOpenInvoice={openInvoice} onOpenTicket={(packageId) => router.push("/espace-remise/ticket?package=" + encodeURIComponent(packageId))} />}
+          {tab === "history" && <DeliveredInvoicesView invoices={deliveredInvoices} onOpenInvoice={openInvoice} />}
           {tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
-          {tab === "reports" && <ReportsView agentName={data.agent.name} payments={reportPayments} balances={reportBalances} onOpenInvoice={setSelectedInvoiceId} onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} />}
-          {selectedInvoiceId && <InvoiceDetails invoice={invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null} packages={packages.filter((item) => item.invoice_id === selectedInvoiceId)} onClose={() => setSelectedInvoiceId(null)} />}
-          {paymentDraft.invoiceId && <PaymentPanel invoice={invoices.find((invoice) => invoice.id === paymentDraft.invoiceId) ?? null} draft={paymentDraft} setDraft={setPaymentDraft} busy={paymentBusy} error={paymentError} onChange={() => setPaymentError(null)} onPay={() => void recordPayment()} onClose={() => { setPaymentDraft(emptyPaymentDraft()); setPaymentError(null); }} />}
+          {tab === "reports" && <ReportsView agentName={data.agent.name} payments={reportPayments} balances={reportBalances} onOpenInvoice={openInvoice} onStartPayment={(customerCode) => startPayment(customerCode)} onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} />}
+          {selectedInvoice && !invoiceInline && <PaymentModal onClose={() => setSelectedInvoiceId(null)}><InvoiceDetails invoice={selectedInvoice} packages={packages.filter((item) => item.invoice_id === selectedInvoice.id)} onClose={() => setSelectedInvoiceId(null)} onPay={selectedInvoice.payment_status !== "Payé" && selectedInvoice.has_pdf ? () => startPayment(selectedInvoice.customer_code, [selectedInvoice.id]) : undefined} /></PaymentModal>}
+          {paymentTarget && !paymentInline && <PaymentModal onClose={() => { if (!paymentBusy) { setPaymentTarget(null); setPaymentError(null); } }}><ClientPaymentForm key={paymentTarget.customerCode} title="Paiement avant remise" customerCode={paymentTarget.customerCode} customerName={report.customer_balances.find((balance) => balance.customer_code === paymentTarget.customerCode)?.customer_name} invoices={paymentInvoicesFor(paymentTarget.customerCode)} initialSelected={paymentTarget.invoiceIds} busy={paymentBusy} error={paymentError} onSubmit={(payload) => void recordPayment(payload)} onClose={() => { setPaymentTarget(null); setPaymentError(null); }} /></PaymentModal>}
         </section>
         </div>
         </div>
@@ -706,7 +742,7 @@ function RemiseSuccessOverlay({ customerCode, count }: { customerCode: string; c
 function ReadyChecklist({ packages, selectedPackageIds, locked, onToggleSelection, onSelectAll, onStartPayment, onOpenInvoice }: {
   packages: ZonePackage[]; selectedPackageIds: string[]; locked: boolean;
   onToggleSelection: (item: ZonePackage) => void; onSelectAll: (ids: string[]) => void;
-  onStartPayment: (invoiceId: string) => void; onOpenInvoice: (invoiceId: string) => void;
+  onStartPayment: (customerCode: string, invoiceIds?: string[]) => void; onOpenInvoice: (invoiceId: string) => void;
 }) {
   const eligible = packages.filter(canReleaseParcel);
   const allSelected = eligible.length > 0 && eligible.every((item) => selectedPackageIds.includes(item.id));
@@ -734,16 +770,20 @@ function ReadyChecklist({ packages, selectedPackageIds, locked, onToggleSelectio
         {(item.is_special || item.invoice_payment_details) && <div className="border-t border-slate-100 bg-slate-50 px-3 py-1.5">{item.invoice_payment_details && <p className="text-[11px] font-bold text-emerald-700 sm:text-xs">{item.invoice_payment_details}</p>}<SpecialPackageNotice item={item} /></div>}
       </div>;
     })}</div>
-    {unpaidInvoices.map(([invoiceId, invoiceNumber]) => <div key={invoiceId} className="mt-2 flex flex-col gap-2 sm:flex-row"><button type="button" onClick={() => onStartPayment(invoiceId)} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-orange-300 bg-white px-3 text-sm font-bold text-[#bd450b] hover:bg-orange-100"><Banknote size={18} />Enregistrer le paiement · {invoiceNumber}</button><button type="button" onClick={() => onOpenInvoice(invoiceId)} className="min-h-11 rounded-xl border border-indigo-200 bg-white px-3 text-sm font-bold text-indigo-700 hover:bg-indigo-50">Voir la facture</button></div>)}
+    {unpaidInvoices.length > 0 && <div className="mt-2 space-y-2">
+      <button type="button" onClick={() => onStartPayment(packages[0]?.customer_code ?? "", unpaidInvoices.map(([invoiceId]) => invoiceId))} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-black text-white shadow-sm hover:bg-[#ce4e0d]"><Banknote size={18} />Encaisser le paiement{unpaidInvoices.length > 1 ? ` · ${unpaidInvoices.length} factures` : ""}</button>
+      <div className="flex flex-wrap gap-1.5">{unpaidInvoices.map(([invoiceId, invoiceNumber]) => <button key={invoiceId} type="button" onClick={() => onOpenInvoice(invoiceId)} className="min-h-9 rounded-lg border border-indigo-200 bg-white px-2.5 text-xs font-bold text-indigo-700 hover:bg-indigo-50">Voir {invoiceNumber}</button>)}</div>
+    </div>}
   </section>;
 }
 
 /** Onglet « À remettre » : colis prêts, un client ouvert à la fois. */
-function ReadyView({ groups, expanded, onExpand, selectedPackageIds, confirmedParcelIds, releasing, onToggleSelection, onSelectCustomerPackages, onStartPayment, onOpenInvoice }: {
+function ReadyView({ groups, expanded, onExpand, selectedPackageIds, confirmedParcelIds, releasing, onToggleSelection, onSelectCustomerPackages, onStartPayment, onOpenInvoice, renderPayment, renderInvoice }: {
   groups: PackageGroup[]; expanded: string | null; onExpand: (id: string | null) => void;
   selectedPackageIds: string[]; confirmedParcelIds: string[]; releasing: boolean; onToggleSelection: (item: ZonePackage) => void;
   onSelectCustomerPackages: (customerCode: string, parcelIds: string[]) => void;
-  onStartPayment: (invoiceId: string) => void; onOpenInvoice: (invoiceId: string) => void;
+  onStartPayment: (customerCode: string, invoiceIds?: string[]) => void; onOpenInvoice: (invoiceId: string) => void;
+  renderPayment: (customerCode: string) => ReactNode; renderInvoice: (customerCode: string) => ReactNode;
 }) {
   if (!groups.length) return <Empty text="Aucun colis facturé n’est disponible à remettre." />;
   return <div className="grid gap-3 lg:grid-cols-2">{groups.map((group) => {
@@ -752,8 +792,10 @@ function ReadyView({ groups, expanded, onExpand, selectedPackageIds, confirmedPa
     return <article id={"package-group-" + group.customerCode} key={group.customerCode} className={cn("scroll-mt-6 overflow-hidden rounded-xl border bg-white sm:rounded-2xl", hasBalance ? "border-amber-300" : group.isCentralAccount ? "border-indigo-200" : "border-slate-200")}>
       <button type="button" aria-expanded={open} onClick={() => onExpand(open ? null : group.customerCode)} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 sm:p-4"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:text-[11px]">{group.isCentralAccount ? "Opérations centrales" : "Code client"}</p><p className="mt-0.5 text-lg font-black tracking-tight text-[#0a2b61] sm:text-xl">{group.isCentralAccount ? "Compte central STANDA" : <>{group.customerCode} {group.customerName && <span className="ml-1 text-xs font-semibold text-slate-500 sm:text-sm">· {group.customerName}</span>}</>}</p><p className="mt-1 text-xs font-semibold text-orange-700 sm:text-sm">{group.packages.length} colis à remettre · {quantityTotal(group.packages)} article{quantityTotal(group.packages) > 1 ? "s" : ""}</p></div><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a] sm:h-10 sm:w-10"><ChevronDown size={18} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span></button>
       {open && <div className="space-y-2 border-t border-slate-100 bg-slate-50/70 p-2.5 sm:space-y-3 sm:p-3">
-        {hasBalance && <BalanceNotice balanceUsd={group.balanceUsd} balanceHtg={group.balanceHtg} invoiceNumber={group.balanceInvoiceNumber} onPay={group.balanceInvoiceId ? () => onStartPayment(group.balanceInvoiceId) : undefined} />}
+        {hasBalance && <BalanceNotice balanceUsd={group.balanceUsd} balanceHtg={group.balanceHtg} invoiceNumber={group.balanceInvoiceNumber} onPay={group.balanceInvoiceId ? () => onStartPayment(group.customerCode) : undefined} />}
+        {renderPayment(group.customerCode)}
         <ReadyChecklist packages={group.packages} selectedPackageIds={selectedPackageIds} locked={releasing || confirmedParcelIds.length > 0} onToggleSelection={onToggleSelection} onSelectAll={(ids) => onSelectCustomerPackages(group.customerCode, ids)} onStartPayment={onStartPayment} onOpenInvoice={onOpenInvoice} />
+        {renderInvoice(group.customerCode)}
       </div>}
     </article>;
   })}</div>;
@@ -853,11 +895,12 @@ function RemiseHistoryView({ packages, invoices, onOpenInvoice, onOpenTicket }: 
  * route ni disponible sont retirés par le parent, et les colis remis ne
  * s'affichent plus ici : ils vont à l'historique.
  */
-function ClientDossiersView({ dossiers, focusedPackageId, expanded, onExpand, selectedPackageIds, confirmedParcelIds, releasing, onToggleSelection, onSelectCustomerPackages, onStartPayment, onOpenInvoice }: {
+function ClientDossiersView({ dossiers, focusedPackageId, expanded, onExpand, selectedPackageIds, confirmedParcelIds, releasing, onToggleSelection, onSelectCustomerPackages, onStartPayment, onOpenInvoice, renderPayment, renderInvoice }: {
   dossiers: ClientDossier[]; focusedPackageId: string | null; expanded: string | null; onExpand: (value: string | null) => void;
   selectedPackageIds: string[]; confirmedParcelIds: string[]; releasing: boolean; onToggleSelection: (item: ZonePackage) => void;
   onSelectCustomerPackages: (customerCode: string, parcelIds: string[]) => void;
-  onStartPayment: (invoiceId: string) => void; onOpenInvoice: (invoiceId: string) => void;
+  onStartPayment: (customerCode: string, invoiceIds?: string[]) => void; onOpenInvoice: (invoiceId: string) => void;
+  renderPayment: (customerCode: string) => ReactNode; renderInvoice: (customerCode: string) => ReactNode;
 }) {
   if (!dossiers.length) return <Empty text="Aucun client n’a de colis en route ou disponible." />;
   return <div className="grid gap-3 lg:grid-cols-2 lg:items-start">{dossiers.map((dossier) => {
@@ -880,18 +923,20 @@ function ClientDossiersView({ dossiers, focusedPackageId, expanded, onExpand, se
       <button type="button" aria-expanded={open} onClick={() => onExpand(open ? null : dossier.customerCode)} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 sm:p-4"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:text-[11px]">Dossier client</p><h3 className="mt-0.5 truncate text-lg font-black text-[#0a2b61] sm:text-xl">{dossier.customerCode}{dossier.customerName && <span className="ml-1 text-xs font-semibold text-slate-500 sm:text-sm">· {dossier.customerName}</span>}</h3><div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-semibold sm:mt-3 sm:gap-2 sm:text-xs">{available.length > 0 && <span className="rounded-lg bg-orange-100 px-2 py-1 text-orange-800">À remettre : {available.length}</span>}{haiti.length > 0 && <span className="rounded-lg bg-violet-100 px-2 py-1 text-violet-800">Arrivés en Haïti : {haiti.length}</span>}{miami.length > 0 && <span className="rounded-lg bg-sky-100 px-2 py-1 text-sky-800">En cours : {miami.length}</span>}</div></div><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a] sm:h-10 sm:w-10"><ChevronDown size={18} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span></button>
       {open && <div className="space-y-3 border-t border-slate-100 bg-slate-50/70 p-2.5 sm:p-3">
         {focusedPackageId && <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900">Recherche précise : seul le colis correspondant aux 6 derniers chiffres est affiché.</p>}
-        {balanceUsd > 0.01 && <BalanceNotice balanceUsd={balanceUsd} balanceHtg={balanceHtg} invoiceNumber={balanceInvoice?.invoice_number ?? ""} onPay={balanceInvoice ? () => onStartPayment(balanceInvoice.id) : undefined} />}
+        {balanceUsd > 0.01 && <BalanceNotice balanceUsd={balanceUsd} balanceHtg={balanceHtg} invoiceNumber={balanceInvoice?.invoice_number ?? ""} onPay={balanceInvoice ? () => onStartPayment(dossier.customerCode) : undefined} />}
+        {renderPayment(dossier.customerCode)}
         {available.length > 0 && <ReadyChecklist packages={available} selectedPackageIds={selectedPackageIds} locked={releasing || confirmedParcelIds.length > 0} onToggleSelection={onToggleSelection} onSelectAll={(ids) => onSelectCustomerPackages(dossier.customerCode, ids)} onStartPayment={onStartPayment} onOpenInvoice={onOpenInvoice} />}
         {haiti.length > 0 && <DossierSection title="Arrivés en Haïti" subtitle="Pas encore disponibles au point de retrait." packages={haiti} tone="violet" />}
         {miami.length > 0 && <DossierSection title="En cours" subtitle="Encore à Miami ou en transit." packages={miami} tone="sky" />}
         {openInvoices.length > 0 && <DossierInvoices invoices={openInvoices} onOpenInvoice={onOpenInvoice} />}
+        {renderInvoice(dossier.customerCode)}
       </div>}
     </article>;
   })}</div>;
 }
 
 function BalanceNotice({ balanceUsd, balanceHtg, invoiceNumber, onPay }: { balanceUsd: number; balanceHtg: number; invoiceNumber: string; onPay?: () => void }) {
-  return <section className="rounded-xl border border-amber-200 bg-amber-50 p-3"><p className="text-xs font-bold uppercase tracking-wide text-amber-800">Solde client à régler</p><p className="mt-1 text-sm font-semibold text-slate-800">Le solde précédent doit être réglé avant toute nouvelle remise.</p><p className="mt-2 text-sm font-black text-amber-900">{fmtUsd(balanceUsd)} · {fmtHtg(balanceHtg)}{invoiceNumber ? " · " + invoiceNumber : ""}</p>{onPay && <button type="button" onClick={onPay} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-3 text-sm font-bold text-[#bd450b] hover:bg-orange-100"><Banknote size={18} />Enregistrer le paiement du solde</button>}</section>;
+  return <section className="rounded-xl border border-amber-200 bg-amber-50 p-3"><p className="text-xs font-bold uppercase tracking-wide text-amber-800">Solde client à régler</p><p className="mt-1 text-sm font-semibold text-slate-800">Le solde précédent doit être réglé avant toute nouvelle remise.</p><p className="mt-2 text-sm font-black text-amber-900">{fmtUsd(balanceUsd)} · {fmtHtg(balanceHtg)}{invoiceNumber ? " · " + invoiceNumber : ""}</p>{onPay && <button type="button" onClick={onPay} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-3 text-sm font-bold text-[#bd450b] hover:bg-orange-100"><Banknote size={18} />Encaisser le paiement du solde</button>}</section>;
 }
 
 function DossierSection({ title, subtitle, packages, tone = "blue", renderPackage }: { title: string; subtitle: string; packages: ZonePackage[]; tone?: "blue" | "orange" | "emerald" | "violet" | "sky"; renderPackage?: (item: ZonePackage) => ReactNode }) {
@@ -923,46 +968,26 @@ function DeliveredInvoicesView({ invoices, onOpenInvoice }: { invoices: ZoneInvo
   return <section className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-base font-black text-[#0a2b61]">Factures livrées</h3><p className="mt-1 text-xs text-slate-600">Une facture est ajoutée ici lorsque tous ses colis ont été remis et confirmés.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-700">{invoices.length}</span></div>{invoices.length ? <div className="mt-3 grid gap-2 sm:grid-cols-2">{invoices.map((invoice) => <button key={invoice.id} type="button" onClick={() => onOpenInvoice(invoice.id)} className="rounded-xl border border-emerald-100 bg-white p-3 text-left transition hover:border-emerald-300 hover:shadow-sm"><div className="flex items-center justify-between gap-2"><span className="font-black text-[#0a2b61]">{invoice.invoice_number}</span><DeliveryChip status={invoice.delivery_status} /></div><p className="mt-1 text-sm text-slate-600">{invoice.customer_code}{invoice.customer_name ? " · " + invoice.customer_name : ""}</p><p className="mt-2 text-xs font-semibold text-emerald-700">{invoice.delivered_packages_count}/{invoice.package_count} colis remis</p></button>)}</div> : <p className="mt-3 rounded-xl bg-white px-3 py-3 text-sm text-slate-500">Aucune facture n’est encore complètement livrée.</p>}</section>;
 }
 
-function InvoiceDetails({ invoice, packages, onClose }: { invoice: ZoneInvoice | null; packages: ZonePackage[]; onClose: () => void }) {
+function InvoiceDetails({ invoice, packages, onClose, onPay }: { invoice: ZoneInvoice | null; packages: ZonePackage[]; onClose: () => void; onPay?: () => void }) {
   if (!invoice) return null;
-  return <section className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-indigo-600">Détail de la facture</p><h3 className="mt-1 text-lg font-black text-[#0a2b61]">{invoice.invoice_number}{invoice.is_central_account ? " · Compte central STANDA" : " · " + invoice.customer_code}</h3><p className="mt-1 text-sm font-semibold text-slate-600">{invoice.is_central_account ? "Opération centrale affectée à cette zone" : invoice.customer_name || "Client STANDA"} · {invoice.payment_status}</p><div className="mt-1"><DeliveryChip status={invoice.delivery_status} /></div>{invoice.payment_details && <p className="mt-1 text-xs font-bold text-emerald-700">{invoice.payment_details}</p>}</div><button type="button" onClick={onClose} aria-label="Fermer le détail de la facture" className="rounded-lg p-1 text-slate-500 hover:bg-white"><X size={18} /></button></div><InvoiceSummary invoice={invoice} packages={packages} /></section>;
+  return <section className="overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-50/70 shadow-sm"><div className="flex items-start justify-between gap-3 p-4"><div><p className="text-xs font-bold uppercase tracking-wide text-indigo-600">Détail de la facture</p><h3 className="mt-1 text-lg font-black text-[#0a2b61]">{invoice.invoice_number}{invoice.is_central_account ? " · Compte central STANDA" : " · " + invoice.customer_code}</h3><p className="mt-1 text-sm font-semibold text-slate-600">{invoice.is_central_account ? "Opération centrale affectée à cette zone" : invoice.customer_name || "Client STANDA"}</p><div className="mt-1.5 flex flex-wrap gap-1.5"><PaymentChip status={invoice.payment_status} /><DeliveryChip status={invoice.delivery_status} /></div>{invoice.payment_details && <p className="mt-1.5 text-xs font-bold text-emerald-700">{invoice.payment_details}</p>}</div><button type="button" onClick={onClose} aria-label="Fermer le détail de la facture" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-white"><X size={18} /></button></div><InvoiceSummary invoice={invoice} packages={packages} />{onPay && <div className="border-t border-indigo-100 bg-white p-3"><button type="button" onClick={onPay} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-black text-white hover:bg-[#ce4e0d]"><Banknote size={18} />Encaisser le paiement de cette facture</button></div>}</section>;
 }
 
-function PaymentPanel({ invoice, draft, setDraft, busy, error, onChange, onPay, onClose }: { invoice: ZoneInvoice | null; draft: PaymentDraft; setDraft: (value: PaymentDraft) => void; busy: boolean; error: string | null; onChange: () => void; onPay: () => void; onClose: () => void }) {
-  if (!invoice) return null;
-  const remainingUsd = Math.max(0, invoice.amount_due_usd - invoice.payment_paid_usd);
-  const remainingHtg = Math.max(0, invoice.amount_due_htg - invoice.payment_paid_htg);
-  const rate = invoiceRate(invoice);
-  const typed = parsePaymentAmount(draft.amount) ?? 0;
-  const hasAmount = typed > 0;
-  const converted = hasAmount ? (draft.currency === "HTG" ? typed / rate : typed * rate) : 0;
-  const remainingAfter = Math.max(0, (draft.currency === "HTG" ? remainingHtg : remainingUsd) - (hasAmount ? typed : 0));
-  const formatIn = (currency: "USD" | "HTG", value: number) => currency === "HTG" ? fmtHtg(value) : fmtUsd(value);
-  const payAll = (currency: "USD" | "HTG") => { setDraft({ ...draft, currency, amount: String(round2(currency === "HTG" ? remainingHtg : remainingUsd)) }); onChange(); };
-  const allSelected = (currency: "USD" | "HTG") => hasAmount && draft.currency === currency && Math.abs(typed - (currency === "HTG" ? remainingHtg : remainingUsd)) < 0.01;
-  return <section id="payment-panel" className="mt-4 rounded-2xl border border-orange-200 bg-orange-50 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-[#bd450b]">Paiement avant remise</p><h3 className="mt-1 text-lg font-black text-[#0a2b61]">{invoice.invoice_number} · {invoice.customer_code}</h3><p className="mt-1 text-xs font-semibold text-slate-500">Le montant doit correspondre à la facture envoyée au client.</p><p className="mt-1 text-sm text-slate-600">Solde à payer : <b>{fmtUsd(remainingUsd)}</b> · {fmtHtg(remainingHtg)}</p></div><button type="button" onClick={onClose} aria-label="Fermer le paiement" className="rounded-lg p-1 text-slate-500 hover:bg-white"><X size={18} /></button></div>
-    {(remainingUsd > 0 || remainingHtg > 0) && <div className="mt-3"><p className="mb-1.5 text-xs font-bold text-slate-600">Le client donne tout le montant ? Touchez pour le remplir :</p><div className="grid gap-2 sm:grid-cols-2">{(["HTG", "USD"] as const).map((currency) => <button key={currency} type="button" onClick={() => payAll(currency)} className={cn("flex min-h-12 items-center justify-between gap-2 rounded-xl border-2 px-3 text-left text-sm font-black transition", allSelected(currency) ? "border-emerald-600 bg-emerald-600 text-white" : "border-orange-200 bg-white text-[#0a2b61] hover:border-orange-400")}><span className="text-xs font-bold opacity-80">Tout payer en {currency === "HTG" ? "gourdes" : "dollars"}</span><span>{formatIn(currency, currency === "HTG" ? remainingHtg : remainingUsd)}</span></button>)}</div></div>}
-    <div className="mt-3"><PaymentFields draft={draft} setDraft={setDraft} onChange={onChange} />
-      <p className="mt-2 text-[11px] font-semibold text-slate-500">Les centimes sont facultatifs : entrez simplement 8 146 si le client remet 8 146 gourdes.</p>
-      <div className="mt-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900"><p className="font-bold">Convertisseur · 1 USD = {fmtHtg(rate)}</p>{hasAmount ? <p className="mt-1 text-sm font-black">{formatIn(draft.currency, typed)} ≈ {formatIn(draft.currency === "HTG" ? "USD" : "HTG", converted)}</p> : <p className="mt-1">Entrez le montant reçu pour voir l’équivalent en {draft.currency === "HTG" ? "dollars" : "gourdes"}.</p>}{hasAmount && <p className="mt-1 font-semibold">Reste après ce paiement : {formatIn(draft.currency, remainingAfter)}</p>}</div>
-      <p className="mt-2 text-[11px] font-semibold text-slate-500">Zelle : le client paie l’administration, qui enregistre lui-même le paiement (il n’entre pas dans votre caisse).</p>
-      <InlinePaymentError error={error} /><button type="button" disabled={busy} onClick={onPay} className="mt-2 min-h-11 rounded-xl bg-[#e85e19] px-4 text-sm font-bold text-white hover:bg-[#ce4e0d] disabled:opacity-60">{busy ? "Enregistrement…" : "Confirmer le paiement"}</button></div></section>;
-}
-
-function PaymentFields({ draft, setDraft, onChange }: { draft: PaymentDraft; setDraft: (value: PaymentDraft) => void; onChange: () => void }) {
-  return <div className="grid gap-2 sm:grid-cols-2"><input value={draft.amount} onChange={(event) => { setDraft({ ...draft, amount: event.target.value }); onChange(); }} type="text" inputMode="decimal" className="input" placeholder="Montant reçu (ex. 8 146)" autoFocus /><select value={draft.currency} onChange={(event) => { setDraft({ ...draft, currency: event.target.value as "USD" | "HTG" }); onChange(); }} className="input"><option value="HTG">Gourdes</option><option value="USD">Dollars américains</option></select><select value={draft.method} onChange={(event) => { setDraft({ ...draft, method: event.target.value as PaymentMethod }); onChange(); }} className="input"><option value="Espèces">Espèces</option><option value="MonCash">MonCash</option><option value="NatCash">NatCash</option><option value="Virement bancaire">Virement bancaire</option></select><input value={draft.reference} onChange={(event) => { setDraft({ ...draft, reference: event.target.value.slice(0, 120) }); onChange(); }} className="input" placeholder="Référence (facultative)" /></div>;
-}
-
-function ReportsView({ agentName, payments, balances, onOpenInvoice, onOpenReceipt }: { agentName: string; payments: AgentPayment[]; balances: CustomerBalanceReport[]; onOpenInvoice: (invoiceId: string) => void; onOpenReceipt: (paymentId: string) => void }) {
-  const totals = payments.reduce((value, payment) => ({
+function ReportsView({ agentName, payments, balances, onOpenInvoice, onStartPayment, onOpenReceipt }: { agentName: string; payments: AgentPayment[]; balances: CustomerBalanceReport[]; onOpenInvoice: (invoiceId: string) => void; onStartPayment: (customerCode: string) => void; onOpenReceipt: (paymentId: string) => void }) {
+  // Zelle arrive directement sur le compte STANDA : il est listé, mais pas compté
+  // dans l'argent que l'agent doit remettre à l'administration.
+  const sum = (rows: AgentPayment[]) => rows.reduce((value, payment) => ({
     usd: value.usd + (payment.currency === "USD" ? Number(payment.amount || 0) : 0),
     htg: value.htg + (payment.currency === "HTG" ? Number(payment.amount || 0) : 0)
   }), { usd: 0, htg: 0 });
+  const totals = sum(payments.filter((payment) => payment.payment_method !== "Zelle"));
+  const zelle = sum(payments.filter((payment) => payment.payment_method === "Zelle"));
+  const hasZelle = zelle.usd > 0.009 || zelle.htg > 0.009;
   const paymentAmount = (payment: AgentPayment) => payment.currency === "HTG" ? fmtHtg(payment.amount) : fmtUsd(payment.amount);
   return <div className="space-y-4">
-    <section className="rounded-2xl bg-gradient-to-br from-[#0b3270] to-[#1a5bc0] p-5 text-white shadow-lg shadow-blue-900/15"><p className="text-xs font-black uppercase tracking-[0.16em] text-sky-100">Rapport du point de retrait</p><h2 className="mt-1 text-2xl font-black">Caisse de {agentName}</h2><p className="mt-2 max-w-2xl text-sm text-white/85">Seulement les paiements enregistrés par ce point de retrait sont comptés ici. Les paiements marqués par l’administration (dont Zelle) restent visibles sur chaque facture, sans gonfler votre caisse. Quand vous avez remis l’argent à l’administration, elle clôture le rapport : la caisse repart à zéro et seuls les soldes clients restent.</p><div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-xl bg-white/12 p-3 ring-1 ring-white/15"><p className="text-xs font-semibold text-white/70">Reçu en dollars</p><p className="mt-1 text-xl font-black">{fmtUsd(totals.usd)}</p></div><div className="rounded-xl bg-white/12 p-3 ring-1 ring-white/15"><p className="text-xs font-semibold text-white/70">Reçu en gourdes</p><p className="mt-1 text-xl font-black">{fmtHtg(totals.htg)}</p></div><div className="rounded-xl bg-white/12 p-3 ring-1 ring-white/15"><p className="text-xs font-semibold text-white/70">Clients avec solde</p><p className="mt-1 text-xl font-black">{balances.length}</p></div></div></section>
+    <section className="rounded-2xl bg-gradient-to-br from-[#0b3270] to-[#1a5bc0] p-5 text-white shadow-lg shadow-blue-900/15"><p className="text-xs font-black uppercase tracking-[0.16em] text-sky-100">Rapport du point de retrait</p><h2 className="mt-1 text-2xl font-black">Caisse de {agentName}</h2><p className="mt-2 max-w-2xl text-sm text-white/85">Seulement les paiements enregistrés par ce point de retrait sont comptés ici. Les paiements Zelle sont listés mais n’entrent pas dans l’argent à remettre : ils arrivent directement sur le compte STANDA. Quand vous avez remis l’argent à l’administration, elle clôture le rapport : la caisse repart à zéro et seuls les soldes clients restent.</p><div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-xl bg-white/12 p-3 ring-1 ring-white/15"><p className="text-xs font-semibold text-white/70">Reçu en dollars</p><p className="mt-1 text-xl font-black">{fmtUsd(totals.usd)}</p></div><div className="rounded-xl bg-white/12 p-3 ring-1 ring-white/15"><p className="text-xs font-semibold text-white/70">Reçu en gourdes</p><p className="mt-1 text-xl font-black">{fmtHtg(totals.htg)}</p></div><div className="rounded-xl bg-white/12 p-3 ring-1 ring-white/15"><p className="text-xs font-semibold text-white/70">Clients avec solde</p><p className="mt-1 text-xl font-black">{balances.length}</p></div></div>{hasZelle && <p className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-white/90 ring-1 ring-white/15">Reçu par Zelle (hors caisse) : {fmtUsd(zelle.usd)}{zelle.htg > 0.009 ? " · " + fmtHtg(zelle.htg) : ""}</p>}</section>
     <section className="rounded-2xl border border-emerald-100 bg-emerald-50/45 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="text-base font-black text-[#0a2b61]">Paiements reçus</h3><p className="mt-1 text-xs text-slate-600">Chaque ligne correspond à un paiement que vous avez confirmé au point de retrait.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-700">{payments.length}</span></div>{payments.length ? <div className="mt-3 space-y-2">{payments.map((payment) => <article key={payment.id} className="rounded-xl border border-emerald-100 bg-white p-3"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-sm font-black text-[#0a2b61]">{payment.customer_code}{payment.customer_name ? " · " + payment.customer_name : ""}</p><button type="button" onClick={() => onOpenInvoice(payment.invoice_id)} className="mt-1 text-xs font-bold text-indigo-700 hover:underline">{payment.invoice_number}</button></div><p className="rounded-lg bg-emerald-100 px-2.5 py-1 text-sm font-black text-emerald-800">{paymentAmount(payment)}</p></div><div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-slate-600">{payment.payment_method || "Méthode non précisée"} · {dateText(payment.created_at)}{payment.payment_reference ? " · Réf. " + payment.payment_reference : ""}</p><button type="button" onClick={() => onOpenReceipt(payment.id)} className="text-xs font-black text-[#0b3270] underline">Voir le reçu</button></div></article>)}</div> : <p className="mt-3 rounded-xl bg-white px-3 py-3 text-sm text-slate-500">Aucun paiement n’a encore été enregistré par ce point de retrait.</p>}</section>
-    <section className="rounded-2xl border border-amber-200 bg-amber-50/55 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="text-base font-black text-[#0a2b61]">Clients avec un solde à régler</h3><p className="mt-1 text-xs text-slate-600">Le solde doit être réglé avant une nouvelle remise. Cliquez sur la facture pour voir les colis concernés.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-amber-700">{balances.length}</span></div>{balances.length ? <div className="mt-3 grid gap-2 md:grid-cols-2">{balances.map((balance) => <button key={balance.customer_code} type="button" onClick={() => onOpenInvoice(balance.invoice_id)} className="rounded-xl border border-amber-100 bg-white p-3 text-left transition hover:border-amber-300 hover:shadow-sm"><div className="flex items-start justify-between gap-2"><p className="text-sm font-black text-[#0a2b61]">{balance.customer_code}{balance.customer_name ? " · " + balance.customer_name : ""}</p><span className="rounded-lg bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">{balance.invoice_count} facture{balance.invoice_count > 1 ? "s" : ""}</span></div><p className="mt-2 text-sm font-black text-amber-900">{fmtUsd(balance.balance_usd)} · {fmtHtg(balance.balance_htg)}</p><p className="mt-1 text-xs font-bold text-indigo-700">{balance.invoice_number}</p></button>)}</div> : <p className="mt-3 rounded-xl bg-white px-3 py-3 text-sm text-slate-500">Aucun client de cette zone n’a de solde en attente.</p>}</section>
+    <section className="rounded-2xl border border-amber-200 bg-amber-50/55 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="text-base font-black text-[#0a2b61]">Clients avec un solde à régler</h3><p className="mt-1 text-xs text-slate-600">Le solde doit être réglé avant une nouvelle remise. « Encaisser » ouvre le dossier du client avec toutes ses factures à régler.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-amber-700">{balances.length}</span></div>{balances.length ? <div className="mt-3 grid gap-2 md:grid-cols-2">{balances.map((balance) => <article key={balance.customer_code} className="rounded-xl border border-amber-100 bg-white p-3"><div className="flex items-start justify-between gap-2"><p className="text-sm font-black text-[#0a2b61]">{balance.customer_code}{balance.customer_name ? " · " + balance.customer_name : ""}</p><span className="rounded-lg bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">{balance.invoice_count} facture{balance.invoice_count > 1 ? "s" : ""}</span></div><p className="mt-2 text-sm font-black text-amber-900">{fmtUsd(balance.balance_usd)} · {fmtHtg(balance.balance_htg)}</p><div className="mt-2 flex flex-wrap items-center gap-2"><button type="button" onClick={() => onStartPayment(balance.customer_code)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-[#e85e19] px-3 text-xs font-black text-white hover:bg-[#ce4e0d]"><Banknote size={15} />Encaisser</button><button type="button" onClick={() => onOpenInvoice(balance.invoice_id)} className="text-xs font-bold text-indigo-700 hover:underline">Voir {balance.invoice_number}</button></div></article>)}</div> : <p className="mt-3 rounded-xl bg-white px-3 py-3 text-sm text-slate-500">Aucun client de cette zone n’a de solde en attente.</p>}</section>
   </div>;
 }
 
@@ -971,14 +996,10 @@ function BonsView({ bons, onOpenPdf }: { bons: ZoneBon[]; onOpenPdf: (id: string
   return <div className="grid gap-3 md:grid-cols-2">{bons.map((bon) => <article key={bon.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><div className="flex items-center gap-2"><p className="font-black text-[#0a2b61]">{bon.bon_number}</p>{bon.received_at ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700"><CheckCircle2 size={11} />Reçu</span> : <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">En route</span>}</div><p className="mt-1 text-sm text-slate-600">{bon.destination || "Destination non précisée"} · {bon.package_count} colis</p><p className="mt-1 text-xs text-slate-400">{dateText(bon.created_at)}{bon.received_by ? ` · reçu par ${bon.received_by}` : ""}</p></div><FileDown className="text-[#e85e19]" size={21} /></div>{bon.has_pdf ? <button type="button" onClick={() => onOpenPdf(bon.id)} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white"><FileDown size={16} />Ouvrir le PDF</button> : <p className="mt-3 text-xs text-amber-700">PDF non archivé : ce bon a été créé avant l’archivage sécurisé.</p>}</article>)}</div>;
 }
 
-function InlinePaymentError({ error }: { error: string | null }) {
-  return error ? <p role="alert" className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null;
-}
 function Stat({ icon, label, value, tint, onClick, active = false }: { icon: ReactNode; label: string; value: number; tint: string; onClick?: () => void; active?: boolean }) {
   return <button type="button" onClick={onClick} className={cn("rounded-2xl border bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md", active ? "border-[#0b3270] ring-2 ring-[#0b3270]/15" : "border-white")}><div className={cn("mb-3 grid h-10 w-10 place-items-center rounded-xl", tint)}>{icon}</div><p className="text-xs font-semibold text-slate-500">{label}</p><p className="mt-0.5 text-2xl font-black text-[#09295e]">{value}</p></button>;
 }
 function Empty({ text }: { text: string }) { return <div className="py-12 text-center"><CheckCircle2 className="mx-auto mb-3 text-emerald-500" size={38} /><p className="font-bold text-[#0a2b61]">{text}</p></div>; }
-function Notice({ message, close }: { message: { type: "ok" | "error"; text: string }; close: () => void }) { return <div className={cn("mb-4 flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-sm", message.type === "ok" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-700")}><span>{message.text}</span><button type="button" onClick={close} aria-label="Fermer le message"><X size={17} /></button></div>; }
 /**
  * Une couleur par étape, partout pareil : orange = disponible à remettre,
  * violet = arrivé en Haïti, bleu ciel = en cours (Miami / transit), vert = remis.
