@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
-import { createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, notifyEmail, saveInvoicePdfPath } from "@/lib/db";
+import { cancelInvoice, createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, notifyEmail, saveInvoicePdfPath, setPackagesStatus } from "@/lib/db";
 import { computeInvoice, invoiceLineContent, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { FixedPriceMap, OrderFeeTier, SpecialArticle, TAX_THRESHOLD_LB } from "@/lib/pricing";
-import { InvoiceKind, Ville } from "@/lib/types";
+import { Invoice, InvoiceItem, InvoiceKind, Ville } from "@/lib/types";
 import { MapPin } from "lucide-react";
 import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
@@ -108,6 +108,17 @@ export default function InvoiceDialog({
   const [comp, setComp] = useState<InvoiceComputation | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  /**
+   * FACTURE CRÉÉE, PAS ENCORE IMPRIMÉE (V20).
+   * ══════════════════════════════════════════
+   * Entre "Confirmer la facture" et "Imprimer / Télécharger", la facture
+   * existe déjà en base (packages → "Facturé") mais aucun PDF n'a encore
+   * été généré — c'est la fenêtre où agence/admin peuvent encore l'annuler
+   * proprement (cancelInvoice refuse l'annulation une fois has_pdf=true).
+   * Tant que `pending` est non-null, on affiche l'écran de confirmation
+   * au lieu du formulaire — les champs ci-dessus ne s'appliquent plus.
+   */
+  const [pending, setPending] = useState<{ inv: Invoice; items: InvoiceItem[]; pkgIds: string[] } | null>(null);
   useNoticeToast(err, setErr, { tone: "error", title: "Facture non enregistrée" });
 
   // Chaje to + konfigirasyon ti koli (Paramètres)
@@ -202,7 +213,8 @@ export default function InvoiceDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comp?.taxThresholdReached, comp?.fixedTaxSuggested, comp?.ok, taxeTouched]);
 
-  const generer = async () => {
+  /** ÉTAPE 1 — crée la facture (packages → "Facturé"). Pas encore de PDF. */
+  const creerFacture = async () => {
     if (!comp) return;
     if (specialWithoutPrice.length) {
       setErr(`Prix manuel requis pour ${specialWithoutPrice.length} colis spécial${specialWithoutPrice.length > 1 ? "aux" : ""}.`);
@@ -219,8 +231,26 @@ export default function InvoiceDialog({
         weight: l.weight, content: invoiceLineContent(l), price: l.amount, tax: 0, total: l.amount,
         is_small: l.isSmall, per_lb: l.perLb, fixed_label: l.isFixed ? l.fixedLabel : ""
       }));
+      setPending({ inv, items, pkgIds: comp.lines.map((l) => l.pkg.id) });
+    } catch (e: unknown) {
+      setErr((e as Error)?.message ?? "Erreur");
+    } finally { setBusy(false); }
+  };
+
+  /**
+   * ÉTAPE 2 — imprime/télécharge le PDF PUIS finalise la livraison.
+   * L'ordre compte : on ne marque "Livré" qu'APRÈS un PDF réussi, et on
+   * n'envoie WhatsApp/email qu'APRÈS "Livré" — si la finalisation échoue,
+   * relancer ce bouton ne renvoie pas un deuxième message au client.
+   */
+  const imprimerEtLivrer = async () => {
+    if (!pending) return;
+    setBusy(true); setErr(null);
+    try {
+      const { inv, items, pkgIds } = pending;
       const pdf = await generateUploadDownload(inv, items, footer, { download: true });
       if (pdf.path) { await saveInvoicePdfPath(inv.id, pdf.path); inv.pdf_path = pdf.path; inv.has_pdf = true; }
+      await setPackagesStatus(pkgIds, "Livré");
       const how = await sendInvoicePdfWhatsApp(inv, pdf.blob, pdf.filename);
       // Notification push — kanal apa, pa dwe janm bloke oswa anile fakti a
       // si l echwe (kliyan an deja gen PDF la sou WhatsApp kanmenm).
@@ -233,7 +263,7 @@ export default function InvoiceDialog({
         packages: items.map((it) => ({ tracking_number: it.tracking_number, tracking_manual: it.tracking_manual }))
       }).catch(() => undefined);
       onDone(
-        `Facture ${inv.invoice_number} créée (${items.length} colis → Facturé, taux ${rate.toFixed(2)}). ` +
+        `Facture ${inv.invoice_number} créée (${items.length} colis → Livré, taux ${rate.toFixed(2)}). ` +
         (how === "file" ? "PDF pataje sou WhatsApp."
           : how === "manual" ? "WhatsApp ouvri — telechaje PDF la epi atache li." : "Fakti a nan Invoices.")
       );
@@ -243,22 +273,60 @@ export default function InvoiceDialog({
     } finally { setBusy(false); }
   };
 
+  /** Annule une facture PAS ENCORE imprimée — colis remis "Disponible". */
+  const annulerFacture = async () => {
+    if (!pending) return;
+    if (!confirm(`Annuler la facture ${pending.inv.invoice_number} ?\n\nLes colis redeviendront « Disponible » et pourront être re-facturés.`)) return;
+    setBusy(true); setErr(null);
+    try {
+      const r = await cancelInvoice(pending.inv.id);
+      if (!r.ok) { setErr(r.reason ?? "Annulation impossible."); return; }
+      onDone(`Facture ${pending.inv.invoice_number} annulée — ${r.restored} colis remis en « Disponible ».`);
+      onClose();
+    } catch (e: unknown) {
+      setErr((e as Error)?.message ?? "Erreur");
+    } finally { setBusy(false); }
+  };
+
+  /** Ferme la fenêtre — demande confirmation si une facture est en attente d'impression. */
+  const requestClose = () => {
+    if (busy) return;
+    if (pending && !confirm(
+      `Fermer sans imprimer ?\n\nLa facture ${pending.inv.invoice_number} reste enregistrée ` +
+      `(visible dans Invoices) mais les colis ne seront pas encore « Livré ». ` +
+      `Vous pourrez l'imprimer ou l'annuler plus tard depuis Invoices.`
+    )) return;
+    onClose();
+  };
+
   const clientName = [client.fullname, client.surname].filter(Boolean).join(" ") || client.customer_code;
   const totalWeight = comp?.totalWeight ?? 0;
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-      onClick={() => !busy && onClose()}>
+      onClick={requestClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-extrabold text-navy">Générer Facture — Options</h2>
-          <button className="text-slate-400 hover:text-slate-600" onClick={onClose} disabled={busy}><X size={18} /></button>
+          <h2 className="text-lg font-extrabold text-navy">{pending ? "Facture créée — Livraison" : "Générer Facture — Options"}</h2>
+          <button className="text-slate-400 hover:text-slate-600" onClick={requestClose} disabled={busy}><X size={18} /></button>
         </div>
         <p className="text-sm text-slate-600 mb-3">
           <b className="text-navy">{client.customer_code}</b> — {clientName} · {pkgs.length} colis
         </p>
 
+        {pending && (
+          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900">
+            <p><b>Facture {pending.inv.invoice_number} créée</b> — {pending.items.length} colis, {usd(pending.inv.total_usd)}.</p>
+            <p className="mt-1 text-[12px] leading-relaxed text-emerald-800">
+              Elle n&apos;est pas encore définitive. Imprimez/téléchargez-la pour la remettre
+              au client — les colis passeront alors en <b>Livré</b>. Vous pouvez encore
+              l&apos;annuler tant que ce n&apos;est pas fait.
+            </p>
+          </div>
+        )}
+
+        {!pending && (<>
         {/* TYPE DE FACTURE — Shipping seulement ou Service Order */}
         <div className="border border-line rounded-lg p-3 mb-3">
           <p className="text-xs font-bold text-navy uppercase mb-2 flex items-center gap-1.5">
@@ -508,12 +576,23 @@ export default function InvoiceDialog({
           </div>
           <p className="text-[11px] text-slate-400 text-right">Taux: 1 USD = {rate.toFixed(2)} HTG · Prix/LB non modifié</p>
         </div>
+        </>)}
 
         <div className="mt-5 flex gap-3">
-          <button className="btn flex-1" onClick={generer} disabled={busy || !comp || !comp.ok}>
-            {busy ? "Génération..." : "Confirmer & Générer PDF"}
+          {pending ? (
+            <button className="btn flex-1" onClick={imprimerEtLivrer} disabled={busy}>
+              {busy ? "..." : "Imprimer / Télécharger (livrer au client)"}
+            </button>
+          ) : (
+            <button className="btn flex-1" onClick={creerFacture} disabled={busy || !comp || !comp.ok}>
+              {busy ? "Création..." : "Confirmer la facture"}
+            </button>
+          )}
+          <button
+            className={pending ? "btn border border-red-200 text-red-600 hover:bg-red-50" : "btn btn-ghost border border-line"}
+            onClick={pending ? annulerFacture : requestClose} disabled={busy}>
+            {pending ? "Annuler cette facture" : "Annuler"}
           </button>
-          <button className="btn btn-ghost border border-line" onClick={onClose} disabled={busy}>Annuler</button>
         </div>
       </div>
     </div>

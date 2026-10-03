@@ -95,21 +95,34 @@ export default function InvoicesPage() {
 
   const withItems = async (inv: Invoice) => ({ inv, items: await getInvoiceItems(inv.id) });
 
-  /** ANNULER une facture (koreksyon erè) — koli yo retounen "Disponible" pou refakturasyon. */
+  /**
+   * ANNULER une facture — koli yo retounen "Disponible" pou refakturasyon.
+   * SAUF si le PDF a déjà été généré/imprimé (has_pdf) : dans ce cas,
+   * cancelInvoice() refuse l'annulation et finalise plutôt la livraison
+   * (colis → "Livré"), la facture reste intacte. Voir note V20, lib/db.ts.
+   */
   const annuler = async (inv: Invoice) => {
+    const dejaGenere = !!inv.has_pdf;
     if (!confirm(
-      `Annuler la facture ${inv.invoice_number} ?\n\n` +
-      `Client : ${inv.customer_name}\n` +
-      `Montant : ${usd(inv.total_usd)}\n` +
-      `Colis : ${inv.package_count}\n\n` +
-      `➜ Les colis redeviendront « Disponible » et pourront être re-facturés.\n` +
-      `➜ La facture sera supprimée définitivement.\n` +
-      `➜ L'opération est enregistrée dans l'audit.`
+      dejaGenere
+        ? `La facture ${inv.invoice_number} a déjà été générée en PDF (ou imprimée) — elle ne peut plus être annulée.\n\n` +
+          `Client : ${inv.customer_name}\n\n` +
+          `➜ Les colis restants seront simplement marqués « Livré ».\n` +
+          `➜ La facture elle-même n'est pas modifiée.`
+        : `Annuler la facture ${inv.invoice_number} ?\n\n` +
+          `Client : ${inv.customer_name}\n` +
+          `Montant : ${usd(inv.total_usd)}\n` +
+          `Colis : ${inv.package_count}\n\n` +
+          `➜ Les colis redeviendront « Disponible » et pourront être re-facturés.\n` +
+          `➜ La facture sera supprimée définitivement.\n` +
+          `➜ L'opération est enregistrée dans l'audit.`
     )) return;
     setBusy(true);
     try {
       const r = await cancelInvoice(inv.id);
-      if (r.ok) {
+      if (r.ok && r.finalized) {
+        setNotice(`✅ Facture ${inv.invoice_number} déjà générée — colis marqués « Livré ».`);
+      } else if (r.ok) {
         setNotice(`✅ Facture ${inv.invoice_number} annulée — ${r.restored} colis remis en « Disponible ».`);
         setInvoices((prev) => prev.filter((x) => x.id !== inv.id));
       } else {
@@ -252,7 +265,7 @@ export default function InvoicesPage() {
                       onClick={() => startPayment(f)}><Banknote size={16} /></button>
                   )}
                   {role === "admin" && (
-                    <button title="Annuler la facture (colis redeviennent Disponible)"
+                    <button title={f.has_pdf ? "PDF déjà généré — confirmer la livraison (colis → Livré)" : "Annuler la facture (colis redeviennent Disponible)"}
                       className="text-slate-400 hover:text-red-600 ml-3" disabled={busy}
                       onClick={() => annuler(f)}><XCircle size={16} /></button>
                   )}
