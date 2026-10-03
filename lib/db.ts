@@ -1078,7 +1078,7 @@ export async function importConduceExcelRows(
   await supabase.from("conduces").update(patchConduce).eq("id", conduceId);
 
   const totalWeight = rows.reduce((s, r) => s + (r.weight || 0), 0);
-  await logAction("Import Conduce (Excel)",
+  await logAction("Import Conduce · Excel",
     `Conduce ${conduceNumber} : ${created} créés, ${updated} mis à jour/liés, ${rows.length} colis dont ${special} spécial(aux), ${totalWeight.toFixed(2)} lb — par ${who}`,
     "", "");
   return { created, updated, linked, special, totalWeight };
@@ -1317,7 +1317,7 @@ export async function markPackageSpecial(
   const { error } = await supabase.from("packages").update({ mcpack_data: metadata }).eq("id", id);
   if (error) throw error;
   await logAction(
-    "Colis spécial (manuel)",
+    "Colis spécial",
     `${kind}${String(note ?? "").trim() ? ` — ${String(note).trim()}` : ""}`,
     String(pkg.tracking_number ?? ""), String(pkg.customer_code ?? "")
   );
@@ -1355,7 +1355,7 @@ export async function setPackagesStatus(ids: string[], status: string): Promise<
     if (data.user) {
       const { data: s } = await supabase.from("staff")
         .select("prenom, nom, username, role").eq("auth_user_id", data.user.id).maybeSingle();
-      if (s) deliveredBy = `${[s.prenom, s.nom].filter(Boolean).join(" ") || s.username || "STANDA"} (${s.role === "admin" ? "Administration" : "Employé"})`;
+      if (s) deliveredBy = `${[s.prenom, s.nom].filter(Boolean).join(" ") || s.username || "STANDA"} · ${s.role === "admin" ? "Administration" : "Employé"}`;
     }
   } catch { /* nom facultatif : la remise reste enregistrée */ }
   const missing = (error: { message?: string } | null, column: string) =>
@@ -1696,7 +1696,7 @@ export async function createInvoiceFromComputation(
     `Poids:${comp.totalWeight} | Sous-total:${comp.subtotal} | Taxe:${comp.taxeFixe} | ` +
     `DGA:${comp.fraisDga} | Discount:${comp.discount} | Mode:${mode} | ` + journalOrder +
     `TOTAL:${comp.totalUsd} USD | ` +
-    `${comp.lines.length} colis "Disponible" → "Facturé" (facturés) | Réf:${inv.id}`,
+    `${comp.lines.length} colis "Disponible" → "Facturé" | Réf:${inv.id}`,
     invoice_number, client.customer_code);
 
   return asNum(inv, ["subtotal", "tax", "grand_total", "exchange_rate_used", "total_usd", "total_htg", "total_weight",
@@ -1732,9 +1732,9 @@ export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; r
     const ids = (pkgs ?? []).filter((p: any) => p.status !== "Livré").map((p: any) => p.id);
     if (ids.length) {
       await setPackagesStatus(ids, "Livré");
-      await logAction("Confirmation Livraison (PDF déjà généré)",
+      await logAction("Confirmation Livraison",
         `${inv.invoice_number} | Client:${inv.customer_code} | ${ids.length} colis → "Livré" ` +
-        `(annulation refusée : facture déjà générée en PDF/imprimée)`,
+        `· annulation refusée : facture déjà générée en PDF ou imprimée`,
         inv.invoice_number, inv.customer_code);
     }
     return { ok: true, restored: 0, finalized: true };
@@ -1777,7 +1777,7 @@ export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; r
   await logAction("Annulation Facture",
     `${inv.invoice_number} annulée | Client:${inv.customer_code} | Montant:${inv.total_usd} USD | ` +
     `${autres.length} colis remis en "Disponible"` +
-    (livres.length ? ` | ${livres.length} colis déjà livrés (statut conservé)` : ""),
+    (livres.length ? ` | ${livres.length} colis déjà livrés, statut conservé` : ""),
     inv.invoice_number, inv.customer_code);
 
   return { ok: true, restored };
@@ -1828,7 +1828,7 @@ export async function recordInvoicePayment(input: RecordInvoicePaymentInput): Pr
   const remainingUsd = Math.max(0, round2(payable.payableUsd - priorUsd));
   const remainingHtg = Math.max(0, round2(payable.payableHtg - priorHtg));
   if (!paymentIsWithinRoundingMargin(amountHtg, remainingHtg)) {
-    throw new Error(`Le montant dépasse le reste à payer (${remainingUsd.toFixed(2)} USD).`);
+    throw new Error(`Le montant dépasse le reste à payer : ${remainingUsd.toFixed(2)} USD.`);
   }
   const appliedUsd = Math.min(amountUsd, remainingUsd);
   const appliedHtg = Math.min(amountHtg, remainingHtg);
@@ -2695,7 +2695,7 @@ export async function analyzePhotoScans(scans: {
       message: lowConf
         ? `Confiance ${Math.round(s.confidence)}% < ${MIN_CONFIDENCE}% — validation manuelle requise`
         : proposedTracking
-          ? `Colis identifié — Tracking Number "${proposedTracking}" sera ajouté (champ vide)`
+          ? `Colis identifié — Tracking Number "${proposedTracking}" sera ajouté`
           : "Colis identifié — réception seulement",
       canApply: !lowConf,
       proposedTracking
@@ -2859,7 +2859,7 @@ export async function fixTrackingColumns(): Promise<TrackingFixResult> {
     }
   }
   await logAction("Correction Tracking",
-    `${swapped} inversés, ${movedToId} corrigés (Guía), ${movedToManual} nettoyés`, "", "");
+    `${swapped} inversés, ${movedToId} corrigés, ${movedToManual} nettoyés`, "", "");
   return { swapped, movedToManual, movedToId };
 }
 

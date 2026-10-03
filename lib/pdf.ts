@@ -98,7 +98,7 @@ export function generateInvoicePdf(
   // ===== Tablo =====
   autoTable(doc, {
     startY: 80,
-    head: [["#", "Tracking ID (Guía)", "Tracking Number", "Poids (lb)", "Prix/LB", "Montant (USD)"]],
+    head: [["#", "Tracking ID", "Tracking Number", "Poids (lb)", "Prix/LB", "Montant (USD)"]],
     body: items.map((k, i) => {
       const w = Number(k.weight) || 0;
       // Si koli a sèvi ak tarif Petit Colis -> montre sa olye Prix/LB

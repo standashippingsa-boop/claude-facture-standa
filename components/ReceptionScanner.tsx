@@ -222,14 +222,14 @@ export default function ReceptionScanner() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <ScanLine size={18} className="text-navy" />
-          <h2 className="h-sec">Scanner de Réception <span className="text-mute font-normal">(Caribe Tours)</span></h2>
+          <h2 className="h-sec">Scanner de Réception</h2>
         </div>
         {/* Switch Mode */}
         <div className="flex rounded-lg border border-line overflow-hidden text-xs">
           {(["manuel", "continu"] as Mode[]).map((m) => (
             <button key={m} onClick={() => setMode(m)}
               className={`px-3 py-1.5 font-semibold ${mode === m ? "bg-navy text-white" : "bg-white text-mute"}`}>
-              {m === "manuel" ? "Manuel (confirmer)" : "Continu (auto)"}
+              {m === "manuel" ? "Manuel" : "Continu"}
             </button>
           ))}
         </div>
@@ -302,7 +302,7 @@ export default function ReceptionScanner() {
             }}><Search size={15} /></button>
           </div>
           <p className="text-[11px] text-mute">
-            Un scanner USB/Bluetooth qui « tape » le code fonctionne automatiquement (il envoie Entrée après le code).
+            Un scanner USB/Bluetooth qui « tape » le code fonctionne automatiquement.
           </p>
           {/* Compteur */}
           <div className="grid grid-cols-4 gap-2 pt-1">
@@ -323,7 +323,7 @@ export default function ReceptionScanner() {
         <div className="rounded-2xl border-2 border-navy/30 bg-navy/5 p-4">
           <div className="flex items-center justify-between mb-2">
             <p className="font-bold text-navy flex items-center gap-2">
-              <Camera size={17} /> Prendre une photo du colis (preuve)
+              <Camera size={17} /> Prendre une photo du colis
             </p>
             <span className="pill pill-green"><span className="pill-dot" />Vérifié</span>
           </div>

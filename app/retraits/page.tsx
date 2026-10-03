@@ -244,14 +244,14 @@ function RetraitRow({
               <div className="flex justify-center py-5 text-navy" role="status" aria-label="Chargement"><Spinner size={22} /></div>
             ) : (pkgs ?? []).length === 0 ? (
               <p className="py-4 text-center text-xs text-mute">
-                Aucun colis trouvé dans la base pour cette demande (déjà facturés ou supprimés).
+                Aucun colis trouvé dans la base pour cette demande.
               </p>
             ) : (
               <>
                 <table className="w-full text-xs">
                   <thead><tr className="text-slate-500 text-left">
                     <th className="py-1 pr-2 w-8"></th>
-                    <th className="py-1 pr-3">Tracking ID (Guía)</th>
+                    <th className="py-1 pr-3">Tracking ID</th>
                     <th className="py-1 pr-3">Tracking Number</th>
                     <th className="py-1 pr-3">Contenu</th>
                     <th className="py-1 pr-3">Statut</th>

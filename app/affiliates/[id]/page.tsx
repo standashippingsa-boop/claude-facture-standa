@@ -96,7 +96,7 @@ export default function AffiliateDetailPage() {
         <p className="text-[11px] font-bold uppercase tracking-[.18em] text-white/50">Ses liens personnels</p>
         <p className="mt-2 text-[12px] text-white/70">Inscription directe</p>
         <code className="mt-1 block rounded-lg bg-white/10 px-3 py-2 text-[13px] break-all">{affiliate.referral_link}</code>
-        <p className="mt-2 text-[12px] text-white/70">Site (informations)</p>
+        <p className="mt-2 text-[12px] text-white/70">Site</p>
         <code className="mt-1 block rounded-lg bg-white/10 px-3 py-2 text-[13px] break-all">{affiliate.website_link}</code>
         <p className="mt-3 text-[12px] text-white/70">Contrat : {dateFr(affiliate.contract_start)} → {dateFr(affiliate.contract_end)} · {affiliate.days_left} jour{affiliate.days_left > 1 ? "s" : ""} restant{affiliate.days_left > 1 ? "s" : ""} · {usd(affiliate.commission_amount)} par facture</p>
       </div>
@@ -224,7 +224,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="max-w-5xl pb-10">
       <Link href="/affiliates" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-mute hover:text-navy"><ArrowLeft size={14} /> Retour aux affiliés</Link>
-      <p className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-[12px] text-blue-800">Vue en lecture seule de l’espace de l’affilié. Les actions (réactiver, renouveler, mot de passe, paiements) se font depuis la liste des affiliés.</p>
+      <p className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-[12px] text-blue-800">Vue en lecture seule de l’espace de l’affilié. Les actions se font depuis la liste des affiliés.</p>
       {children}
     </div>
   );

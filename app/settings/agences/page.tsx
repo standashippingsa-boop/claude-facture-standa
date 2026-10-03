@@ -100,7 +100,7 @@ export default function AgencesSettingsPage() {
         </Link>
         <h1 className="mt-2 text-xl font-extrabold text-navy">Ajans / Pwen retrait</h1>
         <p className="mt-1 text-xs text-slate-500">
-          Lis sa a parèt sou paj piblik <b>/agences</b> (sèlman ajans ki &quot;Actif&quot;).
+          Lis sa a parèt sou paj piblik <b>/agences</b>.
           Chanjman ou fè isit yo parèt sou sit la nan yon minit.
         </p>
       </div>
@@ -139,7 +139,7 @@ export default function AgencesSettingsPage() {
                 {errors.telephone && <span className="text-xs text-red-600">{errors.telephone.message}</span>}
               </label>
               <label className="block">
-                <span className="text-xs font-medium text-slate-500">WhatsApp (chif sèlman, san +)</span>
+                <span className="text-xs font-medium text-slate-500">WhatsApp</span>
                 <input className="input mt-1" placeholder="50946738117" {...register("whatsapp")} />
                 <span className="text-[11px] text-mute">Kite vid si ajans lan pa gen WhatsApp separe.</span>
               </label>
@@ -152,12 +152,12 @@ export default function AgencesSettingsPage() {
                 <input className="input mt-1" placeholder="Dimanche : Fermé" {...register("horaire_2")} />
               </label>
               <label className="block md:col-span-2">
-                <span className="text-xs font-medium text-slate-500">Note spéciale (optionnel)</span>
-                <input className="input mt-1" placeholder="Ex: Service de livraison seulement (Mardi et Samedi)" {...register("note")} />
+                <span className="text-xs font-medium text-slate-500">Note spéciale</span>
+                <input className="input mt-1" placeholder="Ex: Service de livraison seulement Mardi et Samedi" {...register("note")} />
               </label>
             </div>
             <label className="mt-3 flex items-center gap-2 text-sm">
-              <input type="checkbox" {...register("active")} /> Agence active (visible sur /agences)
+              <input type="checkbox" {...register("active")} /> Agence active
             </label>
             <div className="mt-4 flex gap-3">
               <button type="submit" className="btn" disabled={isSubmitting}>Enregistrer</button>

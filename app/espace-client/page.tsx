@@ -516,13 +516,13 @@ export default function EspaceClientPage() {
         )}
         {est && (
           <div className="mt-3 pt-3 border-t border-line space-y-1.5">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-mute">Estimation ({nonFacturedItems.length} colis pas encore facturés)</p>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-mute">Estimation · {nonFacturedItems.length} colis pas encore facturés</p>
             <div className="flex items-center justify-between text-[13px]">
               <span className="text-mute">Transport estimé</span>
               <span className="font-semibold text-ink">{usd(est.subtotal)}</span>
             </div>
             <div className="flex items-center justify-between text-[13px]">
-              <span className="text-mute">Taxe fixe {est.fixedTax > 0 ? `(≥ ${TAX_THRESHOLD_LB} lb)` : ""}</span>
+              <span className="text-mute">Taxe fixe</span>
               <span className="font-semibold text-ink">{est.fixedTax > 0 ? usd(est.fixedTax) : "—"}</span>
             </div>
             <div className="flex items-center justify-between pt-1.5 border-t border-line">
@@ -1159,7 +1159,7 @@ export default function EspaceClientPage() {
                 <li className="flex gap-2"><span className="text-navy">•</span>
                   <span>À partir de <b>{TAX_THRESHOLD_LB} lb</b> au total, une taxe fixe de <b>{usd(TAX_FIXED_USD)}</b> s&apos;applique.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span>Certains articles (téléphones, ordinateurs portables, appareils photo…) ont un <b>prix forfaitaire</b> — le poids ne s&apos;applique pas.</span></li>
+                  <span>Certains articles comme les téléphones, ordinateurs portables et appareils photo ont un <b>prix forfaitaire</b> — le poids ne s&apos;applique pas.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
                   <span>Le prix affiché dans l&apos;application est une <b>estimation</b>. Le prix final est fixé après la pesée du colis à l&apos;entrepôt.</span></li>
               </ul>
@@ -1223,17 +1223,17 @@ export default function EspaceClientPage() {
                   // règ antrepozaj /confidentialite, lib/pricing.ts, flux retrait).
                   // Si youn nan règ sa yo chanje, mete repons lan ajou tou.
                   ["Combien de temps prend mon colis ?",
-                   "Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement entre 3 et 7 jours ouvrables (du lundi au vendredi) pour qu'il arrive à votre agence en Haïti. Ce délai peut varier seulement selon la douane, ou si votre code client ne figure pas dans l'adresse du colis : une réclamation doit alors être faite avant que le colis puisse être envoyé en Haïti, ce qui prend du temps. Ouvrez le colis dans l'application pour voir son étape : Reçu à Miami, En préparation, En transit, Arrivé en Haïti, En route vers agence, puis Disponible."],
+                   "Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement entre 3 et 7 jours ouvrables pour qu'il arrive à votre agence en Haïti. Ce délai peut varier seulement selon la douane, ou si votre code client ne figure pas dans l'adresse du colis : une réclamation doit alors être faite avant que le colis puisse être envoyé en Haïti, ce qui prend du temps. Ouvrez le colis dans l'application pour voir son étape : Reçu à Miami, En préparation, En transit, Arrivé en Haïti, En route vers agence, puis Disponible."],
                   ["Pourquoi mon colis n'apparaît-il pas encore ?",
-                   "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. Si le transporteur (Amazon, UPS, FedEx…) indique « livré », comptez quelques heures pour l'enregistrement. L'application se met à jour toute seule chaque minute ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. Si votre colis n'apparaît pas, c'est souvent que l'adresse a été mal saisie lors de l'achat ou que votre code client (MC-…) n'a pas été mis sur la ligne « Address 2 » : sans ce code, nous ne pouvons pas relier le colis à votre compte. Recopiez toujours exactement l'adresse de la page « Mon adresse ». Dans ce cas, écrivez-nous sur WhatsApp avec votre numéro de tracking pour faire une réclamation."],
+                   "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. Si le transporteur indique « livré », comptez quelques heures pour l'enregistrement. L'application se met à jour toute seule chaque minute ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. Si votre colis n'apparaît pas, c'est souvent que l'adresse a été mal saisie lors de l'achat ou que votre code client MC-… n'a pas été mis sur la ligne « Address 2 » : sans ce code, nous ne pouvons pas relier le colis à votre compte. Recopiez toujours exactement l'adresse de la page « Mon adresse ». Dans ce cas, écrivez-nous sur WhatsApp avec votre numéro de tracking pour faire une réclamation."],
                   ["Puis-je envoyer plusieurs colis ensemble ?",
                    "Oui. Vous pouvez commander dans plusieurs boutiques : chaque colis est reçu et pesé séparément à Miami, et tous ceux qui portent votre code client sont regroupés dans votre compte. Les colis disponibles en même temps peuvent être réunis sur une seule facture."],
                   ["Que signifie « Préparer mon retrait » ?",
                    "Quand un colis passe au statut « Disponible », ouvrez « Disponibles », cochez les colis que vous viendrez chercher et touchez « Préparer mon retrait ». L'agence prépare alors vos colis avant votre arrivée : votre demande passe de « En attente » à « Préparé », puis à « Remis » quand vous les avez récupérés. Les factures impayées doivent être réglées à l'agence avant la remise. Vous disposez de 15 jours pour retirer un colis disponible ; à partir du 16e jour, des frais d'entreposage de 5 $ US par jour s'appliquent."],
                   ["J'ai oublié mon mot de passe.",
-                   "Écrivez-nous sur WhatsApp : nous vous envoyons un nouveau mot de passe. Connectez-vous avec votre code client (MC-XXXXX) et ce mot de passe. Vous pouvez ensuite le changer : touchez votre nom en haut de l'écran, puis « Changer mon mot de passe »."],
+                   "Écrivez-nous sur WhatsApp : nous vous envoyons un nouveau mot de passe. Connectez-vous avec votre code client MC-XXXXX et ce mot de passe. Vous pouvez ensuite le changer : touchez votre nom en haut de l'écran, puis « Changer mon mot de passe »."],
                   ["Le prix peut-il changer ?",
-                   "Oui : le calculateur donne une estimation. Le prix final est celui de votre facture, calculé sur le poids réel pesé à notre entrepôt de Miami, selon le tarif de votre ville. Il peut différer de l'estimation si le poids réel n'est pas celui que vous avez saisi, si le colis contient un article à tarif spécial (téléphone, ordinateur portable, tablette, caméra, téléviseur), ou si des frais d'entreposage s'ajoutent (retrait après 15 jours). Le montant en gourdes est calculé au taux du jour de la facture."]
+                   "Oui : le calculateur donne une estimation. Le prix final est celui de votre facture, calculé sur le poids réel pesé à notre entrepôt de Miami, selon le tarif de votre ville. Il peut différer de l'estimation si le poids réel n'est pas celui que vous avez saisi, si le colis contient un article à tarif spécial comme un téléphone, un ordinateur portable, une tablette, une caméra ou un téléviseur, ou si des frais d'entreposage s'ajoutent pour un retrait après 15 jours. Le montant en gourdes est calculé au taux du jour de la facture."]
                 ] as const).map(([q, a]) => (
                   <details key={q} className="py-2.5 group">
                     <summary className="text-[13px] font-semibold text-ink cursor-pointer list-none flex items-start gap-2">
@@ -1296,7 +1296,7 @@ export default function EspaceClientPage() {
                 <div className="rounded-xl border border-line divide-y divide-line">
                   <div className="flex justify-between px-4 py-2.5 text-sm">
                     <span className="text-mute">
-                      Transport {calcRes.smallCount > 0 ? "(petit colis)" : `(${calcRes.totalWeight.toFixed(2)} lb)`}
+                      Transport {calcRes.smallCount > 0 ? "· petit colis" : `· ${calcRes.totalWeight.toFixed(2)} lb`}
                     </span>
                     <span className="font-semibold text-ink">{usd(calcRes.subtotal)}</span>
                   </div>

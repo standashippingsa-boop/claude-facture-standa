@@ -263,7 +263,7 @@ export default function InvoiceDialog({
         packages: items.map((it) => ({ tracking_number: it.tracking_number, tracking_manual: it.tracking_manual }))
       }).catch(() => undefined);
       onDone(
-        `Facture ${inv.invoice_number} créée (${items.length} colis → Livré, taux ${rate.toFixed(2)}). ` +
+        `Facture ${inv.invoice_number} créée — ${items.length} colis → Livré, taux ${rate.toFixed(2)}. ` +
         (how === "file" ? "PDF pataje sou WhatsApp."
           : how === "manual" ? "WhatsApp ouvri — telechaje PDF la epi atache li." : "Fakti a nan Invoices.")
       );
@@ -293,7 +293,7 @@ export default function InvoiceDialog({
     if (busy) return;
     if (pending && !confirm(
       `Fermer sans imprimer ?\n\nLa facture ${pending.inv.invoice_number} reste enregistrée ` +
-      `(visible dans Invoices) mais les colis ne seront pas encore « Livré ». ` +
+      `dans Invoices mais les colis ne seront pas encore « Livré ». ` +
       `Vous pourrez l'imprimer ou l'annuler plus tard depuis Invoices.`
     )) return;
     onClose();
@@ -375,7 +375,7 @@ export default function InvoiceDialog({
               ) : (
                 <p className="text-[11px] text-slate-500 bg-mist rounded-lg px-2.5 py-1.5">
                   Les frais de service sont calculés automatiquement d&apos;après le tableau
-                  des tranches (Paramètres). Ils ne se saisissent pas à la main.
+                  des tranches. Ils ne se saisissent pas à la main.
                 </p>
               )}
             </div>
@@ -490,7 +490,7 @@ export default function InvoiceDialog({
                       if (e.target.value) n[p.id] = e.target.value; else delete n[p.id];
                       return n;
                     })}>
-                    <option value="">Au poids (normal)</option>
+                    <option value="">Au poids</option>
                     {articles.map((a) => (
                       <option key={a.id} value={a.id}>{a.label} — {usd(a.price)}</option>
                     ))}
@@ -533,7 +533,7 @@ export default function InvoiceDialog({
 
         {/* PRIX/LB — lecture seule (Paramètres) */}
         <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-2">
-          <span className="text-xs text-slate-600">Prix/LB utilisé <span className="text-slate-400">(Paramètres — lecture seule)</span></span>
+          <span className="text-xs text-slate-600">Prix/LB utilisé</span>
           <b className="text-navy font-mono">{comp && comp.ok ? usd(comp.perLb) : "—"}
             {comp && comp.ok && <span className="text-slate-400 font-normal"> / {comp.ville}</span>}</b>
         </div>
@@ -581,7 +581,7 @@ export default function InvoiceDialog({
         <div className="mt-5 flex gap-3">
           {pending ? (
             <button className="btn flex-1" onClick={imprimerEtLivrer} disabled={busy}>
-              {busy ? "..." : "Imprimer / Télécharger (livrer au client)"}
+              {busy ? "..." : "Imprimer / Télécharger"}
             </button>
           ) : (
             <button className="btn flex-1" onClick={creerFacture} disabled={busy || !comp || !comp.ok}>

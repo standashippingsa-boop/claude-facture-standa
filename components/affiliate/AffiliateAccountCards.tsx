@@ -41,11 +41,11 @@ export function ContractSection({ uploadedAt, onUploaded }: { uploadedAt: string
   const upload = async (file: File) => {
     setMessage(null);
     const ext = resolveSignedContractExt(file.type, file.name);
-    if (!ext) { setMessage({ ok: false, text: "Format non accepté. Envoyez un PDF (ou une photo JPG/PNG)." }); return; }
+    if (!ext) { setMessage({ ok: false, text: "Format non accepté. Envoyez un PDF, JPG ou PNG." }); return; }
     // Telefòn ki pa bay MIME: re-etikte fichye a, sinon Storage rejte l (octet-stream).
     const mime = signedContractMime(ext);
     const payload = file.type === mime ? file : new File([file], file.name || `contrat.${ext}`, { type: mime });
-    if (file.size > SIGNED_CONTRACT_MAX_BYTES) { setMessage({ ok: false, text: "Fichier trop volumineux (15 Mo maximum)." }); return; }
+    if (file.size > SIGNED_CONTRACT_MAX_BYTES) { setMessage({ ok: false, text: "Fichier trop volumineux : 15 Mo maximum." }); return; }
     setBusy(true);
     try {
       const start = await portal({ action: "contract_upload_url", content_type: payload.type, filename: file.name, size: payload.size });
@@ -89,7 +89,7 @@ export function ContractSection({ uploadedAt, onUploaded }: { uploadedAt: string
         <ol className="mt-3 space-y-1.5 text-[13px] leading-relaxed text-mute">
           <li><b className="text-navy">1.</b> Téléchargez le contrat et imprimez-le.</li>
           <li><b className="text-navy">2.</b> Remplissez vos informations, paraphez chaque page et signez la dernière.</li>
-          <li><b className="text-navy">3.</b> Scannez les pages en un seul PDF (ex. : « Numériser » dans Google Drive, ou CamScanner).</li>
+          <li><b className="text-navy">3.</b> Scannez les pages en un seul PDF.</li>
           <li><b className="text-navy">4.</b> Envoyez le fichier ici.</li>
         </ol>
       )}
@@ -151,7 +151,7 @@ export function PayoutSection({ method, phone, updatedAt, onSaved }: {
       </div>
       <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] leading-relaxed text-amber-900">
         Les commissions sont payées <b>une fois par mois</b>, <b>uniquement en gourdes</b>, au taux fixe de <b>{AFFILIATE_PAYOUT_RATE_HTG.toString().replace(".", ",")} HTG pour 1 USD</b>
-        {" "}(ex. : 10 USD = {formatHtg(toPayoutHtg(10))}).
+        .
       </p>
       <div className="mt-3 grid grid-cols-2 gap-2">
         {AFFILIATE_PAYOUT_METHODS.map((m) => (

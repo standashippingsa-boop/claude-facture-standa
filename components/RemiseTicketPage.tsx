@@ -147,7 +147,7 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
         <span className="font-semibold text-slate-600">Papier de l’imprimante</span>
         <div className="flex gap-1">{([80, 58] as TicketWidth[]).map((value) => <button key={value} type="button" aria-pressed={width === value} onClick={() => chooseWidth(value)} className={`rounded-lg px-3 py-1.5 font-bold ${width === value ? "bg-[#09295e] text-white" : "bg-slate-100 text-slate-700"}`}>{value} mm</button>)}</div>
       </div>
-      <p className="text-center text-xs font-semibold text-slate-500">Aperçu : voici le ticket exactement comme il sortira de l’imprimante ({width} mm).</p>
+      <p className="text-center text-xs font-semibold text-slate-500">Aperçu : voici le ticket exactement comme il sortira de l’imprimante.</p>
     </div>
 
     <div className="rounded-3xl bg-slate-200/70 px-2 py-6 print:bg-transparent print:p-0">

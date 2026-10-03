@@ -120,7 +120,7 @@ export async function POST(req: Request) {
     // (les requêtes Supabase n'ont pas de méthode .catch()).
     try {
       const journal = await db.from("journal").insert({
-      user_name: "Client (self-service)", action: "Compte client supprimé",
+      user_name: "Client", action: "Compte client supprimé",
       details: customerCode ? `Le client ${customerCode} a supprimé son compte.` : "Un compte non activé a été supprimé.",
       package_ref: "", customer_code: customerCode,
       ip_address: clientIp(req),

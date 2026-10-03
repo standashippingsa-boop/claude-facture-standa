@@ -218,7 +218,7 @@ export default function ConducesPage() {
   const supprimer = async (r: Row) => {
     if (!confirm(
       `Supprimer la conduce ${r.conduce_number} ?\n\n` +
-      `${r.count} colis seront DÉTACHÉS (ils ne sont pas supprimés) et pourront être rattachés ailleurs.\n\n` +
+      `${r.count} colis seront DÉTACHÉS, sans être supprimés, et pourront être rattachés ailleurs.\n\n` +
       `Cette action est irréversible.`)) return;
     try {
       const { detached } = await deleteConduce(r.id);
@@ -231,7 +231,7 @@ export default function ConducesPage() {
   const supprimerJour = async (cl: Classeur) => {
     if (!confirm(
       `Supprimer les ${cl.rows.length} conduce(s) du ${cl.label} ?\n\n` +
-      `${cl.count} colis seront DÉTACHÉS (pas supprimés).\n\n` +
+      `${cl.count} colis seront DÉTACHÉS, sans être supprimés.\n\n` +
       `Une conduce contenant des colis déjà facturés sera conservée.\n\nCette action est irréversible.`)) return;
     let ok = 0; const echecs: string[] = [];
     for (const r of cl.rows) {
@@ -394,7 +394,7 @@ export default function ConducesPage() {
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 mt-3">
-                <input className="input font-mono flex-1" autoFocus placeholder="Numéro de Conduce (ex. 10534)"
+                <input className="input font-mono flex-1" autoFocus placeholder="Numéro de Conduce"
                   value={newConduceNumber} onChange={(e) => setNewConduceNumber(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") createInFolder(); }} />
                 <button className="btn btn-brand justify-center" onClick={createInFolder} disabled={creating || !newConduceNumber.trim()}>

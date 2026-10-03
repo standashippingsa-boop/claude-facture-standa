@@ -105,7 +105,7 @@ export default function InvoicesPage() {
     const dejaGenere = !!inv.has_pdf;
     if (!confirm(
       dejaGenere
-        ? `La facture ${inv.invoice_number} a déjà été générée en PDF (ou imprimée) — elle ne peut plus être annulée.\n\n` +
+        ? `La facture ${inv.invoice_number} a déjà été générée en PDF ou imprimée — elle ne peut plus être annulée.\n\n` +
           `Client : ${inv.customer_name}\n\n` +
           `➜ Les colis restants seront simplement marqués « Livré ».\n` +
           `➜ La facture elle-même n'est pas modifiée.`
@@ -265,12 +265,12 @@ export default function InvoicesPage() {
                       onClick={() => startPayment(f)}><Banknote size={16} /></button>
                   )}
                   {role === "admin" && (
-                    <button title={f.has_pdf ? "PDF déjà généré — confirmer la livraison (colis → Livré)" : "Annuler la facture (colis redeviennent Disponible)"}
+                    <button title={f.has_pdf ? "Confirmer la livraison" : "Annuler la facture"}
                       className="text-slate-400 hover:text-red-600 ml-3" disabled={busy}
                       onClick={() => annuler(f)}><XCircle size={16} /></button>
                   )}
                   {role === "admin" && paymentStatus === "Payé" && (unsettledByInvoice.get(f.id)?.length ?? 0) > 0 && (
-                    <button title="Clôturer la facture (sort de la caisse à remettre de l'agent)"
+                    <button title="Clôturer la facture"
                       className="text-indigo-600 hover:text-indigo-800 ml-3" disabled={busy}
                       onClick={() => cloturer(f)}><Scale size={16} /></button>
                   )}
@@ -315,7 +315,7 @@ export default function InvoicesPage() {
                   </select>
                 </label>
                 <label className="block text-xs font-bold uppercase tracking-wide text-mute">
-                  Référence (optionnel)
+                  Référence
                   <input type="text" className="input mt-1" value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} disabled={paymentBusy} placeholder="No transaction, chèque…" />
                 </label>
               </div>

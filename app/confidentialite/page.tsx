@@ -46,7 +46,7 @@ export default function ConfidentialitePage() {
 
         <div className="card p-5 sm:p-6 bg-navy text-white">
           <p className="text-[13px] leading-relaxed">
-            STANDA COMMERCIAL (Standa Shipping SA) transporte vos colis entre les États-Unis
+            STANDA COMMERCIAL, Standa Shipping SA, transporte vos colis entre les États-Unis
             et Haïti. Pour cela, nous devons collecter certaines informations vous concernant.
             Cette page explique <b>lesquelles</b>, <b>pourquoi</b>, <b>qui peut les voir</b> et
             <b> quels sont vos droits</b>. Nous ne vendons vos données à personne.
@@ -56,10 +56,10 @@ export default function ConfidentialitePage() {
         <S n="1" t="Informations que nous collectons">
           <p>À votre inscription et pendant l&apos;utilisation du service :</p>
           <ul className="space-y-1.5">
-            <Li><b>Identité</b> — nom, prénom, type et numéro de pièce d&apos;identité (carte d&apos;identité nationale ou passeport).</Li>
+            <Li><b>Identité</b> — nom, prénom, type et numéro de pièce d&apos;identité : carte d&apos;identité nationale ou passeport.</Li>
             <Li><b>Contact</b> — adresse e-mail, téléphone, numéro WhatsApp.</Li>
             <Li><b>Localisation de livraison</b> — pays, ville, deuxième ville, adresse.</Li>
-            <Li><b>Compte</b> — votre code client (MC-XXXXX) et un mot de passe chiffré. <b>Nous ne voyons jamais votre mot de passe.</b></Li>
+            <Li><b>Compte</b> — votre code client MC-XXXXX et un mot de passe chiffré. <b>Nous ne voyons jamais votre mot de passe.</b></Li>
             <Li><b>Colis</b> — numéros de suivi, contenu déclaré, poids, statut, dates de réception.</Li>
             <Li><b>Facturation</b> — montants, taxes, remises, factures PDF, demandes de retrait.</Li>
           </ul>
@@ -117,13 +117,13 @@ export default function ConfidentialitePage() {
           <ul className="space-y-1.5">
             <Li><b>Compte et identité</b> — tant que votre compte est actif.</Li>
             <Li><b>Colis, factures et bons de remise</b> — conservés pour nos obligations comptables et douanières, même après la clôture du compte.</Li>
-            <Li><b>Compte supprimé</b> — votre identité et vos coordonnées sont effacées (voir section 8).</Li>
+            <Li><b>Compte supprimé</b> — votre identité et vos coordonnées sont effacées, voir section 8.</Li>
           </ul>
         </S>
 
         <S n="7" t="Sécurité">
           <ul className="space-y-1.5">
-            <Li>Les échanges avec l&apos;application sont chiffrés (HTTPS).</Li>
+            <Li>Les échanges avec l&apos;application sont chiffrés en HTTPS.</Li>
             <Li>Les mots de passe sont stockés sous forme chiffrée irréversible — personne chez nous ne peut les lire.</Li>
             <Li>L&apos;accès aux données est restreint par des règles appliquées directement dans la base de données.</Li>
           </ul>
@@ -137,17 +137,17 @@ export default function ConfidentialitePage() {
         <S n="8" t="Vos droits et suppression du compte" id="suppression-compte">
           <ul className="space-y-1.5">
             <Li><b>Consulter</b> les informations que nous détenons sur vous.</Li>
-            <Li><b>Corriger</b> une information inexacte (nom, téléphone, adresse, ville).</Li>
+            <Li><b>Corriger</b> une information inexacte : nom, téléphone, adresse, ville.</Li>
             <Li><b>Supprimer votre compte</b> — sous réserve des documents que la loi nous oblige à conserver.</Li>
             <Li><b>Refuser les notifications</b> e-mail ou WhatsApp non essentielles.</Li>
           </ul>
           <p className="font-semibold text-ink">Comment supprimer votre compte</p>
           <ul className="space-y-1.5">
             <Li><b>Dans l&apos;application ou sur le site</b> : connectez-vous, ouvrez le menu en haut à droite, choisissez <b>« Supprimer mon compte »</b>, puis tapez SUPPRIMER pour confirmer.</Li>
-            <Li><b>Si vous ne pouvez plus vous connecter</b> : écrivez-nous sur WhatsApp (section 10) en indiquant votre code client ou l&apos;e-mail du compte. Nous répondons sous 30 jours.</Li>
+            <Li><b>Si vous ne pouvez plus vous connecter</b> : écrivez-nous sur WhatsApp, voir section 10, en indiquant votre code client ou l&apos;e-mail du compte. Nous répondons sous 30 jours.</Li>
           </ul>
           <p>
-            <b>Ce qui est effacé</b> : votre nom, vos coordonnées (téléphone, WhatsApp, e-mail, adresse), votre pièce
+            <b>Ce qui est effacé</b> : votre nom, vos coordonnées téléphone, WhatsApp, e-mail et adresse, votre pièce
             d&apos;identité, vos notifications et votre accès. <b>Ce qui est conservé</b> : vos colis, factures et reçus,
             rattachés uniquement à votre code client et sans votre identité, pour nos obligations comptables et douanières.
           </p>
@@ -165,7 +165,7 @@ export default function ConfidentialitePage() {
           </p>
           <p>
             <b>Nous n&apos;utilisons aucun cookie publicitaire ni traceur tiers.</b> Vous pouvez
-            désinstaller l&apos;application à tout moment ; cela n&apos;efface pas votre compte (pour cela, voir la section 8).
+            désinstaller l&apos;application à tout moment ; cela n&apos;efface pas votre compte : pour cela, voir la section 8.
           </p>
         </S>
 

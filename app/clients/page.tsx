@@ -188,7 +188,7 @@ export default function ClientsPage() {
                ["fullname", "Nom complet *", "Ex: Jean Baptiste"],
                ["whatsapp", "WhatsApp", "Ex: +509 3712 3456"],
                ["pickup_location", "Lieu de récupération", "Ex: Biwo Delmas 33"],
-               ["email", "Email (optionnel)", "ex@mail.com"]] as const).map(([k, label, ph]) => (
+               ["email", "Email", "ex@mail.com"]] as const).map(([k, label, ph]) => (
               <label key={k} className="block">
                 <span className="text-xs font-medium text-slate-500">{label}</span>
                 <input className="input mt-1" placeholder={ph} {...register(k)} />
@@ -201,7 +201,7 @@ export default function ClientsPage() {
                 <option value="">— Chwazi vil la —</option>
                 {villes.filter((v) => v.active || v.id === editing?.ville_id).map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.name}{!v.active ? " (inactif)" : ""}
+                    {v.name}{!v.active ? " · inactif" : ""}
                   </option>
                 ))}
               </select>
@@ -410,7 +410,7 @@ export default function ClientsPage() {
             </div>
 
             <label className="block">
-              <span className="text-xs font-semibold text-slate-600">Code MC (bay pa MCPACK) *</span>
+              <span className="text-xs font-semibold text-slate-600">Code MC *</span>
               <input className="input mt-1 font-mono" placeholder="Ex: MC-2547" value={mcCode}
                 onChange={(e) => setMcCode(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && saveMcCode()} />

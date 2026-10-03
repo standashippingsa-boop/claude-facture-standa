@@ -269,7 +269,7 @@ function classifyResend(status: number, bodyText: string): { code: string; messa
     return {
       code: "domain_not_verified",
       message: `Domèn "${dom}" poko verifye sou Resend. Ale sou resend.com/domains, `
-        + `ajoute domèn nan epi pibliye anrejistreman DNS yo (SPF + DKIM).`,
+        + `ajoute domèn nan epi pibliye anrejistreman DNS SPF + DKIM yo.`,
     };
   }
   if (status === 401 || status === 403) return { code: "auth", message: `Resend refize demann nan (${status}) : ${msg}` };
@@ -305,7 +305,7 @@ async function sendViaResend(
 /** Verifye sesyon an se yon manm pèsonèl STANDA (menm modèl ak /api/audit-log). */
 async function requireStaff(token: string): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   const config = getSupabaseAdminConfig();
-  if (!config) return { ok: false, status: 200, error: "Konfigirasyon sèvè enkonplè (SUPABASE_SECRET_KEY)." };
+  if (!config) return { ok: false, status: 200, error: "Konfigirasyon sèvè enkonplè: SUPABASE_SECRET_KEY manke." };
   const svc = createClient(config.url, config.key, { auth: { persistSession: false } });
   const { data: au } = await svc.auth.getUser(token);
   if (!au?.user) return { ok: false, status: 401, error: "Sesyon obligatwa." };

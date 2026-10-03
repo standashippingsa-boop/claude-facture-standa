@@ -40,9 +40,9 @@ export default function SetupPage() {
           <input className="input mt-1" value={nom} onChange={(e) => setNom(e.target.value)} /></label>
         <label className="block"><span className="text-xs font-semibold text-slate-600">Nom d&apos;utilisateur *</span>
           <input className="input mt-1" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="ex: admin" /></label>
-        <label className="block"><span className="text-xs font-semibold text-slate-600">Mot de passe * (6+ karaktè)</span>
+        <label className="block"><span className="text-xs font-semibold text-slate-600">Mot de passe *</span>
           <input type="password" className="input mt-1" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
-        <label className="block"><span className="text-xs font-semibold text-slate-600">Clé d&apos;installation * (SETUP_SECRET)</span>
+        <label className="block"><span className="text-xs font-semibold text-slate-600">Clé d&apos;installation *</span>
           <input type="password" className="input mt-1" value={setupSecret} onChange={(e) => setSetupSecret(e.target.value)}
             placeholder="valè SETUP_SECRET nan Vercel" autoComplete="off" /></label>
         <button className="btn w-full justify-center py-3" onClick={submit} disabled={busy}>

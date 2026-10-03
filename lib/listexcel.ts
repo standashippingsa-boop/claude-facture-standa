@@ -19,7 +19,7 @@ export async function exportPackagesExcel(
     "Code Client": p.customer_code,
     "Nom Client": p.customer_name,
     "Ville": tarifMap.get(p.customer_code)?.ville?.name ?? "",
-    "Tracking ID (Guía)": p.tracking_number,
+    "Tracking ID": p.tracking_number,
     "Tracking Number": p.tracking_manual || "",
     "Poids (lb)": Number(p.weight || 0),
     "Contenu": p.content || "",

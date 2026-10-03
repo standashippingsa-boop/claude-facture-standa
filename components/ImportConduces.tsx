@@ -58,7 +58,7 @@ export default function ImportConduces({ onLinked }: { onLinked?: () => void }) 
         <h2 className="h-sec">Créer des Conduces</h2>
       </div>
       <p className="text-sm text-mute">
-        Collez les numéros de conduce reçus (un par ligne). Ils sont créés immédiatement
+        Collez les numéros de conduce reçus, un par ligne. Ils sont créés immédiatement
         <b> en attente</b>. Utilisez ensuite l&apos;<b>Extension Chrome sur MCPACK</b> pour
         chaque numéro — elle importera automatiquement les colis dans la conduce correspondante.
       </p>
@@ -72,7 +72,7 @@ export default function ImportConduces({ onLinked }: { onLinked?: () => void }) 
 
       {results.length > 0 && (
         <div className="border-t border-line pt-3">
-          <p className="text-xs font-bold text-mute mb-2">Conduces (cette session) :</p>
+          <p className="text-xs font-bold text-mute mb-2">Conduces de cette session :</p>
           <div className="space-y-1.5 max-h-64 overflow-y-auto">
             {results.map((r, i) => (
               <div key={i} className="flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2">

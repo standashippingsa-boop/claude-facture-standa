@@ -42,7 +42,7 @@ function LoginInner() {
     const raw = username.trim();
     const norm = normalizeMcCode(raw);
     const pass = password;
-    if (!raw) { setErr("Saisissez votre code MC (exemple : MC-36191)."); return; }
+    if (!raw) { setErr("Saisissez votre code MC."); return; }
     if (!pass) { setErr("Saisissez votre mot de passe."); return; }
 
     setAuthRealm("client");
