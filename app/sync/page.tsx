@@ -87,7 +87,7 @@ export default function SyncPage() {
     // SEKIRITE: kenbe sèlman vrè imaj (tip + gwosè verifye)
     const all = Array.from(files);
     const arr = all.filter((f) => validateUpload(f, "image").ok);
-    if (!arr.length) { setErr("Aucune image valide (JPG, PNG, WEBP, HEIC — max 12 Mo)."); return; }
+    if (!arr.length) { setErr("Aucune image valide. JPG, PNG, WEBP ou HEIC, 12 Mo maximum."); return; }
     if (arr.length < all.length) setErr(`${all.length - arr.length} fichier(s) ignoré(s) : format ou taille non accepté.`);
     setBusy(true);
     try {
@@ -125,7 +125,7 @@ export default function SyncPage() {
     setErr(null); setFactures(null);
     const allF = Array.from(files);
     const okF = allF.filter((f) => validateUpload(f, "image-or-pdf").ok);
-    if (!okF.length) { setErr("Aucun fichier valide (PDF ou image — max 25 Mo)."); return; }
+    if (!okF.length) { setErr("Aucun fichier valide. PDF ou image, 25 Mo maximum."); return; }
     if (okF.length < allF.length) setErr(`${allF.length - okF.length} fichier(s) ignoré(s) : format ou taille non accepté.`);
     setBusy(true);
     try {
@@ -273,7 +273,7 @@ export default function SyncPage() {
     try {
       const rows = parseMcpackWorkbook(await f.arrayBuffer());
       if (!rows.length) {
-        setErr("Sistèm nan pa jwenn kolòn MCPACK yo (Cliente, Guia, Peso...) nan fichye a. Verifye se bon Exportar XLS la.");
+        setErr("Sistèm nan pa jwenn kolòn MCPACK yo nan fichye a. Verifye se bon Exportar XLS la.");
         return;
       }
       setPreview(await previewSync(rows));
@@ -308,7 +308,7 @@ export default function SyncPage() {
       <div className="card p-6">
         <p className="text-sm text-slate-600 mb-4">
           1. Sou MCPACK, klike <b>Exportar XLS</b>. &nbsp;2. Chwazi fichye a isit la. &nbsp;
-          3. Verifye rezime a epi <b>Valider Importation</b>. Doublon yo (menm Guia/Tracking) p ap janm ajoute 2 fwa.
+          3. Verifye rezime a epi <b>Valider Importation</b>. Doublon yo p ap janm ajoute 2 fwa.
         </p>
         <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-line rounded-xl py-10 cursor-pointer hover:border-navy-light transition-colors">
           <Upload className="text-navy-light" />
@@ -319,8 +319,8 @@ export default function SyncPage() {
         </label>
         <label className="mt-4 flex items-center gap-2 text-sm text-slate-600">
           <input type="checkbox" checked={autoPricing} onChange={(e) => setAutoPricing(e.target.checked)} />
-          Appliquer la tarification automatique sur les nouveaux colis (selon la ville du client)
-          {!villes.some((v) => v.active) && <span className="text-xs text-amber-600">(poko gen vil aktif — Paramètres &gt; Tarification)</span>}
+          Appliquer la tarification automatique sur les nouveaux colis
+          {!villes.some((v) => v.active) && <span className="text-xs text-amber-600">Poko gen vil aktif.</span>}
         </label>
       </div>
 
@@ -390,7 +390,7 @@ export default function SyncPage() {
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Chanjman otorize yo: <b>Tracking Number</b> (si chan an vid), <b>date/heure de réception</b>.
+                  Chanjman otorize yo: <b>Tracking Number</b>, <b>date/heure de réception</b>.
                   Scanner a pa ka JANM chanje pwa, pri, tax, DGA, vil, kliyan ni Customer Code.
                 </p>
               </div>
@@ -400,7 +400,7 @@ export default function SyncPage() {
                 <table className="w-full text-xs">
                   <thead><tr>
                     <th className="thc">✔</th>
-                    {["Aperçu", "Tracking ID (Guía)", "Tracking Number", "Client", "Confiance", "Action proposée"]
+                    {["Aperçu", "Tracking ID", "Tracking Number", "Client", "Confiance", "Action proposée"]
                       .map((h) => <th key={h} className="thc">{h}</th>)}
                   </tr></thead>
                   <tbody>
@@ -425,7 +425,7 @@ export default function SyncPage() {
                         <td className="tdc font-mono text-[11px]">
                           {s.proposedTracking
                             ? <span className="text-emerald-700 font-semibold">+ {s.proposedTracking}</span>
-                            : s.matchedManual || s.tracking_number || <span className="text-slate-300">— (vide)</span>}
+                            : s.matchedManual || s.tracking_number || <span className="text-slate-300">—</span>}
                         </td>
                         <td className="tdc font-bold text-navy">{s.matchedCode || s.customer_code || "—"}</td>
                         <td className="tdc">
@@ -453,8 +453,8 @@ export default function SyncPage() {
               </div>
               <p className="text-[11px] text-slate-400">
                 <b>Mode Zéro Risque:</b> scanner a pa devine, pa kreye koli, epi li bloke tout konfli.
-                Konfyans minimòm pou modifikasyon otomatik: <b>98%</b>. Fakti yo toujou kalkile ak done bazdone a
-                (jamè done foto). Tout analiz nan Journal OCR ak ansyen/nouvo valè.
+                Konfyans minimòm pou modifikasyon otomatik: <b>98%</b>. Fakti yo toujou kalkile ak done bazdone a.
+                Tout analiz nan Journal OCR ak ansyen/nouvo valè.
               </p>
             </div>
           );
@@ -518,7 +518,7 @@ export default function SyncPage() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-emerald-700">Enregistré dans le Journal. Les doublons (même Guía / Tracking) ont été ignorés automatiquement.</p>
+          <p className="text-xs text-emerald-700">Enregistré dans le Journal. Les doublons ont été ignorés automatiquement.</p>
         </div>
       )}
 
@@ -526,10 +526,10 @@ export default function SyncPage() {
       <div className="card p-5 space-y-3">
         <div className="flex items-center gap-2">
           <FileText size={16} className="text-navy" />
-          <h2 className="h-sec">Import Facture MCPACK <span className="text-mute font-normal">(PDF ou capture d&apos;écran)</span></h2>
+          <h2 className="h-sec">Import Facture MCPACK</h2>
         </div>
         <p className="text-xs text-mute">
-          Chwazi fakti MCPACK yo (PDF oswa screenshot). Sistèm nan ap ekstrè Tracking Number yo epi
+          Chwazi fakti MCPACK yo. Sistèm nan ap ekstrè Tracking Number yo epi
           montre ki koli yo koresponn — <b>san chanje anyen</b>. Ou verifye anvan.
         </p>
         <input ref={factureRef} type="file" accept=".pdf,image/*" multiple className="hidden"
@@ -540,10 +540,10 @@ export default function SyncPage() {
 
         <div className="pt-1">
           <p className="text-xs font-semibold text-ink mb-1">
-            Ou <span className="text-brand-dark">coller le texte</span> de la facture (le plus fiable) :
+            Ou <span className="text-brand-dark">coller le texte</span> de la facture :
           </p>
           <textarea className="input !h-24 font-mono text-[11px]"
-            placeholder="Kopye tèks fakti a (menm si li degaye) epi kole l isit — sistèm nan ap pran Tracking Number yo otomatikman..."
+            placeholder="Kopye tèks fakti a epi kole l isit — sistèm nan ap pran Tracking Number yo otomatikman..."
             value={factureText} onChange={(e) => setFactureText(e.target.value)} />
           <button className="btn btn-brand mt-2" onClick={handleFactureText} disabled={busy || !factureText.trim()}>
             <CheckCircle2 size={15} /> Analyser le texte collé
@@ -568,7 +568,7 @@ export default function SyncPage() {
                 <div className="card overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead><tr>
-                      {["Tracking Number", "Tracking ID (Guía)", "Client", "Statut actuel", "Source"].map((h) =>
+                      {["Tracking Number", "Tracking ID", "Client", "Statut actuel", "Source"].map((h) =>
                         <th key={h} className="thc">{h}</th>)}
                     </tr></thead>
                     <tbody>
@@ -604,7 +604,7 @@ export default function SyncPage() {
                           placeholder="Tracking Number à corriger..." />
                         <button className="btn btn-ghost !py-1 !px-2.5 !text-[11px] shrink-0"
                           onClick={() => reverifierUn(f.tracking)} disabled={busy}
-                          title="Vérifier ce tracking (même sans le modifier)">
+                          title="Vérifier ce tracking">
                           <CheckCircle2 size={13} /> Vérifier
                         </button>
                         <span className="text-[10px] text-red-600 shrink-0 w-16">non trouvé</span>
@@ -625,7 +625,7 @@ export default function SyncPage() {
                   <button className="btn btn-brand" onClick={validerFactures} disabled={busy}>
                     <CheckCircle2 size={15} /> Valider → Disponible + Email ({dispo.length})
                   </button>
-                  <span className="text-xs text-mute">Un email est envoyé à chaque client. Les colis déjà Disponible/Facturé sont ignorés (pas de doublon).</span>
+                  <span className="text-xs text-mute">Un email est envoyé à chaque client. Les colis déjà Disponible/Facturé sont ignorés.</span>
                 </div>
               )}
             </div>

@@ -114,7 +114,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
           <p className="text-sm text-slate-600">
             Votre compte est <b>en attente d&apos;activation</b>. L&apos;équipe STANDA COMMERCIAL
             vérifiera vos informations puis activera votre compte. Vous recevrez sur WhatsApp
-            votre adresse de dépôt aux États-Unis, votre <b>nom d&apos;utilisateur (code MC)</b>
+            votre adresse de dépôt aux États-Unis, votre <b>code MC</b>
             et un <b>mot de passe</b> pour vous connecter.
           </p>
           <button type="button" onClick={onGoLogin} className="btn justify-center w-full">

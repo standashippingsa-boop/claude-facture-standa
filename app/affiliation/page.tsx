@@ -72,7 +72,7 @@ export default function AffiliationPage() {
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email.trim())) {
-      setError("Adresse courriel invalide. Vérifiez-la (exemple : nom@gmail.com).");
+      setError("Adresse courriel invalide. Vérifiez-la.");
       return;
     }
     if (f.phone.replace(/\D/g, "").length < 7) {
@@ -174,7 +174,7 @@ export default function AffiliationPage() {
                 <FormField label="Nom complet" required><Input icon={UserRound} value={f.fullname} onChange={set("fullname")} placeholder="Votre nom complet" autoComplete="name" required /></FormField>
                 <FormField label="Adresse courriel" required><Input icon={Mail} type="email" value={f.email} onChange={set("email")} placeholder="exemple@courriel.com" autoComplete="email" required /></FormField>
                 <FormField label="Téléphone" required><Input icon={Phone} type="tel" value={f.phone} onChange={set("phone")} placeholder="(509) 0000-0000" autoComplete="tel" required /></FormField>
-                <FormField label="WhatsApp (si différent)"><Input icon={MessageCircle} type="tel" value={f.whatsapp} onChange={set("whatsapp")} placeholder="Numéro WhatsApp" autoComplete="tel" /></FormField>
+                <FormField label="WhatsApp"><Input icon={MessageCircle} type="tel" value={f.whatsapp} onChange={set("whatsapp")} placeholder="Numéro WhatsApp" autoComplete="tel" /></FormField>
                 <FormField label="Ville ou zone" required>
                   <DropdownField
                     icon={MapPin}
@@ -198,7 +198,7 @@ export default function AffiliationPage() {
                   />
                 </FormField>
                 <FormField label="Numéro de pièce" required><Input icon={CreditCard} value={f.id_number} onChange={set("id_number")} placeholder="Numéro de pièce d’identité" required /></FormField>
-                <div className="sm:col-span-2"><FormField label="Pourquoi souhaitez-vous devenir affilié? (facultatif)"><textarea value={f.motivation} onChange={set("motivation")} rows={3} placeholder="Parlez-nous brièvement de votre réseau ou de votre expérience." className="w-full resize-y rounded-xl border border-[#d4dfed] bg-white px-3.5 py-3 text-sm font-normal leading-relaxed text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100" /></FormField></div>
+                <div className="sm:col-span-2"><FormField label="Pourquoi souhaitez-vous devenir affilié?"><textarea value={f.motivation} onChange={set("motivation")} rows={3} placeholder="Parlez-nous brièvement de votre réseau ou de votre expérience." className="w-full resize-y rounded-xl border border-[#d4dfed] bg-white px-3.5 py-3 text-sm font-normal leading-relaxed text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100" /></FormField></div>
               </div>
 
 
@@ -255,7 +255,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
         <h3 className="text-[15px] font-semibold text-[#0b3778]">Vos deux liens personnels</h3>
         <ul className="mt-2.5 space-y-2.5 text-[13px] leading-[1.6] text-[#4f6b91]">
           <li className="flex gap-2"><Link2 size={16} className="mt-0.5 shrink-0 text-[#2563eb]" /><span><b className="text-[#0b3778]">Lien d’inscription :</b> il amène votre contact directement sur la page où il crée son compte client. C’est le plus simple quand la personne est prête.</span></li>
-          <li className="flex gap-2"><Link2 size={16} className="mt-0.5 shrink-0 text-[#2563eb]" /><span><b className="text-[#0b3778]">Lien du site :</b> si la personne veut d’abord plus d’informations sur le service (adresse à Miami, agences, suivi des colis), ce lien l’amène sur le site www.standacommercialsa.com, où elle trouve tout. Si elle crée son compte ensuite depuis le site, sur le même téléphone et dans les 30 jours, elle reste rattachée à vous.</span></li>
+          <li className="flex gap-2"><Link2 size={16} className="mt-0.5 shrink-0 text-[#2563eb]" /><span><b className="text-[#0b3778]">Lien du site :</b> si la personne veut d’abord plus d’informations sur le service, ce lien l’amène sur le site www.standacommercialsa.com, où elle trouve tout. Si elle crée son compte ensuite depuis le site, sur le même téléphone et dans les 30 jours, elle reste rattachée à vous.</span></li>
         </ul>
         <p className="mt-2.5 rounded-xl bg-orange-50 px-3 py-2 text-[12.5px] leading-[1.55] text-[#9a3a0e]">Partagez toujours l’un de vos deux liens : une personne qui tape elle-même l’adresse du site, sans votre lien, ne peut pas vous être rattachée.</p>
       </section>

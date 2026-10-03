@@ -178,7 +178,7 @@ export default function TrackBox() {
         </div>
 
         <p className="mt-2.5 text-[12px] text-mute leading-relaxed">
-          Numéro Standa (WR…) ou numéro du transporteur (UPS, FedEx, USPS, Amazon…).
+          Numéro Standa ou numéro du transporteur.
         </p>
       </form>
 

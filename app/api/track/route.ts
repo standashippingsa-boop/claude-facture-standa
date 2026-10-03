@@ -80,7 +80,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         ok: false,
         found: false,
-        reason: `Entrez un numéro de tracking complet (au moins ${MIN_LEN} caractères).`
+        reason: `Entrez un numéro de tracking complet : au moins ${MIN_LEN} caractères.`
       });
     }
 

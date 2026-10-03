@@ -67,7 +67,7 @@ export async function POST(req: Request) {
         .select("id, amount, currency");
       if (result.error) {
         if (/settled_(at|by)/i.test(String(result.error.message ?? ""))) {
-          return NextResponse.json({ ok: false, reason: "Exécutez d'abord supabase/20260920_report_settlement.sql dans Supabase (SQL Editor)." }, { status: 409 });
+          return NextResponse.json({ ok: false, reason: "Exécutez d'abord supabase/20260920_report_settlement.sql dans Supabase SQL Editor." }, { status: 409 });
         }
         throw result.error;
       }
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
     // (les requêtes Supabase n'ont pas de méthode .catch()).
     try {
       const journal = await db.from("journal").insert({
-      user_name: `${staffName} (admin)`, action: "Rapport clôturé",
+      user_name: `${staffName} · admin`, action: "Rapport clôturé",
       details: `${count} paiement(s) de point de retrait clôturés${cityName ? ` · ${cityName}` : ""} · ${usd.toFixed(2)} USD · ${htg.toFixed(2)} HTG`,
       package_ref: "", customer_code: "",
       ip_address: clientIp(req),

@@ -99,7 +99,7 @@ export default function SettingsPage() {
   };
 
   const remove = async (v: Ville) => {
-    if (!confirm(`Efase ville "${v.name}"?\n(Kliyan ki te lye ak vil sa a ap rete san vil — w ap bezwen ba yo yon lòt.)`)) return;
+    if (!confirm(`Efase ville "${v.name}"?\nKliyan ki te lye ak vil sa a ap rete san vil.`)) return;
     try { await deleteVille(v.id!); load(); }
     catch (e: any) { setNotice("Erè: " + e.message); }
   };
@@ -113,7 +113,7 @@ export default function SettingsPage() {
     if (!confirm("Analyser toute la base et corriger les colonnes Tracking ID / Tracking Number mal placées?")) return;
     try {
       const r = await fixTrackingColumns();
-      setNotice(`✅ Correction terminée: ${r.swapped} inversés, ${r.movedToId} corrigés (Guía), ${r.movedToManual} nettoyés.`);
+      setNotice(`✅ Correction terminée: ${r.swapped} inversés, ${r.movedToId} corrigés, ${r.movedToManual} nettoyés.`);
     } catch (e: any) { setNotice("Erè: " + e.message); }
   };
 
@@ -174,12 +174,12 @@ export default function SettingsPage() {
           <button className="btn" onClick={openNew}><Plus size={15} /> Ajouter une ville</button>
         </div>
         <p className="text-xs text-slate-500">
-          Tout tarif yo an <b>USD</b>. Pri = Pwa × Prix/lb (Personnel oswa Business) + Frais fixe.
-          Tax = Pwa × Tax/lb. Chak kliyan lye ak yon vil ak yon tip kont (meni Clients) —
+          Tout tarif yo an <b>USD</b>. Pri = Pwa × Prix/lb + Frais fixe.
+          Tax = Pwa × Tax/lb. Chak kliyan lye ak yon vil ak yon tip kont —
           lè w chanje tarif yon vil, tout <b>nouvo</b> fakti itilize nouvo tarif la otomatikman.
         </p>
         <p className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2">
-          <b>Petits colis (0.10–0.99 lb):</b> yo kalkile <b>Pwa × Prix/lb</b> vil la,
+          <b>Petits colis 0.10–0.99 lb:</b> yo kalkile <b>Pwa × Prix/lb</b> vil la,
           menm jan ak tout lòt koli. Ex: 3.99 USD/lb × 0.60 lb = 2.39 USD.
         </p>
 
@@ -219,7 +219,7 @@ export default function SettingsPage() {
             <tbody>
               {villes.length === 0 ? (
                 <tr><td colSpan={8} className="text-center py-8 text-slate-400">
-                  Aucune ville. Ajoutez la première (ex: Port-au-Prince).
+                  Aucune ville. Ajoutez la première.
                 </td></tr>
               ) : villes.map((v, i) => (
                 <tr key={v.id} className={i % 2 ? "bg-mist" : ""}>
@@ -301,7 +301,7 @@ export default function SettingsPage() {
         <p className="text-xs text-slate-500 bg-mist rounded-lg px-3 py-2 leading-relaxed">
           ℹ️ Kèk koli pa fakti pa liv — yon laptòp 4 lb pa gen menm valè ak 4 lb rad.
           Atik ki nan lis sa a parèt nan fenèt fakti a: admin chwazi atik la pou yon koli,
-          epi se <b>pri fòfè</b> a ki aplike (pwa a pa antre nan kalkil la).
+          epi se <b>pri fòfè</b> a ki aplike.
         </p>
 
         <div className="divide-y divide-line">
@@ -358,8 +358,8 @@ export default function SettingsPage() {
       <section className="card p-5 space-y-4">
         <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Général</h2>
         <p className="text-xs text-slate-500 bg-mist rounded-lg px-3 py-2">
-          ℹ️ Petits colis (0.10–0.99 lb): depi v8, yo kalkile <b>Pwa × Prix/lb vil la</b> menm
-          jan ak tout lòt koli (ex: 3.99 USD/lb × 0.60 lb = 2.39 USD). Pa gen pri fiks ankò.
+          ℹ️ Petits colis 0.10–0.99 lb: depi v8, yo kalkile <b>Pwa × Prix/lb vil la</b> menm
+          jan ak tout lòt koli. Pa gen pri fiks ankò.
         </p>
         <label className="block">
           <span className="text-xs font-medium text-slate-500">Pied de page des factures</span>
@@ -367,7 +367,7 @@ export default function SettingsPage() {
         </label>
         <label className="block">
           <span className="text-xs font-medium text-slate-500">
-            Lien direct MCPACK pour une Conduce (utilise <code>{"{num}"}</code> comme numéro)
+            Lien direct MCPACK pour une Conduce · <code>{"{num}"}</code> = numéro
           </span>
           <input className="input mt-1 font-mono text-xs" placeholder="https://mcpack.exemple.com/conduce/{num}"
             value={mcpackConduceUrl} onChange={(e) => setMcpackConduceUrl(e.target.value)} />
@@ -377,7 +377,7 @@ export default function SettingsPage() {
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={autoPricing} onChange={(e) => setAutoPricing(e.target.checked)} />
-          Tarification automatique lors de la synchronisation MCPACK (selon la ville du client)
+          Tarification automatique lors de la synchronisation MCPACK
         </label>
         <div className="border-t border-line pt-3 space-y-2">
           <p className="text-xs font-bold text-navy uppercase tracking-wide">Composition des factures</p>
@@ -387,18 +387,18 @@ export default function SettingsPage() {
           </p>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={taxFixOn} onChange={(e) => setTaxFixOn(e.target.checked)} />
-            Inclure <b>Tax Fix</b> dans les factures (tax/lb + frais fixe de la ville)
+            Inclure <b>Tax Fix</b> dans les factures
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={taxDgaOn} onChange={(e) => setTaxDgaOn(e.target.checked)} />
-            Inclure <b>Tax DGA</b> (douane — saisie manuelle sur chaque facture)
+            Inclure <b>Tax DGA</b>
           </label>
         </div>
         <div className="border-t border-line pt-3 space-y-2">
           <p className="text-xs font-bold text-navy uppercase tracking-wide">Tarification des petits colis</p>
           <p className="text-[11px] text-slate-500">
             Lè administratè a chwazi mòd <b>Contrôle des petits colis</b> sou yon fakti, tout koli ki nan
-            entèval sa a pran pri fiks la (olye pwa × pri/lb).
+            entèval sa a pran pri fiks la.
           </p>
           <div className="grid grid-cols-3 gap-3">
             <label className="block">
@@ -425,8 +425,8 @@ export default function SettingsPage() {
       <section className="card p-6 space-y-3">
         <h2 className="text-sm font-bold text-navy uppercase tracking-wide">🔧 Maintenance</h2>
         <p className="text-xs text-slate-500">
-          <b>Tracking ID (Guía)</b> se tout kòd ki kòmanse ak <b>WR</b> (ex: WR102600143471).
-          Tout lòt (GFUS, TBA, 1Z, 9400...) se <b>Tracking Number</b>. Bouton sa a analize tout
+          <b>Tracking ID</b> se tout kòd ki kòmanse ak <b>WR</b>.
+          Tout lòt kòd se <b>Tracking Number</b>. Bouton sa a analize tout
           bazdone a epi korije koli kote de kolòn sa yo melanje.
         </p>
         <button className="btn btn-ghost border border-line" onClick={corrigerTracking}>
@@ -524,7 +524,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
 
   const save = async () => {
     if (!f.nom || !f.prenom || !f.username || f.password.length < 6) {
-      onNotice("Nom, Prénom, Nom d'utilisateur ak Mot de passe (6+ karaktè) obligatwa."); return;
+      onNotice("Nom, Prénom, Nom d'utilisateur ak Mot de passe 6 karaktè minimòm obligatwa."); return;
     }
     if (f.role === "agent_retrait" && !f.pickup_ville_id) {
       onNotice("Chwazi zòn/pwen rekiperasyon ajan an."); return;
@@ -605,8 +605,8 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
             <label className="block"><span className="text-xs font-medium text-slate-500">Rôle</span>
               <select className="input mt-1" value={f.role} onChange={set("role")}>
                 <option value="employe">Employé</option>
-                <option value="agent_retrait">Agent de remise (point de retrait)</option>
-                <option value="agent_reception">Agent de réception (arrivée des Conduces)</option>
+                <option value="agent_retrait">Agent de remise</option>
+                <option value="agent_reception">Agent de réception</option>
                 <option value="admin">Administrateur</option>
               </select></label>
             {f.role === "agent_retrait" && <label className="block"><span className="text-xs font-medium text-slate-500">Zone / point de retrait *</span>
@@ -632,7 +632,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
             <input type="password" className="input flex-1" value={newPassword} autoComplete="new-password"
-              placeholder="Nouveau mot de passe (6+ caractères)" onChange={(event) => setNewPassword(event.target.value)} />
+              placeholder="Nouveau mot de passe" onChange={(event) => setNewPassword(event.target.value)} />
             <button className="btn" onClick={resetPassword} disabled={busy || newPassword.length < 6}>
               {busy ? "Mise à jour…" : "Enregistrer le mot de passe"}
             </button>
@@ -723,7 +723,7 @@ function AffiliateSettingsSection({ onNotice }: { onNotice: (s: string) => void 
       <h2 className="text-sm font-bold text-navy uppercase tracking-wide">🤝 Programme Affiliation</h2>
       <p className="text-xs text-slate-500">
         Montant versé à un affilié pour chaque facture générée par un client qu&apos;il a
-        parrainé, pendant la durée de son contrat (3 mois) — et le contrat PDF joint
+        parrainé, pendant la durée de son contrat — et le contrat PDF joint
         automatiquement à l&apos;e-mail d&apos;approbation.
       </p>
       <label className="block max-w-xs">
@@ -731,7 +731,7 @@ function AffiliateSettingsSection({ onNotice }: { onNotice: (s: string) => void 
         <input className="input mt-1" type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
       </label>
       <label className="block">
-        <span className="text-xs text-slate-600">Contrat affilié (PDF — joint à chaque approbation)</span>
+        <span className="text-xs text-slate-600">Contrat affilié PDF</span>
         <input className="input mt-1" type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)} />
         {pdfUrl && !pdfFile && (
           <a href={pdfUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-accent hover:underline">
@@ -771,7 +771,7 @@ function EmailNotificationsSection() {
       const j = await callProbe("test", testTo.trim());
       if (j?.config) setDiag(j.config as EmailDiag);
       if (j?.ok) {
-        setResult({ ok: true, msg: `Envoyé à ${j.to}. Vérifiez la boîte de réception ET le dossier Spam. (ID Resend : ${j.id || "—"})` });
+        setResult({ ok: true, msg: `Envoyé à ${j.to}. Vérifiez la boîte de réception ET le dossier Spam.` });
       } else {
         setResult({ ok: false, msg: j?.error || j?.reason || "Échec inconnu." });
       }
@@ -785,7 +785,7 @@ function EmailNotificationsSection() {
       <h2 className="text-sm font-bold text-navy uppercase tracking-wide">📧 Notifications email</h2>
       <p className="text-xs text-slate-500">
         Lè yon koli pase <b>« Reçu à Miami »</b> oswa <b>« Disponible »</b>, kliyan an resevwa yon imèl
-        otomatik (atravè Resend). Sèvi ak tès sa a pou verifye ke sa mache <b>vre</b> — non sèlman sou papye.
+        otomatik. Sèvi ak tès sa a pou verifye ke sa mache <b>vre</b> — non sèlman sou papye.
       </p>
 
       {diag && (
@@ -796,7 +796,7 @@ function EmailNotificationsSection() {
               ? <span className="text-emerald-700">✓ configurée</span>
               : <span className="text-red-600 font-semibold">✗ absente — aucun email ne part</span>}
           </div>
-          <div><b>Expéditeur :</b> <code className="text-[11px]">{diag.email_from}</code>{diag.from_is_default && <span className="text-slate-400"> (valeur par défaut)</span>}</div>
+          <div><b>Expéditeur :</b> <code className="text-[11px]">{diag.email_from}</code>{diag.from_is_default && <span className="text-slate-400"> · valeur par défaut</span>}</div>
           <div>
             <b>Domaine :</b> <code className="text-[11px]">{diag.from_domain}</code>{" "}
             {!diag.domain_matches_expected && (
@@ -821,10 +821,10 @@ function EmailNotificationsSection() {
       <details className="text-xs text-slate-500">
         <summary className="cursor-pointer font-semibold text-navy">Si le test échoue…</summary>
         <ol className="list-decimal ml-5 mt-2 space-y-1.5">
-          <li><b>Clé absente</b> : Vercel → Settings → Environment Variables → ajouter <code>RESEND_API_KEY</code> (et si besoin <code>EMAIL_FROM</code>), puis <b>Redeploy</b>.</li>
-          <li><b>« mode test » / « domaine non vérifié »</b> : sur <code>resend.com/domains</code>, ajouter le domaine <code>{diag?.from_domain || "standacommercialsa.com"}</code> et publier les enregistrements DNS (SPF + DKIM) chez le registrar. Tant que ce n&apos;est pas fait, Resend n&apos;envoie qu&apos;à l&apos;adresse du compte Resend.</li>
+          <li><b>Clé absente</b> : Vercel → Settings → Environment Variables → ajouter <code>RESEND_API_KEY</code> et si besoin <code>EMAIL_FROM</code>, puis <b>Redeploy</b>.</li>
+          <li><b>« mode test » / « domaine non vérifié »</b> : sur <code>resend.com/domains</code>, ajouter le domaine <code>{diag?.from_domain || "standacommercialsa.com"}</code> et publier les enregistrements DNS SPF + DKIM chez le registrar. Tant que ce n&apos;est pas fait, Resend n&apos;envoie qu&apos;à l&apos;adresse du compte Resend.</li>
           <li><b>Reçu mais dans les Spams</b> : le domaine est vérifié mais DKIM/DMARC incomplet — compléter les DNS.</li>
-          <li><b>« kliyan san imèl »</b> : la fiche client n&apos;a pas d&apos;adresse email (menu Clients → modifier le client).</li>
+          <li><b>« kliyan san imèl »</b> : la fiche client n&apos;a pas d&apos;adresse email.</li>
         </ol>
       </details>
     </section>
@@ -889,12 +889,12 @@ function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
       <p className="text-xs text-slate-500">
         Kreye yon token pou konekte ekstansyon Chrome MCPACK la. Kopye token an yon sèl fwa
         epi kole l nan konfigirasyon ekstansyon an. Chak koli ki soti nan ekstansyon an
-        antre ak <b>Tracking ID (Guía)</b> ak <b>Tracking Number</b> byen separe.
+        antre ak <b>Tracking ID</b> ak <b>Tracking Number</b> byen separe.
       </p>
 
       <div className="flex gap-2 items-end flex-wrap">
         <label className="block">
-          <span className="text-xs text-slate-600">Non (pou rekonèt li)</span>
+          <span className="text-xs text-slate-600">Non</span>
           <input className="input mt-1" value={label} onChange={(e) => setLabel(e.target.value)} />
         </label>
         <button className="btn" onClick={create} disabled={busy}>
@@ -906,7 +906,7 @@ function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
 
       {newToken && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-          <p className="text-xs font-bold text-emerald-800 mb-1">✅ Nouvo token (kopye l KOUNYE A — li p ap parèt ankò):</p>
+          <p className="text-xs font-bold text-emerald-800 mb-1">✅ Nouvo token — kopye l KOUNYE A, li p ap parèt ankò:</p>
           <code className="block bg-white border border-emerald-200 rounded px-2 py-1.5 text-xs break-all select-all">{newToken}</code>
           <button className="text-xs text-emerald-700 underline mt-1"
             onClick={() => { navigator.clipboard?.writeText(newToken); onNotice("Token kopye."); }}>

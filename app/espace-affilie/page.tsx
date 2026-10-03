@@ -135,8 +135,8 @@ export default function AffiliatePortalPage() {
             value={affiliate.referral_link} copied={copied === "signup"} onCopy={() => void copyLink("signup")}
           />
           <ShareLink
-            title="Lien du site (informations)"
-            hint="Pour une personne qui veut d’abord mieux connaître le service : le site explique tout (adresse à Miami, agences, suivi des colis). Si elle crée son compte ensuite depuis le site, sur le même téléphone et dans les 30 jours, elle vous est quand même rattachée."
+            title="Lien du site"
+            hint="Pour une personne qui veut d’abord mieux connaître le service : le site explique tout. Si elle crée son compte ensuite depuis le site, sur le même téléphone et dans les 30 jours, elle vous est quand même rattachée."
             value={affiliate.website_link} copied={copied === "website"} onCopy={() => void copyLink("website")}
           />
           <p className="mt-3 text-[11.5px] leading-relaxed text-white/60">Important : partagez toujours un de ces deux liens. Une personne qui tape elle-même l’adresse du site, sans votre lien, ne peut pas vous être rattachée.</p>

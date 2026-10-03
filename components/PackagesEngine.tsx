@@ -33,7 +33,7 @@ const PER_PAGE = 25;
 /** Sous MILTIP yon koli — yon koli ka gen plizyè (Extension + Caribe + Facture). */
 type SrcKey = "extension" | "caribe" | "facture";
 const SRC_DEFS: { key: SrcKey; label: string; Icon: any; cls: string }[] = [
-  { key: "caribe",    label: "Caribe Tours (scan photo)", Icon: Camera,  cls: "bg-rose-100 text-rose-700" },
+  { key: "caribe",    label: "Caribe Tours", Icon: Camera,  cls: "bg-rose-100 text-rose-700" },
   { key: "facture",   label: "Facture",                   Icon: Receipt, cls: "bg-emerald-100 text-emerald-700" },
   { key: "extension", label: "Extension MCPACK",          Icon: Puzzle,  cls: "bg-blue-100 text-blue-700" },
 ];
@@ -361,7 +361,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       if (!confirm(
         `${factures.length} colis déjà facturé(s) vont être retirés de leur facture.\n\n` +
         `➜ Ils redeviendront « Disponible » et pourront être re-facturés.\n` +
-        `➜ La facture sera recalculée (ou supprimée si elle devient vide).\n` +
+        `➜ La facture sera recalculée ou supprimée si elle devient vide.\n` +
         `➜ Opération enregistrée dans l'audit.`
       )) return;
       setBusy(true);
@@ -377,7 +377,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       return;
     }
     const targets = selectedAll.filter((p) => p.status !== "Facturé");
-    if (!targets.length) { setNotice("Koli Facturé yo ka sèlman pase « Disponible » (koreksyon)."); return; }
+    if (!targets.length) { setNotice("Koli Facturé yo ka sèlman pase « Disponible »."); return; }
     try {
       setRemiseTickets([]);
       if (bulkStatus === "Livré") {
@@ -544,10 +544,10 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       `Tracking ID : ${p.tracking_number}\n` +
       `Client : ${p.customer_code} — ${p.customer_name}\n` +
       `Statut : ${p.status}\n\n` +
-      `➜ Le colis sera retiré de TOUT le système (Packages, Historique, Conduce, dossier client).\n` +
+      `➜ Le colis sera retiré de TOUT le système.\n` +
       `➜ Sa ligne de facture sera retirée ; la facture sera recalculée ou supprimée si vide.\n` +
       `➜ CETTE ACTION EST IRRÉVERSIBLE.\n\n` +
-      `Vous pourrez le ré-importer depuis MCPACK (Extension / Import Conduce).`
+      `Vous pourrez le ré-importer depuis MCPACK.`
     )) return;
     if (!confirm(`Dernière confirmation — supprimer ${p.tracking_number} définitivement ?`)) return;
     setBusy(true);
@@ -563,7 +563,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
   };
 
   const archive = async (p: Pkg) => {
-    if (!confirm(`Archiver le colis ${p.tracking_number}?\n\nLes données restent dans la base (jamais supprimées). Il n'apparaîtra plus dans la liste active.`)) return;
+    if (!confirm(`Archiver le colis ${p.tracking_number}?\n\nLes données restent dans la base. Il n'apparaîtra plus dans la liste active.`)) return;
     try {
       await archivePackage(p.id, staffName);
       await logAction("Archivage colis", p.tracking_number, p.tracking_number, p.customer_code);
@@ -596,7 +596,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       await logAction("Correction Tracking Number",
         `${p.tracking_manual} → ${v}`, p.tracking_number, p.customer_code);
       setPkgs((prev) => prev.map((x) => x.id === p.id ? { ...x, tracking_manual: v } : x));
-      setNotice("Tracking Number corrigé (enregistré dans l'audit).");
+      setNotice("Tracking Number corrigé.");
     } catch (er: any) { setNotice("Erè koreksyon: " + er.message); }
   };
 
@@ -630,7 +630,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
         selection={{ selectedCount: filteredSelectedCount, allSelected: allFilteredSelected, onToggleAll: selectAllFiltered, label: fullyLoaded ? "Sélectionner les colis filtrés" : `Charger et sélectionner les ${total} résultats`, disabled: loadingPage || (!fullyLoaded && !total) }}
         fields={[
           { key: "status", label: "Statut", type: "select", value: status, onChange: setStatus, options: statusOptions.map((value) => ({ value, label: value })) },
-          { key: "source", label: "Provenance", type: "select", value: source, onChange: setSource, options: [{ value: "caribe", label: "Caribe Tours (photo)" }, { value: "facture", label: "Facture" }, { value: "extension", label: "Extension MCPACK" }] },
+          { key: "source", label: "Provenance", type: "select", value: source, onChange: setSource, options: [{ value: "caribe", label: "Caribe Tours" }, { value: "facture", label: "Facture" }, { value: "extension", label: "Extension MCPACK" }] },
           { key: "city", label: "Ville", type: "select", value: cityF, onChange: setCityF, options: cityOptions },
           { key: "client", label: "Code client", type: "select", value: customerF, onChange: setCustomerF, options: customerOptions },
           { key: "conduce", label: "Conduce", type: "select", value: conduceF, onChange: setConduceF, options: conduceOptions },
@@ -709,7 +709,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
         <table className="w-full text-xs">
           <thead><tr>
             <th className="thc"><input type="checkbox" checked={allChecked} onChange={(e) => toggleAll(e.target.checked)} /></th>
-            {["Code", "Nom Client", "Ville", "Tracking ID (Guía)", "Tracking Number", "Lb", "Content", "Price $", "Total $", "Total HTG",
+            {["Code", "Nom Client", "Ville", "Tracking ID", "Tracking Number", "Lb", "Content", "Price $", "Total $", "Total HTG",
               ...(hideHeader ? [] : ["Source"]), "Status", ""]
               .map((h) => <th key={h} className="thc">{h}</th>)}
           </tr></thead>
@@ -751,7 +751,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
                   {!p.tracking_manual ? (
                     // Vid: pèmèt premye antre (yon sèl fwa)
                     <input type="text" defaultValue=""
-                      placeholder="—" title="Tracking Number — antre yon sèl fwa (apre l ap fèmen)"
+                      placeholder="—" title="Tracking Number"
                       className="input !w-24 !py-0.5 !px-1 !text-[11px] font-mono"
                       onBlur={(e) => {
                         const v = e.target.value.trim();
@@ -771,7 +771,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
                       {p.tracking_manual}
                       {role === "admin" && (
                         <button className="text-slate-400 hover:text-navy ml-0.5 shrink-0"
-                          title="Correction (admin) — enregistrée dans l'audit"
+                          title="Correction"
                           onClick={() => correctTracking(p)}>
                           <Pencil size={11} />
                         </button>
@@ -840,7 +840,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
                   )}
                   {p.status !== "Disponible" && p.status !== "Facturé" && (
                     <button className="text-emerald-600 hover:text-emerald-800 mr-1"
-                      title="Marquer Disponible (san email — sèvi ak seleksyon an pou voye email)"
+                      title="Marquer Disponible"
                       onClick={() => { setPackagesStatus([p.id], "Disponible").then(() => setPkgs((prev) =>
                         prev.map((x) => x.id === p.id ? { ...x, status: "Disponible" } : x))); }}>
                       <PackageCheck size={14} />
@@ -849,11 +849,11 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
                   {role === "admin" && (
                     p.archived
                       ? <button className="text-slate-400 hover:text-emerald-600" title="Restaurer" onClick={() => restore(p)}><RotateCcw size={14} /></button>
-                      : <button className="text-slate-400 hover:text-amber-600" title="Archiver (jamais supprimé)" onClick={() => archive(p)}><Archive size={14} /></button>
+                      : <button className="text-slate-400 hover:text-amber-600" title="Archiver" onClick={() => archive(p)}><Archive size={14} /></button>
                   )}
                   {role === "admin" && (
                     <button className="text-slate-300 hover:text-red-600 ml-1.5"
-                      title="Supprimer définitivement (données cassées — à ré-importer)"
+                      title="Supprimer définitivement"
                       onClick={() => supprimerDefinitif(p)}><Trash2 size={14} /></button>
                   )}
                 </td>
@@ -1095,7 +1095,7 @@ function SpecialPackageEditor({
         </label>
 
         <label className="mt-3 block text-sm font-bold text-navy">
-          Note explicative {kind === "Autre" && <span className="text-red-600">(obligatoire)</span>}
+          Note explicative {kind === "Autre" && <span className="text-red-600">*</span>}
           <textarea className="input mt-1.5 min-h-24 w-full resize-y" value={note}
             placeholder={kind === "Téléphone" ? "Ex. iPhone 15 Pro, 256 Go" : "Ex. description ou raison du tarif spécial"}
             onChange={(event) => setNote(event.target.value)} disabled={busy || isInvoiced} required={kind === "Autre" && !isInvoiced} />

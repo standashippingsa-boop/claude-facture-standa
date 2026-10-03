@@ -139,7 +139,7 @@ export default function HistoriquePage() {
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr>{["", "No Facture", "Code Client", "Nom", "Tracking ID (Guía)", "Conduce", "Date", "Lb", "Content", "Total (USD)", "Validation", "Status", "Remise"]
+          <thead><tr>{["", "No Facture", "Code Client", "Nom", "Tracking ID", "Conduce", "Date", "Lb", "Content", "Total (USD)", "Validation", "Status", "Remise"]
             .map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody>
             {rows.length === 0 ? (
@@ -179,7 +179,7 @@ export default function HistoriquePage() {
                     <div className="flex items-center gap-1">
                       {p.verified && (
                         <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 text-emerald-700 px-1.5 py-0.5 text-[9px] font-bold"
-                          title="Vérifié MCPACK (scanner)"><CheckCircle2 size={10} /> Vérifié</span>
+                          title="Vérifié MCPACK"><CheckCircle2 size={10} /> Vérifié</span>
                       )}
                       {p.proof_photo_url && (
                         <a href={p.proof_photo_url} target="_blank" rel="noreferrer"

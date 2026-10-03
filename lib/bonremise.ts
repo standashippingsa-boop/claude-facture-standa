@@ -153,8 +153,8 @@ export async function generateBonRemise(
 
   // ===== Tablo koli yo =====
   const head = showConduce
-    ? ["#", "Conduce", "Tracking ID (Guía)", "Code Client", "Nom Client", "Ville", "Poids (lb)"]
-    : ["#", "Tracking ID (Guía)", "Code Client", "Nom Client", "Ville", "Poids (lb)"];
+    ? ["#", "Conduce", "Tracking ID", "Code Client", "Nom Client", "Ville", "Poids (lb)"]
+    : ["#", "Tracking ID", "Code Client", "Nom Client", "Ville", "Poids (lb)"];
 
   autoTable(doc, {
     startY: (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8,

@@ -130,7 +130,7 @@ export async function generateRemiseTicketPdf(ticket: RemiseTicket, width: Ticke
   const height = drawTicket(measure, ticket, width, logo, qr) + 8;
   const doc = new jsPDF({ unit: "mm", format: [width, Math.max(height, 80)] });
   drawTicket(doc, ticket, width, logo, qr);
-  doc.save(`Ticket_${ticket.ticket_number}.pdf`);
+  doc.save(`Ticket_${ticket.ticket_number.replace(/[^A-Za-z0-9-]+/g, "_")}.pdf`);
 }
 
 function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: string | null, qr: boolean[][] | null): number {

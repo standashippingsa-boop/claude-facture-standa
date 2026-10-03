@@ -220,7 +220,7 @@ export default function BonRemisePage() {
                     <input type="checkbox" onChange={toggleAll}
                       checked={filtered.length > 0 && filtered.every((p) => sel.has(p.id))} />
                   </th>
-                  {["Conduce", "Tracking ID (Guía)", "Tracking Number", "Code Client", "Nom", "Ville", "Poids"]
+                  {["Conduce", "Tracking ID", "Tracking Number", "Code Client", "Nom", "Ville", "Poids"]
                     .map((h, i) => <th key={h} className={`thc ${i === 6 ? "text-right" : "text-left"}`}>{h}</th>)}
                 </tr></thead>
                 <tbody>

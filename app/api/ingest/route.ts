@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null);
     const items: IncomingPkg[] = Array.isArray(body?.packages) ? body.packages : [];
     if (!items.length) return NextResponse.json({ ok: false, reason: "Aucun package reçu." }, { status: 400 });
-    if (items.length > 500) return NextResponse.json({ ok: false, reason: "Trop de colis en un seul envoi (max 500)." }, { status: 400 });
+    if (items.length > 500) return NextResponse.json({ ok: false, reason: "Trop de colis en un seul envoi : 500 maximum." }, { status: 400 });
 
     // 3) Anti-doublon pa GUÍA (WR) — se kle inik la nan sistèm nan
     const guias = items.map((p) => cleanTk(p.guia)).filter(isGuia);

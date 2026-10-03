@@ -186,11 +186,14 @@ export async function GET(req: Request) {
     }
 
     // ===== Nimewo ticket + kòd sekirite (detèminis) =====
+    // Ticket la pote MENM nimewo ak fakti koli remèt yo. Yon remiz ki kouvri
+    // plizyè fakti montre tout nimewo yo; yon remiz san fakti kenbe ansyen fòma TR- la.
     const deliveredAt = text(anchor.delivered_at);
     const fingerprint = parcels.map((row) => row.id).sort().join(",") + "|" + deliveredAt;
     const digest = createHash("sha256").update(fingerprint).digest("hex").slice(0, 8).toUpperCase();
     const day = (deliveredAt || new Date().toISOString()).slice(0, 10).replaceAll("-", "");
-    const ticketNumber = `TR-${day}-${digest}`;
+    const invoiceNumbers = invoiceRows.map((invoice) => text(invoice.invoice_number)).filter(Boolean);
+    const ticketNumber = invoiceNumbers.length ? invoiceNumbers.join(" / ") : `TR-${day}-${digest}`;
     const signature = createHmac("sha256", config.key).update("remise-ticket|" + ticketNumber + "|" + fingerprint).digest("hex").toUpperCase();
     const securityCode = `${signature.slice(0, 4)}-${signature.slice(4, 8)}`;
 
@@ -212,7 +215,7 @@ export async function GET(req: Request) {
       point,
       delivered_at: deliveredAt,
       delivered_by: deliveredBy,
-      printed_by: `${staffName(staff)} (${staff.role === "agent_retrait" ? "Point de retrait" : staff.role === "admin" ? "Administration" : "Employé"})`,
+      printed_by: `${staffName(staff)} · ${staff.role === "agent_retrait" ? "Point de retrait" : staff.role === "admin" ? "Administration" : "Employé"}`,
       printed_at: new Date().toISOString(),
       customer: { code: customerCode, name: customerName, phone: isCentral ? "" : maskPhone(client?.phone), city: point, is_central: isCentral },
       packages,

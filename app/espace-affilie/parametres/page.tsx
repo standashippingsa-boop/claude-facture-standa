@@ -58,7 +58,7 @@ export default function AffiliateSettingsPage() {
               </div>
               <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
                 <dt className="text-mute">Nom</dt><dd className="font-semibold text-navy">{account.fullname}</dd>
-                <dt className="text-mute">Code affilié (identifiant)</dt><dd className="font-mono font-semibold text-navy">{account.code}</dd>
+                <dt className="text-mute">Code affilié</dt><dd className="font-mono font-semibold text-navy">{account.code}</dd>
                 <dt className="text-mute">Contrat</dt><dd className="font-semibold text-navy">{dateFr(account.contract_start)} → {dateFr(account.contract_end)}</dd>
               </dl>
               <p className="mt-3 text-[12px] text-mute">Pour changer votre nom, votre courriel ou votre mot de passe, contactez Standa Commercial (+509 4673 8117).</p>

@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       const { data: cli } = await db.from("clients")
         .select("customer_code, fullname").eq("auth_user_id", au.user.id).maybeSingle();
       if (!cli) return NextResponse.json({ ok: false, reason: "Compte inconnu." }, { status: 403 });
-      userName = `${cli.customer_code ?? cli.fullname ?? "client"} (client)`.trim();
+      userName = `${cli.customer_code ?? cli.fullname ?? "client"} · client`.trim();
     }
 
     const action = cut(body?.action, 120).trim();
