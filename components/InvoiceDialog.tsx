@@ -102,6 +102,14 @@ export default function InvoiceDialog({
   const [kind, setKind] = useState<InvoiceKind>("shipping");
   const [orderPurchase, setOrderPurchase] = useState("");
   const [orderDeposit, setOrderDeposit] = useState("");
+  /** Devise de saisie des montants Service Order : gourdes par défaut, converti en USD au taux des Paramètres. */
+  const [orderCur, setOrderCur] = useState<"HTG" | "USD">("HTG");
+  const orderToUsd = (raw: string) => {
+    const value = Number(String(raw).replace(",", "."));
+    if (!Number.isFinite(value)) return NaN;
+    if (orderCur === "USD") return value;
+    return rate > 0 ? Math.round((value / rate) * 100) / 100 : NaN;
+  };
   /** Tablo tranch frè sèvis la (Paramètres). */
   const [feeTiers, setFeeTiers] = useState<OrderFeeTier[]>([]);
 
@@ -191,13 +199,13 @@ export default function InvoiceDialog({
       discount: useDisc ? Number(discount) || 0 : 0,
       // Service Order — sou "shipping" motè a inyore twa chan sa yo nèt.
       kind,
-      orderPurchase: kind === "service_order" ? Number(orderPurchase) : undefined,
-      orderDeposit: kind === "service_order" ? Number(orderDeposit) || 0 : 0,
+      orderPurchase: kind === "service_order" ? orderToUsd(orderPurchase) : undefined,
+      orderDeposit: kind === "service_order" ? (orderToUsd(orderDeposit) || 0) : 0,
       orderFeeTiers: feeTiers
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, rate, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount, fixedKey, specialPriceKey, articles, villeId, centralCode,
-      kind, orderPurchase, orderDeposit, feeTiers]);
+      kind, orderPurchase, orderDeposit, orderCur, feeTiers]);
 
   /**
    * PWOPOZISYON TAKS — lè pwa total la rive nan sèy la, nou koche kaz la epi
@@ -346,10 +354,19 @@ export default function InvoiceDialog({
 
           {kind === "service_order" && (
             <div className="mt-2 border-t border-line pt-2.5 space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="flex-1 font-semibold text-navy">Devise de saisie</span>
+                <div className="flex gap-1">{(["HTG", "USD"] as const).map((cur) => (
+                  <button key={cur} type="button" aria-pressed={orderCur === cur} onClick={() => setOrderCur(cur)}
+                    className={`rounded-lg px-3 py-1 text-xs font-bold ${orderCur === cur ? "bg-navy text-white" : "bg-slate-100 text-slate-700"}`}>
+                    {cur === "HTG" ? "Gourdes" : "Dollars"}
+                  </button>
+                ))}</div>
+              </div>
               <label className="flex items-center gap-2 text-sm">
                 <span className="flex-1">Prix d&apos;achat de la commande
                   <span className="block text-[10px] text-slate-400 leading-tight">
-                    Total de toutes les commandes de cette facture
+                    Total de toutes les commandes de cette facture · {orderCur === "HTG" ? "HTG" : "USD"}
                   </span>
                 </span>
                 <input type="number" step="0.01" min="0" placeholder="0.00" autoFocus
@@ -366,6 +383,13 @@ export default function InvoiceDialog({
                   className="input !w-32 !py-1 text-right shrink-0" value={orderDeposit}
                   onChange={(e) => setOrderDeposit(e.target.value)} />
               </label>
+              {orderCur === "HTG" && (
+                <p className="text-[11px] text-slate-500 bg-mist rounded-lg px-2.5 py-1.5">
+                  Taux : 1 USD = <b>{rate.toFixed(2)} HTG</b>
+                  {comp?.ok && comp.orderPurchase > 0 && <> · achat = <b className="font-mono">{usd(comp.orderPurchase)}</b></>}
+                  {comp?.ok && comp.orderDeposit > 0 && <> · acompte = <b className="font-mono">{usd(comp.orderDeposit)}</b></>}
+                </p>
+              )}
               {comp?.ok && comp.orderServiceFee > 0 ? (
                 <p className="text-[11px] text-brand-dark bg-brand/5 border border-brand/30 rounded-lg px-2.5 py-1.5">
                   Frais de service calculé automatiquement :{" "}
@@ -555,7 +579,7 @@ export default function InvoiceDialog({
               <b>{usd(comp.lines.filter((l) => l.isFixed).reduce((s, l) => s + l.amount, 0))}</b></div>
           )}
           {comp?.ok && comp.orderPurchase > 0 && (
-            <div className="flex justify-between"><span className="text-slate-500">Prix d&apos;achat commande</span><b>{usd(comp.orderPurchase)}</b></div>
+            <div className="flex justify-between"><span className="text-slate-500">Prix d&apos;achat commande</span><b>{usd(comp.orderPurchase)} <span className="text-[10px] font-normal text-slate-400">{htg(comp.orderPurchase * rate)}</span></b></div>
           )}
           {comp?.ok && comp.orderServiceFee > 0 && (
             <div className="flex justify-between"><span className="text-slate-500">Frais de service</span><b>{usd(comp.orderServiceFee)}</b></div>
@@ -567,7 +591,7 @@ export default function InvoiceDialog({
           <div className="flex justify-between border-t border-line pt-1.5 text-navy"><span className="font-bold">TOTAL USD</span><b>{usd(comp?.totalUsd ?? 0)}</b></div>
           {comp?.ok && comp.orderDeposit > 0 && (
             <>
-              <div className="flex justify-between"><span className="text-slate-500">Acompte versé</span><b>−{usd(comp.orderDeposit)}</b></div>
+              <div className="flex justify-between"><span className="text-slate-500">Acompte versé</span><b>−{usd(comp.orderDeposit)} <span className="text-[10px] font-normal text-slate-400">{htg(comp.orderDeposit * rate)}</span></b></div>
               <div className="flex justify-between border-t border-line pt-1.5 text-navy"><span className="font-bold">BALANCE À PAYER</span><b>{usd(comp.balanceDue)}</b></div>
             </>
           )}

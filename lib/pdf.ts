@@ -159,10 +159,10 @@ export function generateInvoicePdf(
   const taxFix = Number(inv.tax) || 0;
   const disc = Number(inv.discount) || 0;
 
-  const lines: { label: string; value: number; bold?: boolean }[] = [];
+  const lines: { label: string; value: number; bold?: boolean; htgNote?: number }[] = [];
   // Pati KÒMAND lan vin an premye — se li ki pi gwo montan an.
-  if (purchase > 0) lines.push({ label: "Prix d'achat commande:", value: purchase });
-  if (svcFee > 0) lines.push({ label: "Frais de service:", value: svcFee });
+  if (purchase > 0) lines.push({ label: "Prix d'achat commande:", value: purchase, htgNote: purchase * rate });
+  if (svcFee > 0) lines.push({ label: "Frais de service:", value: svcFee, htgNote: svcFee * rate });
   lines.push({ label: "Sous-total colis:", value: Number(inv.subtotal) || 0 });
   if (taxFix > 0) lines.push({ label: "Taxe Fixe:", value: taxFix });
   if (dga > 0) lines.push({ label: "Frais DGA:", value: dga });
@@ -170,7 +170,9 @@ export function generateInvoicePdf(
 
   // De liy anplis (Acompte + BALANCE) SÈLMAN si gen yon acompte reyèl.
   const extraRows = deposit > 0 ? 2 : 0;
-  const boxH = 10 + lines.length * 7 + 8 + extraRows * 7;
+  // Montant en gourdes en petit sous la ligne (Service Order) : 3.5 mm de plus par ligne concernée.
+  const noteRows = lines.filter((l) => l.htgNote && rate > 0).length + (deposit > 0 && rate > 0 ? 1 : 0);
+  const boxH = 10 + lines.length * 7 + 8 + extraRows * 7 + noteRows * 3.5;
   doc.setFillColor(...MIST);
   doc.roundedRect(x, y, boxW, boxH, 2, 2, "F");
   doc.setFontSize(10);
@@ -182,6 +184,12 @@ export function generateInvoicePdf(
     doc.text(l.label, x + 5, ly);
     doc.text((l.value < 0 ? "-" : "") + usd(Math.abs(l.value)), x + boxW - 5, ly, { align: "right" });
     ly += 7;
+    if (l.htgNote && rate > 0) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(120, 120, 120);
+      doc.text(htg(l.htgNote), x + boxW - 5, ly - 3, { align: "right" });
+      doc.setFontSize(10); doc.setTextColor(40, 40, 40);
+      ly += 3.5;
+    }
   }
   doc.setDrawColor(180, 180, 180);
   doc.line(x + 5, ly - 3.5, x + boxW - 5, ly - 3.5);
@@ -196,6 +204,12 @@ export function generateInvoicePdf(
     ry += 7;
     doc.text("Acompte versé:", x + 5, ry);
     doc.text("-" + usd(deposit), x + boxW - 5, ry, { align: "right" });
+    if (rate > 0) {
+      doc.setFontSize(7.5); doc.setTextColor(120, 120, 120);
+      doc.text(htg(deposit * rate), x + boxW - 5, ry + 3.5, { align: "right" });
+      doc.setFontSize(10); doc.setTextColor(40, 40, 40);
+      ry += 3.5;
+    }
     ry += 7;
     doc.setDrawColor(180, 180, 180);
     doc.line(x + 5, ry - 3.5, x + boxW - 5, ry - 3.5);
