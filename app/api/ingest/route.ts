@@ -86,6 +86,12 @@ export async function POST(req: Request) {
 
     const now = new Date().toISOString();
     let created = 0, updated = 0, ignored = 0;
+    // Chak koli ki sote ak REZON an — san sa, "N ignorés" pa di anyen sou koli ki manke a.
+    const skipped: Array<{ guia: string; customer: string; reason: string }> = [];
+    const skip = (guia: string, customer: unknown, reason: string) => {
+      ignored++;
+      skipped.push({ guia: guia || "—", customer: String(customer ?? "").trim(), reason });
+    };
     const seen = new Set<string>();
     // Colis NOUVEAUX seulement, par code client : une mise à jour ou un renvoi
     // du même colis par l'extension ne renotifie jamais le client.
@@ -94,13 +100,18 @@ export async function POST(req: Request) {
     for (const p of items) {
       const guia = cleanTk(p.guia);
       // MODE ZÉRO RISQUE: san yon Guía WR valab, nou pa kreye/modifye anyen
-      if (!isGuia(guia) || seen.has(guia)) { ignored++; continue; }
+      if (!isGuia(guia)) { skip(guia, p.customer_code, "Guía invalide (doit commencer par WR)"); continue; }
+      if (seen.has(guia)) { skip(guia, p.customer_code, "Doublon dans le même envoi"); continue; }
       seen.add(guia);
 
       // Validation Zod (pwa borné, longè contenu) — un eleman envalid se
       // sote sèlman (ignored++), li PA fè tout batch la echwe.
       const parsed = safeParsePackage(p);
-      if (!parsed.success) { ignored++; continue; }
+      if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        skip(guia, p.customer_code, `Donnée refusée (${issue?.path.join(".") || "colis"}) : ${issue?.message ?? "invalide"}`);
+        continue;
+      }
       p.weight = parsed.data.weight;
       p.content = parsed.data.content;
 
@@ -121,7 +132,12 @@ export async function POST(req: Request) {
             .select("tracking_manual").eq("tracking_number", guia).maybeSingle();
           if (cur && !String(cur.tracking_manual ?? "").trim()) patch.tracking_manual = tnum;
         }
-        await db.from("packages").update(patch).eq("tracking_number", guia);
+        const update = await db.from("packages").update(patch).eq("tracking_number", guia);
+        if (update.error) {
+          console.error("[ingest:update]", guia, update.error);
+          skip(guia, code, `Mise à jour refusée par la base : ${String(update.error.message ?? "erreur").slice(0, 160)}`);
+          continue;
+        }
         updated++;
       } else {
         const insert = await db.from("packages").insert({
@@ -140,7 +156,11 @@ export async function POST(req: Request) {
           mcpack_data: { Guia: guia, TrackingNumber: tnum }
         });
         // Un colis non enregistré ne compte pas et ne déclenche aucune alerte.
-        if (insert.error) { ignored++; continue; }
+        if (insert.error) {
+          console.error("[ingest:insert]", guia, insert.error);
+          skip(guia, code, `Enregistrement refusé par la base : ${String(insert.error.message ?? "erreur").slice(0, 160)}`);
+          continue;
+        }
         created++;
         if (code) newByCustomer.set(code, (newByCustomer.get(code) ?? 0) + 1);
       }
@@ -149,7 +169,8 @@ export async function POST(req: Request) {
     // 4) Journal
     await db.from("journal").insert({
       user_name: "Extension Chrome", action: "Extension Chrome",
-      details: `${created} créés, ${updated} mis à jour, ${ignored} ignorés`,
+      details: `${created} créés, ${updated} mis à jour, ${ignored} ignorés`
+        + skipped.slice(0, 8).map((s) => ` | ${s.guia} ${s.customer} : ${s.reason}`).join(""),
       package_ref: "", customer_code: ""
     });
 
@@ -163,7 +184,7 @@ export async function POST(req: Request) {
       catch (e) { console.error("[ingest:push]", e); }
     }
 
-    return NextResponse.json({ ok: true, created, updated, ignored, total: items.length, pushSent });
+    return NextResponse.json({ ok: true, created, updated, ignored, total: items.length, pushSent, skipped: skipped.slice(0, 30) });
   } catch (e) {
     // Pa gen detay entèn (non tab, erè Postgres, stack) ki soti bay kliyan an.
     console.error("[ingest]", e);
