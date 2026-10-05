@@ -29,7 +29,7 @@ export type RemiseTicketInvoice = {
 
 export type RemiseTicketPackage = {
   id: string; guia: string; tracking: string; content: string;
-  quantity: number; weight: number; invoice_number: string;
+  quantity: number; weight: number; price_usd: number; invoice_number: string;
 };
 
 export type RemiseTicket = {
@@ -219,6 +219,7 @@ function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: strin
     if (item.tracking && item.tracking !== item.guia) left(`Trk : ${item.tracking}`, "normal", 3);
     const details = [item.content, `Qté ${item.quantity}`, `${item.weight.toFixed(2)} lb`].filter(Boolean).join(" · ");
     left(details, "normal", 3);
+    if (item.price_usd > 0) left(`Prix : ${ticketUsd(item.price_usd)}`, "normal", 3);
     if (item.invoice_number) left(`Facture : ${item.invoice_number}`, "normal", 3);
     y += 0.8;
   });
