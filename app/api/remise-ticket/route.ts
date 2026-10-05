@@ -6,6 +6,8 @@ import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
 import { invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 import { SITE } from "@/lib/site";
+import { computePrice, round2 } from "@/lib/pricing";
+import type { AccountType, Ville } from "@/lib/types";
 import type { RemiseTicket } from "@/lib/remise-ticket";
 
 /**
@@ -25,13 +27,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 const text = (value: unknown) => String(value ?? "").trim();
 const money = (value: unknown) => Math.round(Number(value ?? 0) * 100) / 100;
 const STAFF_ROLES = new Set(["admin", "employe", "agent_retrait"]);
-const PACKAGE_COLUMNS = "id, tracking_number, tracking_manual, customer_code, customer_name, quantity, content, weight, status, invoice_id, bon_remise_id, delivered_at";
+const PACKAGE_COLUMNS = "id, tracking_number, tracking_manual, customer_code, customer_name, quantity, content, weight, status, invoice_id, bon_remise_id, delivered_at, price_usd, price_htg";
 
 type Staff = { role: string; prenom: string | null; nom: string | null; username: string | null; pickup_ville_id: string | null };
 type Parcel = {
   id: string; tracking_number: string | null; tracking_manual: string | null; customer_code: string; customer_name: string | null;
   quantity: number | null; content: string | null; weight: number | null; status: string; invoice_id: string | null;
   bon_remise_id: string | null; delivered_at: string | null; delivered_by?: string | null;
+  price_usd?: number | null; price_htg?: number | null;
 };
 
 function bearerToken(req: Request) {
@@ -120,9 +123,9 @@ export async function GET(req: Request) {
     const centralResult = await db.from("app_settings").select("value").eq("key", "central_account_code").maybeSingle();
     const centralCode = text(centralResult.data?.value).toUpperCase();
     const isCentral = Boolean(centralCode) && customerCode.toUpperCase() === centralCode;
-    const clientResult = await db.from("clients").select("customer_code, fullname, surname, phone, ville_id").eq("customer_code", customerCode).maybeSingle();
+    const clientResult = await db.from("clients").select("customer_code, fullname, surname, phone, ville_id, account_type").eq("customer_code", customerCode).maybeSingle();
     if (clientResult.error) throw clientResult.error;
-    const client = clientResult.data as { fullname: string | null; surname: string | null; phone: string | null; ville_id: string | null } | null;
+    const client = clientResult.data as { fullname: string | null; surname: string | null; phone: string | null; ville_id: string | null; account_type: string | null } | null;
 
     let point = "";
     if (isCentral) {
@@ -142,6 +145,28 @@ export async function GET(req: Request) {
         ? Boolean(zoneName) && point.split(", ").every((destination) => destination.toLowerCase() === zoneName.toLowerCase()) && Boolean(point)
         : Boolean(staff.pickup_ville_id) && client?.ville_id === staff.pickup_ville_id;
       if (!allowed) return NextResponse.json({ ok: false, reason: "Cette remise ne fait pas partie de votre point de retrait." }, { status: 403 });
+    }
+
+    // ===== Tarifikasyon otomatik =====
+    // Yon koli ki pa gen pri (tarifikasyon an te bliye, oswa koli a te antre san pri) epi ki
+    // pa sou okenn fakti resevwa pri vil kliyan an AVAN ticket la fèt. Pri a ekri nan baz la,
+    // konsa ticket la, istorik la ak rapò yo montre menm chif la.
+    const unpriced = parcels.filter((row) => !text(row.invoice_id) && !(Number(row.price_usd) > 0) && Number(row.weight) > 0);
+    if (unpriced.length) {
+      const villeQuery = isCentral
+        ? (point ? db.from("villes").select("*").ilike("name", text(point.split(", ")[0])).maybeSingle() : { data: null, error: null })
+        : (client?.ville_id ? db.from("villes").select("*").eq("id", client.ville_id).maybeSingle() : { data: null, error: null });
+      const [villeRes, rateRes] = await Promise.all([villeQuery, db.from("exchange_rate").select("usd_rate").eq("id", 1).maybeSingle()]);
+      const ville = (villeRes.data ?? null) as Ville | null;
+      const rate = Number(rateRes.data?.usd_rate) || 0;
+      const accountType: AccountType = client?.account_type === "Business" ? "Business" : "Personnel";
+      for (const row of unpriced) {
+        const price = computePrice(Number(row.weight) || 0, accountType, ville);
+        if (!price || !(price.price > 0)) continue;
+        const patch = { price_usd: price.price, tax_usd: 0, price_htg: round2(price.price * rate), tax_htg: 0 };
+        const updated = await db.from("packages").update(patch).eq("id", row.id).select("id");
+        if (!updated.error && (updated.data ?? []).length) { row.price_usd = patch.price_usd; row.price_htg = patch.price_htg; }
+      }
     }
 
     // ===== Fakti + peman =====
@@ -200,7 +225,7 @@ export async function GET(req: Request) {
     const packages = parcels.map((row) => ({
       id: text(row.id), guia: text(row.tracking_number), tracking: text(row.tracking_manual),
       content: text(row.content).slice(0, 60), quantity: Number(row.quantity ?? 1) || 1,
-      weight: money(row.weight), invoice_number: invoiceNumberById.get(text(row.invoice_id)) ?? ""
+      weight: money(row.weight), price_usd: money(row.price_usd), invoice_number: invoiceNumberById.get(text(row.invoice_id)) ?? ""
     }));
     const sum = (values: number[]) => money(values.reduce((total, value) => total + value, 0));
     const customerName = isCentral ? "Compte central STANDA"

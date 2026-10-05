@@ -95,10 +95,34 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
     return () => images.forEach((image) => image.removeEventListener("load", measure));
   }, [ticket, qr, width]);
 
+  // Le ticket se ferme tout seul une fois l'impression terminée (ou annulée).
+  // Navigateur : événement « afterprint ». Application Android : le service d'impression
+  // passe au premier plan, donc la page ne redevient visible/active qu'à la fin — on ne
+  // ferme qu'à ce moment-là (fermer avant vider la page que l'imprimante est en train de lire).
+  const closeAfterPrint = () => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("afterprint", finish);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+      onClose();
+    };
+    const armedAt = Date.now() + 2500;
+    const onVisible = () => { if (document.visibilityState === "visible" && Date.now() > armedAt) finish(); };
+    const onFocus = () => { if (Date.now() > armedAt) finish(); };
+    window.addEventListener("afterprint", finish);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+  };
+
   const print = () => {
     if (!printDocument(`Ticket ${ticket?.ticket_number ?? "STANDA"}`)) {
       notify.warning("Cette version de l’application Standa Agence ne sait pas encore imprimer. Installez la nouvelle version de l’application, ou ouvrez le point de retrait dans Chrome pour imprimer.", { title: "Impression indisponible" });
+      return;
     }
+    closeAfterPrint();
   };
 
   useEffect(() => {
@@ -188,6 +212,7 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
           <div className="pl-[1.5ch]">
             {item.tracking && item.tracking !== item.guia && <p className="break-all">Trk : {item.tracking}</p>}
             <p>{[item.content, `Qté ${item.quantity}`, `${item.weight.toFixed(2)} lb`].filter(Boolean).join(" · ")}</p>
+            {item.price_usd > 0 && <p>Prix : {ticketUsd(item.price_usd)}</p>}
             {item.invoice_number && <p>Facture : {item.invoice_number}</p>}
           </div>
         </div>)}</div>
