@@ -332,7 +332,7 @@ export default function BonRemisePage() {
             {bonRecords.map((bon) => <article key={bon.id} className="rounded-2xl border border-line bg-slate-50 p-3">
               <div className="flex items-start justify-between gap-2"><div><p className="font-mono text-sm font-black text-navy">{bon.bon_number}</p><p className="mt-1 text-xs font-semibold text-slate-600">{bon.destination || "Destination non précisée"} · {bon.package_count} colis</p></div><span className={`badge ${bon.received_at ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>{bon.received_at ? "Reçu" : "En route"}</span></div>
               <p className="mt-2 text-[11px] text-slate-500">Créé le {dateFr(bon.created_at)}{bon.created_by ? ` · ${bon.created_by}` : ""}{bon.received_by ? ` · reçu par ${bon.received_by}` : ""}</p>
-              {bon.pdf_path ? <button type="button" onClick={() => void openSecureDocument("bon-remise", bon.id).catch((error) => setToast(error instanceof Error ? error.message : "PDF indisponible."))} className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-navy px-3 text-xs font-bold text-white hover:bg-brand"><FileDown size={14} />Ouvrir le PDF</button> : <p className="mt-3 text-xs font-semibold text-amber-700">PDF non archivé</p>}
+              <button type="button" onClick={() => void openSecureDocument("bon-remise", bon.id).catch((error) => setToast(error instanceof Error ? error.message : "PDF indisponible."))} className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-navy px-3 text-xs font-bold text-white hover:bg-brand"><FileDown size={14} />Ouvrir le PDF</button>
             </article>)}
           </div>
         </section>

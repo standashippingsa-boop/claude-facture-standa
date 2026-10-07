@@ -27,6 +27,12 @@ export interface BonRemiseOptions {
   centralCode?: string;
   /** Nimewo ki deja rezève nan registre a, pou PDF a ak bazdone a rete menm. */
   number?: string;
+  /** Dat nan antèt PDF la (defo: kounye a). Rejenerasyon yon ansyen bon sèvi ak dat kreyasyon li. */
+  date?: Date | string;
+  /** Logo deja chaje (sèvè a). `undefined` = chaje nan navigatè a; `null` = san logo. */
+  logo?: string | null;
+  /** false = pa telechaje fichye a (rejenerasyon sèvè). Defo: true. */
+  save?: boolean;
 }
 
 /** Nimewo lisib, ak yon ti pati o aza pou de Bon pa pran menm nimewo a. */
@@ -41,8 +47,8 @@ export async function generateBonRemise(
   pkgs: Pkg[],
   tarifMap: Map<string, ClientTarifInfo>,
   opts: BonRemiseOptions = {}
-): Promise<{ number: string; filename: string; blob: Blob }> {
-  const logo = await loadLogo();
+): Promise<{ number: string; filename: string; blob: Blob; bytes: ArrayBuffer }> {
+  const logo = opts.logo !== undefined ? opts.logo : await loadLogo();
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const numero = opts.number?.trim() || createBonRemiseNumber();
@@ -109,7 +115,7 @@ export async function generateBonRemise(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.text(`No: ${numero}`, W - 14, 20, { align: "right" });
-  doc.text(`Date: ${dateFr(new Date())}`, W - 14, 25, { align: "right" });
+  doc.text(`Date: ${dateFr(opts.date ? new Date(opts.date) : new Date())}`, W - 14, 25, { align: "right" });
 
   // ===== Rezime =====
   const boxH = showConduce ? 24 : 18;
@@ -207,7 +213,8 @@ export async function generateBonRemise(
 
   const suffix = dest ? `_${dest.replace(/\s+/g, "")}` : "";
   const filename = `BonRemise_${numero}${suffix}.pdf`;
-  const blob = doc.output("blob") as Blob;
-  doc.save(filename);
-  return { number: numero, filename, blob };
+  const bytes = doc.output("arraybuffer") as ArrayBuffer;
+  const blob = new Blob([bytes], { type: "application/pdf" });
+  if (opts.save !== false) doc.save(filename);
+  return { number: numero, filename, blob, bytes };
 }
