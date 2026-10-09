@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
-import { cancelInvoice, createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, notifyEmail, saveInvoicePdfPath, setPackagesStatus } from "@/lib/db";
+import { cancelInvoice, createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, notifyEmail, saveInvoicePdfPath } from "@/lib/db";
 import { computeInvoice, invoiceLineContent, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { FixedPriceMap, OrderFeeTier, SpecialArticle, TAX_THRESHOLD_LB } from "@/lib/pricing";
 import { Invoice, InvoiceItem, InvoiceKind, Ville } from "@/lib/types";
@@ -122,11 +122,11 @@ export default function InvoiceDialog({
    * Entre "Confirmer la facture" et "Imprimer / Télécharger", la facture
    * existe déjà en base (packages → "Facturé") mais aucun PDF n'a encore
    * été généré — c'est la fenêtre où agence/admin peuvent encore l'annuler
-   * proprement (cancelInvoice refuse l'annulation une fois has_pdf=true).
+   * proprement, avant que le PDF ne soit envoyé au client.
    * Tant que `pending` est non-null, on affiche l'écran de confirmation
    * au lieu du formulaire — les champs ci-dessus ne s'appliquent plus.
    */
-  const [pending, setPending] = useState<{ inv: Invoice; items: InvoiceItem[]; pkgIds: string[] } | null>(null);
+  const [pending, setPending] = useState<{ inv: Invoice; items: InvoiceItem[] } | null>(null);
   useNoticeToast(err, setErr, { tone: "error", title: "Facture non enregistrée" });
 
   // Chaje to + konfigirasyon ti koli (Paramètres)
@@ -239,26 +239,26 @@ export default function InvoiceDialog({
         weight: l.weight, content: invoiceLineContent(l), price: l.amount, tax: 0, total: l.amount,
         is_small: l.isSmall, per_lb: l.perLb, fixed_label: l.isFixed ? l.fixedLabel : ""
       }));
-      setPending({ inv, items, pkgIds: comp.lines.map((l) => l.pkg.id) });
+      setPending({ inv, items });
     } catch (e: unknown) {
       setErr((e as Error)?.message ?? "Erreur");
     } finally { setBusy(false); }
   };
 
   /**
-   * ÉTAPE 2 — imprime/télécharge le PDF PUIS finalise la livraison.
-   * L'ordre compte : on ne marque "Livré" qu'APRÈS un PDF réussi, et on
-   * n'envoie WhatsApp/email qu'APRÈS "Livré" — si la finalisation échoue,
-   * relancer ce bouton ne renvoie pas un deuxième message au client.
+   * ÉTAPE 2 — imprime/télécharge le PDF et l'envoie au client.
+   * Une facture n'est PAS une remise : le client demande le prix du shipping,
+   * pas forcément ses colis. Les colis restent « Facturé » ; ils passent
+   * « Livré » seulement quand quelqu'un les remet (agent de retrait, ou
+   * changement de statut manuel par l'administration).
    */
-  const imprimerEtLivrer = async () => {
+  const imprimer = async () => {
     if (!pending) return;
     setBusy(true); setErr(null);
     try {
-      const { inv, items, pkgIds } = pending;
+      const { inv, items } = pending;
       const pdf = await generateUploadDownload(inv, items, footer, { download: true });
       if (pdf.path) { await saveInvoicePdfPath(inv.id, pdf.path); inv.pdf_path = pdf.path; inv.has_pdf = true; }
-      await setPackagesStatus(pkgIds, "Livré");
       const how = await sendInvoicePdfWhatsApp(inv, pdf.blob, pdf.filename);
       // Notification push — kanal apa, pa dwe janm bloke oswa anile fakti a
       // si l echwe (kliyan an deja gen PDF la sou WhatsApp kanmenm).
@@ -271,7 +271,7 @@ export default function InvoiceDialog({
         packages: items.map((it) => ({ tracking_number: it.tracking_number, tracking_manual: it.tracking_manual }))
       }).catch(() => undefined);
       onDone(
-        `Facture ${inv.invoice_number} créée — ${items.length} colis → Livré, taux ${rate.toFixed(2)}. ` +
+        `Facture ${inv.invoice_number} créée — ${items.length} colis → Facturé, taux ${rate.toFixed(2)}. ` +
         (how === "file" ? "PDF pataje sou WhatsApp."
           : how === "manual" ? "WhatsApp ouvri — telechaje PDF la epi atache li." : "Fakti a nan Invoices.")
       );
@@ -301,7 +301,7 @@ export default function InvoiceDialog({
     if (busy) return;
     if (pending && !confirm(
       `Fermer sans imprimer ?\n\nLa facture ${pending.inv.invoice_number} reste enregistrée ` +
-      `dans Invoices mais les colis ne seront pas encore « Livré ». ` +
+      `dans Invoices sans PDF. ` +
       `Vous pourrez l'imprimer ou l'annuler plus tard depuis Invoices.`
     )) return;
     onClose();
@@ -327,9 +327,9 @@ export default function InvoiceDialog({
           <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900">
             <p><b>Facture {pending.inv.invoice_number} créée</b> — {pending.items.length} colis, {usd(pending.inv.total_usd)}.</p>
             <p className="mt-1 text-[12px] leading-relaxed text-emerald-800">
-              Elle n&apos;est pas encore définitive. Imprimez/téléchargez-la pour la remettre
-              au client — les colis passeront alors en <b>Livré</b>. Vous pouvez encore
-              l&apos;annuler tant que ce n&apos;est pas fait.
+              Imprimez ou téléchargez-la pour l&apos;envoyer au client. Les colis restent
+              <b> Facturé</b> : ils passeront « Livré » seulement quand ils seront remis.
+              Vous pouvez encore annuler cette facture tant que le PDF n&apos;est pas généré.
             </p>
           </div>
         )}
@@ -604,7 +604,7 @@ export default function InvoiceDialog({
 
         <div className="mt-5 flex gap-3">
           {pending ? (
-            <button className="btn flex-1" onClick={imprimerEtLivrer} disabled={busy}>
+            <button className="btn flex-1" onClick={imprimer} disabled={busy}>
               {busy ? "..." : "Imprimer / Télécharger"}
             </button>
           ) : (

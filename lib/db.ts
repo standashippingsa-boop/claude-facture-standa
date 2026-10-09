@@ -1704,41 +1704,21 @@ export async function createInvoiceFromComputation(
 }
 
 /**
- * ANNULER une facture (koreksyon erè) — ADMIN sèlman (sòf nan InvoiceDialog,
- * gade note V20 anba a).
- * Si fakti a PA ENKÒ gen PDF (has_pdf=false), defèt TOUT sa l te fè:
+ * ANNULER une facture (koreksyon erè) — ADMIN sèlman (ak bouton « Annuler cette
+ * facture » nan InvoiceDialog, anvan PDF la voye bay kliyan an).
+ * Defèt TOUT sa fakti a te fè:
  *   • koli yo retounen "Disponible" (yo ka refakture)
  *   • invoice_id retire + pri/taks remete a zewo
  *   • liy fakti yo (invoice_items) efase
  *   • fakti a efase
- * Si fakti a GENTAN gen PDF (deja jenere oswa enprime — `has_pdf=true`):
- * AUCUNE anilasyon. Nou finalize livrezon an olye sa a — koli yo pase
- * "Livré" epi fakti a rete antye (gade `finalized: true` nan rezilta a).
- * Ak audit log konplè (montan, kliyan, konbyen koli) nan toulede ka.
- * Koli yo PA JANM efase — yo jis vin disponib ankò (oswa Livré).
+ * Ak audit log konplè (montan, kliyan, konbyen koli).
+ * Koli yo PA JANM efase — yo jis vin disponib ankò. Sèl eksepsyon: yon koli ki
+ * deja « Livré » kenbe statut li (li pèdi sèlman lyen fakti a).
  */
-export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; restored: number; reason?: string; finalized?: boolean }> {
+export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; restored: number; reason?: string }> {
   const { data: inv } = await supabase.from("invoices")
-    .select("id, invoice_number, customer_code, customer_name, total_usd, pdf_path, pdf_url, has_pdf").eq("id", invoiceId).maybeSingle();
+    .select("id, invoice_number, customer_code, customer_name, total_usd, pdf_path, pdf_url").eq("id", invoiceId).maybeSingle();
   if (!inv) return { ok: false, restored: 0, reason: "Facture introuvable." };
-
-  // ══ GAD PDF DÉJÀ GÉNÉRÉ/IMPRIMÉ (V20) ══════════════════════════════════
-  // Yon fwa PDF la te deja jenere (oswa enprime — menm chemen kòd), kliyan an
-  // ka deja gen papye a nan men l: anile/efase fakti a nan ka sa a ta kite yon
-  // koli san fakti pandan kliyan an gen prèv li. Olye de sa, nou SENPLMAN
-  // finalize livrezon an (koli yo -> "Livré") epi nou kenbe fakti a entak.
-  if (inv.has_pdf) {
-    const { data: pkgs } = await supabase.from("packages").select("id, status").eq("invoice_id", invoiceId);
-    const ids = (pkgs ?? []).filter((p: any) => p.status !== "Livré").map((p: any) => p.id);
-    if (ids.length) {
-      await setPackagesStatus(ids, "Livré");
-      await logAction("Confirmation Livraison",
-        `${inv.invoice_number} | Client:${inv.customer_code} | ${ids.length} colis → "Livré" ` +
-        `· annulation refusée : facture déjà générée en PDF ou imprimée`,
-        inv.invoice_number, inv.customer_code);
-    }
-    return { ok: true, restored: 0, finalized: true };
-  }
 
   // 1) Koli yo -> Disponible, san fakti, pri remete a zewo.
   //    EKSEPSYON: koli ki deja "Livré" kenbe statut yo (yo pa dwe rekile) —
