@@ -376,8 +376,9 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       } finally { setBusy(false); }
       return;
     }
-    const targets = selectedAll.filter((p) => p.status !== "Facturé");
-    if (!targets.length) { setNotice("Koli Facturé yo ka sèlman pase « Disponible »."); return; }
+    // Un colis « Facturé » ne peut que redevenir « Disponible » (correction) ou être remis (« Livré »).
+    const targets = selectedAll.filter((p) => p.status !== "Facturé" || bulkStatus === "Livré");
+    if (!targets.length) { setNotice("Koli Facturé yo ka sèlman pase « Disponible » oswa « Livré »."); return; }
     try {
       setRemiseTickets([]);
       if (bulkStatus === "Livré") {
@@ -390,6 +391,11 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
           tickets.push({ code, packageId: ids[0], count: ids.length });
         }
         setRemiseTickets(tickets);
+        // Ticket facultatif pour l'administration : une seule remise = on demande tout de suite ;
+        // plusieurs clients = la barre « Tickets de remise à imprimer » ci-dessous (un bouton par client).
+        if (tickets.length === 1 && confirm(`Remise enregistrée (${tickets[0].count} colis).\n\nSortir le ticket de remise maintenant ?`)) {
+          setTicketPackageId(tickets[0].packageId);
+        }
       } else {
         await setPackagesStatus(targets.map((p) => p.id), bulkStatus);
       }

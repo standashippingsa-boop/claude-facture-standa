@@ -202,11 +202,16 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     try {
       await setPackagesStatus(targets.map((p) => p.id), bulkStatus);
       if (bulkStatus === "Livré") {
-        // Remise au client : son ticket de remise s'ouvre, prêt à imprimer.
         await logAction("Remise colis", `${targets.length} colis remis au client par l'administration`, targets[0]?.tracking_number ?? "", decoded);
         sel.setMany(targets.map(snap), false);
-        // Le ticket de remise s'ouvre ici même : aperçu + bouton Imprimer.
-        setTicketPackageId(targets[0].id);
+        // Pour l'administration le ticket n'est pas obligatoire (il l'est pour les
+        // agents de retrait) : on demande. Il reste imprimable plus tard depuis
+        // le bouton « Ticket » de chaque colis livré.
+        setNotice(`Statut "Livré" aplike sou ${targets.length} colis.`);
+        await load();
+        if (confirm(`Remise enregistrée (${targets.length} colis).\n\nSortir le ticket de remise maintenant ?`)) {
+          setTicketPackageId(targets[0].id);
+        }
         return;
       }
       let mailInfo = "";
