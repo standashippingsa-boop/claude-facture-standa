@@ -141,6 +141,19 @@ export function generateInvoicePdf(
   doc.text(`Nombre de colis : ${pkgCount}`, 20, yTable + 15);
   doc.text(`Poids total : ${totalWeight.toFixed(2)} LB`, 20, yTable + 22);
 
+  // ===== Note (compte central : nom + téléphone de la personne qui prend les colis) =====
+  const note = String(inv.note ?? "").trim();
+  if (note) {
+    doc.setFontSize(9);
+    doc.setTextColor(...NAVY);
+    doc.setFont("helvetica", "bold");
+    doc.text("Note :", 14, yTable + 33);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(40, 40, 40);
+    const noteLines = doc.splitTextToSize(note, 92) as string[];
+    doc.text(noteLines.slice(0, 5), 14, yTable + 38);
+  }
+
   // ===== Totals (adwat): USD + Taux + HTG =====
   const y = yTable + 8;
   const boxW = 82;

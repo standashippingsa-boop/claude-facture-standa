@@ -204,6 +204,7 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
         {t.customer.name && <p>Nom : {t.customer.name}</p>}
         {t.customer.phone && <p>Tél : {t.customer.phone}</p>}
         {t.customer.city && <p>Ville : {t.customer.city}</p>}
+        {t.pickup_note && <p className="font-bold">Note : {t.pickup_note}</p>}
         <Rule />
 
         <p className="font-bold">COLIS REMIS ({t.packages.length})</p>

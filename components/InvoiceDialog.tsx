@@ -97,6 +97,10 @@ export default function InvoiceDialog({
   const [centralCode, setCentralCode] = useState("");
   const [villes, setVilles] = useState<Ville[]>([]);
   const [villeId, setVilleId] = useState("");
+  /** Compte central : qui vient prendre les colis (nom + téléphone obligatoires) et note libre. */
+  const [pickupName, setPickupName] = useState("");
+  const [pickupPhone, setPickupPhone] = useState("");
+  const [pickupExtra, setPickupExtra] = useState("");
 
   /** SERVICE ORDER: kalite fakti a + montan admin an antre. */
   const [kind, setKind] = useState<InvoiceKind>("shipping");
@@ -230,9 +234,18 @@ export default function InvoiceDialog({
     }
     if (!comp.ok) { setErr(comp.errors.join(" ")); return; }
     if (!verifyTotal(comp)) { setErr("Erreur de calcul détectée. Facture bloquée."); return; }
+    // Compte central : la facture va à l'agence de la ville choisie, qui doit savoir
+    // qui vient prendre les colis. Nom et téléphone sont donc obligatoires.
+    let note = "";
+    if (isCentral) {
+      if (!villeChoisie) { setErr("Choisissez la ville de destination."); return; }
+      if (pickupName.trim().length < 2) { setErr("Note obligatoire : entrez le nom de la personne qui vient prendre les colis."); return; }
+      if (pickupPhone.replace(/D/g, "").length < 7) { setErr("Note obligatoire : entrez le numéro de téléphone de cette personne."); return; }
+      note = [`Retrait par : ${pickupName.trim()}`, `Tél : ${pickupPhone.trim()}`, pickupExtra.trim()].filter(Boolean).join(" · ");
+    }
     setBusy(true); setErr(null);
     try {
-      const inv = await createInvoiceFromComputation(client, comp, rate, calcMode);
+      const inv = await createInvoiceFromComputation(client, comp, rate, calcMode, note);
       const items = comp.lines.map((l) => ({
         invoice_id: inv.id, tracking_number: l.pkg.tracking_number,
         tracking_manual: l.pkg.tracking_manual ?? "",
@@ -425,6 +438,16 @@ export default function InvoiceDialog({
                 </option>
               ))}
             </select>
+            <p className="mt-2 mb-1 text-xs font-bold text-brand-dark uppercase">Note — personne qui prend les colis</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <input className="input !py-1.5 !text-sm" placeholder="Nom complet *" value={pickupName}
+                onChange={(e) => setPickupName(e.target.value)} maxLength={80} />
+              <input className="input !py-1.5 !text-sm" placeholder="Téléphone *" inputMode="tel" value={pickupPhone}
+                onChange={(e) => setPickupPhone(e.target.value)} maxLength={30} />
+            </div>
+            <input className="input !py-1.5 !text-sm w-full mt-2" placeholder="Autre note (facultatif)" value={pickupExtra}
+              onChange={(e) => setPickupExtra(e.target.value)} maxLength={120} />
+            {villeChoisie && <p className="mt-2 text-[11px] text-slate-600">Cette facture ira au point de retrait de <b>{villeChoisie.name}</b>.</p>}
           </div>
         )}
 

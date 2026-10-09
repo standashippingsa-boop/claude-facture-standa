@@ -34,6 +34,7 @@ type ZoneInvoice = {
   order_deposit: number | null; balance_due: number | null;
   has_pdf: boolean | null; created_at: string; payment_status: string | null;
   payment_paid_usd: number | null; payment_paid_htg: number | null;
+  ville?: string | null; note?: string | null;
 };
 type ZoneCustomer = { customer_code: string; fullname: string | null; surname: string | null };
 type CustomerBalance = { usd: number; htg: number; invoiceId: string; invoiceNumber: string };
@@ -162,15 +163,39 @@ async function centralAccountCode(db: any) {
   return code(result.data?.value).toUpperCase();
 }
 
+/**
+ * Un colis du compte central appartient à une zone si :
+ *  • sa facture porte la ville de cette zone (ville choisie à la facturation) — la
+ *    facture décide, même si le colis figure aussi sur un Bon de remise ;
+ *  • sinon (colis pas encore facturé) son Bon de remise a cette destination.
+ */
 async function centralPackagesBelongToZone(db: any, centralCode: string, packageIds: string[], zoneName: string) {
   const ids = Array.from(new Set(packageIds.map(code).filter((id) => uuid.test(id))));
   if (!centralCode || !ids.length) return false;
-  const packagesResult = await db.from("packages").select("id, customer_code, bon_remise_id")
+  const packagesResult = await db.from("packages").select("id, customer_code, bon_remise_id, invoice_id")
     .in("id", ids).eq("customer_code", centralCode);
   if (packagesResult.error) throw packagesResult.error;
-  const rows = (packagesResult.data ?? []) as Array<{ id: string; customer_code: string; bon_remise_id: string | null }>;
-  if (rows.length !== ids.length || rows.some((row) => !code(row.bon_remise_id))) return false;
-  const bonIds = Array.from(new Set(rows.map((row) => code(row.bon_remise_id)).filter(Boolean)));
+  const rows = (packagesResult.data ?? []) as Array<{ id: string; customer_code: string; bon_remise_id: string | null; invoice_id: string | null }>;
+  if (rows.length !== ids.length) return false;
+  const zoneKey = zoneName.trim().toLocaleLowerCase();
+
+  const invoiceIds = Array.from(new Set(rows.map((row) => code(row.invoice_id)).filter(Boolean)));
+  const villeByInvoice = new Map<string, string>();
+  if (invoiceIds.length) {
+    const invoicesResult = await db.from("invoices").select("id, ville").in("id", invoiceIds);
+    if (invoicesResult.error) throw invoicesResult.error;
+    for (const row of (invoicesResult.data ?? []) as Array<{ id: string; ville: string | null }>) {
+      const ville = code(row.ville).toLocaleLowerCase();
+      if (ville) villeByInvoice.set(code(row.id), ville);
+    }
+  }
+  const decidedByInvoice = rows.filter((row) => villeByInvoice.has(code(row.invoice_id)));
+  if (decidedByInvoice.some((row) => villeByInvoice.get(code(row.invoice_id)) !== zoneKey)) return false;
+
+  const byBon = rows.filter((row) => !villeByInvoice.has(code(row.invoice_id)));
+  if (byBon.some((row) => !code(row.bon_remise_id))) return false;
+  const bonIds = Array.from(new Set(byBon.map((row) => code(row.bon_remise_id)).filter(Boolean)));
+  if (!bonIds.length) return true;
   const bonsResult = await db.from("bons_remise").select("id").in("id", bonIds).ilike("destination", zoneName);
   if (bonsResult.error) throw bonsResult.error;
   return (bonsResult.data ?? []).length === bonIds.length;
@@ -271,7 +296,7 @@ export async function GET(req: Request) {
         parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
           .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       }
-      const invoiceResult = await db.from("invoices").select("id, invoice_number, customer_code, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
+      const invoiceResult = await db.from("invoices").select("id, invoice_number, customer_code, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg, note")
         .in("customer_code", codes).order("created_at", { ascending: false }).limit(1000);
       if (parcelResult.error) throw parcelResult.error;
       if (invoiceResult.error) throw invoiceResult.error;
@@ -280,39 +305,63 @@ export async function GET(req: Request) {
       invoices = (invoiceResult.data ?? []) as ZoneInvoice[];
     }
 
-    if (centralCode && centralBonIds.length) {
-      let centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
-        .eq("customer_code", centralCode).in("bon_remise_id", centralBonIds).order("created_at", { ascending: false }).limit(5000);
-      if (missingSchemaColumn(centralParcelsResult.error, "delivered_at")) {
-        centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
-          .eq("customer_code", centralCode).in("bon_remise_id", centralBonIds).order("created_at", { ascending: false }).limit(5000);
-      }
-      if (centralParcelsResult.error) throw centralParcelsResult.error;
-      const centralParcels = ((centralParcelsResult.data ?? []) as Parcel[])
+    if (centralCode) {
+      const PARCEL_COLUMNS = "id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data";
+      const PARCEL_COLUMNS_OLD = PARCEL_COLUMNS.replace(" delivered_at,", "");
+      const fetchCentralParcels = async (column: "bon_remise_id" | "invoice_id", values: string[]): Promise<Parcel[]> => {
+        if (!values.length) return [];
+        const query = (columns: string) => db.from("packages").select(columns)
+          .eq("customer_code", centralCode).in(column, values).order("created_at", { ascending: false }).limit(5000);
+        let result = await query(PARCEL_COLUMNS);
+        if (missingSchemaColumn(result.error, "delivered_at")) result = await query(PARCEL_COLUMNS_OLD);
+        if (result.error) throw result.error;
+        return (result.data ?? []) as Parcel[];
+      };
+      // Factures du compte central dont la VILLE choisie à la facturation est cette zone :
+      // elles arrivent chez l'agent de cette ville, quel que soit le Bon de remise.
+      const villeInvoicesResult = await db.from("invoices").select("id").eq("customer_code", centralCode).ilike("ville", zoneName).limit(1000);
+      if (villeInvoicesResult.error) throw villeInvoicesResult.error;
+      const villeInvoiceIds = (villeInvoicesResult.data ?? []).map((row: { id: string }) => code(row.id)).filter(Boolean);
+
+      const [byBon, byInvoice] = await Promise.all([
+        fetchCentralParcels("bon_remise_id", centralBonIds),
+        fetchCentralParcels("invoice_id", villeInvoiceIds)
+      ]);
+      const mergedParcels = new Map<string, Parcel>();
+      for (const parcel of [...byBon, ...byInvoice]) mergedParcels.set(code(parcel.id), parcel);
+      const centralParcels = Array.from(mergedParcels.values())
         .filter((parcel) => !parcel.archived || code(parcel.status) === "Livré");
+
       const centralInvoiceIds = Array.from(new Set(centralParcels.map((parcel) => code(parcel.invoice_id)).filter(Boolean)));
       let eligibleCentralInvoiceIds = new Set<string>();
       if (centralInvoiceIds.length) {
-        // Yon fakti kont santral ki gen koli pou de vil pa dwe parèt ni peye
-        // nan yon sèl ajans. Li bezwen separe pa administrasyon an avan.
-        const linksResult = await db.from("packages").select("invoice_id, bon_remise_id")
-          .eq("customer_code", centralCode).in("invoice_id", centralInvoiceIds);
-        if (linksResult.error) throw linksResult.error;
+        const centralInvoicesResult = await db.from("invoices").select("id, invoice_number, customer_code, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg, ville, note")
+          .in("id", centralInvoiceIds).eq("customer_code", centralCode).order("created_at", { ascending: false }).limit(1000);
+        if (centralInvoicesResult.error) throw centralInvoicesResult.error;
+        const candidates = (centralInvoicesResult.data ?? []) as ZoneInvoice[];
+
+        // La ville de la facture décide. Pour une ancienne facture sans ville, on garde l'ancienne
+        // règle : tous ses colis doivent être sur des Bons de cette zone (sinon l'administration
+        // doit la séparer avant).
+        const zoneKey = zoneName.trim().toLocaleLowerCase();
+        const withoutVille = candidates.filter((invoice) => !code(invoice.ville));
         const linksByInvoice = new Map<string, Array<{ bon_remise_id: string | null }>>();
-        for (const link of (linksResult.data ?? []) as Array<{ invoice_id: string | null; bon_remise_id: string | null }>) {
-          const invoiceId = code(link.invoice_id);
-          if (invoiceId) linksByInvoice.set(invoiceId, [...(linksByInvoice.get(invoiceId) ?? []), link]);
+        if (withoutVille.length) {
+          const linksResult = await db.from("packages").select("invoice_id, bon_remise_id")
+            .eq("customer_code", centralCode).in("invoice_id", withoutVille.map((invoice) => code(invoice.id)));
+          if (linksResult.error) throw linksResult.error;
+          for (const link of (linksResult.data ?? []) as Array<{ invoice_id: string | null; bon_remise_id: string | null }>) {
+            const invoiceId = code(link.invoice_id);
+            if (invoiceId) linksByInvoice.set(invoiceId, [...(linksByInvoice.get(invoiceId) ?? []), link]);
+          }
         }
-        eligibleCentralInvoiceIds = new Set(centralInvoiceIds.filter((invoiceId) => {
-          const links = linksByInvoice.get(invoiceId) ?? [];
+        const eligible = candidates.filter((invoice) => {
+          if (code(invoice.ville)) return code(invoice.ville).toLocaleLowerCase() === zoneKey;
+          const links = linksByInvoice.get(code(invoice.id)) ?? [];
           return links.length > 0 && links.every((link) => centralBonIds.includes(code(link.bon_remise_id)));
-        }));
-        if (eligibleCentralInvoiceIds.size) {
-          const centralInvoicesResult = await db.from("invoices").select("id, invoice_number, customer_code, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
-            .in("id", Array.from(eligibleCentralInvoiceIds)).eq("customer_code", centralCode).order("created_at", { ascending: false }).limit(1000);
-          if (centralInvoicesResult.error) throw centralInvoicesResult.error;
-          invoices = [...invoices, ...((centralInvoicesResult.data ?? []) as ZoneInvoice[])];
-        }
+        });
+        eligibleCentralInvoiceIds = new Set(eligible.map((invoice) => code(invoice.id)));
+        invoices = [...invoices, ...eligible];
       }
       // Koli ki poko gen fakti yo toujou vizib pou ajans destinasyon an;
       // apre faktirasyon, sèlman fakti ki rete nan menm zòn nan pase.
@@ -431,6 +480,7 @@ export async function GET(req: Request) {
         created_at: code(payment.created_at), by: paymentSourceLabel(payment.recorded_by_role)
       })),
       delivery_status: deliveryStatus, delivered_packages_count: delivery.delivered, has_pdf: Boolean(invoice.has_pdf), created_at: code(invoice.created_at),
+      note: code(invoice.note),
       is_central_account: customerCode.toUpperCase() === centralCode
     }; });
 

@@ -44,6 +44,8 @@ export type RemiseTicket = {
   printed_by: string;
   printed_at: string;
   customer: { code: string; name: string; phone: string; city: string; is_central: boolean };
+  /** Note de facture (compte central : nom + téléphone de la personne qui prend les colis). */
+  pickup_note?: string;
   packages: RemiseTicketPackage[];
   invoices: RemiseTicketInvoice[];
   totals: {
@@ -209,6 +211,7 @@ function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: strin
   if (t.customer.name) left(t.customer.name);
   if (t.customer.phone) left(`Tél : ${t.customer.phone}`);
   if (t.customer.city) left(`Ville : ${t.customer.city}`);
+  if (t.pickup_note) left(`Note : ${t.pickup_note}`, "bold");
   dashed();
 
   // ===== Koli yo =====

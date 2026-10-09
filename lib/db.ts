@@ -1556,7 +1556,8 @@ function databaseReason(error: unknown): string {
  */
 export async function createInvoiceFromComputation(
   client: Client, comp: InvoiceComputation, rate: number,
-  mode: "addition" | "small_control"
+  mode: "addition" | "small_control",
+  note = ""
 ): Promise<Invoice> {
   // Sekirite: refize si moteur la pa t valide, oswa total pa kòrèk
   if (!comp.ok) throw new Error("Facture refusée: " + comp.errors.join(" "));
@@ -1618,7 +1619,8 @@ export async function createInvoiceFromComputation(
     order_purchase: comp.orderPurchase ?? 0,
     order_service_fee: comp.orderServiceFee ?? 0,
     order_deposit: comp.orderDeposit ?? 0,
-    balance_due: comp.balanceDue ?? comp.totalUsd
+    balance_due: comp.balanceDue ?? comp.totalUsd,
+    note: note.trim().slice(0, 300) || null
   }).select().single();
   if (error) throw error;
 

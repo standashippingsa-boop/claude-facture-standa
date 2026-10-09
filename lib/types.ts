@@ -205,6 +205,8 @@ export interface Invoice {
   whatsapp: string;
   pickup_location: string;
   ville: string;             // vil kliyan an (fikse lè fakti a kreye)
+  /** Note de facture — compte central : nom + téléphone de la personne qui prend les colis. */
+  note?: string | null;
   subtotal: number;       // USD
   tax: number;            // USD
   grand_total: number;

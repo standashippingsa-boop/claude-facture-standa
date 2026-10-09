@@ -129,11 +129,19 @@ export async function GET(req: Request) {
 
     let point = "";
     if (isCentral) {
+      // La ville choisie à la facturation décide ; à défaut, la destination du Bon de remise.
+      const centralInvoiceIds = Array.from(new Set(parcels.map((row) => text(row.invoice_id)).filter(Boolean)));
+      const villes = centralInvoiceIds.length ? await db.from("invoices").select("ville").in("id", centralInvoiceIds) : { data: [], error: null };
+      if (villes.error) throw villes.error;
+      const invoiceVilles = Array.from(new Set((villes.data ?? []).map((row: { ville: string | null }) => text(row.ville)).filter(Boolean)));
+      if (invoiceVilles.length) point = invoiceVilles.join(", ");
+    }
+    if (isCentral && !point) {
       const bonIds = Array.from(new Set(parcels.map((row) => text(row.bon_remise_id)).filter(Boolean)));
       const bons = bonIds.length ? await db.from("bons_remise").select("destination").in("id", bonIds) : { data: [], error: null };
       if (bons.error) throw bons.error;
       point = Array.from(new Set((bons.data ?? []).map((bon: { destination: string }) => text(bon.destination)).filter(Boolean))).join(", ");
-    } else if (client?.ville_id) {
+    } else if (!isCentral && client?.ville_id) {
       const city = await db.from("villes").select("name").eq("id", client.ville_id).maybeSingle();
       point = text(city.data?.name);
     }
@@ -172,7 +180,7 @@ export async function GET(req: Request) {
     // ===== Fakti + peman =====
     const invoiceIds = Array.from(new Set(parcels.map((row) => text(row.invoice_id)).filter(Boolean)));
     const invoicesResult = invoiceIds.length
-      ? await db.from("invoices").select("id, invoice_number, created_at, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, payment_status, payment_paid_usd, payment_paid_htg").in("id", invoiceIds).order("created_at", { ascending: true })
+      ? await db.from("invoices").select("id, invoice_number, created_at, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, payment_status, payment_paid_usd, payment_paid_htg, note").in("id", invoiceIds).order("created_at", { ascending: true })
       : { data: [], error: null };
     if (invoicesResult.error) throw invoicesResult.error;
     const paymentsResult = invoiceIds.length
@@ -242,6 +250,7 @@ export async function GET(req: Request) {
       delivered_by: deliveredBy,
       printed_by: `${staffName(staff)} · ${staff.role === "agent_retrait" ? "Point de retrait" : staff.role === "admin" ? "Administration" : "Employé"}`,
       printed_at: new Date().toISOString(),
+      pickup_note: Array.from(new Set(invoiceRows.map((invoice) => text(invoice.note)).filter(Boolean))).join(" | "),
       customer: { code: customerCode, name: customerName, phone: isCentral ? "" : maskPhone(client?.phone), city: point, is_central: isCentral },
       packages,
       invoices,
