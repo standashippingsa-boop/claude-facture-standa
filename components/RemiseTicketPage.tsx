@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, FileDown, LoaderCircle, Printer, Scissors, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -13,6 +13,8 @@ import {
 } from "@/lib/remise-ticket";
 
 const WIDTH_KEY = "standa:ticket-width";
+/** Une remise = deux tickets : le premier part avec le client, le second reste au point de retrait. */
+const TICKET_COPIES = ["COPIE CLIENT", "COPIE AGENT — à conserver"] as const;
 
 /**
  * TICKET DE REMISE — même composant pour l'administration (/ticket-remise),
@@ -155,6 +157,8 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
         body * { visibility: hidden; }
         #remise-ticket, #remise-ticket * { visibility: visible; }
         #remise-ticket { position: absolute; left: 0; top: 0; margin: 0 !important; box-shadow: none !important; border: 0 !important; }
+        .ticket-copy { margin: 0 !important; box-shadow: none !important; }
+        .ticket-copy:not(:last-child) { break-after: page; page-break-after: always; }
         .ticket-edge { display: none !important; }
       }
     `}</style>
@@ -164,7 +168,7 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
         <button type="button" onClick={onClose} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-navy hover:bg-slate-50">{inOverlay ? <X size={17} /> : <ArrowLeft size={17} />} {closeLabel}</button>
         <div className="flex flex-wrap gap-2">
           {!inWebView && <button type="button" onClick={() => void downloadPdf()} disabled={pdfBusy} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-navy hover:bg-slate-50">{pdfBusy ? <LoaderCircle className="animate-spin" size={17} /> : <FileDown size={17} />} PDF</button>}
-          <button type="button" onClick={print} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#e85e19] px-4 text-sm font-black text-white shadow-sm hover:bg-[#ce4e0d]"><Printer size={18} /> Imprimer le ticket</button>
+          <button type="button" onClick={print} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#e85e19] px-4 text-sm font-black text-white shadow-sm hover:bg-[#ce4e0d]"><Printer size={18} /> Imprimer les 2 tickets</button>
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">
@@ -176,8 +180,12 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
 
     <div className="rounded-3xl bg-slate-200/70 px-2 py-6 print:bg-transparent print:p-0">
       <div className="ticket-edge mx-auto flex items-center justify-center gap-1 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400" style={{ width: paperWidth }}><Scissors size={12} /> début du rouleau</div>
-      <article id="remise-ticket" ref={ticketRef} className="mx-auto bg-white text-black shadow-[0_10px_30px_rgba(15,23,42,0.18)]"
+      <div id="remise-ticket">
+      {TICKET_COPIES.map((copyLabel, copyIndex) => <Fragment key={copyLabel}>
+      {copyIndex > 0 && <div className="ticket-edge mx-auto flex items-center justify-center gap-1 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400" style={{ width: paperWidth }}><Scissors size={12} /> coupe du papier · deuxième copie</div>}
+      <article ref={copyIndex === 0 ? ticketRef : undefined} className="ticket-copy mx-auto bg-white text-black shadow-[0_10px_30px_rgba(15,23,42,0.18)]"
         style={{ width: paperWidth, padding: width === 80 ? "4mm" : "2.5mm", boxSizing: "content-box", fontFamily: "'Courier New', Courier, monospace", fontSize: width === 80 ? "11.5px" : "10px", lineHeight: 1.35 }}>
+        <p className="mb-1.5 border border-black py-0.5 text-center font-bold" style={{ fontSize: "1.05em", letterSpacing: "0.04em" }}>{copyLabel}</p>
         <div className="text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" className="mx-auto mb-1 object-contain grayscale" style={{ width: width === 80 ? 58 : 46, height: width === 80 ? 58 : 46 }} onError={(event) => { event.currentTarget.style.display = "none"; }} />
@@ -259,8 +267,10 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
         <div className="mt-7 border-b border-black" />
         <p className="mt-1.5 text-center" style={{ fontSize: "0.9em" }}>Le client confirme avoir reçu les colis ci-dessus en bon état.</p>
         <p className="mt-1.5 text-center font-bold">MERCI DE VOTRE CONFIANCE !</p>
-        <p className="text-center" style={{ fontSize: "0.9em" }}>Conservez ce ticket comme preuve de remise.</p>
+        <p className="text-center" style={{ fontSize: "0.9em" }}>{copyIndex === 0 ? "Conservez ce ticket comme preuve de remise." : "Copie conservée par le point de retrait."}</p>
       </article>
+      </Fragment>)}
+      </div>
       <div className="ticket-edge mx-auto flex items-center justify-center gap-1 pt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400" style={{ width: paperWidth }}><Scissors size={12} /> coupe du papier</div>
     </div>
   </div>;

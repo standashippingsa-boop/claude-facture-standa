@@ -127,13 +127,18 @@ export function qrSvgPath(matrix: boolean[][]): string {
 export async function generateRemiseTicketPdf(ticket: RemiseTicket, width: TicketWidth = 80): Promise<void> {
   const [logo, qr] = await Promise.all([loadLogo(), ticketQrMatrix(ticket.qr_payload)]);
   const measure = new jsPDF({ unit: "mm", format: [width, 2000] });
-  const height = drawTicket(measure, ticket, width, logo, qr) + 8;
-  const doc = new jsPDF({ unit: "mm", format: [width, Math.max(height, 80)] });
-  drawTicket(doc, ticket, width, logo, qr);
+  const height = Math.max(drawTicket(measure, ticket, width, logo, qr, COPY_LABELS[1]) + 8, 80);
+  // Une remise = deux tickets : page 1 pour le client, page 2 pour le point de retrait.
+  const doc = new jsPDF({ unit: "mm", format: [width, height] });
+  drawTicket(doc, ticket, width, logo, qr, COPY_LABELS[0]);
+  doc.addPage([width, height]);
+  drawTicket(doc, ticket, width, logo, qr, COPY_LABELS[1]);
   doc.save(`Ticket_${ticket.ticket_number.replace(/[^A-Za-z0-9-]+/g, "_")}.pdf`);
 }
 
-function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: string | null, qr: boolean[][] | null): number {
+const COPY_LABELS = ["COPIE CLIENT", "COPIE AGENT — à conserver"] as const;
+
+function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: string | null, qr: boolean[][] | null, copyLabel: string): number {
   const margin = width === 80 ? 4 : 2.5;
   const inner = width - margin * 2;
   const base = width === 80 ? 8.5 : 7.2;
@@ -179,6 +184,8 @@ function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: strin
   };
 
   // ===== Antèt =====
+  centered(`[ ${copyLabel} ]`, base + 1, "bold");
+  y += 1;
   if (logo) {
     const size = width === 80 ? 16 : 13;
     try { doc.addImage(logo, "PNG", center - size / 2, y - 1, size, size, undefined, "FAST"); y += size + 1.5; } catch { /* logo opsyonèl */ }
@@ -285,6 +292,6 @@ function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: strin
   centered("Le client confirme avoir reçu les colis ci-dessus en bon état.", base - 1);
   y += 1;
   centered("MERCI DE VOTRE CONFIANCE !", base, "bold");
-  centered("Conservez ce ticket comme preuve de remise.", base - 1);
+  centered(copyLabel === COPY_LABELS[0] ? "Conservez ce ticket comme preuve de remise." : "Copie conservée par le point de retrait.", base - 1);
   return y;
 }
