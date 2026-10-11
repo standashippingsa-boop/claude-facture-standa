@@ -423,6 +423,7 @@ export default function EspaceClientPage() {
   const facturesOnly = disponibles.filter((p) => p.status === "Facturé");
   const dispoCount = disponiblesOnly.length;
   const factureCount = facturesOnly.length;
+  const dispoEst = disponiblesOnly.length ? estimation(disponiblesOnly) : null;
   const trackQueryNorm = trackQuery.trim().toLowerCase();
   const trackMatches = trackQueryNorm.length < 2 ? [] : pkgs.filter((p) =>
     p.tracking_number?.toLowerCase().includes(trackQueryNorm)
@@ -881,15 +882,15 @@ export default function EspaceClientPage() {
           <>
             {disponiblesOnly.length === 0 ? <AvailableEmpty /> : (
               <>
-                <Totaux list={disponiblesOnly} />
-                <div className="rounded-2xl border border-sky-100 bg-sky-50/65 p-3">
-                  <div className="flex items-start gap-2.5">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white text-[#1466b8] shadow-sm"><PackageCheck size={16} /></span>
-                    <p className="pt-0.5 text-[12px] leading-relaxed text-slate-600">
-                      Sélectionnez les colis à récupérer, puis appuyez sur <b className="text-[#0d478d]">« Préparer mon retrait »</b>.
-                    </p>
-                  </div>
-                </div>
+                {dispoEst ? (
+                  <p className="px-1 text-sm text-ink">
+                    <span className="font-semibold">Shipping fee :</span> {usd(dispoEst.subtotal)}
+                    <span className="mx-1.5 text-mute">·</span>
+                    <span className="font-semibold">Taxe fixe :</span> {dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : "—"}
+                  </p>
+                ) : (
+                  <p className="px-1 text-xs text-amber-700">Le tarif de votre ville n&apos;est pas encore configuré. Contactez-nous sur WhatsApp.</p>
+                )}
                 <div className="space-y-3">
                   {disponiblesOnly.map((p) => <PkgCard key={p.id} p={p} check />)}
                 </div>
@@ -919,12 +920,29 @@ export default function EspaceClientPage() {
               </button>
             )}
             {facturesOnly.length === 0 ? <Empty t="Aucun colis facturé en attente de remise." /> : (
-              <>
-                <Totaux list={facturesOnly} />
-                <div className="space-y-3">
-                  {facturesOnly.map((p) => <PkgCard key={p.id} p={p} />)}
-                </div>
-              </>
+              <div className="space-y-3">
+                {Array.from(new Set(facturesOnly.map((p) => p.invoice_id).filter((id): id is string => !!id))).map((invId) => {
+                  const inv = invs.find((f) => f.id === invId);
+                  const invoicePkgs = facturesOnly.filter((p) => p.invoice_id === invId);
+                  const open = openInvoiceId === invId;
+                  return (
+                    <section key={invId} className="card overflow-hidden">
+                      <button type="button" onClick={() => setOpenInvoiceId(open ? null : invId)} className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-slate-50">
+                        <span className="min-w-0">
+                          <span className="block text-sm font-bold text-navy">{inv?.invoice_number ?? "Facture"}</span>
+                          <span className="mt-0.5 block text-xs text-mute">{invoicePkgs.length} colis</span>
+                        </span>
+                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                      </button>
+                      {open && (
+                        <div className="space-y-3 border-t border-line bg-slate-50/70 p-4">
+                          {invoicePkgs.map((p) => <PkgCard key={p.id} p={p} />)}
+                        </div>
+                      )}
+                    </section>
+                  );
+                })}
+              </div>
             )}
           </>
         )}
@@ -934,7 +952,7 @@ export default function EspaceClientPage() {
           <>
             {autres.length === 0 ? <Empty t="Aucun colis reçu à Miami ou en acheminement pour le moment." /> : (
               <>
-                <Totaux list={autres} />
+                <p className="px-1 text-sm font-semibold text-ink">{autres.length} colis · {poidsDe(autres).toFixed(2)} lb</p>
                 <div className="space-y-3">
                   {autres.map((p) => <PkgCard key={p.id} p={p} />)}
                 </div>
