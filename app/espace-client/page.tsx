@@ -375,7 +375,6 @@ export default function EspaceClientPage() {
     estimateForPackages(list.map((p) => Number(p.weight) || 0), client.account_type, client.ville, smallCfg);
 
   const clientName = non || client.customer_code;
-  const estimatedTransitUsd = estimation(receptionsAll)?.total ?? 0;
   const activePackage = autres.find((p) => ["En transit", "Arrivé en Haïti", "En route vers agence"].includes(p.status))
     ?? autres[0]
     ?? disponibles[0]
@@ -861,19 +860,13 @@ export default function EspaceClientPage() {
         {view === "home" && (
           <>
             <ClientLogisticsDashboard
-              clientName={clientName}
-              destination={client.pickup_location || client.ville?.name || client.city || "Votre agence"}
-              balanceUsd={outstandingBalanceUsd}
-              estimatedUsd={estimatedTransitUsd}
               availableCount={dispoCount}
               invoicedCount={factureCount}
               receptionCount={autres.length}
               retraitCount={activeRetraits.length}
               deliveredCount={historique.length}
               unreadNotifications={unreadNotifications.length}
-              activePackage={activePackage}
               onNavigate={(destination) => destination === "notifications" ? openNotifications() : setView(destination)}
-              onOpenDetail={setDetail}
             />
 
             <div className="relative client-enter client-enter-d4">
@@ -957,6 +950,16 @@ export default function EspaceClientPage() {
             {disponibles.length === 0 ? <AvailableEmpty /> : (
               <>
                 <AvailableHero count={disponibles.length} />
+                {outstandingBalanceUsd > 0 && (
+                  <button type="button" onClick={() => setView("factures")} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left transition hover:bg-amber-100">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">Solde de factures</p>
+                      <p className="mt-1 text-xl font-black text-amber-800">{usd(outstandingBalanceUsd)}</p>
+                      <p className="mt-0.5 text-[11px] text-amber-700">Montant restant à régler</p>
+                    </div>
+                    <ChevronRight size={18} className="shrink-0 text-amber-500" />
+                  </button>
+                )}
                 <Totaux list={disponibles} />
                 <div className="rounded-2xl border border-sky-100 bg-sky-50/65 p-3">
                   <div className="flex items-start gap-2.5">

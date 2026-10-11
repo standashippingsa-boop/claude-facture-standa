@@ -2,19 +2,15 @@
 
 import { useState } from "react";
 import {
-  BarChart3, ChevronLeft, ChevronRight, CircleCheck, Clipboard, Clock, Handshake, MapPin, MessageCircle,
+  ChevronLeft, ChevronRight, CircleCheck, Clipboard, Clock, Handshake, MessageCircle,
   Navigation, Package, PackageCheck, ReceiptText, Truck
 } from "lucide-react";
 import type { Pkg } from "@/lib/types";
-import { dateFr, usd } from "@/lib/utils";
+import { dateFr } from "@/lib/utils";
 
 export type ClientDashboardDestination = "adresse" | "disponibles" | "receptions" | "historique" | "retraits" | "factures" | "calc" | "notifications";
 
 type DashboardProps = {
-  clientName: string;
-  destination: string;
-  balanceUsd: number;
-  estimatedUsd: number;
   /** Colis au statut "Disponible" uniquement (pas encore facturé). */
   availableCount: number;
   /** Colis au statut "Facturé" (déjà facturé, pas encore remis). */
@@ -23,10 +19,7 @@ type DashboardProps = {
   retraitCount: number;
   deliveredCount: number;
   unreadNotifications: number;
-  /** Colis le plus pertinent à suivre en ce moment (en transit en priorité) — null si rien n'est actif. */
-  activePackage: Pkg | null;
   onNavigate: (destination: ClientDashboardDestination) => void;
-  onOpenDetail: (pkg: Pkg) => void;
 };
 
 const shipmentLabel = (pkg: Pkg | null) => {
@@ -41,52 +34,25 @@ function QuickAction({
   icon: Icon, label, hint, count, onClick
 }: { icon: typeof Truck; label: string; hint: string; count?: number; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="group flex min-h-[108px] flex-col items-center justify-center gap-1.5 rounded-3xl bg-white px-2 text-center shadow-[0_12px_30px_-24px_rgba(12,67,143,.55)] ring-1 ring-sky-100 transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md">
-      <span className="relative grid h-12 w-12 place-items-center rounded-2xl border border-sky-100 bg-[#eaf4ff] text-[#145ca8] transition-colors group-hover:bg-[#dcebff]">
-        <Icon className="text-[#145ca8]" size={22} strokeWidth={2.1} />
-        {typeof count === "number" && count > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 z-10 grid h-5 min-w-5 place-items-center rounded-full bg-[#145ca8] px-1 text-[10px] font-black text-white ring-2 ring-white">
-            {count > 99 ? "99+" : count}
-          </span>
-        )}
+    <button type="button" onClick={onClick} className="group flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3.5 text-left shadow-[0_12px_30px_-24px_rgba(12,67,143,.55)] ring-1 ring-sky-100 transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-sky-100 bg-[#eaf4ff] text-[#145ca8] transition-colors group-hover:bg-[#dcebff]">
+        <Icon className="text-[#145ca8]" size={20} strokeWidth={2.1} />
       </span>
-      <span className="text-xs font-extrabold text-slate-700">{label}</span>
-      <span className="text-[10px] font-medium leading-tight text-slate-400">{hint}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-extrabold text-slate-700">{label}</span>
+        <span className="block text-[11px] font-medium leading-tight text-slate-400">{hint}</span>
+      </span>
+      {typeof count === "number" && count > 0 && (
+        <span className="grid h-6 min-w-6 shrink-0 place-items-center rounded-full bg-[#145ca8] px-1.5 text-[11px] font-black text-white">
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
+      <ChevronRight size={16} className="shrink-0 text-slate-300" />
     </button>
   );
 }
 
-function HomeParcelIllustration() {
-  return (
-    <div aria-hidden className="relative h-[126px] w-[132px] shrink-0 overflow-visible">
-      <span className="absolute -right-5 -top-4 h-28 w-28 rounded-full border border-sky-100 bg-sky-50" />
-      <span className="absolute right-2 top-6 h-[72px] w-[77px] rotate-[-7deg] rounded-2xl border border-[#e8b878] bg-gradient-to-br from-[#ffd9a1] via-[#e6a05a] to-[#b8692f] shadow-[0_15px_24px_rgba(16,72,141,.16)]" />
-      <span className="absolute right-7 top-[10px] h-[75px] w-3 rotate-[-7deg] bg-[#fff0d2]/85" />
-      <span className="absolute right-[32px] top-[42px] h-[19px] w-[35px] rotate-[-7deg] rounded-md bg-white/90" />
-      <span className="absolute right-[39px] top-[48px] h-1.5 w-[17px] rotate-[-7deg] rounded bg-[#57a7e9]" />
-      <span className="absolute bottom-2 left-1 grid h-12 w-12 place-items-center rounded-2xl bg-[#145ca8] text-white shadow-lg shadow-blue-900/20"><PackageCheck size={23} /></span>
-    </div>
-  );
-}
-
-function JourneyLine() {
-  const steps = ["Miami", "Disponible", "Facturé", "Livré"];
-  return (
-    <div className="mt-5 flex items-start">
-      {steps.map((step, index) => (
-        <div key={step} className="flex min-w-0 flex-1 items-start last:flex-none">
-          <div className="flex min-w-0 flex-col items-center">
-            <span className="h-3.5 w-3.5 rounded-full border-[3px] border-[#145ca8] bg-white shadow-[0_0_0_3px_rgba(20,92,168,.08)]" />
-            <span className="mt-2 max-w-[60px] text-center text-[9px] font-bold leading-tight text-slate-600">{step}</span>
-          </div>
-          {index < steps.length - 1 && <span className="mt-[6px] h-px min-w-2 flex-1 bg-[#9ec5ed]" />}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, estimatedUsd, availableCount, invoicedCount, receptionCount, retraitCount, deliveredCount, unreadNotifications, activePackage, onNavigate, onOpenDetail }: DashboardProps) {
+export function ClientLogisticsDashboard({ availableCount, invoicedCount, receptionCount, retraitCount, deliveredCount, unreadNotifications, onNavigate }: DashboardProps) {
   return (
     <section className="space-y-5">
       {unreadNotifications > 0 && (
@@ -97,12 +63,6 @@ export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, 
         </button>
       )}
 
-      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-blue-600 to-sky-400 p-5 text-white shadow-md shadow-blue-600/20">
-        <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-blue-100">Solde de factures</p><p className="mt-2 text-2xl font-black tracking-tight">{usd(balanceUsd)}</p><p className="mt-1 text-xs text-blue-100">Montant restant à régler</p></div><button type="button" onClick={() => onNavigate("factures")} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-white/15 px-3 text-xs font-bold ring-1 ring-white/20 transition hover:bg-white/25"><BarChart3 size={16} />Voir le statut</button></div>
-        {estimatedUsd > 0 && <div className="mt-4 flex items-center justify-between rounded-2xl bg-white/10 px-3 py-2 text-xs font-semibold text-blue-50"><span>Estimation des colis en cours</span><span className="text-sm font-extrabold text-white">{usd(estimatedUsd)}</span></div>}
-        <div className="mt-3 rounded-2xl bg-white/10 px-3 py-2 text-xs font-semibold text-blue-50">Bonjour {clientName}, toutes vos informations sont à jour.</div>
-      </section>
-
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-black tracking-tight text-slate-900">Vos colis</h2>
@@ -110,50 +70,12 @@ export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, 
             <Clock size={12} /> Historique
           </button>
         </div>
-        <div className="grid grid-cols-4 gap-2.5">
+        <div className="space-y-2">
           <QuickAction icon={Truck} label="Miami" hint="Colis reçus" count={receptionCount} onClick={() => onNavigate("receptions")} />
           <QuickAction icon={PackageCheck} label="Disponible" hint="À l'agence" count={availableCount} onClick={() => onNavigate("disponibles")} />
           <QuickAction icon={ReceiptText} label="Facturé" hint="À régler/retirer" count={invoicedCount} onClick={() => onNavigate("disponibles")} />
           <QuickAction icon={Handshake} label="Retrait" hint="Vos demandes" count={retraitCount} onClick={() => onNavigate("retraits")} />
         </div>
-      </section>
-
-      <section className="relative overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-br from-white via-[#f8fbff] to-[#eaf5ff] p-5 shadow-[0_14px_32px_-28px_rgba(14,83,172,.6)]">
-        <div className="relative flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base font-black tracking-tight text-slate-900">{activePackage ? "Suivi de colis" : "Votre parcours, en un coup d’œil"}</h2>
-            {activePackage ? (
-              <>
-                <p className="mt-2 truncate font-mono text-sm font-black text-slate-900">#{activePackage.tracking_number || activePackage.tracking_manual || "—"}</p>
-                <p className="mt-1 text-xs font-bold text-[#145ca8]">{shipmentLabel(activePackage)}</p>
-              </>
-            ) : null}
-            <p className="mt-1.5 max-w-[225px] text-xs leading-relaxed text-slate-500">
-              {activePackage ? "Touchez pour voir chaque étape de ce colis." : "Chaque colis avance au même rythme dans votre espace personnel."}
-            </p>
-          </div>
-          <HomeParcelIllustration />
-        </div>
-
-        {activePackage ? (
-          <>
-            <div className="relative mt-5">
-              <div className="flex justify-between text-[10px] font-bold text-slate-400"><span>Miami</span><span>{destination || "Agence"}</span></div>
-              <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-sky-100">
-                <span className="block h-full rounded-full bg-[#145ca8] transition-all duration-700" style={{ width: `${Math.max(14, ((activeTrackingStep(activePackage) + 1) / trackingSteps.length) * 100)}%` }} />
-              </div>
-            </div>
-            <button type="button" onClick={() => onOpenDetail(activePackage)} className="relative mt-4 flex w-full items-center justify-between gap-2 rounded-2xl bg-white/80 px-3 py-2.5 text-xs font-bold text-[#0d478d] ring-1 ring-sky-100 transition hover:bg-white">
-              <span className="inline-flex min-w-0 items-center gap-2"><MapPin size={15} className="shrink-0 text-[#145ca8]" /><span className="truncate">{destination || "Votre agence"}</span></span>
-              <span className="inline-flex shrink-0 items-center gap-1">Voir le détail <ChevronRight size={14} /></span>
-            </button>
-          </>
-        ) : (
-          <>
-            <JourneyLine />
-            <div className="relative mt-4 flex items-center gap-2 rounded-2xl bg-white/80 px-3 py-2.5 text-xs font-semibold text-slate-600 ring-1 ring-sky-100"><MapPin size={15} className="shrink-0 text-[#145ca8]" /><span className="truncate">Agence de retrait : {destination || "Votre agence"}</span></div>
-          </>
-        )}
       </section>
 
       <div className="sr-only">{availableCount} colis disponibles, {invoicedCount} colis facturés, {receptionCount} réceptions et {deliveredCount} colis livrés.</div>
