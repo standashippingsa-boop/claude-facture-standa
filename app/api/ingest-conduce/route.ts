@@ -142,7 +142,7 @@ export async function POST(req: Request) {
     await db.from("conduces").update({ updated_at: now }).eq("id", conduce.id);
 
     await db.from("journal").insert({
-      user_name: "Extension Chrome", action: "Import Conduce (Extension)",
+      user_name: "Extension Chrome", action: "Import Conduce · Extension",
       details: `Conduce ${conduceNumber} : ${created} créés, ${updated} mis à jour, ${linked} liés, `
              + `${promus} passés en "${CONDUCE_ARRIVAL_STATUS}", ${ignored} ignorés`,
       package_ref: "", customer_code: ""

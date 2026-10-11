@@ -47,7 +47,7 @@ export default function ConduceManualPaste({
     setBusy(true);
     try {
       const rows = await parseConduceWorkbook(await f.arrayBuffer());
-      if (!rows.length) { setMsg({ t: "err", s: "Aucun colis détecté dans ce fichier (vérifiez les colonnes)." }); setExcelRows(null); }
+      if (!rows.length) { setMsg({ t: "err", s: "Aucun colis détecté dans ce fichier." }); setExcelRows(null); }
       else { setExcelRows(rows); setFileName(f.name); }
     } catch (e: any) {
       setMsg({ t: "err", s: "Erreur lecture Excel : " + (e?.message ?? String(e)) });
@@ -88,7 +88,7 @@ export default function ConduceManualPaste({
     try {
       const r = await linkPackagesToConduce(conduceId, conduceNumber, matches, staffName);
       setMsg({ t: "ok", s: `✔ ${r.linked} colis liés` +
-        (r.alreadyElsewhere ? ` (${r.alreadyElsewhere} déjà dans une autre conduce, ignorés)` : "") });
+        (r.alreadyElsewhere ? ` · ${r.alreadyElsewhere} déjà dans une autre conduce, ignorés` : "") });
       setMatches(null); setText("");
       onLinked?.();
     } catch (e: any) {
@@ -165,10 +165,10 @@ export default function ConduceManualPaste({
         <div className="space-y-3">
           <p className="text-xs text-mute">
             Alternative sans fichier : collez le contenu de la conduce copié depuis MCPACK.
-            Cette méthode ne fait que <b>lier</b> des colis existants (elle n&apos;en crée jamais).
+            Cette méthode ne fait que <b>lier</b> des colis existants.
           </p>
           <textarea className="input !h-32 font-mono text-[11px]"
-            placeholder="Collez le texte de la conduce (même désordonné)…"
+            placeholder="Collez le texte de la conduce…"
             value={text} onChange={(e) => setText(e.target.value)} />
           <BusyButton className="btn btn-ghost" onClick={analyser} busy={busy} disabled={!text.trim()}>
             <CheckCircle2 size={15} /> Analyser

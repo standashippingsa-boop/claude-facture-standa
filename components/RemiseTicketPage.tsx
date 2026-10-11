@@ -95,10 +95,34 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
     return () => images.forEach((image) => image.removeEventListener("load", measure));
   }, [ticket, qr, width]);
 
+  // Le ticket se ferme tout seul une fois l'impression terminée (ou annulée).
+  // Navigateur : événement « afterprint ». Application Android : le service d'impression
+  // passe au premier plan, donc la page ne redevient visible/active qu'à la fin — on ne
+  // ferme qu'à ce moment-là (fermer avant vider la page que l'imprimante est en train de lire).
+  const closeAfterPrint = () => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("afterprint", finish);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+      onClose();
+    };
+    const armedAt = Date.now() + 2500;
+    const onVisible = () => { if (document.visibilityState === "visible" && Date.now() > armedAt) finish(); };
+    const onFocus = () => { if (Date.now() > armedAt) finish(); };
+    window.addEventListener("afterprint", finish);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+  };
+
   const print = () => {
     if (!printDocument(`Ticket ${ticket?.ticket_number ?? "STANDA"}`)) {
       notify.warning("Cette version de l’application Standa Agence ne sait pas encore imprimer. Installez la nouvelle version de l’application, ou ouvrez le point de retrait dans Chrome pour imprimer.", { title: "Impression indisponible" });
+      return;
     }
+    closeAfterPrint();
   };
 
   useEffect(() => {
@@ -147,7 +171,7 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
         <span className="font-semibold text-slate-600">Papier de l’imprimante</span>
         <div className="flex gap-1">{([80, 58] as TicketWidth[]).map((value) => <button key={value} type="button" aria-pressed={width === value} onClick={() => chooseWidth(value)} className={`rounded-lg px-3 py-1.5 font-bold ${width === value ? "bg-[#09295e] text-white" : "bg-slate-100 text-slate-700"}`}>{value} mm</button>)}</div>
       </div>
-      <p className="text-center text-xs font-semibold text-slate-500">Aperçu : voici le ticket exactement comme il sortira de l’imprimante ({width} mm).</p>
+      <p className="text-center text-xs font-semibold text-slate-500">Aperçu : voici le ticket exactement comme il sortira de l’imprimante.</p>
     </div>
 
     <div className="rounded-3xl bg-slate-200/70 px-2 py-6 print:bg-transparent print:p-0">
@@ -188,6 +212,7 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
           <div className="pl-[1.5ch]">
             {item.tracking && item.tracking !== item.guia && <p className="break-all">Trk : {item.tracking}</p>}
             <p>{[item.content, `Qté ${item.quantity}`, `${item.weight.toFixed(2)} lb`].filter(Boolean).join(" · ")}</p>
+            {item.price_usd > 0 && <p>Prix : {ticketUsd(item.price_usd)}</p>}
             {item.invoice_number && <p>Facture : {item.invoice_number}</p>}
           </div>
         </div>)}</div>

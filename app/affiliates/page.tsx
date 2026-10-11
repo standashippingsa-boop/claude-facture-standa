@@ -86,7 +86,7 @@ export default function AffiliatesPage() {
     if (!confirm(
       `Réactiver ${a.fullname} ?\n\n`
       + `➜ Même code, même lien et même mot de passe : il peut se reconnecter tout de suite.\n`
-      + `➜ Les commissions reprennent pour les factures émises à partir de maintenant (pas pour celles émises pendant la révocation).\n`
+      + `➜ Les commissions reprennent pour les factures émises à partir de maintenant.\n`
       + (expired ? `➜ Son contrat était terminé : un nouveau contrat de 3 mois commence aujourd'hui.` : `➜ Le contrat reste valide jusqu'au ${dateFr(a.contract_end)}.`)
     )) return;
     setBusy(a.id);
@@ -95,7 +95,7 @@ export default function AffiliatesPage() {
       if (!j.ok) { setNotice("Erè: " + j.reason); return; }
       setNotice(j.restarted
         ? `${a.fullname} est réactivé, avec un nouveau contrat du ${dateFr(j.contractStart)} au ${dateFr(j.contractEnd)}.`
-        : `${a.fullname} est réactivé (contrat valide jusqu'au ${dateFr(j.contractEnd)}). Il peut se reconnecter avec ses accès habituels.`);
+        : `${a.fullname} est réactivé, contrat valide jusqu'au ${dateFr(j.contractEnd)}. Il peut se reconnecter avec ses accès habituels.`);
       await load();
     } finally { setBusy(null); }
   };
@@ -130,7 +130,7 @@ export default function AffiliatesPage() {
     if (!c.id || !method) return;
     const aff = affiliateById.get(c.affiliate_id);
     const to = aff?.payout_method === method && aff.payout_phone ? ` au ${aff.payout_phone}` : "";
-    if (!confirm(`Confirmer le paiement de ${formatHtg(toPayoutHtg(Number(c.amount)))} par ${method}${to} ?\n(${usd(c.amount)} au taux de ${AFFILIATE_PAYOUT_RATE_HTG} HTG)`)) return;
+    if (!confirm(`Confirmer le paiement de ${formatHtg(toPayoutHtg(Number(c.amount)))} par ${method}${to} ?\n${usd(c.amount)} au taux de ${AFFILIATE_PAYOUT_RATE_HTG} HTG`)) return;
     setBusy(c.id);
     try {
       const j = await adminApi("affiliate_mark_commission_paid", { commission_id: c.id, payout_method: method });
@@ -155,7 +155,7 @@ export default function AffiliatesPage() {
         <HandCoins className="text-accent" />
         <h1 className="text-2xl font-bold text-navy">Programme Affiliation</h1>
       </div>
-      <p className="mt-1 text-sm text-mute">Candidatures, affiliés actifs et commissions ($10 par facture qualifiée, pendant la durée du contrat). Paiement uniquement en gourdes ({AFFILIATE_PAYOUT_RATE_HTG} HTG pour 1 USD), par MonCash ou NatCash.</p>
+      <p className="mt-1 text-sm text-mute">Candidatures, affiliés actifs et commissions. Paiement uniquement en gourdes, par MonCash ou NatCash.</p>
 
       {/* ── KPI — vue d'ensemble ─────────────────────────────────────── */}
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -167,7 +167,7 @@ export default function AffiliatesPage() {
 
       {creds && (
         <div className="mt-4 rounded-xl border border-accent/30 bg-accent-light/40 px-4 py-3.5 text-sm">
-          <p className="font-bold text-navy">Accès de l'affilié (à conserver — le mot de passe ne sera plus réaffiché) :</p>
+          <p className="font-bold text-navy">Accès de l'affilié — le mot de passe ne sera plus réaffiché :</p>
           <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
             <CopyField label="Identifiant" value={creds.username} />
             <CopyField label="Mot de passe" value={creds.password} />
@@ -340,7 +340,7 @@ export default function AffiliatesPage() {
                                 onChange={(e) => { if (e.target.value) void markPaid(c, e.target.value); }}
                                 className="rounded-lg border border-line px-2 py-1.5 text-[12px] disabled:opacity-60">
                                 <option value="" disabled>{busy === c.id ? "Enregistrement…" : "Marquer payé…"}</option>
-                                {methods.map((m) => <option key={m} value={m}>{m}{m === preferred ? " (choix de l'affilié)" : ""}</option>)}
+                                {methods.map((m) => <option key={m} value={m}>{m}{m === preferred ? " · choix de l'affilié" : ""}</option>)}
                               </select>
                               {aff && <p className="mt-1 text-[11px] text-mute">{preferred ? `${preferred} · ${aff.payout_phone}` : "Mode non choisi par l'affilié"}</p>}
                             </div>

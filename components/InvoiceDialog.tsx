@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
-import { createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, notifyEmail, saveInvoicePdfPath } from "@/lib/db";
+import { cancelInvoice, createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, notifyEmail, saveInvoicePdfPath } from "@/lib/db";
 import { computeInvoice, invoiceLineContent, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { FixedPriceMap, OrderFeeTier, SpecialArticle, TAX_THRESHOLD_LB } from "@/lib/pricing";
-import { InvoiceKind, Ville } from "@/lib/types";
+import { Invoice, InvoiceItem, InvoiceKind, Ville } from "@/lib/types";
 import { MapPin } from "lucide-react";
 import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
@@ -103,12 +103,31 @@ export default function InvoiceDialog({
   const [kind, setKind] = useState<InvoiceKind>("shipping");
   const [orderPurchase, setOrderPurchase] = useState("");
   const [orderDeposit, setOrderDeposit] = useState("");
+  /** Devise de saisie des montants Service Order : gourdes par défaut, converti en USD au taux des Paramètres. */
+  const [orderCur, setOrderCur] = useState<"HTG" | "USD">("HTG");
+  const orderToUsd = (raw: string) => {
+    const value = Number(String(raw).replace(",", "."));
+    if (!Number.isFinite(value)) return NaN;
+    if (orderCur === "USD") return value;
+    return rate > 0 ? Math.round((value / rate) * 100) / 100 : NaN;
+  };
   /** Tablo tranch frè sèvis la (Paramètres). */
   const [feeTiers, setFeeTiers] = useState<OrderFeeTier[]>([]);
 
   const [comp, setComp] = useState<InvoiceComputation | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  /**
+   * FACTURE CRÉÉE, PAS ENCORE IMPRIMÉE (V20).
+   * ══════════════════════════════════════════
+   * Entre "Confirmer la facture" et "Imprimer / Télécharger", la facture
+   * existe déjà en base (packages → "Facturé") mais aucun PDF n'a encore
+   * été généré — c'est la fenêtre où agence/admin peuvent encore l'annuler
+   * proprement, avant que le PDF ne soit envoyé au client.
+   * Tant que `pending` est non-null, on affiche l'écran de confirmation
+   * au lieu du formulaire — les champs ci-dessus ne s'appliquent plus.
+   */
+  const [pending, setPending] = useState<{ inv: Invoice; items: InvoiceItem[] } | null>(null);
   useNoticeToast(err, setErr, { tone: "error", title: "Facture non enregistrée" });
 
   // Chaje to + konfigirasyon ti koli (Paramètres)
@@ -181,13 +200,13 @@ export default function InvoiceDialog({
       discount: useDisc ? Number(discount) || 0 : 0,
       // Service Order — sou "shipping" motè a inyore twa chan sa yo nèt.
       kind,
-      orderPurchase: kind === "service_order" ? Number(orderPurchase) : undefined,
-      orderDeposit: kind === "service_order" ? Number(orderDeposit) || 0 : 0,
+      orderPurchase: kind === "service_order" ? orderToUsd(orderPurchase) : undefined,
+      orderDeposit: kind === "service_order" ? (orderToUsd(orderDeposit) || 0) : 0,
       orderFeeTiers: feeTiers
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, rate, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount, fixedKey, specialPriceKey, articles, villeId, centralCode,
-      kind, orderPurchase, orderDeposit, feeTiers]);
+      kind, orderPurchase, orderDeposit, orderCur, feeTiers]);
 
   /**
    * PWOPOZISYON TAKS — lè pwa total la rive nan sèy la, nou koche kaz la epi
@@ -203,7 +222,8 @@ export default function InvoiceDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comp?.taxThresholdReached, comp?.fixedTaxSuggested, comp?.ok, taxeTouched]);
 
-  const generer = async () => {
+  /** ÉTAPE 1 — crée la facture (packages → "Facturé"). Pas encore de PDF. */
+  const creerFacture = async () => {
     if (!comp) return;
     if (specialWithoutPrice.length) {
       setErr(`Prix manuel requis pour ${specialWithoutPrice.length} colis spécial${specialWithoutPrice.length > 1 ? "aux" : ""}.`);
@@ -220,6 +240,24 @@ export default function InvoiceDialog({
         weight: l.weight, content: invoiceLineContent(l), price: l.amount, tax: 0, total: l.amount,
         is_small: l.isSmall, per_lb: l.perLb, fixed_label: l.isFixed ? l.fixedLabel : ""
       }));
+      setPending({ inv, items });
+    } catch (e: unknown) {
+      setErr((e as Error)?.message ?? "Erreur");
+    } finally { setBusy(false); }
+  };
+
+  /**
+   * ÉTAPE 2 — imprime/télécharge le PDF et l'envoie au client.
+   * Une facture n'est PAS une remise : le client demande le prix du shipping,
+   * pas forcément ses colis. Les colis restent « Facturé » ; ils passent
+   * « Livré » seulement quand quelqu'un les remet (agent de retrait, ou
+   * changement de statut manuel par l'administration).
+   */
+  const imprimer = async () => {
+    if (!pending) return;
+    setBusy(true); setErr(null);
+    try {
+      const { inv, items } = pending;
       const pdf = await generateUploadDownload(inv, items, footer, { download: true });
       if (pdf.path) { await saveInvoicePdfPath(inv.id, pdf.path); inv.pdf_path = pdf.path; inv.has_pdf = true; }
       const how = await sendInvoicePdfWhatsApp(inv, pdf.blob, pdf.filename);
@@ -234,7 +272,7 @@ export default function InvoiceDialog({
         packages: items.map((it) => ({ tracking_number: it.tracking_number, tracking_manual: it.tracking_manual }))
       }).catch(() => undefined);
       onDone(
-        `Facture ${inv.invoice_number} créée (${items.length} colis → Facturé, taux ${rate.toFixed(2)}). ` +
+        `Facture ${inv.invoice_number} créée — ${items.length} colis → Facturé, taux ${rate.toFixed(2)}. ` +
         (how === "file" ? "PDF pataje sou WhatsApp."
           : how === "manual" ? "WhatsApp ouvri — telechaje PDF la epi atache li." : "Fakti a nan Invoices.")
       );
@@ -244,22 +282,60 @@ export default function InvoiceDialog({
     } finally { setBusy(false); }
   };
 
+  /** Annule une facture PAS ENCORE imprimée — colis remis "Disponible". */
+  const annulerFacture = async () => {
+    if (!pending) return;
+    if (!confirm(`Annuler la facture ${pending.inv.invoice_number} ?\n\nLes colis redeviendront « Disponible » et pourront être re-facturés.`)) return;
+    setBusy(true); setErr(null);
+    try {
+      const r = await cancelInvoice(pending.inv.id);
+      if (!r.ok) { setErr(r.reason ?? "Annulation impossible."); return; }
+      onDone(`Facture ${pending.inv.invoice_number} annulée — ${r.restored} colis remis en « Disponible ».`);
+      onClose();
+    } catch (e: unknown) {
+      setErr((e as Error)?.message ?? "Erreur");
+    } finally { setBusy(false); }
+  };
+
+  /** Ferme la fenêtre — demande confirmation si une facture est en attente d'impression. */
+  const requestClose = () => {
+    if (busy) return;
+    if (pending && !confirm(
+      `Fermer sans imprimer ?\n\nLa facture ${pending.inv.invoice_number} reste enregistrée ` +
+      `dans Invoices sans PDF. ` +
+      `Vous pourrez l'imprimer ou l'annuler plus tard depuis Invoices.`
+    )) return;
+    onClose();
+  };
+
   const clientName = [client.fullname, client.surname].filter(Boolean).join(" ") || client.customer_code;
   const totalWeight = comp?.totalWeight ?? 0;
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-      onClick={() => !busy && onClose()}>
+      onClick={requestClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-extrabold text-navy">Générer Facture — Options</h2>
-          <button className="text-slate-400 hover:text-slate-600" onClick={onClose} disabled={busy}><X size={18} /></button>
+          <h2 className="text-lg font-extrabold text-navy">{pending ? "Facture créée — Livraison" : "Générer Facture — Options"}</h2>
+          <button className="text-slate-400 hover:text-slate-600" onClick={requestClose} disabled={busy}><X size={18} /></button>
         </div>
         <p className="text-sm text-slate-600 mb-3">
           <b className="text-navy">{client.customer_code}</b> — {clientName} · {pkgs.length} colis
         </p>
 
+        {pending && (
+          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900">
+            <p><b>Facture {pending.inv.invoice_number} créée</b> — {pending.items.length} colis, {usd(pending.inv.total_usd)}.</p>
+            <p className="mt-1 text-[12px] leading-relaxed text-emerald-800">
+              Imprimez ou téléchargez-la pour l&apos;envoyer au client. Les colis restent
+              <b> Facturé</b> : ils passeront « Livré » seulement quand ils seront remis.
+              Vous pouvez encore annuler cette facture tant que le PDF n&apos;est pas généré.
+            </p>
+          </div>
+        )}
+
+        {!pending && (<>
         {/* TYPE DE FACTURE — Shipping seulement ou Service Order */}
         <div className="border border-line rounded-lg p-3 mb-3">
           <p className="text-xs font-bold text-navy uppercase mb-2 flex items-center gap-1.5">
@@ -279,10 +355,19 @@ export default function InvoiceDialog({
 
           {kind === "service_order" && (
             <div className="mt-2 border-t border-line pt-2.5 space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="flex-1 font-semibold text-navy">Devise de saisie</span>
+                <div className="flex gap-1">{(["HTG", "USD"] as const).map((cur) => (
+                  <button key={cur} type="button" aria-pressed={orderCur === cur} onClick={() => setOrderCur(cur)}
+                    className={`rounded-lg px-3 py-1 text-xs font-bold ${orderCur === cur ? "bg-navy text-white" : "bg-slate-100 text-slate-700"}`}>
+                    {cur === "HTG" ? "Gourdes" : "Dollars"}
+                  </button>
+                ))}</div>
+              </div>
               <label className="flex items-center gap-2 text-sm">
                 <span className="flex-1">Prix d&apos;achat de la commande
                   <span className="block text-[10px] text-slate-400 leading-tight">
-                    Total de toutes les commandes de cette facture
+                    Total de toutes les commandes de cette facture · {orderCur === "HTG" ? "HTG" : "USD"}
                   </span>
                 </span>
                 <input type="number" step="0.01" min="0" placeholder="0.00" autoFocus
@@ -299,6 +384,13 @@ export default function InvoiceDialog({
                   className="input !w-32 !py-1 text-right shrink-0" value={orderDeposit}
                   onChange={(e) => setOrderDeposit(e.target.value)} />
               </label>
+              {orderCur === "HTG" && (
+                <p className="text-[11px] text-slate-500 bg-mist rounded-lg px-2.5 py-1.5">
+                  Taux : 1 USD = <b>{rate.toFixed(2)} HTG</b>
+                  {comp?.ok && comp.orderPurchase > 0 && <> · achat = <b className="font-mono">{usd(comp.orderPurchase)}</b></>}
+                  {comp?.ok && comp.orderDeposit > 0 && <> · acompte = <b className="font-mono">{usd(comp.orderDeposit)}</b></>}
+                </p>
+              )}
               {comp?.ok && comp.orderServiceFee > 0 ? (
                 <p className="text-[11px] text-brand-dark bg-brand/5 border border-brand/30 rounded-lg px-2.5 py-1.5">
                   Frais de service calculé automatiquement :{" "}
@@ -308,7 +400,7 @@ export default function InvoiceDialog({
               ) : (
                 <p className="text-[11px] text-slate-500 bg-mist rounded-lg px-2.5 py-1.5">
                   Les frais de service sont calculés automatiquement d&apos;après le tableau
-                  des tranches (Paramètres). Ils ne se saisissent pas à la main.
+                  des tranches. Ils ne se saisissent pas à la main.
                 </p>
               )}
             </div>
@@ -423,7 +515,7 @@ export default function InvoiceDialog({
                       if (e.target.value) n[p.id] = e.target.value; else delete n[p.id];
                       return n;
                     })}>
-                    <option value="">Au poids (normal)</option>
+                    <option value="">Au poids</option>
                     {articles.map((a) => (
                       <option key={a.id} value={a.id}>{a.label} — {usd(a.price)}</option>
                     ))}
@@ -466,7 +558,7 @@ export default function InvoiceDialog({
 
         {/* PRIX/LB — lecture seule (Paramètres) */}
         <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-2">
-          <span className="text-xs text-slate-600">Prix/LB utilisé <span className="text-slate-400">(Paramètres — lecture seule)</span></span>
+          <span className="text-xs text-slate-600">Prix/LB utilisé</span>
           <b className="text-navy font-mono">{comp && comp.ok ? usd(comp.perLb) : "—"}
             {comp && comp.ok && <span className="text-slate-400 font-normal"> / {comp.ville}</span>}</b>
         </div>
@@ -488,7 +580,7 @@ export default function InvoiceDialog({
               <b>{usd(comp.lines.filter((l) => l.isFixed).reduce((s, l) => s + l.amount, 0))}</b></div>
           )}
           {comp?.ok && comp.orderPurchase > 0 && (
-            <div className="flex justify-between"><span className="text-slate-500">Prix d&apos;achat commande</span><b>{usd(comp.orderPurchase)}</b></div>
+            <div className="flex justify-between"><span className="text-slate-500">Prix d&apos;achat commande</span><b>{usd(comp.orderPurchase)} <span className="text-[10px] font-normal text-slate-400">{htg(comp.orderPurchase * rate)}</span></b></div>
           )}
           {comp?.ok && comp.orderServiceFee > 0 && (
             <div className="flex justify-between"><span className="text-slate-500">Frais de service</span><b>{usd(comp.orderServiceFee)}</b></div>
@@ -500,7 +592,7 @@ export default function InvoiceDialog({
           <div className="flex justify-between border-t border-line pt-1.5 text-navy"><span className="font-bold">TOTAL USD</span><b>{usd(comp?.totalUsd ?? 0)}</b></div>
           {comp?.ok && comp.orderDeposit > 0 && (
             <>
-              <div className="flex justify-between"><span className="text-slate-500">Acompte versé</span><b>−{usd(comp.orderDeposit)}</b></div>
+              <div className="flex justify-between"><span className="text-slate-500">Acompte versé</span><b>−{usd(comp.orderDeposit)} <span className="text-[10px] font-normal text-slate-400">{htg(comp.orderDeposit * rate)}</span></b></div>
               <div className="flex justify-between border-t border-line pt-1.5 text-navy"><span className="font-bold">BALANCE À PAYER</span><b>{usd(comp.balanceDue)}</b></div>
             </>
           )}
@@ -509,13 +601,23 @@ export default function InvoiceDialog({
           </div>
           <p className="text-[11px] text-slate-400 text-right">Taux: 1 USD = {rate.toFixed(2)} HTG · Prix/LB non modifié</p>
         </div>
+        </>)}
 
         <div className="mt-5 flex gap-3">
-          <BusyButton className="btn flex-1" onClick={generer} busy={busy} disabled={!comp || !comp.ok}
-            busyLabel="Génération...">
-            Confirmer &amp; Générer PDF
-          </BusyButton>
-          <button className="btn btn-ghost border border-line" onClick={onClose} disabled={busy}>Annuler</button>
+          {pending ? (
+            <button className="btn flex-1" onClick={imprimer} disabled={busy}>
+              {busy ? "..." : "Imprimer / Télécharger"}
+            </button>
+          ) : (
+            <button className="btn flex-1" onClick={creerFacture} disabled={busy || !comp || !comp.ok}>
+              {busy ? "Création..." : "Confirmer la facture"}
+            </button>
+          )}
+          <button
+            className={pending ? "btn border border-red-200 text-red-600 hover:bg-red-50" : "btn btn-ghost border border-line"}
+            onClick={pending ? annulerFacture : requestClose} disabled={busy}>
+            {pending ? "Annuler cette facture" : "Annuler"}
+          </button>
         </div>
       </div>
     </div>

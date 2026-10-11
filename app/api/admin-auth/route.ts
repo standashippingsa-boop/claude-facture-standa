@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   try {
     const config = getSupabaseAdminConfig();
     if (!config) {
-      return NextResponse.json({ ok: false, reason: "SUPABASE_SECRET_KEY pa konfigire sou sèvè a (Settings > Environment Variables) + Redeploy." });
+      return NextResponse.json({ ok: false, reason: "SUPABASE_SECRET_KEY pa konfigire sou sèvè a. Ajoute l nan Vercel epi Redeploy." });
     }
     const svc = createClient(config.url, config.key, { auth: { persistSession: false, autoRefreshToken: false } });
 
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
       // SEKIRITE: san sa a, nenpòt moun ki jwenn deplwaman an anvan mèt la —
       // oswa nenpòt lè tab `staff` la vin vid — te ka kreye pwòp kont admin li.
       if (!SETUP_SECRET) {
-        return NextResponse.json({ ok: false, reason: "SETUP_SECRET pa konfigire nan Vercel (Settings > Environment Variables). Ajoute l epi Redeploy pou kreye premye admin nan." });
+        return NextResponse.json({ ok: false, reason: "SETUP_SECRET pa konfigire nan Vercel. Ajoute l epi Redeploy pou kreye premye admin nan." });
       }
       if (!secretOk(String(body.setup_secret ?? ""))) {
         return NextResponse.json({ ok: false, reason: "Clé d'installation invalide." }, { status: 403 });
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
       if ((count ?? 0) > 0) return NextResponse.json({ ok: false, reason: "Sistèm nan deja gen yon administratè." });
       const username = String(body.username ?? "").trim();
       const password = String(body.password ?? "");
-      if (!username || password.length < 6) return NextResponse.json({ ok: false, reason: "Username + modpas (6+ karaktè) obligatwa." });
+      if (!username || password.length < 6) return NextResponse.json({ ok: false, reason: "Username + modpas 6 karaktè minimòm obligatwa." });
       const { data: u, error } = await svc.auth.admin.createUser({
         email: staffEmail(username), password, email_confirm: true
       });
@@ -133,7 +133,7 @@ export async function POST(req: Request) {
       // la dirèkteman, san pase pa auditCaller() ki mande yon sesyon staff.
       try {
         await svc.from("journal").insert({
-          user_name: `${username} (admin)`, action: "Premier administrateur créé (bootstrap)",
+          user_name: `${username} · admin`, action: "Premier administrateur créé",
           details: `Compte "${username}" créé via SETUP_SECRET.`, package_ref: "", customer_code: "",
           ip_address: clientIp(req),
           user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400)
@@ -154,7 +154,7 @@ export async function POST(req: Request) {
         : body.role === "agent_retrait" ? "agent_retrait"
         : body.role === "agent_reception" ? "agent_reception" : "employe";
       const pickupVilleId = String(body.pickup_ville_id ?? "").trim();
-      if (!username || password.length < 6) return NextResponse.json({ ok: false, reason: "Username + modpas (6+ karaktè) obligatwa." });
+      if (!username || password.length < 6) return NextResponse.json({ ok: false, reason: "Username + modpas 6 karaktè minimòm obligatwa." });
       if (newRole === "agent_retrait" && !pickupVilleId) {
         return NextResponse.json({ ok: false, reason: "Chwazi zòn/pwen rekiperasyon ajan an." });
       }
@@ -182,7 +182,7 @@ export async function POST(req: Request) {
       const staffId = String(body.staff_id ?? "");
       const password = String(body.password ?? "");
       if (!staffId || password.length < 6) {
-        return NextResponse.json({ ok: false, reason: "Mot de passe (6+ karaktè) obligatwa." });
+        return NextResponse.json({ ok: false, reason: "Mot de passe 6 karaktè minimòm obligatwa." });
       }
       const { data: member } = await svc.from("staff").select("auth_user_id, username").eq("id", staffId).maybeSingle();
       if (!member?.auth_user_id) return NextResponse.json({ ok: false, reason: "Compte employé introuvable." });

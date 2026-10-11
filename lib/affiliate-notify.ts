@@ -40,7 +40,7 @@ export async function notifyAdminsOfAffiliateChange(
       }
     }
     await svc.from("journal").insert({
-      user_name: `${aff.fullname} (affilié ${aff.code})`, action: event.title,
+      user_name: `${aff.fullname} · affilié ${aff.code}`, action: event.title,
       details: message.slice(0, 2000), package_ref: "", customer_code: ""
     });
   } catch (error) {

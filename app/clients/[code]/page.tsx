@@ -155,10 +155,10 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       `Tracking ID : ${p.tracking_number}\n` +
       `Client : ${p.customer_code} — ${p.customer_name}\n` +
       `Statut : ${p.status}\n\n` +
-      `➜ Le colis sera retiré de TOUT le système (Packages, Historique, Conduce, dossier client).\n` +
+      `➜ Le colis sera retiré de TOUT le système.\n` +
       `➜ Sa ligne de facture sera retirée ; la facture sera recalculée ou supprimée si vide.\n` +
       `➜ CETTE ACTION EST IRRÉVERSIBLE.\n\n` +
-      `Vous pourrez le ré-importer depuis MCPACK (Extension / Import Conduce).`
+      `Vous pourrez le ré-importer depuis MCPACK.`
     )) return;
     if (!confirm(`Dernière confirmation — supprimer ${p.tracking_number} définitivement ?`)) return;
     setBusy(true); setBusyId(p.id);
@@ -182,7 +182,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       if (!confirm(
         `${factures.length} colis déjà facturé(s) vont être retirés de leur facture.\n\n` +
         `➜ Ils redeviendront « Disponible » et pourront être re-facturés.\n` +
-        `➜ La facture sera recalculée (ou supprimée si elle devient vide).\n` +
+        `➜ La facture sera recalculée ou supprimée si elle devient vide.\n` +
         `➜ Opération enregistrée dans l'audit.`
       )) return;
       setBusy(true);
@@ -201,16 +201,21 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       return;
     }
     const targets = selected.filter((p) => p.status !== "Facturé" || bulkStatus === "Livré");
-    if (!targets.length) { setNotice("Chwazi koli (Facturé yo ka sèlman pase Livré oswa Disponible)."); return; }
+    if (!targets.length) { setNotice("Chwazi koli."); return; }
     setBusy(true);
     try {
       await setPackagesStatus(targets.map((p) => p.id), bulkStatus);
       if (bulkStatus === "Livré") {
-        // Remise au client : son ticket de remise s'ouvre, prêt à imprimer.
-        await logAction("Remise colis", `${targets.length} colis remis au client (administration)`, targets[0]?.tracking_number ?? "", decoded);
+        await logAction("Remise colis", `${targets.length} colis remis au client par l'administration`, targets[0]?.tracking_number ?? "", decoded);
         sel.setMany(targets.map(snap), false);
-        // Le ticket de remise s'ouvre ici même : aperçu + bouton Imprimer.
-        setTicketPackageId(targets[0].id);
+        // Pour l'administration le ticket n'est pas obligatoire (il l'est pour les
+        // agents de retrait) : on demande. Il reste imprimable plus tard depuis
+        // le bouton « Ticket » de chaque colis livré.
+        setNotice(`Statut "Livré" aplike sou ${targets.length} colis.`);
+        await load();
+        if (confirm(`Remise enregistrée (${targets.length} colis).\n\nSortir le ticket de remise maintenant ?`)) {
+          setTicketPackageId(targets[0].id);
+        }
         return;
       }
       let mailInfo = "";
@@ -235,7 +240,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
               `${bulkStatus} — ${client.customer_code}: ${j.error ?? j.reason ?? "echwe"}`,
               "", client.customer_code);
           }
-        } catch { mailInfo = " ⚠️ Email pa pati (rezo)."; }
+        } catch { mailInfo = " ⚠️ Email pa pati."; }
       }
       // GAD: si yon filtè Statut aktif ap kache koli nou fèk chanje yo,
       // chanje filtè a pou yo rete VIZIB — yo pa dwe sanble disparèt.
@@ -288,7 +293,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           {[["Colis total", pkgs.length], ["Livrés", livres.length],
             ["Poids total (lb)", totalLbs.toFixed(2)],
             ["Total facturé", usd(totalFacture)],
-            ["Disponible (à facturer)", usd(nonFacture)],
+            ["Disponible à facturer", usd(nonFacture)],
             ["Factures", invs.length]].map(([k, v]) => (
             <div key={String(k)} className="bg-mist rounded-lg py-2 px-1">
               <p className="text-[10px] text-slate-500 uppercase">{k}</p>
@@ -341,12 +346,12 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       {/* ===== Koli yo ===== */}
       <section className="card overflow-x-auto">
         <h2 className="text-xs font-bold text-navy uppercase tracking-wide p-3 pb-1">
-          Colis ({visible.length} aktif{livres.length ? ` + ${livres.length} livré nan Historique` : ""})
+          Colis · {visible.length} aktif{livres.length ? ` · ${livres.length} livré nan Historique` : ""}
         </h2>
         <table className="w-full text-xs">
           <thead><tr>
             <th className="thc"><input type="checkbox" checked={allChecked} onChange={(e) => toggleAll(e.target.checked)} /></th>
-            {["Tracking ID (Guía)", "Tracking Number", "Date", "Lb", "Content", "Price $", "Total $", "Status", ""]
+            {["Tracking ID", "Tracking Number", "Date", "Lb", "Content", "Price $", "Total $", "Status", ""]
               .map((h) => <th key={h} className="thc">{h}</th>)}
           </tr></thead>
           <tbody>
@@ -380,7 +385,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
                   )}
                   {role === "admin" && (
                     <button className="text-slate-300 hover:text-red-600 disabled:opacity-50"
-                      title="Supprimer définitivement (données cassées — à ré-importer)"
+                      title="Supprimer définitivement"
                       disabled={busyId === p.id}
                       onClick={() => supprimerDefinitif(p)}>{busyId === p.id ? <Spinner size={14} /> : <Trash2 size={14} />}</button>
                   )}
@@ -425,7 +430,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
             <div className="border border-line rounded-lg overflow-x-auto max-h-72 overflow-y-auto">
               <table className="w-full text-xs">
                 <thead className="sticky top-0"><tr>
-                  {["Tracking ID (Guía)", "Tracking Number", "Lb", "Contenu", "Date", "Heure", "Estatus"]
+                  {["Tracking ID", "Tracking Number", "Lb", "Contenu", "Date", "Heure", "Estatus"]
                     .map((h) => <th key={h} className="thc">{h}</th>)}
                 </tr></thead>
                 <tbody>
@@ -450,7 +455,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
               <button className="btn btn-ghost" onClick={() => setPdfRows(null)}>Annuler</button>
             </div>
             <p className="text-[11px] text-slate-400">
-              Guía (WR...) = Tracking ID. Lòt kòd yo = Tracking Number. Anti-doublon aktif.
+              Guía = Tracking ID. Lòt kòd yo = Tracking Number. Anti-doublon aktif.
             </p>
           </div>
         </div>

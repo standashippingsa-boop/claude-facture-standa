@@ -11,7 +11,7 @@ import { z } from "zod";
 export const addressSchema = z.string()
   .trim()
   .min(3, "Adresse trop courte.")
-  .max(200, "Adresse trop longue (200 caractères max).");
+  .max(200, "Adresse trop longue : 200 caractères maximum.");
 
 // Telefòn/WhatsApp: chif, espas, +, (), - sèlman — 7 a 30 karaktè.
 export const phoneSchema = z.string()
@@ -25,7 +25,7 @@ export const villeIdSchema = z.string()
 export const weightSchema = z.coerce.number()
   .finite("Poids invalide.")
   .nonnegative("Le poids ne peut pas être négatif.")
-  .max(500, "Poids invalide (max 500 kg).");
+  .max(500, "Poids invalide : 500 kg maximum.");
 
 /** Detay livrezon/profil shipping kliyan an — itilize nan enskripsyon. */
 export const clientShippingSchema = z.object({
@@ -37,7 +37,7 @@ export const clientShippingSchema = z.object({
 
 /** Yon koli k ap antre (ex: extension Chrome MCPACK, ingest agence). */
 export const incomingPackageSchema = z.object({
-  guia: z.string().trim().regex(/^WR\d{6,}$/i, "Guía invalide (doit commencer par WR)."),
+  guia: z.string().trim().regex(/^WR\d{6,}$/i, "Guía invalide."),
   tracking_number: z.string().trim().max(64).optional(),
   customer_code: z.string().trim().max(30).optional(),
   customer_name: z.string().trim().max(120).optional(),
@@ -49,7 +49,7 @@ export const incomingPackageSchema = z.object({
 
 /** Anvlòp batch pou /api/ingest — limit gwosè batch la anplis chak eleman. */
 export const ingestBatchSchema = z.object({
-  packages: z.array(z.unknown()).min(1, "Aucun package reçu.").max(500, "Trop de colis en un seul envoi (max 500)."),
+  packages: z.array(z.unknown()).min(1, "Aucun package reçu.").max(500, "Trop de colis en un seul envoi : 500 maximum."),
 });
 
 /** Aplike sekma a sou yon sèl eleman, san fè tout batch la echwe pou 1 move liy. */

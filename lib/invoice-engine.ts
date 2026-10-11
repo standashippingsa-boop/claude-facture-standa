@@ -178,9 +178,9 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   const taxe = round2(Math.max(0, Number(taxeFixe) || 0));
   const dga = round2(Math.max(0, Number(fraisDga) || 0));
   const disc = round2(Math.max(0, Number(discount) || 0));
-  if (Number(taxeFixe) < 0) errors.push("Taxe Fixe invalide (négative).");
-  if (Number(fraisDga) < 0) errors.push("Frais DGA invalide (négatif).");
-  if (Number(discount) < 0) errors.push("Discount invalide (négatif).");
+  if (Number(taxeFixe) < 0) errors.push("Taxe Fixe négative invalide.");
+  if (Number(fraisDga) < 0) errors.push("Frais DGA négatifs invalides.");
+  if (Number(discount) < 0) errors.push("Discount négatif invalide.");
 
   // ---- SERVICE ORDER (V15) — li + valide ----
   const kind: InvoiceKind = input.kind === "service_order" ? "service_order" : "shipping";
@@ -193,19 +193,19 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   const feeLabel = isOrder ? orderFeeLabel(purchase, input.orderFeeTiers) : "";
   if (isOrder) {
     if (!Number.isFinite(rawPurchase) || rawPurchase <= 0) {
-      errors.push("Prix d'achat de la commande requis (doit être supérieur à 0).");
+      errors.push("Prix d'achat de la commande requis.");
     }
     if (Number.isFinite(rawDeposit) && rawDeposit < 0) {
-      errors.push("Acompte invalide (négatif).");
+      errors.push("Acompte négatif invalide.");
     }
     if (purchase > 0 && serviceFee <= 0) {
       errors.push("Frais de service introuvables — vérifiez le tableau des tranches dans Paramètres.");
     }
   }
-  if (!Number.isFinite(rate) || rate <= 0) errors.push("Taux USD→HTG invalide (Paramètres).");
+  if (!Number.isFinite(rate) || rate <= 0) errors.push("Taux USD→HTG invalide.");
   if (mode === "small_control") {
     if (!(smallCfg.min >= 0) || !(smallCfg.max > 0) || !(smallCfg.price > 0)) {
-      errors.push("Paramètres des petits colis invalides (min/max/prix).");
+      errors.push("Paramètres des petits colis invalides.");
     }
   }
 

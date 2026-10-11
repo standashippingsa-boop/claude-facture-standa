@@ -132,7 +132,7 @@ export default function ConduceSummaryPanel({ conduceId, refreshKey }: {
           </p>
           <p className="text-[11px] text-mute mt-1 leading-relaxed">
             {s.poids.toFixed(1)} lb × {usd(PROFIT_PER_LB)}/lb ·
-            coût MCPACK estimé {usd(coutMcpack)} ({usd(MCPACK_COST_PER_LB)}/lb).
+            coût MCPACK estimé {usd(coutMcpack)} · {usd(MCPACK_COST_PER_LB)}/lb.
             <br />Estimation de pilotage — ce n&apos;est pas un chiffre comptable.
           </p>
         </div>

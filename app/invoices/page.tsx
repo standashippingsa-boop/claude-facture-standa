@@ -99,12 +99,20 @@ export default function InvoicesPage() {
   /** ANNULER une facture (koreksyon erè) — koli yo retounen "Disponible" pou refakturasyon. */
   const annuler = async (inv: Invoice) => {
     if (!confirm(
-      `Annuler la facture ${inv.invoice_number} ?\n\n` +
-      `Client : ${inv.customer_name}\n` +
-      `Montant : ${usd(inv.total_usd)}\n` +
-      `Colis : ${inv.package_count}\n\n` +
-      `➜ Les colis redeviendront « Disponible » et pourront être re-facturés.\n` +
-      `➜ La facture sera supprimée définitivement.\n` +
+      `Annuler la facture ${inv.invoice_number} ?
+
+` +
+      `Client : ${inv.customer_name}
+` +
+      `Montant : ${usd(inv.total_usd)}
+` +
+      `Colis : ${inv.package_count}
+
+` +
+      `➜ Les colis redeviendront « Disponible » et pourront être re-facturés.
+` +
+      `➜ La facture sera supprimée définitivement.
+` +
       `➜ L'opération est enregistrée dans l'audit.`
     )) return;
     setBusy(true);
@@ -253,12 +261,12 @@ export default function InvoicesPage() {
                       onClick={() => startPayment(f)}><Banknote size={16} /></button>
                   )}
                   {role === "admin" && (
-                    <button title="Annuler la facture (colis redeviennent Disponible)"
+                    <button title="Annuler la facture"
                       className="text-slate-400 hover:text-red-600 ml-3 disabled:opacity-50" disabled={busy}
                       onClick={() => annuler(f)}>{busy ? <Spinner size={14} /> : <XCircle size={16} />}</button>
                   )}
                   {role === "admin" && paymentStatus === "Payé" && (unsettledByInvoice.get(f.id)?.length ?? 0) > 0 && (
-                    <button title="Clôturer la facture (sort de la caisse à remettre de l'agent)"
+                    <button title="Clôturer la facture"
                       className="text-indigo-600 hover:text-indigo-800 ml-3 disabled:opacity-50" disabled={busy}
                       onClick={() => cloturer(f)}>{busy ? <Spinner size={14} /> : <Scale size={16} />}</button>
                   )}
@@ -303,7 +311,7 @@ export default function InvoicesPage() {
                   </select>
                 </label>
                 <label className="block text-xs font-bold uppercase tracking-wide text-mute">
-                  Référence (optionnel)
+                  Référence
                   <input type="text" className="input mt-1" value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} disabled={paymentBusy} placeholder="No transaction, chèque…" />
                 </label>
               </div>

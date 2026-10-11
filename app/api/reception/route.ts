@@ -124,12 +124,12 @@ export async function POST(req: Request) {
 
     const now = new Date().toISOString();
     const { data: created, error } = await db.from("conduces").insert({
-      conduce_number: conduceNumber, office, imported_by: `${agentName(agent)} (agent_reception)`, imported_at: now
+      conduce_number: conduceNumber, office, imported_by: `${agentName(agent)} · agent_reception`, imported_at: now
     }).select("id, conduce_number").single();
     if (error) return NextResponse.json({ ok: false, reason: "Création impossible." }, { status: 500 });
 
     await db.from("journal").insert({
-      user_name: `${agentName(agent)} (agent_reception)`, action: "Création Conduce",
+      user_name: `${agentName(agent)} · agent_reception`, action: "Création Conduce",
       details: `Conduce ${conduceNumber} créée depuis l'app Réception${office ? ` · ${office}` : ""}`,
       package_ref: "", customer_code: ""
     });

@@ -70,7 +70,7 @@ export async function POST(req: Request) {
     const passwordOk = !!aff && (verifyPassword(password, aff.password_hash as string)
       || (password !== password.toUpperCase() && verifyPassword(password.toUpperCase(), aff.password_hash as string)));
     if (!passwordOk) {
-      return NextResponse.json({ ok: false, reason: "Identifiant ou mot de passe incorrect. L’identifiant est votre code affilié (ex. : ABCDEF1234)." });
+      return NextResponse.json({ ok: false, reason: "Identifiant ou mot de passe incorrect. L’identifiant est votre code affilié." });
     }
     if (aff.status !== "active") {
       // Mesaj egzak selon ka a, pou afilye a konnen kisa pou l fè (pa jis "pa aktif").
@@ -145,9 +145,9 @@ export async function POST(req: Request) {
     if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
     const ext = resolveSignedContractExt(String(body.content_type ?? ""), String(body.filename ?? ""));
     const size = Number(body.size ?? 0);
-    if (!ext) return NextResponse.json({ ok: false, reason: "Format non accepté. Envoyez un PDF (ou une photo JPG/PNG)." }, { status: 400 });
+    if (!ext) return NextResponse.json({ ok: false, reason: "Format non accepté. Envoyez un PDF, JPG ou PNG." }, { status: 400 });
     if (!(size > 0) || size > SIGNED_CONTRACT_MAX_BYTES) {
-      return NextResponse.json({ ok: false, reason: "Fichier trop volumineux (15 Mo maximum)." }, { status: 400 });
+      return NextResponse.json({ ok: false, reason: "Fichier trop volumineux : 15 Mo maximum." }, { status: 400 });
     }
     const path = `${aff.id}/${Date.now()}-${randomBytes(8).toString("hex")}.${ext}`;
     const { data, error } = await svc.storage.from(CONTRACT_BUCKET).createSignedUploadUrl(path);

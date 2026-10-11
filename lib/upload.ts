@@ -16,7 +16,7 @@ const RULES: Record<UploadKind, Rule> = {
   image: {
     mimes: ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"],
     exts: ["jpg", "jpeg", "png", "webp", "heic", "heif"],
-    maxMb: 12, label: "une image (JPG, PNG, WEBP, HEIC)",
+    maxMb: 12, label: "une image JPG, PNG, WEBP ou HEIC",
   },
   pdf: {
     mimes: ["application/pdf"], exts: ["pdf"],
@@ -33,7 +33,7 @@ const RULES: Record<UploadKind, Rule> = {
       "application/vnd.ms-excel", "application/octet-stream", "",
     ],
     exts: ["xlsx", "xls"],
-    maxMb: 20, label: "un fichier Excel (XLSX, XLS)",
+    maxMb: 20, label: "un fichier Excel XLSX ou XLS",
   },
 };
 
@@ -63,7 +63,7 @@ export function validateUpload(file: File, kind: UploadKind): UploadCheck {
     return { ok: false, reason: "Le fichier est vide.", filename };
   }
   if (file.size > r.maxMb * 1024 * 1024) {
-    return { ok: false, reason: `Fichier trop volumineux (max ${r.maxMb} Mo).`, filename };
+    return { ok: false, reason: `Fichier trop volumineux : ${r.maxMb} Mo maximum.`, filename };
   }
 
   const ext = (filename.split(".").pop() ?? "").toLowerCase();

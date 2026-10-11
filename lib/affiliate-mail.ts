@@ -67,10 +67,10 @@ ${label("1. Lien d'inscription")}
 <p style="margin:2px 0 0;font-size:12px;line-height:1.5;color:#4B5563">Il ouvre directement la page où votre contact crée son compte client. À envoyer quand la personne est prête à s'inscrire.</p>
 ${copyBox(a.referralLink, a.referralLink)}
 <div style="height:14px;line-height:14px">&nbsp;</div>
-${label("2. Lien du site (informations)")}
-<p style="margin:2px 0 0;font-size:12px;line-height:1.5;color:#4B5563">Pour une personne qui veut d'abord mieux connaître le service : le site explique tout (adresse à Miami, agences, suivi des colis). Si elle crée son compte ensuite depuis le site, sur le même téléphone et dans les 30 jours, elle vous est quand même rattachée.</p>
+${label("2. Lien du site")}
+<p style="margin:2px 0 0;font-size:12px;line-height:1.5;color:#4B5563">Pour une personne qui veut d'abord mieux connaître le service : le site explique tout. Si elle crée son compte ensuite depuis le site, sur le même téléphone et dans les 30 jours, elle vous est quand même rattachée.</p>
 ${copyBox(websiteLink, websiteLink)}
-<p style="margin:8px 0 0;font-size:11px;line-height:1.5;color:#6B7280">Pour copier un lien : appuyez longuement dessus puis « Copier l'adresse du lien » (téléphone), ou clic droit puis « Copier l'adresse du lien » (ordinateur).</p>
+<p style="margin:8px 0 0;font-size:11px;line-height:1.5;color:#6B7280">Pour copier un lien : appuyez longuement dessus puis « Copier l'adresse du lien » sur téléphone, ou clic droit puis « Copier l'adresse du lien » sur ordinateur.</p>
 <p style="margin:8px 0 0;padding:8px 10px;background:#FFF7ED;border-radius:6px;font-size:12px;line-height:1.5;color:#9A3412"><strong>Important :</strong> partagez toujours l'un de ces deux liens. Une personne qui tape elle-même l'adresse du site, sans votre lien, ne peut pas vous être rattachée.</p></td></tr>
 <tr><td style="padding:14px 32px 0">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
@@ -83,12 +83,12 @@ ${copyBox(websiteLink, websiteLink)}
 ${label("Identifiant")}${copyBox(a.username)}
 <div style="height:10px;line-height:10px">&nbsp;</div>
 ${label("Mot de passe")}${copyBox(a.password)}
-<p style="margin:6px 0 0;font-size:11px;line-height:1.5;color:#6B7280">Pour copier : appuyez deux fois (ou longuement) sur le texte puis « Copier » (téléphone), ou double-cliquez dessus (ordinateur). Ne partagez jamais votre mot de passe.</p>
+<p style="margin:6px 0 0;font-size:11px;line-height:1.5;color:#6B7280">Pour copier : appuyez deux fois ou longuement sur le texte puis « Copier » sur téléphone, ou double-cliquez dessus sur ordinateur. Ne partagez jamais votre mot de passe.</p>
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:16px"><tr><td bgcolor="#E8650A" style="border-radius:8px">
 <a href="${esc(LOGIN_URL)}" style="display:inline-block;padding:13px 22px;font-size:14px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:8px">Me connecter à mon Espace Affilié</a>
 </td></tr></table>
 <p style="margin:8px 0 0;font-size:12px;color:#9CA3AF">Dans votre Espace Affilié : bouton « Copier » pour votre lien, suivi de vos clients et de vos commissions.</p></td></tr>
-<tr><td style="padding:18px 32px 0"><p style="margin:0;font-size:13px;line-height:1.6;color:#4B5563">Le contrat détaillant les conditions du programme est joint à cet e-mail (PDF).</p></td></tr>
+<tr><td style="padding:18px 32px 0"><p style="margin:0;font-size:13px;line-height:1.6;color:#4B5563">Le contrat détaillant les conditions du programme est joint à cet e-mail en PDF.</p></td></tr>
 <tr><td style="padding:22px 32px 24px"><div style="height:2px;background:#1E3A8A;margin-bottom:12px"></div>
 <p style="margin:0;font-size:11px;color:#9CA3AF">STANDA COMMERCIAL — standacommercialsa.com</p></td></tr>
 </table></td></tr></table></body></html>`;

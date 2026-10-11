@@ -210,7 +210,7 @@ export default function ReceptionAgentPortal() {
                 className="w-full rounded-2xl border border-line bg-mist/40 px-4 py-3.5 text-[16px] font-bold font-mono text-navy outline-none focus:border-accent focus:bg-white" />
               <input value={office} onChange={(e) => setOffice(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") submitConduce(); }}
-                placeholder="Office (optionnel)"
+                placeholder="Office"
                 className="w-full rounded-2xl border border-line bg-mist/40 px-4 py-3.5 text-[15px] text-navy outline-none focus:border-accent focus:bg-white" />
               <button onClick={submitConduce} disabled={conduceBusy || !conduceNumber.trim()}
                 className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-navy text-[15px] font-bold text-white transition hover:bg-navy/90 disabled:opacity-50">

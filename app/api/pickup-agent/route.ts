@@ -59,7 +59,7 @@ function agentName(agent: Agent) {
 }
 function auditRow(req: Request, agent: Agent, action: string, details: string, packageRef = "", customerCode = "") {
   return {
-    user_name: `${agentName(agent)} (agent_retrait)`, action, details,
+    user_name: `${agentName(agent)} · agent_retrait`, action, details,
     package_ref: packageRef.slice(0, 120), customer_code: customerCode.slice(0, 60),
     ip_address: clientIp(req),
     user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400)
@@ -685,7 +685,7 @@ export async function POST(req: Request) {
       }
       const deliveredAt = new Date().toISOString();
       const update = await markDelivered((patch) => db.from("packages").update(patch)
-        .in("id", packageIds).in("status", ["Disponible", "Facturé"]).select("id"), deliveredAt, `${agentName(agent)} (Point de retrait)`);
+        .in("id", packageIds).in("status", ["Disponible", "Facturé"]).select("id"), deliveredAt, `${agentName(agent)} · Point de retrait`);
       if (update.error) throw update.error;
       if ((update.data ?? []).length !== packageIds.length) {
         return NextResponse.json({ ok: false, reason: "Un colis vient déjà d'être traité. Actualisez la liste." }, { status: 409 });
@@ -759,7 +759,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, reason: `Client avec un solde de ${total.toFixed(2)} USD (${refs}). Réglez ce solde avant toute remise.` }, { status: 409 });
       }
       const update = await markDelivered((patch) => db.from("packages").update(patch)
-        .eq("id", packageId).in("status", ["Disponible", "Facturé"]).select("id").maybeSingle(), new Date().toISOString(), `${agentName(agent)} (Point de retrait)`);
+        .eq("id", packageId).in("status", ["Disponible", "Facturé"]).select("id").maybeSingle(), new Date().toISOString(), `${agentName(agent)} · Point de retrait`);
       if (update.error) throw update.error;
       if (!update.data) return NextResponse.json({ ok: false, reason: "Ce colis vient déjà d'être traité. Actualisez la liste." }, { status: 409 });
       const completedRetraits = await completePreparedRetraits(db, parcel.customer_code);

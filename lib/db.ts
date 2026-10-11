@@ -1078,7 +1078,7 @@ export async function importConduceExcelRows(
   await supabase.from("conduces").update(patchConduce).eq("id", conduceId);
 
   const totalWeight = rows.reduce((s, r) => s + (r.weight || 0), 0);
-  await logAction("Import Conduce (Excel)",
+  await logAction("Import Conduce · Excel",
     `Conduce ${conduceNumber} : ${created} créés, ${updated} mis à jour/liés, ${rows.length} colis dont ${special} spécial(aux), ${totalWeight.toFixed(2)} lb — par ${who}`,
     "", "");
   return { created, updated, linked, special, totalWeight };
@@ -1317,7 +1317,7 @@ export async function markPackageSpecial(
   const { error } = await supabase.from("packages").update({ mcpack_data: metadata }).eq("id", id);
   if (error) throw error;
   await logAction(
-    "Colis spécial (manuel)",
+    "Colis spécial",
     `${kind}${String(note ?? "").trim() ? ` — ${String(note).trim()}` : ""}`,
     String(pkg.tracking_number ?? ""), String(pkg.customer_code ?? "")
   );
@@ -1338,9 +1338,14 @@ export async function setPackageStatus(id: string, status: string): Promise<void
 export async function setPackagesStatus(ids: string[], status: string): Promise<string | null> {
   if (!ids.length) return null;
   if (status !== "Livré") {
-    const { error } = await supabase.from("packages")
-      .update({ status }).in("id", ids);
+    const { data, error } = await supabase.from("packages")
+      .update({ status }).in("id", ids).select("id");
     if (error) throw error;
+    // Yon update ki pa afekte okenn liy (filtre perimé, RLS ki bloke an silans…)
+    // pa dwe parèt kòm siksè: san sa, ekran an montre "fini" pandan baz la pa chanje.
+    if ((data ?? []).length !== ids.length) {
+      throw new Error(`Statut non mis à jour pour ${ids.length - (data ?? []).length} colis sur ${ids.length}.`);
+    }
     return null;
   }
   const deliveredAt = new Date().toISOString();
@@ -1350,7 +1355,7 @@ export async function setPackagesStatus(ids: string[], status: string): Promise<
     if (data.user) {
       const { data: s } = await supabase.from("staff")
         .select("prenom, nom, username, role").eq("auth_user_id", data.user.id).maybeSingle();
-      if (s) deliveredBy = `${[s.prenom, s.nom].filter(Boolean).join(" ") || s.username || "STANDA"} (${s.role === "admin" ? "Administration" : "Employé"})`;
+      if (s) deliveredBy = `${[s.prenom, s.nom].filter(Boolean).join(" ") || s.username || "STANDA"} · ${s.role === "admin" ? "Administration" : "Employé"}`;
     }
   } catch { /* nom facultatif : la remise reste enregistrée */ }
   const missing = (error: { message?: string } | null, column: string) =>
@@ -1361,8 +1366,14 @@ export async function setPackagesStatus(ids: string[], status: string): Promise<
     { status }
   ];
   for (const patch of patches) {
-    const { error } = await supabase.from("packages").update(patch).in("id", ids);
-    if (!error) return "delivered_at" in patch ? deliveredAt : null;
+    const { data, error } = await supabase.from("packages").update(patch).in("id", ids).select("id");
+    if (!error) {
+      // Menm gad ki anwo a: 0 liy afekte pa dwe parèt kòm yon remiz reyisi.
+      if ((data ?? []).length !== ids.length) {
+        throw new Error(`Statut "Livré" non appliqué à ${ids.length - (data ?? []).length} colis sur ${ids.length}.`);
+      }
+      return "delivered_at" in patch ? deliveredAt : null;
+    }
     if (!missing(error, "delivered_by") && !missing(error, "delivered_at")) throw error;
   }
   return null;
@@ -1685,7 +1696,7 @@ export async function createInvoiceFromComputation(
     `Poids:${comp.totalWeight} | Sous-total:${comp.subtotal} | Taxe:${comp.taxeFixe} | ` +
     `DGA:${comp.fraisDga} | Discount:${comp.discount} | Mode:${mode} | ` + journalOrder +
     `TOTAL:${comp.totalUsd} USD | ` +
-    `${comp.lines.length} colis "Disponible" → "Facturé" (facturés) | Réf:${inv.id}`,
+    `${comp.lines.length} colis "Disponible" → "Facturé" | Réf:${inv.id}`,
     invoice_number, client.customer_code);
 
   return asNum(inv, ["subtotal", "tax", "grand_total", "exchange_rate_used", "total_usd", "total_htg", "total_weight",
@@ -1693,14 +1704,16 @@ export async function createInvoiceFromComputation(
 }
 
 /**
- * ANNULER une facture (koreksyon erè) — ADMIN sèlman.
+ * ANNULER une facture (koreksyon erè) — ADMIN sèlman (ak bouton « Annuler cette
+ * facture » nan InvoiceDialog, anvan PDF la voye bay kliyan an).
  * Defèt TOUT sa fakti a te fè:
  *   • koli yo retounen "Disponible" (yo ka refakture)
  *   • invoice_id retire + pri/taks remete a zewo
  *   • liy fakti yo (invoice_items) efase
  *   • fakti a efase
  * Ak audit log konplè (montan, kliyan, konbyen koli).
- * Koli yo PA JANM efase — yo jis vin disponib ankò.
+ * Koli yo PA JANM efase — yo jis vin disponib ankò. Sèl eksepsyon: yon koli ki
+ * deja « Livré » kenbe statut li (li pèdi sèlman lyen fakti a).
  */
 export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; restored: number; reason?: string }> {
   const { data: inv } = await supabase.from("invoices")
@@ -1744,7 +1757,7 @@ export async function cancelInvoice(invoiceId: string): Promise<{ ok: boolean; r
   await logAction("Annulation Facture",
     `${inv.invoice_number} annulée | Client:${inv.customer_code} | Montant:${inv.total_usd} USD | ` +
     `${autres.length} colis remis en "Disponible"` +
-    (livres.length ? ` | ${livres.length} colis déjà livrés (statut conservé)` : ""),
+    (livres.length ? ` | ${livres.length} colis déjà livrés, statut conservé` : ""),
     inv.invoice_number, inv.customer_code);
 
   return { ok: true, restored };
@@ -1795,7 +1808,7 @@ export async function recordInvoicePayment(input: RecordInvoicePaymentInput): Pr
   const remainingUsd = Math.max(0, round2(payable.payableUsd - priorUsd));
   const remainingHtg = Math.max(0, round2(payable.payableHtg - priorHtg));
   if (!paymentIsWithinRoundingMargin(amountHtg, remainingHtg)) {
-    throw new Error(`Le montant dépasse le reste à payer (${remainingUsd.toFixed(2)} USD).`);
+    throw new Error(`Le montant dépasse le reste à payer : ${remainingUsd.toFixed(2)} USD.`);
   }
   const appliedUsd = Math.min(amountUsd, remainingUsd);
   const appliedHtg = Math.min(amountHtg, remainingHtg);
@@ -2685,7 +2698,7 @@ export async function analyzePhotoScans(scans: {
       message: lowConf
         ? `Confiance ${Math.round(s.confidence)}% < ${MIN_CONFIDENCE}% — validation manuelle requise`
         : proposedTracking
-          ? `Colis identifié — Tracking Number "${proposedTracking}" sera ajouté (champ vide)`
+          ? `Colis identifié — Tracking Number "${proposedTracking}" sera ajouté`
           : "Colis identifié — réception seulement",
       canApply: !lowConf,
       proposedTracking
@@ -2849,7 +2862,7 @@ export async function fixTrackingColumns(): Promise<TrackingFixResult> {
     }
   }
   await logAction("Correction Tracking",
-    `${swapped} inversés, ${movedToId} corrigés (Guía), ${movedToManual} nettoyés`, "", "");
+    `${swapped} inversés, ${movedToId} corrigés, ${movedToManual} nettoyés`, "", "");
   return { swapped, movedToManual, movedToId };
 }
 

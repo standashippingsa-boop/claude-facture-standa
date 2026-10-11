@@ -66,7 +66,7 @@ export function planPaymentAllocation(invoices: PaymentInvoice[], amount: number
     const take = isLast ? left : Math.min(left, remainingInCurrency);
     const takeHtg = currency === "HTG" ? take : money(take * row.rate);
     if (isLast && !paymentIsWithinRoundingMargin(takeHtg, row.remainingHtg)) {
-      return { ok: false, reason: `Le montant dépasse le total dû (${dueUsd.toFixed(2)} USD · ${new Intl.NumberFormat("fr-HT", { maximumFractionDigits: 2 }).format(dueHtg)} HTG).` };
+      return { ok: false, reason: `Le montant dépasse le total dû : ${dueUsd.toFixed(2)} USD · ${new Intl.NumberFormat("fr-HT", { maximumFractionDigits: 2 }).format(dueHtg)} HTG.` };
     }
     const amountUsd = currency === "USD" ? take : money(take / row.rate);
     const amountHtg = currency === "HTG" ? take : money(take * row.rate);

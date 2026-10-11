@@ -119,7 +119,7 @@ export default function ClientPaymentForm({ customerCode, customerName, invoices
           })}</div>
         </div>
 
-        {method && <label className="block"><span className="mb-1 block text-xs font-bold text-slate-600">Référence {needsReference ? "de la transaction" : "(facultatif)"}</span><input value={reference} onChange={(event) => setReference(event.target.value.slice(0, 120))} className="input" placeholder={method === "Zelle" ? "Nom de l’expéditeur ou n° de confirmation Zelle" : needsReference ? "N° de transaction" : "Note (facultatif)"} /></label>}
+        {method && <label className="block"><span className="mb-1 block text-xs font-bold text-slate-600">Référence {needsReference ? "de la transaction" : ""}</span><input value={reference} onChange={(event) => setReference(event.target.value.slice(0, 120))} className="input" placeholder={method === "Zelle" ? "Nom de l’expéditeur ou n° de confirmation Zelle" : needsReference ? "N° de transaction" : "Note"} /></label>}
 
         {plan?.ok && <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-900">
           <p className="font-black">Répartition automatique</p>

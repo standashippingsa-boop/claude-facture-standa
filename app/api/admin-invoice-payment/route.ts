@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     const customerCode = text(invoices[0].customer_code);
     const numbers = committed.payments.map((payment) => payment.invoice_number).join(", ");
     await safeJournal(db, {
-      user_name: `${staffName} (admin)`, action: "Paiement client reçu",
+      user_name: `${staffName} · admin`, action: "Paiement client reçu",
       details: `${numbers} · ${amount} ${currency} · ${method} · paiement direct admin`,
       package_ref: numbers.slice(0, 120), customer_code: customerCode,
       ip_address: clientIp(req),
