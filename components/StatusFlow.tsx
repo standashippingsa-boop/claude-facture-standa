@@ -1,4 +1,5 @@
 "use client";
+import { Check, Truck } from "lucide-react";
 import { INTERNAL_STATUSES } from "@/lib/types";
 
 /**
@@ -33,8 +34,9 @@ export function StatusPill({ status }: { status: string }) {
 }
 
 /**
- * Timeline orizontal ki montre kote koli a ye nan pwosesis la.
- * Etap ki fèt = ranpli (vèt/navy), etap aktyèl = mete aksan, rès = gri.
+ * Route de progression : une ligne unique, avec un camion qui avance
+ * dessus selon l'étape atteinte (au lieu d'une suite de petits points).
+ * Livré = coche à l'arrivée. Étape actuelle = position du camion.
  */
 export function StatusTimeline({ status, compact = false }: {
   status: string; compact?: boolean;
@@ -47,32 +49,28 @@ export function StatusTimeline({ status, compact = false }: {
   if (status === "Facturé") idx = steps.indexOf("Facturé");
   if (status === "Livré") idx = steps.length - 1;
   if (idx < 0) idx = 0;
+  const delivered = status === "Livré";
+  const percent = Math.min(100, Math.max(6, ((idx + 1) / steps.length) * 100));
+  const markerSize = compact ? 16 : 22;
+  const iconSize = compact ? 9 : 12;
 
   return (
-    <div className={`flex items-center w-full ${compact ? "gap-0" : "gap-0"}`}>
-      {steps.map((s, i) => {
-        const done = i < idx;
-        const current = i === idx;
-        const reached = i <= idx;
-        return (
-          <div key={s} className="flex items-center flex-1 last:flex-none">
-            <div className="flex flex-col items-center">
-              <span className={`block rounded-full transition-all ${
-                compact ? "h-3 w-3" : "h-4 w-4"} ${
-                current ? "bg-brand ring-4 ring-brand-light"
-                  : done ? "bg-brand"
-                  : "bg-slate-200"}`} />
-              {!compact && (
-                <span className={`mt-1.5 text-[10px] text-center leading-tight max-w-[64px] ${
-                  reached ? "text-ink font-semibold" : "text-mute"}`}>{s}</span>
-              )}
-            </div>
-            {i < steps.length - 1 && (
-              <div className={`flex-1 h-0.5 mx-1 ${compact ? "mb-0" : "mb-5"} ${i < idx ? "bg-brand" : "bg-slate-200"}`} />
-            )}
-          </div>
-        );
-      })}
+    <div className="w-full">
+      <div className={`relative w-full rounded-full bg-slate-200 ${compact ? "h-1" : "h-1.5"}`} style={{ marginTop: markerSize / 2, marginBottom: markerSize / 2 }}>
+        <span className="absolute inset-y-0 left-0 rounded-full bg-brand transition-all duration-500" style={{ width: `${percent}%` }} />
+        <span
+          className="absolute top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-brand text-white shadow-sm transition-all duration-500"
+          style={{ left: `${percent}%`, height: markerSize, width: markerSize }}
+        >
+          {delivered ? <Check size={iconSize} strokeWidth={3} /> : <Truck size={iconSize} strokeWidth={2.5} />}
+        </span>
+      </div>
+      {!compact && (
+        <div className="flex items-center justify-between text-[10px] font-semibold text-mute">
+          <span>Miami</span>
+          <span className={delivered ? "text-ink" : undefined}>{steps[steps.length - 1]}</span>
+        </div>
+      )}
     </div>
   );
 }

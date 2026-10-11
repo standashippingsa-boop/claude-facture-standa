@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import Shell from "@/components/Shell";
 import PwaManager from "@/components/PwaManager";
@@ -6,6 +7,12 @@ import Toaster from "@/components/Toaster";
 import SelectionBar from "@/components/SelectionBar";
 import { SelectionProvider } from "@/lib/selection";
 import { SITE_URL } from "@/lib/branding";
+
+// Police dédiée à l'espace client (voir app/espace-client/layout.tsx et la
+// classe .client-app-font) — n'affecte pas le dashboard staff/admin, qui
+// garde la police système. Chargée ici (racine) pour que Next.js l'optimise
+// (auto-hébergée, sans flash ni requête externe), exposée via --font-client.
+const clientFont = Inter({ subsets: ["latin"], variable: "--font-client", display: "swap" });
 
 export const metadata: Metadata = {
   // Domèn kanonik: tout lyen/aperçu rezoud sou domèn ofisyèl la,
@@ -129,7 +136,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body>
+      <body className={clientFont.variable}>
         <SelectionProvider>
           <Shell>{children}</Shell>
           <SelectionBar />

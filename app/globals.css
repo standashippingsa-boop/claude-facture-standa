@@ -220,6 +220,12 @@ body { @apply bg-mist text-slate-700 antialiased; }
    Les données et les actions existantes ne changent pas : cette couche ne
    concerne que la présentation du parcours client.
    ═══════════════════════════════════════════════════════════════════════ */
+/* Police dédiée (app/espace-client/layout.tsx + --font-client dans app/layout.tsx) —
+   scope volontairement limité à /espace-client, le reste de l'app garde la police système. */
+.client-app-font {
+  font-family: var(--font-client), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
 .client-app {
   background-color: #f8faff;
   background-image:

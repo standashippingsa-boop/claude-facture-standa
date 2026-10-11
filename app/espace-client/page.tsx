@@ -27,7 +27,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, ChevronDown, ChevronLeft, CircleCheck,
   ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
-  MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, Search, ShieldCheck, Sparkles, Store, Trash2, Truck, X
+  MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, Search, ShieldCheck, Store, Trash2, Truck, X
 } from "lucide-react";
 import DeleteAccountModal from "@/components/DeleteAccountModal";
 import HermesChat from "@/components/HermesChat";
@@ -575,14 +575,10 @@ export default function EspaceClientPage() {
     const agency = client.pickup_location || client.ville?.name || client.city || "Votre agence";
     return (
       <section className="relative overflow-hidden rounded-[28px] border border-sky-300/50 bg-gradient-to-br from-[#0a3271] via-[#1254a6] to-[#129eb4] p-4 text-white shadow-[0_20px_42px_-18px_rgba(11,60,139,.65)] sm:p-5">
-        <span aria-hidden className="absolute -left-12 -top-14 h-40 w-40 rounded-full border border-white/10 bg-sky-300/10" />
-        <span aria-hidden className="absolute -bottom-20 left-20 h-36 w-36 rounded-full bg-cyan-300/10 blur-2xl" />
         <div className="relative flex min-h-[124px] items-center justify-between gap-3">
           <div className="min-w-0 py-1">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.13em] text-sky-50">
-              <Sparkles size={12} /> Disponible
-            </span>
-            <h2 className="mt-3 text-[22px] font-black leading-tight tracking-[-.035em]">
+            <p className="text-[11px] font-bold uppercase tracking-[.13em] text-sky-100">Disponible</p>
+            <h2 className="mt-2 text-[22px] font-black leading-tight tracking-[-.035em]">
               {count === 1 ? "Votre colis vous attend" : "Vos colis vous attendent"}
             </h2>
             <p className="mt-1.5 max-w-[200px] text-[12px] leading-relaxed text-sky-50/85">
@@ -615,12 +611,10 @@ export default function EspaceClientPage() {
   /** En-tête illustré de la page Miami — présentation seulement. */
   const MiamiHero = ({ count }: { count: number }) => (
     <section className="relative overflow-hidden rounded-[28px] border border-sky-100 bg-gradient-to-br from-[#eaf6ff] via-white to-[#dff2ff] p-4 shadow-[0_18px_36px_-28px_rgba(14,83,172,.55)] sm:p-5">
-      <span aria-hidden className="absolute -left-12 -bottom-14 h-40 w-40 rounded-full bg-sky-200/45 blur-2xl" />
-      <span aria-hidden className="absolute right-24 top-0 h-px w-28 rotate-[28deg] bg-sky-200/80" />
       <div className="relative flex min-h-[122px] items-center justify-between gap-3">
         <div className="min-w-0 py-1">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.13em] text-[#1466b8] shadow-sm"><Sparkles size={12} /> Entrepôt Miami</span>
-          <h2 className="mt-3 text-[21px] font-black leading-tight tracking-[-.035em] text-[#0b3977]">Vos colis sont suivis</h2>
+          <p className="text-[11px] font-bold uppercase tracking-[.13em] text-[#1466b8]">Entrepôt Miami</p>
+          <h2 className="mt-2 text-[21px] font-black leading-tight tracking-[-.035em] text-[#0b3977]">Vos colis sont suivis</h2>
           <p className="mt-1.5 max-w-[194px] text-[12px] leading-relaxed text-slate-500">{count === 1 ? "Un colis est actuellement dans le parcours STANDA." : `${count} colis sont actuellement dans le parcours STANDA.`}</p>
           <span className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#dbeeff] px-2.5 py-1.5 text-[11px] font-semibold text-[#145ca8]"><Route size={13} /> Suivi clair à chaque étape</span>
         </div>
@@ -634,12 +628,10 @@ export default function EspaceClientPage() {
     eyebrow: string; title: string; description: string; icon: typeof Truck; count?: number;
   }) => (
     <section className="relative overflow-hidden rounded-[28px] border border-sky-100 bg-gradient-to-br from-white via-[#f7fbff] to-[#e3f3ff] p-4 shadow-[0_18px_36px_-28px_rgba(14,83,172,.5)] sm:p-5">
-      <span aria-hidden className="absolute -left-10 -top-12 h-32 w-32 rounded-full bg-sky-100/80 blur-2xl" />
-      <span aria-hidden className="absolute -right-10 -bottom-14 h-36 w-36 rounded-full bg-blue-100/65 blur-2xl" />
       <div className="relative flex min-h-[112px] items-center justify-between gap-3">
         <div className="min-w-0 py-1">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.13em] text-[#1466b8] shadow-sm"><Sparkles size={12} /> {eyebrow}</span>
-          <h2 className="mt-3 text-[21px] font-black leading-tight tracking-[-.035em] text-[#0b3977]">{title}</h2>
+          <p className="text-[11px] font-bold uppercase tracking-[.13em] text-[#1466b8]">{eyebrow}</p>
+          <h2 className="mt-2 text-[21px] font-black leading-tight tracking-[-.035em] text-[#0b3977]">{title}</h2>
           <p className="mt-1.5 max-w-[205px] text-[12px] leading-relaxed text-slate-500">{description}</p>
         </div>
         <div aria-hidden className="relative grid h-[94px] w-[100px] shrink-0 place-items-center">
@@ -654,8 +646,6 @@ export default function EspaceClientPage() {
 
   const AvailableEmpty = () => (
     <div className="relative overflow-hidden rounded-[28px] border border-sky-100 bg-gradient-to-b from-sky-50 to-white px-6 py-10 text-center shadow-sm">
-      <span aria-hidden className="absolute -left-10 top-5 h-28 w-28 rounded-full bg-sky-100/80 blur-xl" />
-      <span aria-hidden className="absolute -right-12 bottom-0 h-32 w-32 rounded-full bg-cyan-100/70 blur-xl" />
       <div className="relative mx-auto grid h-20 w-20 place-items-center rounded-[26px] border border-white bg-white text-[#1466b8] shadow-[0_15px_28px_-16px_rgba(14,83,172,.45)]">
         <PackageCheck size={36} strokeWidth={1.55} />
       </div>
@@ -918,8 +908,6 @@ export default function EspaceClientPage() {
               <div role="dialog" aria-modal="true" aria-labelledby="push-permission-title" className="fixed inset-0 z-[70] flex items-end bg-slate-950/35 p-3 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-5">
                 <section className="w-full max-w-sm overflow-hidden rounded-[30px] bg-white shadow-[0_28px_60px_rgba(4,33,78,.3)]">
                   <div className="relative overflow-hidden bg-gradient-to-br from-[#0b3977] via-[#145ca8] to-[#28a3bc] px-6 pb-7 pt-6 text-white">
-                    <span aria-hidden className="absolute -right-8 -top-10 h-32 w-32 rounded-full border border-white/15 bg-white/10" />
-                    <span aria-hidden className="absolute -left-10 -bottom-14 h-32 w-32 rounded-full bg-sky-300/15 blur-2xl" />
                     <span className="relative grid h-14 w-14 place-items-center rounded-2xl border border-white/20 bg-white/15 shadow-lg shadow-blue-950/20"><BellRing size={27} /></span>
                     <p className="relative mt-5 text-[11px] font-bold uppercase tracking-[.14em] text-sky-100">STANDA COMMERCIAL</p>
                     <h2 id="push-permission-title" className="relative mt-1 text-[22px] font-black leading-tight">Activez les notifications</h2>
