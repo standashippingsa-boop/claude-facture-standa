@@ -22,7 +22,7 @@
  *
  * ⚠️ TOUT hooks yo deklare ANVAN nenpòt `return` kondisyonèl (règ React).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, ChevronDown, ChevronLeft, CircleCheck,
@@ -307,6 +307,43 @@ export default function EspaceClientPage() {
     } catch (e: unknown) { setMsg(safeMessage(e)); }
     finally { setBusy(false); }
   };
+
+  /**
+   * BOUTON/JÈS "TOUNEN" TELEFÒN NAN (Android) — PA DWE KITE APP LA.
+   * ═══════════════════════════════════════════════════════════════════
+   * App la itilize yon sèl "page" (/espace-client) epi li chanje "ekran"
+   * yo (view, detay koli, modal...) jis ak eta React — URL la pa chanje.
+   * Rezilta: istwa navigatè a pa konn anyen sou chanjman sa yo, donk lè
+   * kliyan an peze/rale bouton tounen telefòn lan, OS la jwenn "anyen pou
+   * tounen sou li" epi li KITE app la — menm si gen yon ekran ki te
+   * ouvri anndan app la.
+   *
+   * Solisyon: nou kenbe TOUJOU yon "antre gad" anplis nan istwa a. Chak
+   * fwa yon "tounen" rive, nou fèmen bagay ki pi "anlè" a (modal, detay
+   * koli, oswa vi aktyèl la) epi nou remete yon nouvo antre gad — jiskaske
+   * nou rive sou akèy san anyen louvri, kote nou kite pwochen "tounen" an
+   * kite app la vrèman (konpòtman nòmal yon app Android sou ekran rasin).
+   */
+  const closeTopmostScreen = (): boolean => {
+    if (showPwd) { setShowPwd(false); return true; }
+    if (showDelete) { setShowDelete(false); return true; }
+    if (detail) { setDetail(null); return true; }
+    if (retraitConfirmedCount !== null) { setRetraitConfirmedCount(null); return true; }
+    if (showPushBanner) { dismissPushBanner(); return true; }
+    if (view !== "home") { setView("home"); return true; }
+    return false;
+  };
+  const closeTopmostScreenRef = useRef(closeTopmostScreen);
+  closeTopmostScreenRef.current = closeTopmostScreen;
+
+  useEffect(() => {
+    history.pushState({ standaBackGuard: true }, "");
+    const onPopState = () => {
+      if (closeTopmostScreenRef.current()) history.pushState({ standaBackGuard: true }, "");
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   // ── Gad kondisyonèl (apre TOUT hooks) ───────────────────────────────────
   if (loading) return <Loader />;
