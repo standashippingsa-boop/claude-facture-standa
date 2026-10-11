@@ -1,9 +1,9 @@
 "use client";
 /*
- * STANDA COMMERCIAL — HERMES (asistan AI /espace-client)
+ * STANDA COMMERCIAL — DAHA (asistan AI /espace-client)
  * ════════════════════════════════════════════════════════
  * Widget flotant san eta pataje ak paj la : li chèche pwòp jeton sesyon
- * kliyan an lè l voye yon mesaj, epi wout sèvè a (`/api/hermes-chat`)
+ * kliyan an lè l voye yon mesaj, epi wout sèvè a (`/api/daha-chat`)
  * fè otorizasyon an ankò (customer_code soti nan jeton an, pa nan
  * nenpòt bagay widget sa a ta voye). Istorik konvèsasyon an rete
  * SÈLMAN nan memwa navigatè a (pa gen anrejistreman nan Supabase).
@@ -16,7 +16,7 @@ import { Spinner } from "@/components/Loader";
 type ChatMsg = { role: "user" | "assistant"; content: string };
 const MAX_CHARS = 500;
 
-export default function HermesChat() {
+export default function DahaChat() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -42,7 +42,7 @@ export default function HermesChat() {
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token ?? "";
-      const res = await fetch("/api/hermes-chat", {
+      const res = await fetch("/api/daha-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, message: question, history }),
@@ -67,7 +67,7 @@ export default function HermesChat() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label={open ? "Fermer l'assistant Hermes" : "Ouvrir l'assistant Hermes"}
+        aria-label={open ? "Fermer l'assistant Daha" : "Ouvrir l'assistant Daha"}
         className="fixed bottom-24 right-4 z-40 grid h-14 w-14 place-items-center rounded-full bg-navy text-white shadow-lift transition-transform hover:scale-105 active:scale-95"
       >
         {open ? <X size={22} /> : <Sparkles size={22} />}
@@ -78,14 +78,14 @@ export default function HermesChat() {
           id={panelId}
           role="dialog"
           aria-modal="false"
-          aria-label="Assistant Hermes"
+          aria-label="Assistant Daha"
           className="fixed bottom-[9.5rem] right-4 z-40 flex w-[min(92vw,22rem)] flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-lift"
           style={{ maxHeight: "min(70vh, 32rem)" }}
         >
           <div className="flex items-center gap-2 bg-navy px-4 py-3 text-white">
             <Sparkles size={16} />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold leading-tight">Hermes</p>
+              <p className="text-sm font-bold leading-tight">Daha</p>
               <p className="text-[11px] leading-tight text-white/70">Assistant STANDA COMMERCIAL</p>
             </div>
             <button type="button" onClick={() => setOpen(false)} aria-label="Fermer" className="rounded-lg p-1 hover:bg-white/10">
@@ -96,7 +96,7 @@ export default function HermesChat() {
           <div ref={listRef} className="flex-1 space-y-2.5 overflow-y-auto bg-mist p-3">
             {messages.length === 0 && (
               <div className="rounded-xl bg-white px-3 py-2.5 text-sm text-ink shadow-sm">
-                Bonjou ! Mwen se Hermes. Mwen ka ede w konnen kote koli w yo ye, konbyen w dwe peye, oswa kijan sèvis la mache. Ki jan m ka ede w ?
+                Bonjou ! Mwen se Daha. Mwen ka ede w konnen kote koli w yo ye, konbyen w dwe peye, oswa kijan sèvis la mache. Ki jan m ka ede w ?
               </div>
             )}
             {messages.map((m, i) => (
@@ -113,7 +113,7 @@ export default function HermesChat() {
             {busy && (
               <div className="flex justify-start">
                 <div className="flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs text-mute shadow-sm">
-                  <Spinner size={13} /> Hermes écrit…
+                  <Spinner size={13} /> Daha écrit…
                 </div>
               </div>
             )}

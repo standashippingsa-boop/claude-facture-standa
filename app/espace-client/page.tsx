@@ -30,7 +30,7 @@ import {
   MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, Search, ShieldCheck, Store, Trash2, Truck, X
 } from "lucide-react";
 import DeleteAccountModal from "@/components/DeleteAccountModal";
-import HermesChat from "@/components/HermesChat";
+import DahaChat from "@/components/DahaChat";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";
 import {
@@ -1386,7 +1386,7 @@ export default function EspaceClientPage() {
         </div>
       </nav>
 
-      <HermesChat />
+      <DahaChat />
     </div>
   );
 }
