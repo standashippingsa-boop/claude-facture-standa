@@ -380,10 +380,11 @@ export default function EspaceClientPage() {
     ?? autres[0]
     ?? disponibles[0]
     ?? null;
-  // Aperçu "Colis récents" de l'accueil — les colis actifs les plus récemment mis à jour.
-  const recentActive = [...receptionsAll]
-    .sort((a, b) => new Date(b.received_at ?? b.created_date ?? 0).getTime() - new Date(a.received_at ?? a.created_date ?? 0).getTime())
-    .slice(0, 3);
+  // "Disponible" et "Facturé" comptés séparément sur l'accueil — un colis
+  // facturé reste dans la liste "Disponibles" (règle métier inchangée),
+  // mais les 2 tuiles de l'accueil doivent montrer chacune son propre compte.
+  const dispoCount = disponibles.filter((p) => p.status === "Disponible").length;
+  const factureCount = disponibles.filter((p) => p.status === "Facturé").length;
   const trackQueryNorm = trackQuery.trim().toLowerCase();
   const trackMatches = trackQueryNorm.length < 2 ? [] : pkgs.filter((p) =>
     p.tracking_number?.toLowerCase().includes(trackQueryNorm)
@@ -874,7 +875,8 @@ export default function EspaceClientPage() {
               destination={client.pickup_location || client.ville?.name || client.city || "Votre agence"}
               balanceUsd={outstandingBalanceUsd}
               estimatedUsd={estimatedTransitUsd}
-              availableCount={disponibles.length}
+              availableCount={dispoCount}
+              invoicedCount={factureCount}
               receptionCount={autres.length}
               retraitCount={activeRetraits.length}
               deliveredCount={historique.length}
@@ -911,20 +913,6 @@ export default function EspaceClientPage() {
                 </div>
               )}
             </div>
-
-            {recentActive.length > 0 && (
-              <section className="space-y-2.5 client-enter client-enter-d4">
-                <div className="flex items-center justify-between">
-                  <h2 className="h-sec">Colis récents</h2>
-                  {receptionsAll.length > recentActive.length && (
-                    <button onClick={() => setView(disponibles.length ? "disponibles" : "receptions")} className="text-xs font-bold text-blue-600">Voir tout</button>
-                  )}
-                </div>
-                <div className="space-y-3">
-                  {recentActive.map((p) => <PkgCard key={p.id} p={p} />)}
-                </div>
-              </section>
-            )}
 
             {showPushBanner && (
               <div role="dialog" aria-modal="true" aria-labelledby="push-permission-title" className="fixed inset-0 z-[70] flex items-end bg-slate-950/35 p-3 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-5">

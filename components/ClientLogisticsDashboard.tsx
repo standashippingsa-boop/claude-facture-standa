@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import {
-  BarChart3, ChevronLeft, ChevronRight, CircleCheck, Clipboard, Handshake, MapPin, MessageCircle,
-  Navigation, Package, PackageCheck, Sparkles, Truck
+  BarChart3, ChevronLeft, ChevronRight, CircleCheck, Clipboard, Clock, Handshake, MapPin, MessageCircle,
+  Navigation, Package, PackageCheck, ReceiptText, Truck
 } from "lucide-react";
 import type { Pkg } from "@/lib/types";
 import { dateFr, usd } from "@/lib/utils";
@@ -15,7 +15,10 @@ type DashboardProps = {
   destination: string;
   balanceUsd: number;
   estimatedUsd: number;
+  /** Colis au statut "Disponible" uniquement (pas encore facturé). */
   availableCount: number;
+  /** Colis au statut "Facturé" (déjà facturé, pas encore remis). */
+  invoicedCount: number;
   receptionCount: number;
   retraitCount: number;
   deliveredCount: number;
@@ -83,7 +86,7 @@ function JourneyLine() {
   );
 }
 
-export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, estimatedUsd, availableCount, receptionCount, retraitCount, deliveredCount, unreadNotifications, activePackage, onNavigate, onOpenDetail }: DashboardProps) {
+export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, estimatedUsd, availableCount, invoicedCount, receptionCount, retraitCount, deliveredCount, unreadNotifications, activePackage, onNavigate, onOpenDetail }: DashboardProps) {
   return (
     <section className="space-y-5">
       {unreadNotifications > 0 && (
@@ -101,30 +104,30 @@ export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, 
       </section>
 
       <section>
-        <div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-black tracking-tight text-slate-900">Vos colis</h2><span className="text-[11px] font-bold text-slate-400">Vue d&apos;ensemble</span></div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-black tracking-tight text-slate-900">Vos colis</h2>
+          <button type="button" onClick={() => onNavigate("historique")} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-slate-600">
+            <Clock size={12} /> Historique
+          </button>
+        </div>
         <div className="grid grid-cols-4 gap-2.5">
           <QuickAction icon={Truck} label="Miami" hint="Colis reçus" count={receptionCount} onClick={() => onNavigate("receptions")} />
           <QuickAction icon={PackageCheck} label="Disponible" hint="À l'agence" count={availableCount} onClick={() => onNavigate("disponibles")} />
-          <QuickAction icon={Clipboard} label="Historique" hint="Colis livrés" count={deliveredCount} onClick={() => onNavigate("historique")} />
+          <QuickAction icon={ReceiptText} label="Facturé" hint="À régler/retirer" count={invoicedCount} onClick={() => onNavigate("disponibles")} />
           <QuickAction icon={Handshake} label="Retrait" hint="Vos demandes" count={retraitCount} onClick={() => onNavigate("retraits")} />
         </div>
       </section>
 
       <section className="relative overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-br from-white via-[#f8fbff] to-[#eaf5ff] p-5 shadow-[0_14px_32px_-28px_rgba(14,83,172,.6)]">
-        <span aria-hidden className="absolute -right-12 -bottom-14 h-40 w-40 rounded-full bg-sky-100/70 blur-2xl" />
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#eaf4ff] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.12em] text-[#145ca8]">
-              <Sparkles size={12} /> {activePackage ? "Suivi en direct" : "Suivi simplifié"}
-            </span>
+            <h2 className="text-lg font-black tracking-tight text-slate-900">{activePackage ? "Suivi de colis" : "Votre parcours, en un coup d’œil"}</h2>
             {activePackage ? (
               <>
-                <p className="mt-3 truncate font-mono text-sm font-black text-slate-900">#{activePackage.tracking_number || activePackage.tracking_manual || "—"}</p>
+                <p className="mt-2 truncate font-mono text-sm font-black text-slate-900">#{activePackage.tracking_number || activePackage.tracking_manual || "—"}</p>
                 <p className="mt-1 text-xs font-bold text-[#145ca8]">{shipmentLabel(activePackage)}</p>
               </>
-            ) : (
-              <h2 className="mt-3 text-lg font-black tracking-tight text-slate-900">Votre parcours, en un coup d&apos;œil</h2>
-            )}
+            ) : null}
             <p className="mt-1.5 max-w-[225px] text-xs leading-relaxed text-slate-500">
               {activePackage ? "Touchez pour voir chaque étape de ce colis." : "Chaque colis avance au même rythme dans votre espace personnel."}
             </p>
@@ -153,7 +156,7 @@ export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, 
         )}
       </section>
 
-      <div className="sr-only">{availableCount} colis disponibles, {receptionCount} réceptions et {deliveredCount} colis livrés.</div>
+      <div className="sr-only">{availableCount} colis disponibles, {invoicedCount} colis facturés, {receptionCount} réceptions et {deliveredCount} colis livrés.</div>
     </section>
   );
 }
