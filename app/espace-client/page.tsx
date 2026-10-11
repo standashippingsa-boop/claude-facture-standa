@@ -653,36 +653,27 @@ export default function EspaceClientPage() {
   const PkgCard = ({ p, check }: { p: Pkg; check?: boolean }) => {
     const facture = Number(p.total_usd) > 0 && isInvoiced(p);
     const special = specialPackageInfo(p);
-    const availableCard = Boolean(check);
     // Un colis déjà facturé reste visible dans "Disponible" (il attend d'être
     // payé et retiré), mais ne peut pas entrer dans une NOUVELLE demande de
     // retrait — la demande existante ou le règlement s'en occupe déjà.
     const selectable = !check || p.status === "Disponible";
     return (
-      <div className="relative">
+      <div className="relative border-b border-line py-3.5 last:border-0">
         {check && (
           <input type="checkbox" aria-label="Chwazi koli a"
-            className="absolute top-4 right-4 z-10 h-[18px] w-[18px] accent-emerald-600 disabled:opacity-30"
+            className="absolute top-3.5 right-0 z-10 h-[18px] w-[18px] accent-emerald-600 disabled:opacity-30"
             checked={sel.has(p.id)} disabled={!selectable}
             title={selectable ? undefined : "Colis déjà facturé — réglez la facture pour le retirer."}
             onChange={() => toggleSel(p.id)} />
         )}
-        <button onClick={() => setDetail(p)} className={`w-full p-4 text-left transition ${availableCard
-          ? "overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-white via-white to-sky-50/75 shadow-[0_14px_28px_-22px_rgba(14,83,172,.55)] hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_18px_30px_-20px_rgba(14,83,172,.6)]"
-          : "card card-hover"}`}>
-          {availableCard && <span aria-hidden className="absolute -right-9 -bottom-12 h-28 w-28 rounded-full bg-sky-100/65" />}
+        <button onClick={() => setDetail(p)} className={`w-full text-left ${check ? "pr-7" : ""}`}>
           <div className="flex items-start justify-between gap-3">
-            {availableCard && (
-              <span aria-hidden className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white bg-gradient-to-br from-[#e2f3ff] to-[#d6e9ff] text-[#1466b8] shadow-sm">
-                <PackageCheck size={23} strokeWidth={1.8} />
-              </span>
-            )}
             <div className="min-w-0 flex-1">
-              <p className="font-mono text-[13px] font-bold text-ink truncate pr-7">{p.tracking_number || "—"}</p>
+              <p className="font-mono text-[13px] font-bold text-ink truncate">{p.tracking_number || "—"}</p>
               {p.tracking_manual && <p className="font-mono text-[11px] text-mute truncate mt-0.5">{p.tracking_manual}</p>}
               <div className="mt-1 flex flex-wrap gap-1">
                 {check && isInvoiced(p) && <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">Facturé</span>}
-                {availableCard && !isInvoiced(p) && <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Disponible</span>}
+                {check && !isInvoiced(p) && <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Disponible</span>}
                 {special.isSpecial && <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800" title="Traitement particulier appliqué à ce colis">Colis spécial</span>}
               </div>
             </div>
@@ -701,7 +692,7 @@ export default function EspaceClientPage() {
             </span>
           </div>
           {facture && (
-            <div className="mt-2.5 pt-2.5 border-t border-line flex items-center justify-between">
+            <div className="mt-2.5 flex items-center justify-between">
               <span className="text-[11px] text-mute">Prix facturé</span>
               <span className="text-base font-extrabold text-navy">{usd(p.total_usd)}</span>
             </div>
@@ -890,7 +881,7 @@ export default function EspaceClientPage() {
                 ) : (
                   <p className="px-1 text-xs text-amber-700">Le tarif de votre ville n&apos;est pas encore configuré. Contactez-nous sur WhatsApp.</p>
                 )}
-                <div className="space-y-3">
+                <div>
                   {disponiblesOnly.map((p) => <PkgCard key={p.id} p={p} check />)}
                 </div>
               </>
@@ -919,26 +910,26 @@ export default function EspaceClientPage() {
               </button>
             )}
             {facturesOnly.length === 0 ? <Empty t="Aucun colis facturé en attente de remise." /> : (
-              <div className="space-y-3">
+              <div>
                 {Array.from(new Set(facturesOnly.map((p) => p.invoice_id).filter((id): id is string => !!id))).map((invId) => {
                   const inv = invs.find((f) => f.id === invId);
                   const invoicePkgs = facturesOnly.filter((p) => p.invoice_id === invId);
                   const open = openInvoiceId === invId;
                   return (
-                    <section key={invId} className="card overflow-hidden">
-                      <button type="button" onClick={() => setOpenInvoiceId(open ? null : invId)} className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-slate-50">
+                    <div key={invId} className="border-b border-line py-1 last:border-0">
+                      <button type="button" onClick={() => setOpenInvoiceId(open ? null : invId)} className="flex w-full items-center justify-between gap-3 py-3 text-left">
                         <span className="min-w-0">
                           <span className="block text-sm font-bold text-navy">{inv?.invoice_number ?? "Facture"}</span>
                           <span className="mt-0.5 block text-xs text-mute">{invoicePkgs.length} colis</span>
                         </span>
-                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                        <ChevronDown size={16} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
                       </button>
                       {open && (
-                        <div className="space-y-3 border-t border-line bg-slate-50/70 p-4">
+                        <div className="border-l-2 border-sky-200 pl-3.5 pb-3">
                           {invoicePkgs.map((p) => <PkgCard key={p.id} p={p} />)}
                         </div>
                       )}
-                    </section>
+                    </div>
                   );
                 })}
               </div>
@@ -955,7 +946,7 @@ export default function EspaceClientPage() {
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">{autres.length} colis</span>
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">{poidsDe(autres).toFixed(2)} lb</span>
                 </div>
-                <div className="space-y-3">
+                <div>
                   {autres.map((p) => <PkgCard key={p.id} p={p} />)}
                 </div>
               </>
@@ -969,7 +960,7 @@ export default function EspaceClientPage() {
             {historique.length === 0 ? <Empty t="Aucun colis dans votre historique." /> : (
               <>
                 <Totaux list={historique} reel />
-                <div className="space-y-3">{historique.map((p) => <PkgCard key={p.id} p={p} />)}</div>
+                <div>{historique.map((p) => <PkgCard key={p.id} p={p} />)}</div>
               </>
             )}
           </>
@@ -979,7 +970,7 @@ export default function EspaceClientPage() {
         {view === "factures" && (
           <>
             {invs.length === 0 ? <Empty t="Aucune facture pour le moment." /> : (
-              <div className="space-y-3">
+              <div>
                 {invs.map((f) => {
                   const open = openInvoiceId === f.id;
                   const invoicePackages = pkgs.filter((p) => p.invoice_id === f.id);
@@ -987,8 +978,8 @@ export default function EspaceClientPage() {
                   const paymentStatus = paymentStatusFromAmounts(f);
                   const deliveredCount = invoicePackages.filter(isDelivered).length;
                   const paymentTone = paymentStatus === "Payé" ? "bg-emerald-100 text-emerald-700" : paymentStatus === "Payé partiel" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-700";
-                  return <section key={f.id} className="card overflow-hidden">
-                    <button type="button" onClick={() => setOpenInvoiceId(open ? null : f.id)} className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-slate-50">
+                  return <div key={f.id} className="border-b border-line py-1 last:border-0">
+                    <button type="button" onClick={() => setOpenInvoiceId(open ? null : f.id)} className="flex w-full items-center justify-between gap-3 py-3 text-left">
                       <span className="min-w-0">
                         <span className="block text-sm font-bold text-navy">{f.invoice_number}</span>
                         <span className="mt-0.5 block text-xs text-mute">{dateFr(f.created_at)} · {f.package_count} koli · {Number(f.total_weight).toFixed(2)} lb</span>
@@ -998,18 +989,21 @@ export default function EspaceClientPage() {
                         <ChevronDown size={16} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
                       </span>
                     </button>
-                    <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-3">
+                    <div className="flex items-center justify-between gap-3 pb-3">
                       <div><p className="text-[11px] text-mute">Total de la facture</p><p className="text-base font-extrabold text-ink">{usd(payable.grandTotalUsd)}</p></div>
                       {f.has_pdf || f.pdf_path || f.pdf_url
                         ? <button type="button" onClick={() => void openSecureDocument("invoice", f.id).catch(() => setToast("PDF indisponible. Réessayez plus tard."))} className="text-xs text-navy underline font-semibold">Télécharger le PDF</button>
                         : <span className="text-xs text-slate-400">PDF en préparation</span>}
                     </div>
-                    {open && <div className="border-t border-line bg-slate-50/70 p-4">
-                      <div className="grid grid-cols-2 gap-2 text-xs"><div className="rounded-xl bg-white p-3"><p className="text-mute">Solde à payer</p><p className="mt-1 font-extrabold text-navy">{usd(payable.payableUsd)}</p></div><div className="rounded-xl bg-white p-3"><p className="text-mute">Remise</p><p className={`mt-1 font-extrabold ${deliveredCount === invoicePackages.length && invoicePackages.length ? "text-emerald-700" : "text-orange-700"}`}>{deliveredCount}/{invoicePackages.length} livré{deliveredCount > 1 ? "s" : ""}</p></div></div>
-                      <p className="mb-2 mt-4 text-xs font-bold uppercase tracking-wide text-slate-500">Colis facturés dans cette facture</p>
-                      {invoicePackages.length ? <div className="space-y-3">{invoicePackages.map((p) => <PkgCard key={p.id} p={p} />)}</div> : <p className="rounded-xl bg-white px-3 py-3 text-sm text-slate-500">Les colis de cette facture seront affichés ici après la synchronisation.</p>}
+                    {open && <div className="border-l-2 border-sky-200 pl-3.5 pb-3">
+                      <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-900">Solde à payer <b className="font-black">{usd(payable.payableUsd)}</b></span>
+                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${deliveredCount === invoicePackages.length && invoicePackages.length ? "bg-emerald-50 text-emerald-800" : "bg-orange-50 text-orange-800"}`}>Remise {deliveredCount}/{invoicePackages.length} livré{deliveredCount > 1 ? "s" : ""}</span>
+                      </div>
+                      <p className="mb-1 mt-4 text-xs font-bold uppercase tracking-wide text-slate-500">Colis facturés dans cette facture</p>
+                      {invoicePackages.length ? <div>{invoicePackages.map((p) => <PkgCard key={p.id} p={p} />)}</div> : <p className="py-2 text-sm text-slate-500">Les colis de cette facture seront affichés ici après la synchronisation.</p>}
                     </div>}
-                  </section>;
+                  </div>;
                 })}
               </div>
             )}
