@@ -883,11 +883,10 @@ export default function EspaceClientPage() {
             {disponiblesOnly.length === 0 ? <AvailableEmpty /> : (
               <>
                 {dispoEst ? (
-                  <p className="px-1 text-sm text-ink">
-                    <span className="font-semibold">Shipping fee :</span> {usd(dispoEst.subtotal)}
-                    <span className="mx-1.5 text-mute">·</span>
-                    <span className="font-semibold">Taxe fixe :</span> {dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : "—"}
-                  </p>
+                  <div className="flex flex-wrap gap-2 px-1">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">Shipping fee <b className="font-black">{usd(dispoEst.subtotal)}</b></span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">Taxe fixe <b className="font-black">{dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : "—"}</b></span>
+                  </div>
                 ) : (
                   <p className="px-1 text-xs text-amber-700">Le tarif de votre ville n&apos;est pas encore configuré. Contactez-nous sur WhatsApp.</p>
                 )}
@@ -952,7 +951,10 @@ export default function EspaceClientPage() {
           <>
             {autres.length === 0 ? <Empty t="Aucun colis reçu à Miami ou en acheminement pour le moment." /> : (
               <>
-                <p className="px-1 text-sm font-semibold text-ink">{autres.length} colis · {poidsDe(autres).toFixed(2)} lb</p>
+                <div className="flex flex-wrap gap-2 px-1">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">{autres.length} colis</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">{poidsDe(autres).toFixed(2)} lb</span>
+                </div>
                 <div className="space-y-3">
                   {autres.map((p) => <PkgCard key={p.id} p={p} />)}
                 </div>
