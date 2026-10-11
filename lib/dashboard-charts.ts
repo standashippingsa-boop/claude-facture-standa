@@ -84,23 +84,25 @@ export interface StatusSlice {
 }
 
 /**
- * Separe kliyan yo an "Actif" / "En attente d'activation" (+ "Autre" si gen
- * yon lòt valè — pa ta dwe rive, men nou pa kache done si sa rive).
- * Règ: yon kont san estati (null/vid) konsidere Actif — menm règ ak migration
- * v6 la ("Ansyen kliyan yo rete Actif").
+ * Separe kliyan yo an "Actif" / "Inactif" dapre si yo te voye omwen YON koli.
+ * Règ: "Actif" = `customer_code` kliyan an parèt nan omwen yon koli ;
+ * "Inactif" = kliyan an enskri men poko janm voye okenn koli.
  */
-export function splitClientStatus(clients: { account_status?: string | null }[]): StatusSlice[] {
-  let actif = 0, attente = 0, autre = 0;
+export function splitClientActivity(
+  clients: { customer_code?: string | null }[],
+  packageCustomerCodes: (string | null | undefined)[]
+): StatusSlice[] {
+  const avecColis = new Set(
+    packageCustomerCodes.filter((c): c is string => !!c).map((c) => c.trim().toUpperCase())
+  );
+  let actif = 0, inactif = 0;
   for (const c of clients) {
-    const s = String(c.account_status ?? "").trim();
-    if (s === "En attente d'activation") attente++;
-    else if (s === "Actif" || !s) actif++;
-    else autre++;
+    const code = String(c.customer_code ?? "").trim().toUpperCase();
+    if (code && avecColis.has(code)) actif++;
+    else inactif++;
   }
-  const out: StatusSlice[] = [
+  return [
     { label: "Actif", value: actif, color: "#10B981" },
-    { label: "En attente d'activation", value: attente, color: "#F59E0B" },
+    { label: "Inactif", value: inactif, color: "#94A3B8" },
   ];
-  if (autre) out.push({ label: "Autre", value: autre, color: "#94A3B8" });
-  return out;
 }

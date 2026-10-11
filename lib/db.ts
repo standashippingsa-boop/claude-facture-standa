@@ -2226,22 +2226,27 @@ export async function getStats(): Promise<DashboardStats> {
 export interface ChartsData {
   /** Yon dat (ISO) pa koli — reçu si li konnen, sinon kreyasyon. Pou grafik volim. */
   packageDates: string[];
-  clientSignups: { created_at: string; account_status: string | null }[];
+  /** Kòd kliyan (customer_code) chak koli ki gen yon kòd — pou konnen ki kliyan ki te voye omwen yon koli. */
+  packageCustomerCodes: string[];
+  clientSignups: { created_at: string; customer_code: string | null }[];
 }
 export async function getChartsData(): Promise<ChartsData> {
   const [{ data: pkgs, error: e1 }, { data: cls, error: e2 }] = await Promise.all([
-    supabase.from("packages").select("received_at, created_at"),
-    supabase.from("clients").select("created_at, account_status"),
+    supabase.from("packages").select("received_at, created_at, customer_code"),
+    supabase.from("clients").select("created_at, customer_code"),
   ]);
   if (e1) throw e1;
   if (e2) throw e2;
   const packageDates = (pkgs ?? [])
     .map((p: { received_at: string | null; created_at: string }) => p.received_at ?? p.created_at)
     .filter((d): d is string => !!d);
-  const clientSignups = (cls ?? []).map((c: { created_at: string; account_status: string | null }) => ({
-    created_at: c.created_at, account_status: c.account_status ?? null
+  const packageCustomerCodes = (pkgs ?? [])
+    .map((p: { customer_code: string | null }) => p.customer_code)
+    .filter((c): c is string => !!c);
+  const clientSignups = (cls ?? []).map((c: { created_at: string; customer_code: string | null }) => ({
+    created_at: c.created_at, customer_code: c.customer_code ?? null
   }));
-  return { packageDates, clientSignups };
+  return { packageDates, packageCustomerCodes, clientSignups };
 }
 
 export async function getImports(): Promise<ImportLog[]> {
