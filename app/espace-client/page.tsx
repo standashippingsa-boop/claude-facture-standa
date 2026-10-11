@@ -874,9 +874,14 @@ export default function EspaceClientPage() {
             {disponiblesOnly.length === 0 ? <AvailableEmpty /> : (
               <>
                 {dispoEst ? (
-                  <div className="flex flex-wrap gap-2 px-1">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">Shipping fee <b className="font-black">{usd(dispoEst.subtotal)}</b></span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">Taxe fixe <b className="font-black">{dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : "—"}</b></span>
+                  <div className="space-y-2 px-1">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">Shipping fee <b className="font-black">{usd(dispoEst.subtotal)}</b></span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">Fixed tax <b className="font-black">{dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : "—"}</b></span>
+                    </div>
+                    <div>
+                      <span className="inline-flex items-center gap-2 rounded-full bg-navy px-4 py-2.5 text-base font-bold text-white">Total <b className="text-lg font-black">{usd(dispoEst.total)}</b></span>
+                    </div>
                   </div>
                 ) : (
                   <p className="px-1 text-xs text-amber-700">Le tarif de votre ville n&apos;est pas encore configuré. Contactez-nous sur WhatsApp.</p>
