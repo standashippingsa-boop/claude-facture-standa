@@ -27,7 +27,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, ChevronDown, ChevronLeft, CircleCheck,
   ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
-  MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, ShieldCheck, Sparkles, Store, Trash2, Truck, X
+  MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, Search, ShieldCheck, Sparkles, Store, Trash2, Truck, X
 } from "lucide-react";
 import DeleteAccountModal from "@/components/DeleteAccountModal";
 import HermesChat from "@/components/HermesChat";
@@ -141,6 +141,7 @@ export default function EspaceClientPage() {
 
   const [view, setView] = useState<View>("home");
   const [detail, setDetail] = useState<Pkg | null>(null);
+  const [trackQuery, setTrackQuery] = useState("");
   const [openRetrait, setOpenRetrait] = useState<string | null>(null);
   const [openInvoiceId, setOpenInvoiceId] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -379,6 +380,16 @@ export default function EspaceClientPage() {
     ?? autres[0]
     ?? disponibles[0]
     ?? null;
+  // Aperçu "Colis récents" de l'accueil — les colis actifs les plus récemment mis à jour.
+  const recentActive = [...receptionsAll]
+    .sort((a, b) => new Date(b.received_at ?? b.created_date ?? 0).getTime() - new Date(a.received_at ?? a.created_date ?? 0).getTime())
+    .slice(0, 3);
+  const trackQueryNorm = trackQuery.trim().toLowerCase();
+  const trackMatches = trackQueryNorm.length < 2 ? [] : pkgs.filter((p) =>
+    p.tracking_number?.toLowerCase().includes(trackQueryNorm)
+    || p.tracking_manual?.toLowerCase().includes(trackQueryNorm)
+    || (p.content ?? "").toLowerCase().includes(trackQueryNorm)
+  ).slice(0, 5);
   const outstandingBalanceUsd = round2(invs.reduce((total, invoice) => (
     hasSignificantInvoiceBalance(invoice) ? total + invoiceRemainingAmounts(invoice).remainingUsd : total
   ), 0));
@@ -568,7 +579,7 @@ export default function EspaceClientPage() {
         <div className="relative flex min-h-[124px] items-center justify-between gap-3">
           <div className="min-w-0 py-1">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.13em] text-sky-50">
-              <Sparkles size={12} /> Prêt au retrait
+              <Sparkles size={12} /> Disponible
             </span>
             <h2 className="mt-3 text-[22px] font-black leading-tight tracking-[-.035em]">
               {count === 1 ? "Votre colis vous attend" : "Vos colis vous attendent"}
@@ -733,7 +744,7 @@ export default function EspaceClientPage() {
               {p.tracking_manual && <p className="font-mono text-[11px] text-mute truncate mt-0.5">{p.tracking_manual}</p>}
               <div className="mt-1 flex flex-wrap gap-1">
                 {check && isInvoiced(p) && <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">Facturé</span>}
-                {availableCard && !isInvoiced(p) && <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Prêt au retrait</span>}
+                {availableCard && !isInvoiced(p) && <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Disponible</span>}
                 {special.isSpecial && <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800" title="Traitement particulier appliqué à ce colis">Colis spécial</span>}
               </div>
             </div>
@@ -868,8 +879,52 @@ export default function EspaceClientPage() {
               retraitCount={activeRetraits.length}
               deliveredCount={historique.length}
               unreadNotifications={unreadNotifications.length}
+              activePackage={activePackage}
               onNavigate={(destination) => destination === "notifications" ? openNotifications() : setView(destination)}
+              onOpenDetail={setDetail}
             />
+
+            <div className="relative client-enter client-enter-d4">
+              <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={trackQuery}
+                onChange={(e) => setTrackQuery(e.target.value)}
+                placeholder="Rechercher un colis (numéro de suivi, contenu)…"
+                className="input w-full pl-10"
+                aria-label="Rechercher un colis"
+              />
+              {trackQueryNorm.length >= 2 && (
+                <div className="absolute inset-x-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl border border-line bg-white shadow-lift">
+                  {trackMatches.length === 0 ? (
+                    <p className="px-3.5 py-3 text-xs text-mute">Aucun colis trouvé pour « {trackQuery.trim()} ».</p>
+                  ) : trackMatches.map((p) => (
+                    <button key={p.id} type="button"
+                      onClick={() => { setDetail(p); setTrackQuery(""); }}
+                      className="flex w-full items-center justify-between gap-2 border-b border-line px-3.5 py-2.5 text-left last:border-0 hover:bg-mist">
+                      <span className="min-w-0">
+                        <span className="block truncate font-mono text-xs font-bold text-ink">{p.tracking_number || p.tracking_manual || "—"}</span>
+                        <span className="block truncate text-[11px] text-mute">{p.content || "—"}</span>
+                      </span>
+                      <StatusBadge status={p.status} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {recentActive.length > 0 && (
+              <section className="space-y-2.5 client-enter client-enter-d4">
+                <div className="flex items-center justify-between">
+                  <h2 className="h-sec">Colis récents</h2>
+                  {receptionsAll.length > recentActive.length && (
+                    <button onClick={() => setView(disponibles.length ? "disponibles" : "receptions")} className="text-xs font-bold text-blue-600">Voir tout</button>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  {recentActive.map((p) => <PkgCard key={p.id} p={p} />)}
+                </div>
+              </section>
+            )}
 
             {showPushBanner && (
               <div role="dialog" aria-modal="true" aria-labelledby="push-permission-title" className="fixed inset-0 z-[70] flex items-end bg-slate-950/35 p-3 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-5">

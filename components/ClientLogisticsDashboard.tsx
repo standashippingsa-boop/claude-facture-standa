@@ -20,12 +20,15 @@ type DashboardProps = {
   retraitCount: number;
   deliveredCount: number;
   unreadNotifications: number;
+  /** Colis le plus pertinent à suivre en ce moment (en transit en priorité) — null si rien n'est actif. */
+  activePackage: Pkg | null;
   onNavigate: (destination: ClientDashboardDestination) => void;
+  onOpenDetail: (pkg: Pkg) => void;
 };
 
 const shipmentLabel = (pkg: Pkg | null) => {
   if (!pkg) return "Aucun colis actif";
-  if (pkg.status === "Disponible") return "Prêt au retrait";
+  if (pkg.status === "Disponible") return "Disponible";
   if (pkg.status === "Facturé") return "Facturé";
   if (pkg.status === "Livré") return "Livré";
   return pkg.status || "En cours";
@@ -80,7 +83,7 @@ function JourneyLine() {
   );
 }
 
-export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, estimatedUsd, availableCount, receptionCount, retraitCount, deliveredCount, unreadNotifications, onNavigate }: DashboardProps) {
+export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, estimatedUsd, availableCount, receptionCount, retraitCount, deliveredCount, unreadNotifications, activePackage, onNavigate, onOpenDetail }: DashboardProps) {
   return (
     <section className="space-y-5">
       {unreadNotifications > 0 && (
@@ -101,7 +104,7 @@ export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, 
         <div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-black tracking-tight text-slate-900">Vos colis</h2><span className="text-[11px] font-bold text-slate-400">Vue d&apos;ensemble</span></div>
         <div className="grid grid-cols-4 gap-2.5">
           <QuickAction icon={Truck} label="Miami" hint="Colis reçus" count={receptionCount} onClick={() => onNavigate("receptions")} />
-          <QuickAction icon={PackageCheck} label="Disponible" hint="Prêts à retirer" count={availableCount} onClick={() => onNavigate("disponibles")} />
+          <QuickAction icon={PackageCheck} label="Disponible" hint="À l'agence" count={availableCount} onClick={() => onNavigate("disponibles")} />
           <QuickAction icon={Clipboard} label="Historique" hint="Colis livrés" count={deliveredCount} onClick={() => onNavigate("historique")} />
           <QuickAction icon={Handshake} label="Retrait" hint="Vos demandes" count={retraitCount} onClick={() => onNavigate("retraits")} />
         </div>
@@ -109,9 +112,45 @@ export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, 
 
       <section className="relative overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-br from-white via-[#f8fbff] to-[#eaf5ff] p-5 shadow-[0_14px_32px_-28px_rgba(14,83,172,.6)]">
         <span aria-hidden className="absolute -right-12 -bottom-14 h-40 w-40 rounded-full bg-sky-100/70 blur-2xl" />
-        <div className="relative flex items-start justify-between gap-3"><div className="min-w-0"><span className="inline-flex items-center gap-1.5 rounded-full bg-[#eaf4ff] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.12em] text-[#145ca8]"><Sparkles size={12} /> Suivi simplifié</span><h2 className="mt-3 text-lg font-black tracking-tight text-slate-900">Votre parcours, en un coup d&apos;œil</h2><p className="mt-1.5 max-w-[225px] text-xs leading-relaxed text-slate-500">Chaque colis avance au même rythme dans votre espace personnel.</p></div><HomeParcelIllustration /></div>
-        <JourneyLine />
-        <div className="relative mt-4 flex items-center gap-2 rounded-2xl bg-white/80 px-3 py-2.5 text-xs font-semibold text-slate-600 ring-1 ring-sky-100"><MapPin size={15} className="shrink-0 text-[#145ca8]" /><span className="truncate">Agence de retrait : {destination || "Votre agence"}</span></div>
+        <div className="relative flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#eaf4ff] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.12em] text-[#145ca8]">
+              <Sparkles size={12} /> {activePackage ? "Suivi en direct" : "Suivi simplifié"}
+            </span>
+            {activePackage ? (
+              <>
+                <p className="mt-3 truncate font-mono text-sm font-black text-slate-900">#{activePackage.tracking_number || activePackage.tracking_manual || "—"}</p>
+                <p className="mt-1 text-xs font-bold text-[#145ca8]">{shipmentLabel(activePackage)}</p>
+              </>
+            ) : (
+              <h2 className="mt-3 text-lg font-black tracking-tight text-slate-900">Votre parcours, en un coup d&apos;œil</h2>
+            )}
+            <p className="mt-1.5 max-w-[225px] text-xs leading-relaxed text-slate-500">
+              {activePackage ? "Touchez pour voir chaque étape de ce colis." : "Chaque colis avance au même rythme dans votre espace personnel."}
+            </p>
+          </div>
+          <HomeParcelIllustration />
+        </div>
+
+        {activePackage ? (
+          <>
+            <div className="relative mt-5">
+              <div className="flex justify-between text-[10px] font-bold text-slate-400"><span>Miami</span><span>{destination || "Agence"}</span></div>
+              <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-sky-100">
+                <span className="block h-full rounded-full bg-[#145ca8] transition-all duration-700" style={{ width: `${Math.max(14, ((activeTrackingStep(activePackage) + 1) / trackingSteps.length) * 100)}%` }} />
+              </div>
+            </div>
+            <button type="button" onClick={() => onOpenDetail(activePackage)} className="relative mt-4 flex w-full items-center justify-between gap-2 rounded-2xl bg-white/80 px-3 py-2.5 text-xs font-bold text-[#0d478d] ring-1 ring-sky-100 transition hover:bg-white">
+              <span className="inline-flex min-w-0 items-center gap-2"><MapPin size={15} className="shrink-0 text-[#145ca8]" /><span className="truncate">{destination || "Votre agence"}</span></span>
+              <span className="inline-flex shrink-0 items-center gap-1">Voir le détail <ChevronRight size={14} /></span>
+            </button>
+          </>
+        ) : (
+          <>
+            <JourneyLine />
+            <div className="relative mt-4 flex items-center gap-2 rounded-2xl bg-white/80 px-3 py-2.5 text-xs font-semibold text-slate-600 ring-1 ring-sky-100"><MapPin size={15} className="shrink-0 text-[#145ca8]" /><span className="truncate">Agence de retrait : {destination || "Votre agence"}</span></div>
+          </>
+        )}
       </section>
 
       <div className="sr-only">{availableCount} colis disponibles, {receptionCount} réceptions et {deliveredCount} colis livrés.</div>
