@@ -502,9 +502,8 @@ export default function EspaceClientPage() {
     const totalFacture = round2(facturedItems.reduce((s, p) => s + (Number(p.total_usd) || 0), 0));
     const est = nonFacturedItems.length ? estimation(nonFacturedItems) : null;
     return (
-      <div className="relative overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-br from-white via-white to-sky-50/70 p-4 shadow-[0_14px_30px_-24px_rgba(14,83,172,.45)]">
-        <span aria-hidden className="absolute -right-9 -top-9 h-24 w-24 rounded-full bg-sky-100/65" />
-        <div className="relative grid grid-cols-2 gap-3">
+      <div className="rounded-3xl border border-sky-100 bg-white p-4 shadow-sm">
+        <div className="grid grid-cols-2 gap-3">
           <div className="flex items-start gap-2.5">
             <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#eaf4ff] text-[#1466b8]"><PackageCheck size={17} /></span>
             <div>
@@ -552,93 +551,50 @@ export default function EspaceClientPage() {
     );
   };
 
-  /** Illustration décorative légère — aucun fichier externe, donc aucune donnée ni écran n'est ralenti. */
-  const AvailableParcelArt = ({ count }: { count: number }) => (
-    <div aria-hidden className="relative h-[118px] w-[126px] shrink-0 sm:h-[130px] sm:w-[142px]">
-      <span className="absolute -right-5 -top-8 h-28 w-28 rounded-full border border-white/20 bg-white/10" />
-      <span className="absolute right-1 top-3 h-[82px] w-[82px] rotate-[-7deg] rounded-2xl border border-white/25 bg-gradient-to-br from-[#ffd99d] via-[#eaa75d] to-[#bd682e] shadow-[0_16px_25px_rgba(1,30,74,.26)]" />
-      <span className="absolute right-6 top-[9px] h-[82px] w-3 rotate-[-7deg] bg-[#fff0d1]/85" />
-      <span className="absolute right-[42px] top-[41px] h-[26px] w-[47px] rotate-[-7deg] rounded-md bg-white/90 shadow-sm" />
-      <span className="absolute right-[49px] top-[47px] h-1.5 w-[21px] rotate-[-7deg] rounded bg-sky-500/80" />
-      <span className="absolute left-2 bottom-0 grid h-[59px] w-[59px] place-items-center rounded-2xl border border-white/30 bg-white/20 text-white shadow-lg backdrop-blur-sm">
-        <PackageCheck size={29} strokeWidth={1.8} />
-      </span>
-      <span className="absolute bottom-1 left-[47px] grid h-7 min-w-7 place-items-center rounded-full border-2 border-[#0d478d] bg-white px-1 text-[11px] font-black text-[#0d478d] shadow-md">
-        {count}
-      </span>
-    </div>
-  );
-
-  /** En-tête visuel de la section Disponibles : présentation seulement, sans logique métier. */
+  /** En-tête de la section Disponibles : présentation seulement, sans logique métier. */
   const AvailableHero = ({ count }: { count: number }) => {
     const agency = client.pickup_location || client.ville?.name || client.city || "Votre agence";
     return (
-      <section className="relative overflow-hidden rounded-[28px] border border-sky-300/50 bg-gradient-to-br from-[#0a3271] via-[#1254a6] to-[#129eb4] p-4 text-white shadow-[0_20px_42px_-18px_rgba(11,60,139,.65)] sm:p-5">
-        <div className="relative flex min-h-[124px] items-center justify-between gap-3">
-          <div className="min-w-0 py-1">
-            <p className="text-[11px] font-bold uppercase tracking-[.13em] text-sky-100">Disponible</p>
-            <h2 className="mt-2 text-[19px] font-black leading-tight tracking-[-.025em]">
-              {count === 1 ? "Votre colis vous attend" : "Vos colis vous attendent"}
-            </h2>
-            <p className="mt-1.5 max-w-[200px] text-[12px] leading-relaxed text-sky-50/85">
-              Choisissez les colis à préparer avant votre passage à l&apos;agence.
-            </p>
-            <span className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-xl bg-[#07255a]/35 px-2.5 py-1.5 text-[11px] font-semibold text-white/90">
-              <MapPin size={13} className="shrink-0 text-sky-200" /> <span className="truncate">{agency}</span>
-            </span>
-          </div>
-          <AvailableParcelArt count={count} />
+      <section className="flex items-start gap-3 rounded-[24px] border border-sky-300/50 bg-gradient-to-br from-[#0a3271] via-[#1254a6] to-[#129eb4] p-4 text-white sm:p-5">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/15 text-white"><PackageCheck size={20} strokeWidth={1.8} /></span>
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-[.13em] text-sky-100">Disponible</p>
+          <h2 className="mt-1 text-[17px] font-black leading-tight tracking-[-.02em]">
+            {count === 1 ? "Votre colis vous attend" : "Vos colis vous attendent"}
+          </h2>
+          <p className="mt-1 text-[12px] leading-relaxed text-sky-50/85">
+            Choisissez les colis à préparer avant votre passage à l&apos;agence.
+          </p>
+          <span className="mt-2.5 inline-flex max-w-full items-center gap-1.5 rounded-xl bg-[#07255a]/35 px-2.5 py-1.5 text-[11px] font-semibold text-white/90">
+            <MapPin size={13} className="shrink-0 text-sky-200" /> <span className="truncate">{agency}</span>
+          </span>
         </div>
       </section>
     );
   };
 
-  /** Illustration Miami : pure CSS + icônes, sans image lourde ni donnée métier. */
-  const MiamiParcelArt = ({ count }: { count: number }) => (
-    <div aria-hidden className="relative h-[120px] w-[132px] shrink-0 overflow-visible sm:h-[132px] sm:w-[146px]">
-      <span className="absolute -right-6 -top-6 h-28 w-28 rounded-full border border-sky-100 bg-white/60" />
-      <span className="absolute right-3 top-5 grid h-16 w-20 place-items-center rounded-2xl border border-sky-200 bg-white text-[#1466b8] shadow-[0_14px_26px_-18px_rgba(14,83,172,.55)]"><Store size={29} strokeWidth={1.7} /></span>
-      <span className="absolute right-9 top-[13px] h-2.5 w-8 rounded-t-md bg-[#1466b8]" />
-      <span className="absolute bottom-3 right-0 h-[61px] w-[68px] rotate-[-7deg] rounded-xl border border-[#e9b97d] bg-gradient-to-br from-[#ffdfae] via-[#e5a35d] to-[#bd7137] shadow-[0_15px_22px_rgba(14,83,172,.2)]" />
-      <span className="absolute bottom-[29px] right-[30px] h-[62px] w-2 rotate-[-7deg] bg-[#fff1d4]/90" />
-      <span className="absolute bottom-[31px] right-[17px] h-[16px] w-[31px] rotate-[-7deg] rounded bg-white/90" />
-      <span className="absolute bottom-0 left-1 grid h-12 w-12 place-items-center rounded-2xl border border-white bg-[#1466b8] text-white shadow-lg shadow-blue-900/20"><Truck size={23} strokeWidth={1.8} /></span>
-      <span className="absolute bottom-1 left-[39px] grid h-7 min-w-7 place-items-center rounded-full border-2 border-[#1466b8] bg-white px-1 text-[11px] font-black text-[#1466b8] shadow-sm">{count}</span>
-    </div>
-  );
-
-  /** En-tête illustré de la page Miami — présentation seulement. */
+  /** En-tête de la page Miami — présentation seulement. */
   const MiamiHero = ({ count }: { count: number }) => (
-    <section className="relative overflow-hidden rounded-[28px] border border-sky-100 bg-gradient-to-br from-[#eaf6ff] via-white to-[#dff2ff] p-4 shadow-[0_18px_36px_-28px_rgba(14,83,172,.55)] sm:p-5">
-      <div className="relative flex min-h-[122px] items-center justify-between gap-3">
-        <div className="min-w-0 py-1">
-          <p className="text-[11px] font-bold uppercase tracking-[.13em] text-[#1466b8]">Entrepôt Miami</p>
-          <h2 className="mt-2 text-[18px] font-black leading-tight tracking-[-.025em] text-[#0b3977]">Vos colis sont suivis</h2>
-          <p className="mt-1.5 max-w-[194px] text-[12px] leading-relaxed text-slate-500">{count === 1 ? "Un colis est actuellement dans le parcours STANDA." : `${count} colis sont actuellement dans le parcours STANDA.`}</p>
-          <span className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#dbeeff] px-2.5 py-1.5 text-[11px] font-semibold text-[#145ca8]"><Route size={13} /> Suivi clair à chaque étape</span>
-        </div>
-        <MiamiParcelArt count={count} />
+    <section className="flex items-start gap-3 rounded-[24px] border border-sky-100 bg-gradient-to-br from-[#eaf6ff] via-white to-[#dff2ff] p-4 sm:p-5">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#1466b8] text-white"><Truck size={20} strokeWidth={1.8} /></span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-bold uppercase tracking-[.13em] text-[#1466b8]">Entrepôt Miami</p>
+        <h2 className="mt-1 text-[17px] font-black leading-tight tracking-[-.02em] text-[#0b3977]">Vos colis sont suivis</h2>
+        <p className="mt-1 text-[12px] leading-relaxed text-slate-500">{count === 1 ? "Un colis est actuellement dans le parcours STANDA." : `${count} colis sont actuellement dans le parcours STANDA.`}</p>
       </div>
     </section>
   );
 
-  /** En-tête illustré réutilisable pour les autres espaces de l'application client. */
-  const SectionHero = ({ eyebrow, title, description, icon: Icon, count }: {
-    eyebrow: string; title: string; description: string; icon: typeof Truck; count?: number;
+  /** En-tête réutilisable pour les autres espaces de l'application client. */
+  const SectionHero = ({ eyebrow, title, description, icon: Icon }: {
+    eyebrow: string; title: string; description: string; icon: typeof Truck;
   }) => (
-    <section className="relative overflow-hidden rounded-[28px] border border-sky-100 bg-gradient-to-br from-white via-[#f7fbff] to-[#e3f3ff] p-4 shadow-[0_18px_36px_-28px_rgba(14,83,172,.5)] sm:p-5">
-      <div className="relative flex min-h-[112px] items-center justify-between gap-3">
-        <div className="min-w-0 py-1">
-          <p className="text-[11px] font-bold uppercase tracking-[.13em] text-[#1466b8]">{eyebrow}</p>
-          <h2 className="mt-2 text-[18px] font-black leading-tight tracking-[-.025em] text-[#0b3977]">{title}</h2>
-          <p className="mt-1.5 max-w-[205px] text-[12px] leading-relaxed text-slate-500">{description}</p>
-        </div>
-        <div aria-hidden className="relative grid h-[94px] w-[100px] shrink-0 place-items-center">
-          <span className="absolute inset-1 rounded-[30px] border border-sky-100 bg-white/85 shadow-[0_16px_27px_-21px_rgba(14,83,172,.65)]" />
-          <span className="absolute bottom-0 right-0 h-12 w-12 rounded-2xl border border-blue-100 bg-[#dceeff]" />
-          <span className="relative grid h-14 w-14 place-items-center rounded-2xl bg-[#1466b8] text-white shadow-lg shadow-blue-900/20"><Icon size={27} strokeWidth={1.8} /></span>
-          {typeof count === "number" && <span className="absolute -right-1 top-1 grid h-7 min-w-7 place-items-center rounded-full border-2 border-white bg-white px-1 text-[11px] font-black text-[#1466b8] shadow-sm">{count}</span>}
-        </div>
+    <section className="flex items-start gap-3 rounded-[24px] border border-sky-100 bg-gradient-to-br from-white via-[#f7fbff] to-[#e3f3ff] p-4 sm:p-5">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#1466b8] text-white"><Icon size={20} strokeWidth={1.8} /></span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-bold uppercase tracking-[.13em] text-[#1466b8]">{eyebrow}</p>
+        <h2 className="mt-1 text-[17px] font-black leading-tight tracking-[-.02em] text-[#0b3977]">{title}</h2>
+        <p className="mt-1 text-[12px] leading-relaxed text-slate-500">{description}</p>
       </div>
     </section>
   );
@@ -936,7 +892,7 @@ export default function EspaceClientPage() {
         {view === "retraits" && (
           <>
             <SubHeader title="Retrait" sub="Vos demandes de retrait en agence" />
-            <SectionHero eyebrow="Retrait en agence" title="Préparez votre passage" description="Vos demandes restent regroupées ici jusqu’à la remise de vos colis." icon={PackageCheck} count={activeRetraits.length} />
+            <SectionHero eyebrow="Retrait en agence" title="Préparez votre passage" description="Vos demandes restent regroupées ici jusqu’à la remise de vos colis." icon={PackageCheck} />
             {activeRetraits.length === 0
               ? <Empty t="Aucune demande de retrait pour le moment. Sélectionnez vos colis disponibles pour en créer une." />
               : <div className="space-y-2"><RetraitsList list={activeRetraits} /></div>}
@@ -1005,7 +961,7 @@ export default function EspaceClientPage() {
         {view === "historique" && (
           <>
             <SubHeader title="Historique" sub="Colis remis et confirmés" />
-            <SectionHero eyebrow="Vos remises" title="Tout votre historique" description="Retrouvez les colis déjà remis et confirmés, classés dans votre espace." icon={Clock} count={historique.length} />
+            <SectionHero eyebrow="Vos remises" title="Tout votre historique" description="Retrouvez les colis déjà remis et confirmés, classés dans votre espace." icon={Clock} />
             {historique.length === 0 ? <Empty t="Aucun colis dans votre historique." /> : (
               <>
                 <Totaux list={historique} reel />
@@ -1019,7 +975,7 @@ export default function EspaceClientPage() {
         {view === "factures" && (
           <>
             <SubHeader title="Factures" sub={`${invs.length} facture${invs.length > 1 ? "s" : ""}`} />
-            <SectionHero eyebrow="Paiements" title="Vos factures STANDA" description="Consultez vos montants, vos colis facturés et vos documents au même endroit." icon={ReceiptText} count={invs.length} />
+            <SectionHero eyebrow="Paiements" title="Vos factures STANDA" description="Consultez vos montants, vos colis facturés et vos documents au même endroit." icon={ReceiptText} />
             {invs.length === 0 ? <Empty t="Aucune facture pour le moment." /> : (
               <div className="space-y-3">
                 {invs.map((f) => {
@@ -1062,7 +1018,7 @@ export default function EspaceClientPage() {
         {view === "notifications" && (
           <>
             <SubHeader title="Notifications" sub="Les informations importantes de votre compte" />
-            <SectionHero eyebrow="À ne pas manquer" title="Restez informé" description="Vos nouvelles importantes sont réunies ici pour suivre chaque étape sans rien oublier." icon={BellRing} count={clientNotifications.length} />
+            <SectionHero eyebrow="À ne pas manquer" title="Restez informé" description="Vos nouvelles importantes sont réunies ici pour suivre chaque étape sans rien oublier." icon={BellRing} />
             {clientNotifications.length === 0 ? (
               <Empty t="Aucune notification pour le moment." />
             ) : (
