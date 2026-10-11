@@ -98,14 +98,14 @@ export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, 
       )}
 
       <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-blue-600 to-sky-400 p-5 text-white shadow-md shadow-blue-600/20">
-        <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-blue-100">Solde de factures</p><p className="mt-2 text-3xl font-black tracking-tight">{usd(balanceUsd)}</p><p className="mt-1 text-xs text-blue-100">Montant restant à régler</p></div><button type="button" onClick={() => onNavigate("factures")} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-white/15 px-3 text-xs font-bold ring-1 ring-white/20 transition hover:bg-white/25"><BarChart3 size={16} />Voir le statut</button></div>
+        <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-blue-100">Solde de factures</p><p className="mt-2 text-2xl font-black tracking-tight">{usd(balanceUsd)}</p><p className="mt-1 text-xs text-blue-100">Montant restant à régler</p></div><button type="button" onClick={() => onNavigate("factures")} className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-white/15 px-3 text-xs font-bold ring-1 ring-white/20 transition hover:bg-white/25"><BarChart3 size={16} />Voir le statut</button></div>
         {estimatedUsd > 0 && <div className="mt-4 flex items-center justify-between rounded-2xl bg-white/10 px-3 py-2 text-xs font-semibold text-blue-50"><span>Estimation des colis en cours</span><span className="text-sm font-extrabold text-white">{usd(estimatedUsd)}</span></div>}
         <div className="mt-3 rounded-2xl bg-white/10 px-3 py-2 text-xs font-semibold text-blue-50">Bonjour {clientName}, toutes vos informations sont à jour.</div>
       </section>
 
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-black tracking-tight text-slate-900">Vos colis</h2>
+          <h2 className="text-base font-black tracking-tight text-slate-900">Vos colis</h2>
           <button type="button" onClick={() => onNavigate("historique")} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-slate-600">
             <Clock size={12} /> Historique
           </button>
@@ -121,7 +121,7 @@ export function ClientLogisticsDashboard({ clientName, destination, balanceUsd, 
       <section className="relative overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-br from-white via-[#f8fbff] to-[#eaf5ff] p-5 shadow-[0_14px_32px_-28px_rgba(14,83,172,.6)]">
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-black tracking-tight text-slate-900">{activePackage ? "Suivi de colis" : "Votre parcours, en un coup d’œil"}</h2>
+            <h2 className="text-base font-black tracking-tight text-slate-900">{activePackage ? "Suivi de colis" : "Votre parcours, en un coup d’œil"}</h2>
             {activePackage ? (
               <>
                 <p className="mt-2 truncate font-mono text-sm font-black text-slate-900">#{activePackage.tracking_number || activePackage.tracking_manual || "—"}</p>

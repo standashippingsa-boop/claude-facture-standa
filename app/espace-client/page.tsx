@@ -578,7 +578,7 @@ export default function EspaceClientPage() {
         <div className="relative flex min-h-[124px] items-center justify-between gap-3">
           <div className="min-w-0 py-1">
             <p className="text-[11px] font-bold uppercase tracking-[.13em] text-sky-100">Disponible</p>
-            <h2 className="mt-2 text-[22px] font-black leading-tight tracking-[-.035em]">
+            <h2 className="mt-2 text-[19px] font-black leading-tight tracking-[-.025em]">
               {count === 1 ? "Votre colis vous attend" : "Vos colis vous attendent"}
             </h2>
             <p className="mt-1.5 max-w-[200px] text-[12px] leading-relaxed text-sky-50/85">
@@ -614,7 +614,7 @@ export default function EspaceClientPage() {
       <div className="relative flex min-h-[122px] items-center justify-between gap-3">
         <div className="min-w-0 py-1">
           <p className="text-[11px] font-bold uppercase tracking-[.13em] text-[#1466b8]">Entrepôt Miami</p>
-          <h2 className="mt-2 text-[21px] font-black leading-tight tracking-[-.035em] text-[#0b3977]">Vos colis sont suivis</h2>
+          <h2 className="mt-2 text-[18px] font-black leading-tight tracking-[-.025em] text-[#0b3977]">Vos colis sont suivis</h2>
           <p className="mt-1.5 max-w-[194px] text-[12px] leading-relaxed text-slate-500">{count === 1 ? "Un colis est actuellement dans le parcours STANDA." : `${count} colis sont actuellement dans le parcours STANDA.`}</p>
           <span className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#dbeeff] px-2.5 py-1.5 text-[11px] font-semibold text-[#145ca8]"><Route size={13} /> Suivi clair à chaque étape</span>
         </div>
@@ -631,7 +631,7 @@ export default function EspaceClientPage() {
       <div className="relative flex min-h-[112px] items-center justify-between gap-3">
         <div className="min-w-0 py-1">
           <p className="text-[11px] font-bold uppercase tracking-[.13em] text-[#1466b8]">{eyebrow}</p>
-          <h2 className="mt-2 text-[21px] font-black leading-tight tracking-[-.035em] text-[#0b3977]">{title}</h2>
+          <h2 className="mt-2 text-[18px] font-black leading-tight tracking-[-.025em] text-[#0b3977]">{title}</h2>
           <p className="mt-1.5 max-w-[205px] text-[12px] leading-relaxed text-slate-500">{description}</p>
         </div>
         <div aria-hidden className="relative grid h-[94px] w-[100px] shrink-0 place-items-center">
@@ -910,7 +910,7 @@ export default function EspaceClientPage() {
                   <div className="relative overflow-hidden bg-gradient-to-br from-[#0b3977] via-[#145ca8] to-[#28a3bc] px-6 pb-7 pt-6 text-white">
                     <span className="relative grid h-14 w-14 place-items-center rounded-2xl border border-white/20 bg-white/15 shadow-lg shadow-blue-950/20"><BellRing size={27} /></span>
                     <p className="relative mt-5 text-[11px] font-bold uppercase tracking-[.14em] text-sky-100">STANDA COMMERCIAL</p>
-                    <h2 id="push-permission-title" className="relative mt-1 text-[22px] font-black leading-tight">Activez les notifications</h2>
+                    <h2 id="push-permission-title" className="relative mt-1 text-[19px] font-black leading-tight">Activez les notifications</h2>
                   </div>
                   <div className="p-5">
                     <p className="text-sm leading-relaxed text-slate-600">Recevez une alerte dans la barre de notifications de votre téléphone dès qu&apos;un colis est reçu, disponible, facturé ou remis.</p>
