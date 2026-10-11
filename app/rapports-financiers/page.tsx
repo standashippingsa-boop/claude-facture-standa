@@ -156,7 +156,7 @@ export default function RapportsFinanciersPage() {
   }, [payments]);
 
   const customerHistory = useMemo(() => {
-    const rows = new Map<string, { code: string; name: string; city: string; invoiceCount: number; paidUsd: number; paidHtg: number; lastInvoiceAt: string; lastPaymentAt: string }>();
+    const rows = new Map<string, { code: string; name: string; city: string; invoiceCount: number; paidUsd: number; paidHtg: number; balanceUsd: number; balanceHtg: number; lastInvoiceAt: string; lastPaymentAt: string }>();
     for (const customer of data?.clients ?? []) {
       // Un profil en attente d'activation n'a pas encore de code client
       // (customer_code = null, cf. /api/register-client) — rien à montrer
@@ -168,20 +168,26 @@ export default function RapportsFinanciersPage() {
         code: customer.customer_code,
         name: [customer.fullname, customer.surname].filter(Boolean).join(" "),
         city: cityById.get(customer.ville_id ?? "") ?? "",
-        invoiceCount: 0, paidUsd: 0, paidHtg: 0, lastInvoiceAt: "", lastPaymentAt: ""
+        invoiceCount: 0, paidUsd: 0, paidHtg: 0, balanceUsd: 0, balanceHtg: 0, lastInvoiceAt: "", lastPaymentAt: ""
       });
     }
     for (const invoice of zoneInvoices) {
       if (!invoice.has_pdf) continue;
-      const current = rows.get(invoice.customer_code) ?? { code: invoice.customer_code, name: "", city: "", invoiceCount: 0, paidUsd: 0, paidHtg: 0, lastInvoiceAt: "", lastPaymentAt: "" };
+      const current = rows.get(invoice.customer_code) ?? { code: invoice.customer_code, name: "", city: "", invoiceCount: 0, paidUsd: 0, paidHtg: 0, balanceUsd: 0, balanceHtg: 0, lastInvoiceAt: "", lastPaymentAt: "" };
       current.invoiceCount += 1;
+      // Facture pas encore entièrement réglée : le solde qui reste doit
+      // rester visible ici, sinon ce tableau donne l'impression à tort
+      // qu'un acompte partiel a clôturé la facture.
+      const remaining = invoiceRemainingAmounts(invoice);
+      current.balanceUsd = money(current.balanceUsd + remaining.remainingUsd);
+      current.balanceHtg = money(current.balanceHtg + remaining.remainingHtg);
       if (String(invoice.created_at) > current.lastInvoiceAt) current.lastInvoiceAt = invoice.created_at;
       rows.set(invoice.customer_code, current);
     }
     for (const payment of data?.payments ?? []) {
       const invoice = invoiceById.get(payment.invoice_id);
       if (!invoice || !customerMatchesCity(invoice.customer_code)) continue;
-      const current = rows.get(invoice.customer_code) ?? { code: invoice.customer_code, name: "", city: "", invoiceCount: 0, paidUsd: 0, paidHtg: 0, lastInvoiceAt: "", lastPaymentAt: "" };
+      const current = rows.get(invoice.customer_code) ?? { code: invoice.customer_code, name: "", city: "", invoiceCount: 0, paidUsd: 0, paidHtg: 0, balanceUsd: 0, balanceHtg: 0, lastInvoiceAt: "", lastPaymentAt: "" };
       current.paidUsd = money(current.paidUsd + money(payment.amount_usd));
       current.paidHtg = money(current.paidHtg + money(payment.amount_htg));
       if (String(payment.created_at) > current.lastPaymentAt) current.lastPaymentAt = payment.created_at;
@@ -283,8 +289,8 @@ export default function RapportsFinanciersPage() {
         <ReportSection id="balances" openId={openSection} onOpen={setOpenSection} icon={<CalendarDays size={20} />} tone="bg-amber-50 text-amber-700" title="Clients avec un solde à régler" summary={`${balances.length} client${balances.length > 1 ? "s" : ""} · ${usd(totalBalanceUsd)}`} note="Seuls les soldes d'au moins 50 HTG sont retenus. Les petites différences sont réglées automatiquement.">
           <div className="max-h-[430px] overflow-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr>{["Client", "Ville", "Factures", "Solde USD", "Solde HTG", "Dernière facture", "Action"].map((title) => <th className="th" key={title}>{title}</th>)}</tr></thead><tbody>{balances.length ? balances.map((row, index) => { const customer = customerByCode.get(row.customerCode); return <tr key={row.customerCode} className={index % 2 ? "bg-mist" : ""}><td className="td"><b className="text-navy">{row.customerCode}</b>{row.customerName && <span className="mt-0.5 block text-xs text-slate-500">{row.customerName}</span>}</td><td className="td">{cityById.get(customer?.ville_id ?? "") ?? "—"}</td><td className="td">{row.invoiceCount}<span className="mt-0.5 block text-[11px] text-slate-500">À partir de {row.oldestInvoiceNumber}</span></td><td className="td text-right font-bold text-amber-800">{usd(row.usd)}</td><td className="td text-right font-bold text-amber-800">{htg(row.htg)}</td><td className="td whitespace-nowrap">{dateText(row.latestAt)}</td><td className="td"><button type="button" onClick={() => { setPaymentCustomer(row.customerCode); setPaymentError(null); }} className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-navy px-3 text-xs font-bold text-white hover:bg-navy-light"><CircleDollarSign size={14} /> Encaisser</button></td></tr>; }) : <tr><td colSpan={7} className="py-10 text-center text-slate-400">Aucun solde à recevoir pour cette sélection.</td></tr>}</tbody></table></div>
         </ReportSection>
-        <ReportSection id="history" openId={openSection} onOpen={setOpenSection} icon={<History size={20} />} tone="bg-slate-100 text-slate-700" title="Historique financier des clients" summary={`${customerHistory.length} client${customerHistory.length > 1 ? "s" : ""}`} note="Toutes les factures et tous les paiements enregistrés, par client.">
-          <div className="max-h-[430px] overflow-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr>{["Client", "Ville", "Factures", "Total payé USD", "Total payé HTG", "Dernière activité"].map((title) => <th className="th" key={title}>{title}</th>)}</tr></thead><tbody>{customerHistory.length ? customerHistory.map((row, index) => <tr key={row.code} className={index % 2 ? "bg-mist" : ""}><td className="td"><b className="text-navy">{row.code}</b>{row.name && <span className="mt-0.5 block text-xs text-slate-500">{row.name}</span>}</td><td className="td">{row.city || "—"}</td><td className="td">{row.invoiceCount}</td><td className="td text-right font-bold">{usd(row.paidUsd)}</td><td className="td text-right font-bold">{htg(row.paidHtg)}</td><td className="td whitespace-nowrap">{dateText(row.lastPaymentAt || row.lastInvoiceAt)}</td></tr>) : <tr><td colSpan={6} className="py-10 text-center text-slate-400">Aucun historique pour cette sélection.</td></tr>}</tbody></table></div>
+        <ReportSection id="history" openId={openSection} onOpen={setOpenSection} icon={<History size={20} />} tone="bg-slate-100 text-slate-700" title="Historique financier des clients" summary={`${customerHistory.length} client${customerHistory.length > 1 ? "s" : ""}`} note="Toutes les factures et tous les paiements enregistrés, par client. « Solde restant » reste visible tant qu'un acompte ou un paiement partiel n'a pas couvert toute la facture.">
+          <div className="max-h-[430px] overflow-auto"><table className="w-full min-w-[920px] text-sm"><thead><tr>{["Client", "Ville", "Factures", "Total payé USD", "Total payé HTG", "Solde restant", "Dernière activité"].map((title) => <th className="th" key={title}>{title}</th>)}</tr></thead><tbody>{customerHistory.length ? customerHistory.map((row, index) => { const owes = row.balanceUsd > 0.009 || row.balanceHtg > 0.009; return <tr key={row.code} className={index % 2 ? "bg-mist" : ""}><td className="td"><b className="text-navy">{row.code}</b>{row.name && <span className="mt-0.5 block text-xs text-slate-500">{row.name}</span>}</td><td className="td">{row.city || "—"}</td><td className="td">{row.invoiceCount}</td><td className="td text-right font-bold">{usd(row.paidUsd)}</td><td className="td text-right font-bold">{htg(row.paidHtg)}</td><td className="td text-right">{owes ? <span className="font-bold text-amber-800">{usd(row.balanceUsd)} <span className="block text-[11px] font-semibold">{htg(row.balanceHtg)}</span></span> : <span className="badge bg-emerald-100 text-emerald-700">Payé</span>}</td><td className="td whitespace-nowrap">{dateText(row.lastPaymentAt || row.lastInvoiceAt)}</td></tr>; }) : <tr><td colSpan={7} className="py-10 text-center text-slate-400">Aucun historique pour cette sélection.</td></tr>}</tbody></table></div>
         </ReportSection>
       </section>
       {paymentCustomer && <PaymentModal onClose={() => { if (!paymentBusy) { setPaymentCustomer(null); setPaymentError(null); } }}>
