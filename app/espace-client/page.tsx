@@ -25,7 +25,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, ChevronDown, ChevronLeft, CircleCheck,
+  AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, ChevronDown, CircleCheck,
   ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
   MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, Search, ShieldCheck, Store, Trash2, Truck, X
 } from "lucide-react";
@@ -590,54 +590,6 @@ export default function EspaceClientPage() {
     );
   };
 
-  /** En-tête de la section Disponibles : présentation seulement, sans logique métier. */
-  const AvailableHero = ({ count }: { count: number }) => {
-    const agency = client.pickup_location || client.ville?.name || client.city || "Votre agence";
-    return (
-      <section className="flex items-start gap-3 rounded-[24px] border border-sky-300/50 bg-gradient-to-br from-[#0a3271] via-[#1254a6] to-[#129eb4] p-4 text-white sm:p-5">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/15 text-white"><PackageCheck size={20} strokeWidth={1.8} /></span>
-        <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[.13em] text-sky-100">Disponible</p>
-          <h2 className="mt-1 text-[17px] font-black leading-tight tracking-[-.02em]">
-            {count === 1 ? "Votre colis vous attend" : "Vos colis vous attendent"}
-          </h2>
-          <p className="mt-1 text-[12px] leading-relaxed text-sky-50/85">
-            Choisissez les colis à préparer avant votre passage à l&apos;agence.
-          </p>
-          <span className="mt-2.5 inline-flex max-w-full items-center gap-1.5 rounded-xl bg-[#07255a]/35 px-2.5 py-1.5 text-[11px] font-semibold text-white/90">
-            <MapPin size={13} className="shrink-0 text-sky-200" /> <span className="truncate">{agency}</span>
-          </span>
-        </div>
-      </section>
-    );
-  };
-
-  /** En-tête de la page Miami — présentation seulement. */
-  const MiamiHero = ({ count }: { count: number }) => (
-    <section className="flex items-start gap-3 rounded-[24px] border border-sky-100 bg-gradient-to-br from-[#eaf6ff] via-white to-[#dff2ff] p-4 sm:p-5">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#1466b8] text-white"><Truck size={20} strokeWidth={1.8} /></span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-bold uppercase tracking-[.13em] text-[#1466b8]">Entrepôt Miami</p>
-        <h2 className="mt-1 text-[17px] font-black leading-tight tracking-[-.02em] text-[#0b3977]">Vos colis sont suivis</h2>
-        <p className="mt-1 text-[12px] leading-relaxed text-slate-500">{count === 1 ? "Un colis est actuellement dans le parcours STANDA." : `${count} colis sont actuellement dans le parcours STANDA.`}</p>
-      </div>
-    </section>
-  );
-
-  /** En-tête réutilisable pour les autres espaces de l'application client. */
-  const SectionHero = ({ eyebrow, title, description, icon: Icon }: {
-    eyebrow: string; title: string; description: string; icon: typeof Truck;
-  }) => (
-    <section className="flex items-start gap-3 rounded-[24px] border border-sky-100 bg-gradient-to-br from-white via-[#f7fbff] to-[#e3f3ff] p-4 sm:p-5">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#1466b8] text-white"><Icon size={20} strokeWidth={1.8} /></span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-bold uppercase tracking-[.13em] text-[#1466b8]">{eyebrow}</p>
-        <h2 className="mt-1 text-[17px] font-black leading-tight tracking-[-.02em] text-[#0b3977]">{title}</h2>
-        <p className="mt-1 text-[12px] leading-relaxed text-slate-500">{description}</p>
-      </div>
-    </section>
-  );
-
   const AvailableEmpty = () => (
     <div className="relative overflow-hidden rounded-[28px] border border-sky-100 bg-gradient-to-b from-sky-50 to-white px-6 py-10 text-center shadow-sm">
       <div className="relative mx-auto grid h-20 w-20 place-items-center rounded-[26px] border border-white bg-white text-[#1466b8] shadow-[0_15px_28px_-16px_rgba(14,83,172,.45)]">
@@ -760,18 +712,6 @@ export default function EspaceClientPage() {
 
   const Empty = ({ t }: { t: string }) => (
     <div className="card p-10 text-center text-mute text-sm">{t}</div>
-  );
-
-  const SubHeader = ({ title, sub }: { title: string; sub?: string }) => (
-    <div className="flex items-center gap-2 mb-4">
-      <button onClick={() => setView("home")} className="w-9 h-9 rounded-xl border border-line bg-white grid place-items-center text-navy shrink-0">
-        <ChevronLeft size={18} />
-      </button>
-      <div className="min-w-0">
-        <h1 className="text-lg font-extrabold text-ink leading-tight truncate">{title}</h1>
-        {sub && <p className="text-xs text-mute truncate">{sub}</p>}
-      </div>
-    </div>
   );
 
   // ── Kalkilatris ─────────────────────────────────────────────────────────
@@ -930,8 +870,6 @@ export default function EspaceClientPage() {
         {/* ═══════════ RETRAIT ═══════════ */}
         {view === "retraits" && (
           <>
-            <SubHeader title="Retrait" sub="Vos demandes de retrait en agence" />
-            <SectionHero eyebrow="Retrait en agence" title="Préparez votre passage" description="Vos demandes restent regroupées ici jusqu’à la remise de vos colis." icon={PackageCheck} />
             {activeRetraits.length === 0
               ? <Empty t="Aucune demande de retrait pour le moment. Sélectionnez vos colis disponibles pour en créer une." />
               : <div className="space-y-2"><RetraitsList list={activeRetraits} /></div>}
@@ -941,10 +879,8 @@ export default function EspaceClientPage() {
         {/* ═══════════ DISPONIBLES ═══════════ */}
         {view === "disponibles" && (
           <>
-            <SubHeader title="Disponibles" sub="Colis prêts à être retirés" />
             {disponiblesOnly.length === 0 ? <AvailableEmpty /> : (
               <>
-                <AvailableHero count={disponiblesOnly.length} />
                 <Totaux list={disponiblesOnly} />
                 <div className="rounded-2xl border border-sky-100 bg-sky-50/65 p-3">
                   <div className="flex items-start gap-2.5">
@@ -972,8 +908,6 @@ export default function EspaceClientPage() {
         {/* ═══════════ COLIS FACTURÉS (pas encore remis) ═══════════ */}
         {view === "colisFactures" && (
           <>
-            <SubHeader title="Facturé" sub="Colis facturés, en attente de remise" />
-            <SectionHero eyebrow="Facturé" title="Vos colis facturés" description="Réglez votre facture à l'agence pour pouvoir les retirer." icon={ReceiptText} />
             {outstandingBalanceUsd > 0 && (
               <button type="button" onClick={() => setView("factures")} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left transition hover:bg-amber-100">
                 <div className="min-w-0">
@@ -998,10 +932,8 @@ export default function EspaceClientPage() {
         {/* ═══════════ RÉCEPTIONS ═══════════ */}
         {view === "receptions" && (
           <>
-            <SubHeader title="Miami" sub="Colis reçus à notre entrepôt · en attente de facturation" />
             {autres.length === 0 ? <Empty t="Aucun colis reçu à Miami ou en acheminement pour le moment." /> : (
               <>
-                <MiamiHero count={autres.length} />
                 <Totaux list={autres} />
                 <div className="space-y-3">
                   {autres.map((p) => <PkgCard key={p.id} p={p} />)}
@@ -1014,8 +946,6 @@ export default function EspaceClientPage() {
         {/* ═══════════ HISTORIQUE ═══════════ */}
         {view === "historique" && (
           <>
-            <SubHeader title="Historique" sub="Colis remis et confirmés" />
-            <SectionHero eyebrow="Vos remises" title="Tout votre historique" description="Retrouvez les colis déjà remis et confirmés, classés dans votre espace." icon={Clock} />
             {historique.length === 0 ? <Empty t="Aucun colis dans votre historique." /> : (
               <>
                 <Totaux list={historique} reel />
@@ -1028,8 +958,6 @@ export default function EspaceClientPage() {
         {/* ═══════════ FACTURES ═══════════ */}
         {view === "factures" && (
           <>
-            <SubHeader title="Factures" sub={`${invs.length} facture${invs.length > 1 ? "s" : ""}`} />
-            <SectionHero eyebrow="Paiements" title="Vos factures STANDA" description="Consultez vos montants, vos colis facturés et vos documents au même endroit." icon={ReceiptText} />
             {invs.length === 0 ? <Empty t="Aucune facture pour le moment." /> : (
               <div className="space-y-3">
                 {invs.map((f) => {
@@ -1071,8 +999,6 @@ export default function EspaceClientPage() {
         {/* ═══════════ NOTIFICATIONS ═══════════ */}
         {view === "notifications" && (
           <>
-            <SubHeader title="Notifications" sub="Les informations importantes de votre compte" />
-            <SectionHero eyebrow="À ne pas manquer" title="Restez informé" description="Vos nouvelles importantes sont réunies ici pour suivre chaque étape sans rien oublier." icon={BellRing} />
             {clientNotifications.length === 0 ? (
               <Empty t="Aucune notification pour le moment." />
             ) : (
@@ -1097,9 +1023,6 @@ export default function EspaceClientPage() {
         {/* ═══════════ GUIDE & AIDE ═══════════ */}
         {view === "infos" && (
           <>
-            <SubHeader title="Guide & Aide" sub="Tout ce qu&apos;il faut savoir sur vos expéditions" />
-            <SectionHero eyebrow="Guide client" title="Expédiez en toute confiance" description="Les étapes importantes, expliquées simplement, pour préparer et suivre vos colis." icon={BookOpen} />
-
             {/* Kijan sa mache */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
@@ -1300,8 +1223,6 @@ export default function EspaceClientPage() {
         {/* ═══════════ MON ADRESSE ═══════════ */}
         {view === "adresse" && (
           <>
-            <SubHeader title="Mon adresse" sub="Votre adresse de dépôt aux États-Unis" />
-            <SectionHero eyebrow="Dépôt STANDA" title="Votre adresse Miami" description="Utilisez ces informations lors de vos achats afin que vos colis soient correctement enregistrés." icon={MapPin} />
             <div className="card p-5">
               {([["Full Name / Nombre completo", non || "—"],
                  ["Address 1", DEPOT.address1],
@@ -1322,8 +1243,6 @@ export default function EspaceClientPage() {
         {/* ═══════════ CALCULATRICE ═══════════ */}
         {view === "calc" && (
           <>
-            <SubHeader title="Calculateur" sub="Estimez le coût de votre expédition" />
-            <SectionHero eyebrow="Estimation" title="Calculez votre envoi" description="Saisissez le poids du colis pour obtenir une estimation claire avant son arrivée à Miami." icon={Calculator} />
             <div className="card p-5 space-y-4">
               <label className="block">
                 <span className="text-xs font-semibold text-mute">Poids du colis (lb)</span>
