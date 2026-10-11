@@ -15,7 +15,7 @@
  * Zewo depandans: tout bagay se SVG + CSS. Pa gen GIF pou telechaje,
  * donk li parèt menm lè koneksyon an fèb.
  */
-import { useEffect } from "react";
+import { ButtonHTMLAttributes, forwardRef, useEffect } from "react";
 import { notify } from "@/lib/notify";
 
 /* ───────────────────────── SPINNER (sèk k ap vire) ───────────────────────── */
@@ -28,6 +28,26 @@ export function Spinner({ size = 20, className = "" }: { size?: number; classNam
     />
   );
 }
+
+/* ───────────────────── BOUTON KI MONTRE "ap travay" (yon sèl kote pou TOUT sistèm nan) ─────────────────────
+ * Drop-in pou <button>: menm className/props, men lè `busy` true —
+ *   • li dezaktive tèt li (anpeche doub-klik pandan operasyon an ap kouri)
+ *   • yon ti spinner parèt DEVAN kontni an, san l chanje lajè bouton an two brit
+ *   • aria-busy pou aksesibilite
+ * Itilizasyon: <BusyButton busy={busy} onClick={...} className="btn ...">Label</BusyButton>
+ * Si `busyLabel` bay, tèks la ranplase pandan operasyon an (ex: "Enregistrement...").
+ */
+export const BusyButton = forwardRef<
+  HTMLButtonElement,
+  ButtonHTMLAttributes<HTMLButtonElement> & { busy?: boolean; busyLabel?: React.ReactNode; spinnerSize?: number }
+>(function BusyButton({ busy = false, busyLabel, spinnerSize = 13, disabled, children, className = "", ...rest }, ref) {
+  return (
+    <button ref={ref} className={className} disabled={busy || disabled} aria-busy={busy || undefined} {...rest}>
+      {busy && <Spinner size={spinnerSize} className="mr-1.5 shrink-0" />}
+      {busy && busyLabel !== undefined ? busyLabel : children}
+    </button>
+  );
+});
 
 /* ───────────────────────── LOADER (logo k ap vire) ───────────────────────── */
 export default function Loader({

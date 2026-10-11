@@ -48,7 +48,7 @@ import {
 import { dateFr, usd } from "@/lib/utils";
 import { specialPackageInfo } from "@/lib/special-package";
 import { hasSignificantInvoiceBalance, invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
-import Loader, { SavedToast, Spinner, SuccessCheck } from "@/components/Loader";
+import Loader, { BusyButton, SavedToast, Spinner, SuccessCheck } from "@/components/Loader";
 import StatusBadge from "@/components/StatusBadge";
 import { StatusTimeline } from "@/components/StatusFlow";
 import { WhatsAppIcon } from "@/components/site/BrandIcons";
@@ -1354,9 +1354,10 @@ export default function EspaceClientPage() {
                 onChange={(e) => setPwd2(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && changePassword()} />
             </label>
-            <button className="btn w-full justify-center" onClick={changePassword} disabled={pwdBusy}>
-              {pwdBusy ? "Modification en cours…" : "Enregistrer"}
-            </button>
+            <BusyButton className="btn w-full justify-center" onClick={changePassword} busy={pwdBusy}
+              busyLabel="Modification en cours…">
+              Enregistrer
+            </BusyButton>
           </div>
         </div>
       )}

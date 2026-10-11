@@ -9,14 +9,17 @@
  * Redireksyon "/" -> "/accueil" fèt nan middleware.ts, AVAN React monte —
  * konsa pa gen okenn flash ni chajman initil.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Loader from "@/components/Loader";
 import Link from "next/link";
-import { Users, Package, FileText, DollarSign, RefreshCw, CheckCircle2, Bell, Inbox, UserPlus } from "lucide-react";
-import { getClients, getRetraits, getStats } from "@/lib/db";
+import { Users, Package, FileText, DollarSign, RefreshCw, CheckCircle2, Bell, Inbox, UserPlus, TrendingUp, UserCheck } from "lucide-react";
+import { ChartsData, getChartsData, getClients, getRetraits, getStats } from "@/lib/db";
 import { Client, DashboardStats, Retrait } from "@/lib/types";
 import RefreshButton from "@/components/RefreshButton";
 import StaffNotifications from "@/components/StaffNotifications";
+import TimeSeriesBarChart from "@/components/TimeSeriesBarChart";
+import StatusStackedBar from "@/components/StatusStackedBar";
+import { bucketByDay, bucketByMonth, peakIndex, splitClientStatus } from "@/lib/dashboard-charts";
 import { dateFr, usd } from "@/lib/utils";
 
 import { useNoticeToast } from "@/lib/notify";
@@ -24,6 +27,8 @@ export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [nouvo, setNouvo] = useState<Client[]>([]);       // nouvo kliyan annatant
   const [retraits, setRetraits] = useState<Retrait[]>([]); // demandes de retrait annatant
+  const [charts, setCharts] = useState<ChartsData | null>(null);
+  const [pkgGranularity, setPkgGranularity] = useState<"month" | "day">("month");
   const [err, setErr] = useState<string | null>(null);
   useNoticeToast(err, setErr, { tone: "error", title: "Connexion à la base impossible" });
 
@@ -37,8 +42,29 @@ export default function Dashboard() {
     await getRetraits().then((rs) =>
       setRetraits(rs.filter((r) => r.status === "En attente"))
     ).catch(() => {});
+    await getChartsData().then(setCharts).catch(() => {});
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  // ===== Grafik: volim koli (mwa oswa jou), kwasans kliyan, estati kliyan =====
+  const pkgSeries = useMemo(() => {
+    if (!charts) return [];
+    return pkgGranularity === "month"
+      ? bucketByMonth(charts.packageDates, 12)
+      : bucketByDay(charts.packageDates, 30);
+  }, [charts, pkgGranularity]);
+  const pkgPeak = useMemo(() => {
+    const i = peakIndex(pkgSeries);
+    return i >= 0 ? pkgSeries[i] : null;
+  }, [pkgSeries]);
+  const clientSeries = useMemo(
+    () => (charts ? bucketByMonth(charts.clientSignups.map((c) => c.created_at), 12) : []),
+    [charts]
+  );
+  const clientStatusSlices = useMemo(
+    () => (charts ? splitClientStatus(charts.clientSignups) : []),
+    [charts]
+  );
 
   const cards = stats ? [
     { label: "Total clients", value: stats.totalClients, icon: Users, href: "/clients", tint: "bg-blue-50 text-blue-600" },
@@ -113,6 +139,55 @@ export default function Dashboard() {
           </div>
         </section>
       )}
+
+      {/* ===== Grafik: volim koli + kliyan ===== */}
+      <section className="space-y-4">
+        <h2 className="h-sec flex items-center gap-2"><TrendingUp size={15} /> Statistiques</h2>
+
+        <div className="card p-5">
+          <div className="flex items-start justify-between flex-wrap gap-2 mb-1">
+            <div className="flex items-center gap-2">
+              <Package size={15} className="text-navy-light" />
+              <h3 className="text-sm font-bold text-ink">Volume de colis</h3>
+            </div>
+            <div className="inline-flex rounded-lg border border-line p-0.5 text-xs font-semibold">
+              {(["month", "day"] as const).map((g) => (
+                <button key={g} type="button" onClick={() => setPkgGranularity(g)}
+                  className={`rounded-md px-2.5 py-1 transition-colors ${
+                    pkgGranularity === g ? "bg-navy text-white" : "text-mute hover:text-ink"}`}>
+                  {g === "month" ? "Par mois (12)" : "Par jour (30)"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {pkgPeak ? (
+            <p className="text-xs text-mute mb-3">
+              {pkgGranularity === "month" ? "Mois" : "Jour"} avec le plus de colis reçus :{" "}
+              <span className="font-bold text-ink">{pkgPeak.label}</span> — <span className="font-bold text-ink">{pkgPeak.value} colis</span>
+            </p>
+          ) : <p className="text-xs text-mute mb-3">Pas encore de colis sur cette période.</p>}
+          {charts ? <TimeSeriesBarChart series={pkgSeries} color="#122B5C" /> : <Loader inline size={40} />}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="card p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <UserPlus size={15} className="text-blue-500" />
+              <h3 className="text-sm font-bold text-ink">Nouveaux clients par mois</h3>
+            </div>
+            {charts ? <TimeSeriesBarChart series={clientSeries} color="#2563EB" unit="clients" height={120} />
+              : <Loader inline size={40} />}
+          </div>
+
+          <div className="card p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <UserCheck size={15} className="text-emerald-600" />
+              <h3 className="text-sm font-bold text-ink">Clients actifs vs en attente</h3>
+            </div>
+            {charts ? <StatusStackedBar slices={clientStatusSlices} /> : <Loader inline size={40} />}
+          </div>
+        </div>
+      </section>
 
       <div className="card p-5">
         <div className="flex items-center gap-2 mb-2">

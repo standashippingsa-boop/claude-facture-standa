@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import Loader from "@/components/Loader";
+import Loader, { BusyButton } from "@/components/Loader";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -618,7 +618,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
             </label>}
           </div>
           <div className="flex gap-3">
-            <button className="btn" onClick={save} disabled={busy}>{busy ? "Ap kreye..." : "Enregistrer"}</button>
+            <BusyButton className="btn" onClick={save} busy={busy} busyLabel="Ap kreye...">Enregistrer</BusyButton>
             <button className="btn btn-ghost" onClick={() => setShow(false)}>Annuler</button>
           </div>
         </div>
@@ -633,9 +633,10 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
           <div className="flex flex-col sm:flex-row gap-2">
             <input type="password" className="input flex-1" value={newPassword} autoComplete="new-password"
               placeholder="Nouveau mot de passe (6+ caractères)" onChange={(event) => setNewPassword(event.target.value)} />
-            <button className="btn" onClick={resetPassword} disabled={busy || newPassword.length < 6}>
-              {busy ? "Mise à jour…" : "Enregistrer le mot de passe"}
-            </button>
+            <BusyButton className="btn" onClick={resetPassword} busy={busy} disabled={newPassword.length < 6}
+              busyLabel="Mise à jour…">
+              Enregistrer le mot de passe
+            </BusyButton>
             <button className="btn btn-ghost" onClick={() => { setResetting(null); setNewPassword(""); }} disabled={busy}>Annuler</button>
           </div>
         </div>
@@ -739,7 +740,7 @@ function AffiliateSettingsSection({ onNotice }: { onNotice: (s: string) => void 
           </a>
         )}
       </label>
-      <button className="btn" onClick={save} disabled={busy}>{busy ? "Enregistrement…" : "Enregistrer"}</button>
+      <BusyButton className="btn" onClick={save} busy={busy} busyLabel="Enregistrement…">Enregistrer</BusyButton>
     </section>
   );
 }
@@ -812,9 +813,9 @@ function EmailNotificationsSection() {
           <input className="input mt-1" type="email" placeholder="votre@email.com"
             value={testTo} onChange={(e) => setTestTo(e.target.value)} />
         </label>
-        <button className="btn" onClick={runTest} disabled={busy || !testTo.trim()}>
-          {busy ? "Envoi…" : "Envoyer le test"}
-        </button>
+        <BusyButton className="btn" onClick={runTest} busy={busy} disabled={!testTo.trim()} busyLabel="Envoi…">
+          Envoyer le test
+        </BusyButton>
       </div>
 
 
@@ -897,9 +898,9 @@ function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
           <span className="text-xs text-slate-600">Non (pou rekonèt li)</span>
           <input className="input mt-1" value={label} onChange={(e) => setLabel(e.target.value)} />
         </label>
-        <button className="btn" onClick={create} disabled={busy}>
-          {busy ? "Création…" : "Générer un token"}
-        </button>
+        <BusyButton className="btn" onClick={create} busy={busy} busyLabel="Création…">
+          Générer un token
+        </BusyButton>
       </div>
 
       {/* Repons DIRÈK, jis anba bouton an — pa gen mesaj ki disparèt nan lwen. */}

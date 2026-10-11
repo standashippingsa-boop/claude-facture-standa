@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Upload, CheckCircle2, RefreshCw, FileText, X, Image } from "lucide-react";
+import { BusyButton } from "@/components/Loader";
 import { parseMcpackWorkbook } from "@/lib/xlsx";
 import { validateUpload } from "@/lib/upload";
 import { scanPhotos } from "@/lib/photoscan";
@@ -330,9 +331,9 @@ export default function SyncPage() {
           <Image size={16} className="text-navy-light" />
           <h2 className="text-sm font-bold text-navy">Analyse Photos des Colis</h2>
           <div className="flex-1" />
-          <button className="btn btn-ghost border border-line !py-1 !text-xs" onClick={annulerImport} disabled={busy}>
+          <BusyButton className="btn btn-ghost border border-line !py-1 !text-xs" onClick={annulerImport} busy={busy}>
             ↩️ Annuler la dernière importation
-          </button>
+          </BusyButton>
         </div>
         <p className="text-sm text-slate-600 mb-4">
           Ajoute plizyè foto etikèt koli yo ansanm. Sistèm nan ap li Customer Code, Tracking Number
@@ -385,9 +386,9 @@ export default function SyncPage() {
                   </button>
                   <div className="flex-1" />
                   <span className="text-xs text-slate-500">Sélectionnées: <b>{accepted.size}</b></span>
-                  <button className="btn" onClick={validerPhotos} disabled={busy || !accepted.size}>
+                  <BusyButton className="btn" onClick={validerPhotos} busy={busy} disabled={!accepted.size}>
                     Enregistrer {accepted.size} modification(s)
-                  </button>
+                  </BusyButton>
                 </div>
                 <p className="text-[11px] text-slate-500">
                   Chanjman otorize yo: <b>Tracking Number</b> (si chan an vid), <b>date/heure de réception</b>.
@@ -496,9 +497,10 @@ export default function SyncPage() {
               </table>
             </div>
           )}
-          <button className="btn mt-4" onClick={valider} disabled={busy || preview.newRows.length === 0}>
-            <CheckCircle2 size={15} /> {busy ? "Importation..." : `Valider Importation (${preview.newRows.length} colis)`}
-          </button>
+          <BusyButton className="btn mt-4" onClick={valider} busy={busy} disabled={preview.newRows.length === 0}
+            busyLabel="Importation...">
+            <CheckCircle2 size={15} /> {`Valider Importation (${preview.newRows.length} colis)`}
+          </BusyButton>
         </div>
       )}
 
@@ -545,9 +547,9 @@ export default function SyncPage() {
           <textarea className="input !h-24 font-mono text-[11px]"
             placeholder="Kopye tèks fakti a (menm si li degaye) epi kole l isit — sistèm nan ap pran Tracking Number yo otomatikman..."
             value={factureText} onChange={(e) => setFactureText(e.target.value)} />
-          <button className="btn btn-brand mt-2" onClick={handleFactureText} disabled={busy || !factureText.trim()}>
+          <BusyButton className="btn btn-brand mt-2" onClick={handleFactureText} busy={busy} disabled={!factureText.trim()}>
             <CheckCircle2 size={15} /> Analyser le texte collé
-          </button>
+          </BusyButton>
         </div>
         {factProg && <p className="text-xs text-navy flex items-center gap-2"><RefreshCw size={12} className="animate-spin" /> {factProg}</p>}
 
@@ -602,18 +604,18 @@ export default function SyncPage() {
                           defaultValue={f.tracking}
                           onChange={(e) => setCorrections((c) => ({ ...c, [f.tracking]: e.target.value }))}
                           placeholder="Tracking Number à corriger..." />
-                        <button className="btn btn-ghost !py-1 !px-2.5 !text-[11px] shrink-0"
-                          onClick={() => reverifierUn(f.tracking)} disabled={busy}
-                          title="Vérifier ce tracking (même sans le modifier)">
+                        <BusyButton className="btn btn-ghost !py-1 !px-2.5 !text-[11px] shrink-0"
+                          onClick={() => reverifierUn(f.tracking)} busy={busy}
+                          title="Vérifier ce tracking (même sans le modifier)" spinnerSize={11}>
                           <CheckCircle2 size={13} /> Vérifier
-                        </button>
+                        </BusyButton>
                         <span className="text-[10px] text-red-600 shrink-0 w-16">non trouvé</span>
                       </div>
                     ))}
                   </div>
-                  <button className="btn btn-ghost mt-2.5" onClick={reverifierCorriges} disabled={busy}>
+                  <BusyButton className="btn btn-ghost mt-2.5" onClick={reverifierCorriges} busy={busy}>
                     <RefreshCw size={14} /> Re-vérifier les corrigés
-                  </button>
+                  </BusyButton>
                   <p className="text-[10px] text-mute mt-1.5">
                     Astuce : vérifiez qu&apos;il n&apos;y a pas d&apos;espace, de 0/O ou 1/l confondus. Après correction, les colis trouvés rejoignent la liste à valider.
                   </p>
@@ -622,9 +624,9 @@ export default function SyncPage() {
 
               {dispo.length > 0 && (
                 <div className="flex items-center gap-3 flex-wrap border-t border-line pt-3">
-                  <button className="btn btn-brand" onClick={validerFactures} disabled={busy}>
+                  <BusyButton className="btn btn-brand" onClick={validerFactures} busy={busy}>
                     <CheckCircle2 size={15} /> Valider → Disponible + Email ({dispo.length})
-                  </button>
+                  </BusyButton>
                   <span className="text-xs text-mute">Un email est envoyé à chaque client. Les colis déjà Disponible/Facturé sont ignorés (pas de doublon).</span>
                 </div>
               )}

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { BusyButton } from "@/components/Loader";
 
 import { useNoticeToast } from "@/lib/notify";
 /** Kreye PREMYE administratè a (mache sèlman si tab staff la vid). */
@@ -45,9 +46,9 @@ export default function SetupPage() {
         <label className="block"><span className="text-xs font-semibold text-slate-600">Clé d&apos;installation * (SETUP_SECRET)</span>
           <input type="password" className="input mt-1" value={setupSecret} onChange={(e) => setSetupSecret(e.target.value)}
             placeholder="valè SETUP_SECRET nan Vercel" autoComplete="off" /></label>
-        <button className="btn w-full justify-center py-3" onClick={submit} disabled={busy}>
-          {busy ? "Ap kreye..." : "Kreye administratè a"}
-        </button>
+        <BusyButton className="btn w-full justify-center py-3" onClick={submit} busy={busy} busyLabel="Ap kreye...">
+          Kreye administratè a
+        </BusyButton>
       </div>
     </div>
   );

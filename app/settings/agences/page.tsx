@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import Loader from "@/components/Loader";
+import Loader, { BusyButton } from "@/components/Loader";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -160,7 +160,7 @@ export default function AgencesSettingsPage() {
               <input type="checkbox" {...register("active")} /> Agence active (visible sur /agences)
             </label>
             <div className="mt-4 flex gap-3">
-              <button type="submit" className="btn" disabled={isSubmitting}>Enregistrer</button>
+              <BusyButton type="submit" className="btn" busy={isSubmitting}>Enregistrer</BusyButton>
               <button type="button" className="btn btn-ghost" onClick={() => setShowForm(false)}>Annuler</button>
             </div>
           </form>

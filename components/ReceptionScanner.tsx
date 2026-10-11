@@ -15,6 +15,7 @@ import { validateUpload } from "@/lib/upload";
 import { useRole } from "@/lib/authx";
 import { dateFr, parseMcpackDate } from "@/lib/utils";
 import StatusBadge from "@/components/StatusBadge";
+import { BusyButton } from "@/components/Loader";
 import type { Pkg } from "@/lib/types";
 
 import { useNoticeToast } from "@/lib/notify";
@@ -376,9 +377,9 @@ export default function ReceptionScanner() {
 
           {result?.outcome === "found" && mode === "manuel" && (
             <div className="flex gap-2 mt-4">
-              <button className="btn btn-brand flex-1 !py-2.5 text-base" onClick={() => doConfirm(pkg)} disabled={busy}>
+              <BusyButton className="btn btn-brand flex-1 !py-2.5 text-base" onClick={() => doConfirm(pkg)} busy={busy}>
                 <CheckCircle2 size={18} /> CONFIRMER la réception
-              </button>
+              </BusyButton>
               <button className="btn btn-ghost" onClick={() => { setResult(null); refocusKbd(); }}>
                 Scanner suivant
               </button>

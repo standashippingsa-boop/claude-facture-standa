@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { MessageSquareText, Send, Star, UserRound } from "lucide-react";
+import { Spinner } from "@/components/Loader";
 
 import { notify } from "@/lib/notify";
 type Review = {
@@ -129,7 +130,7 @@ export default function ReviewSection() {
             </label>
             <input value={website} onChange={(event) => setWebsite(event.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute h-px w-px overflow-hidden opacity-0" />
             <div className="flex items-center justify-between gap-3 text-[12px] text-mute"><span>Votre avis sera affiché publiquement.</span><span>{message.length}/600</span></div>
-            <button type="submit" disabled={status === "sending"} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 text-[14px] font-bold text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:bg-slate-300"><Send size={16} />{status === "sending" ? "Publication..." : "Publier mon commentaire"}</button>
+            <button type="submit" disabled={status === "sending"} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 text-[14px] font-bold text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:bg-slate-300">{status === "sending" ? <Spinner size={16} /> : <Send size={16} />}{status === "sending" ? "Publication..." : "Publier mon commentaire"}</button>
           </form>
         </div>
       </div>

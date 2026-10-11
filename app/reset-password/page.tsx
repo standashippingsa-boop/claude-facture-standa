@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";
+import { BusyButton } from "@/components/Loader";
 
 import { useNoticeToast } from "@/lib/notify";
 /**
@@ -63,10 +64,10 @@ export default function ResetPasswordPage() {
         </label>
 
 
-        <button className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm shadow-lg shadow-blue-900/40 transition-colors disabled:opacity-50"
-          onClick={submit} disabled={busy}>
-          {busy ? "Enregistrement..." : "Enregistrer le nouveau mot de passe"}
-        </button>
+        <BusyButton className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm shadow-lg shadow-blue-900/40 transition-colors disabled:opacity-50"
+          onClick={submit} busy={busy} busyLabel="Enregistrement...">
+          Enregistrer le nouveau mot de passe
+        </BusyButton>
       </div>
     </div>
   );

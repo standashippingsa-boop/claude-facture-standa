@@ -15,6 +15,7 @@ import { isSupabaseConfigured, setAuthRealm, supabase } from "@/lib/supabase";
 import { getMyStaff, staffEmail } from "@/lib/authx";
 import type { StaffRole } from "@/lib/types";
 import PasswordInput from "@/components/PasswordInput";
+import { BusyButton } from "@/components/Loader";
 
 import { useNoticeToast } from "@/lib/notify";
 export default function StaffLogin({
@@ -123,10 +124,11 @@ export default function StaffLogin({
         <PasswordInput dark value={password} onChange={setPassword} onEnter={submit} />
 
 
-        <button type="submit" disabled={busy}
-          className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm disabled:opacity-50">
-          {busy ? "Connexion en cours…" : "Se connecter"}
-        </button>
+        <BusyButton type="submit" busy={busy}
+          className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm disabled:opacity-50"
+          busyLabel="Connexion en cours…">
+          Se connecter
+        </BusyButton>
 
         <p className="text-center text-[11px] text-slate-500">
           <Link href="/confidentialite" className="hover:underline">Politique de confidentialité</Link>

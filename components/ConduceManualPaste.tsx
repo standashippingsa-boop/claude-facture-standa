@@ -13,6 +13,7 @@
  */
 import { useRef, useState } from "react";
 import { Upload, ClipboardList, CheckCircle2, FileSpreadsheet } from "lucide-react";
+import { BusyButton } from "@/components/Loader";
 import { matchConduceCodes, linkPackagesToConduce, importConduceExcelRows, ConduceMatch } from "@/lib/db";
 import { validateUpload } from "@/lib/upload";
 import { extractAnyCodesFromText } from "@/lib/factureimport";
@@ -152,9 +153,9 @@ export default function ConduceManualPaste({
                   {excelSpecial > 8 && <p className="mt-1 text-amber-800">Et {excelSpecial - 8} autre(s) colis spécial(aux).</p>}
                 </div>
               )}
-              <button className="btn btn-brand" onClick={confirmerExcel} disabled={busy}>
+              <BusyButton className="btn btn-brand" onClick={confirmerExcel} busy={busy}>
                 <CheckCircle2 size={15} /> Importer dans cette conduce ({excelRows.length})
-              </button>
+              </BusyButton>
             </div>
           )}
         </div>
@@ -169,9 +170,9 @@ export default function ConduceManualPaste({
           <textarea className="input !h-32 font-mono text-[11px]"
             placeholder="Collez le texte de la conduce (même désordonné)…"
             value={text} onChange={(e) => setText(e.target.value)} />
-          <button className="btn btn-ghost" onClick={analyser} disabled={busy || !text.trim()}>
+          <BusyButton className="btn btn-ghost" onClick={analyser} busy={busy} disabled={!text.trim()}>
             <CheckCircle2 size={15} /> Analyser
-          </button>
+          </BusyButton>
 
           {matches && (
             <div className="space-y-2">
@@ -181,9 +182,9 @@ export default function ConduceManualPaste({
                 <span className="pill pill-red"><span className="pill-dot" />{notFound.length} introuvables</span>
               </div>
               {matched.length > 0 && (
-                <button className="btn btn-brand" onClick={confirmerTexte} disabled={busy}>
+                <BusyButton className="btn btn-brand" onClick={confirmerTexte} busy={busy}>
                   <CheckCircle2 size={15} /> Confirmer la liaison ({matched.length})
-                </button>
+                </BusyButton>
               )}
             </div>
           )}

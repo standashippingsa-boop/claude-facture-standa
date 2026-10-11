@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { BusyButton } from "@/components/Loader";
 
 import { notify } from "@/lib/notify";
 const CONFIRMATION = "SUPPRIMER";
@@ -75,9 +76,10 @@ export default function DeleteAccountModal({ whatsappHref, onClose }: { whatsapp
           <input className="input mt-1" value={typed} onChange={(event) => setTyped(event.target.value)} autoCapitalize="characters" autoComplete="off" onKeyDown={(event) => { if (event.key === "Enter") void submit(); }} />
         </label>
         {blocked && <a href={whatsappHref} target="_blank" rel="noreferrer" className="inline-block text-sm font-bold text-red-700 underline">Écrire à STANDA sur WhatsApp</a>}
-        <button type="button" onClick={() => void submit()} disabled={!ready || busy} className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40">
-          {busy ? "Suppression en cours…" : "Supprimer définitivement mon compte"}
-        </button>
+        <BusyButton type="button" onClick={() => void submit()} disabled={!ready} busy={busy} className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+          busyLabel="Suppression en cours…">
+          Supprimer définitivement mon compte
+        </BusyButton>
         <button type="button" onClick={onClose} disabled={busy} className="w-full text-center text-sm font-semibold text-mute hover:text-navy">Annuler</button>
       </>}
     </div>

@@ -14,7 +14,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { ClipboardList, FileDown, Search, Truck, X } from "lucide-react";
-import Loader, { SavedToast } from "@/components/Loader";
+import Loader, { BusyButton, SavedToast } from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
 import {
   ClientTarifInfo, getCentralAccountCode, getClientTarifMap,
@@ -270,11 +270,12 @@ export default function BonRemisePage() {
               <div className="flex-1" />
               <button onClick={() => setSel(new Set())}
                 className="text-white/70 hover:text-white text-xs font-semibold px-2">Vider</button>
-              <button onClick={creer} disabled={busy}
+              <BusyButton onClick={creer} busy={busy}
                 className="rounded-xl bg-brand hover:bg-brand-dark px-4 py-2 text-sm font-bold
-                           flex items-center gap-2 disabled:opacity-60">
-                <FileDown size={15} /> {busy ? "Création…" : "Créer le Bon de Remise"}
-              </button>
+                           flex items-center gap-2 disabled:opacity-60"
+                busyLabel="Création…">
+                <FileDown size={15} /> Créer le Bon de Remise
+              </BusyButton>
             </div>
           </div>
         </div>

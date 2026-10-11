@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AlertTriangle, Calculator, ClipboardList, FileText, FileSpreadsheet, Archive, Camera, CheckCircle2, Lock, Package, PackageCheck, Puzzle, Receipt, Pencil, RotateCcw, MessageCircle, Trash2, Sparkles } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
+import { BusyButton, Spinner } from "@/components/Loader";
 import Pagination from "@/components/Pagination";
 import WhatsAppQueue from "@/components/WhatsAppQueue";
 import RefreshButton from "@/components/RefreshButton";
@@ -74,6 +75,11 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
   const [conduces, setConduces] = useState<Conduce[]>([]);
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
+  /** Id koli k ap travay kounye a (aksyon ranje pa liy — archive/restore/efase/koreksyon/disponible rapid),
+      pou SÈLMAN bouton liy sa a montre spinner, pa tout tablo a. */
+  const [busyId, setBusyId] = useState<string | null>(null);
+  /** Export PDF/Excel ka pran tan sou yon gwo lis — montre spinner sou bouton egzak la. */
+  const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   useNoticeToast(notice, setNotice);
   /** Remises confirmées ici : un ticket imprimable par client. */
@@ -368,8 +374,11 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       try {
         const r = await detachPackagesFromInvoice(factures.map((p) => p.id));
         if (!r.ok) { setNotice("Erè: " + (r.reason ?? "inconnue")); return; }
-        setNotice(`✅ ${r.detached} colis remis en « Disponible »` +
-          (r.invoicesDeleted ? ` — ${r.invoicesDeleted} facture(s) vide(s) supprimée(s).` : "."));
+        setNotice(`✅ ${r.detached} colis remis en « Disponible » — rien n'est supprimé, ils restent dans le système.` +
+          (r.invoicesDeleted ? ` ${r.invoicesDeleted} facture(s) vide(s) supprimée(s).` : ""));
+        // GAD: si yon filtè "Statut" aktif t ap kache koli nou fèk chanje yo,
+        // chanje filtè a pou yo rete VIZIB — yo pa dwe sanble disparèt.
+        if (status && status !== "Disponible") setStatus("Disponible");
         await refresh();
       } catch (e: any) {
         setNotice("Erè: " + (e?.message ?? String(e)));
@@ -378,6 +387,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
     }
     const targets = selectedAll.filter((p) => p.status !== "Facturé");
     if (!targets.length) { setNotice("Koli Facturé yo ka sèlman pase « Disponible » (koreksyon)."); return; }
+    setBusy(true);
     try {
       setRemiseTickets([]);
       if (bulkStatus === "Livré") {
@@ -396,6 +406,10 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       await logAction("Changement Statut", `${targets.length} colis → ${bulkStatus}`, "", targets[0]?.customer_code ?? "");
       setPkgs((prev) => prev.map((p) =>
         targets.some((t) => t.id === p.id) ? { ...p, status: bulkStatus } : p));
+
+      // GAD: si yon filtè "Statut" aktif t ap kache koli nou fèk chanje yo,
+      // chanje filtè a pou yo rete VIZIB nan tablo a — pa janm sanble disparèt.
+      if (status && status !== bulkStatus) setStatus(bulkStatus);
 
       let mailInfo = "";
       if (bulkStatus === "Reçu à Miami" || bulkStatus === "Disponible") {
@@ -439,9 +453,24 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
             "", "");
         }
       }
-      setNotice(`Statut "${bulkStatus}" appliqué sur ${targets.length} colis.` + mailInfo);
+      setNotice(`✅ ${targets.length} colis passés à "${bulkStatus}" — rien n'est supprimé, ils restent dans le système.` + mailInfo);
       setBulkStatus("");
     } catch (e: any) { setNotice("Erè: " + e.message); }
+    finally { setBusy(false); }
+  };
+
+  /** Bouton rapid liy pa liy: "Disponible" san email (bulk la pi wo a sèvi ak email). */
+  const marquerDisponibleRapide = async (p: Pkg) => {
+    setBusyId(p.id);
+    try {
+      await setPackagesStatus([p.id], "Disponible");
+      setPkgs((prev) => prev.map((x) => x.id === p.id ? { ...x, status: "Disponible" } : x));
+      // GAD: menm pwoteksyon ak bulk la — si yon filtè Statut aktif ap kache
+      // koli a kounye a, chanje filtè a pou l rete vizib.
+      if (status && status !== "Disponible") setStatus("Disponible");
+    } catch (e: any) {
+      setNotice("Erè: " + (e?.message ?? String(e)));
+    } finally { setBusyId(null); }
   };
 
   /** Bon de remise: lis koli w ap voye bay ajan yo nan lòt vil */
@@ -454,6 +483,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       .map((p) => String(tarifMap.get(p.customer_code)?.ville?.name ?? "").trim())
       .filter(Boolean)));
     let recordId = "";
+    setBusy(true);
     try {
       // Yon Bon se pou yon sèl point de retrait. Si seleksyon an gen plizyè
       // vil, admin an dwe separe yo pou chak ajan resevwa sèlman pwòp lis li.
@@ -482,7 +512,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
     } catch (e: any) {
       if (recordId) await deleteBonRemiseRecord(recordId).catch(() => undefined);
       setNotice("Erè: " + e.message);
-    }
+    } finally { setBusy(false); }
   };
 
   /** Modifikasyon manyèl: chanje fakti aktyèl la sèlman, PA tarif Paramètres yo */
@@ -497,17 +527,20 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
   };
 
   const applyTarif = async () => {
-    const targets = selected.length ? selected : filtered.filter((p) => p.status === "Disponible");
-    let n = 0, sans = 0;
-    for (const p of targets) {
-      const info = tarifMap.get(p.customer_code);
-      const r = info ? computePrice(p.weight, info.account_type, info.ville) : null;
-      if (r) { await savePrice(p, r.price, 0); n++; } else sans++;
-    }
-    setNotice(
-      `Tarification appliquée sur ${n} colis${selected.length ? " sélectionnés" : " disponibles"}.` +
-      (sans ? ` ${sans} colis ignoré(s): kliyan san vil aktif oswa ki pa nan bazdone a.` : "")
-    );
+    setBusy(true);
+    try {
+      const targets = selected.length ? selected : filtered.filter((p) => p.status === "Disponible");
+      let n = 0, sans = 0;
+      for (const p of targets) {
+        const info = tarifMap.get(p.customer_code);
+        const r = info ? computePrice(p.weight, info.account_type, info.ville) : null;
+        if (r) { await savePrice(p, r.price, 0); n++; } else sans++;
+      }
+      setNotice(
+        `Tarification appliquée sur ${n} colis${selected.length ? " sélectionnés" : " disponibles"}.` +
+        (sans ? ` ${sans} colis ignoré(s): kliyan san vil aktif oswa ki pa nan bazdone a.` : "")
+      );
+    } finally { setBusy(false); }
   };
 
   /** Ouvri fenèt fakti pataje a (menm workflow ak tout lòt paj). */
@@ -532,9 +565,12 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
     if (!selected.every((p) => p.customer_code === code)) {
       setNotice("Tout koli ki make yo dwe pou menm kliyan an."); return;
     }
-    const client = await getClient(code);
-    if (!client) { setNotice(`Client "${code}" pa nan bazdone a.`); return; }
-    setInvClient(client);
+    setBusy(true);
+    try {
+      const client = await getClient(code);
+      if (!client) { setNotice(`Client "${code}" pa nan bazdone a.`); return; }
+      setInvClient(client);
+    } finally { setBusy(false); }
   };
 
   /** EFASE NÈT (admin) — pou done kraze ki bloke. Koli a ka re-enpòte apre via Extension/Conduce. */
@@ -550,7 +586,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       `Vous pourrez le ré-importer depuis MCPACK (Extension / Import Conduce).`
     )) return;
     if (!confirm(`Dernière confirmation — supprimer ${p.tracking_number} définitivement ?`)) return;
-    setBusy(true);
+    setBusy(true); setBusyId(p.id);
     try {
       const r = await hardDeletePackage(p.id);
       if (!r.ok) { setNotice("Erè: " + (r.reason ?? "inconnue")); return; }
@@ -559,11 +595,12 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       setPkgs((prev) => prev.filter((x) => x.id !== p.id));
     } catch (e: any) {
       setNotice("Erè: " + (e?.message ?? String(e)));
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setBusyId(null); }
   };
 
   const archive = async (p: Pkg) => {
     if (!confirm(`Archiver le colis ${p.tracking_number}?\n\nLes données restent dans la base (jamais supprimées). Il n'apparaîtra plus dans la liste active.`)) return;
+    setBusyId(p.id);
     try {
       await archivePackage(p.id, staffName);
       await logAction("Archivage colis", p.tracking_number, p.tracking_number, p.customer_code);
@@ -571,13 +608,16 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
         ? prev.map((x) => x.id === p.id ? { ...x, archived: true } : x)
         : prev.filter((x) => x.id !== p.id));
     } catch (e: any) { setNotice("Erè archivage: " + e.message); }
+    finally { setBusyId(null); }
   };
   const restore = async (p: Pkg) => {
+    setBusyId(p.id);
     try {
       await unarchivePackage(p.id);
       await logAction("Restauration colis", p.tracking_number, p.tracking_number, p.customer_code);
       setPkgs((prev) => prev.map((x) => x.id === p.id ? { ...x, archived: false } : x));
     } catch (e: any) { setNotice("Erè restauration: " + e.message); }
+    finally { setBusyId(null); }
   };
 
   /** Koreksyon Tracking Number — ADMIN sèlman, ak audit log (pwen #3) */
@@ -591,6 +631,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
     if (nv === null) return;
     const v = nv.trim();
     if (!v || v === p.tracking_manual) return;
+    setBusyId(p.id);
     try {
       await saveTrackingManual(p.id, v);
       await logAction("Correction Tracking Number",
@@ -598,6 +639,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       setPkgs((prev) => prev.map((x) => x.id === p.id ? { ...x, tracking_manual: v } : x));
       setNotice("Tracking Number corrigé (enregistré dans l'audit).");
     } catch (er: any) { setNotice("Erè koreksyon: " + er.message); }
+    finally { setBusyId(null); }
   };
 
   const tp = selected.reduce((s, p) => s + p.price_usd, 0);
@@ -770,10 +812,11 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
                       <Lock size={10} className="text-slate-400 shrink-0" />
                       {p.tracking_manual}
                       {role === "admin" && (
-                        <button className="text-slate-400 hover:text-navy ml-0.5 shrink-0"
+                        <button className="text-slate-400 hover:text-navy ml-0.5 shrink-0 disabled:opacity-50"
                           title="Correction (admin) — enregistrée dans l'audit"
+                          disabled={busyId === p.id}
                           onClick={() => correctTracking(p)}>
-                          <Pencil size={11} />
+                          {busyId === p.id ? <Spinner size={11} /> : <Pencil size={11} />}
                         </button>
                       )}
                     </span>
@@ -839,22 +882,23 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
                     </button>
                   )}
                   {p.status !== "Disponible" && p.status !== "Facturé" && (
-                    <button className="text-emerald-600 hover:text-emerald-800 mr-1"
+                    <button className="text-emerald-600 hover:text-emerald-800 mr-1 disabled:opacity-50"
                       title="Marquer Disponible (san email — sèvi ak seleksyon an pou voye email)"
-                      onClick={() => { setPackagesStatus([p.id], "Disponible").then(() => setPkgs((prev) =>
-                        prev.map((x) => x.id === p.id ? { ...x, status: "Disponible" } : x))); }}>
-                      <PackageCheck size={14} />
+                      disabled={busyId === p.id}
+                      onClick={() => marquerDisponibleRapide(p)}>
+                      {busyId === p.id ? <Spinner size={14} /> : <PackageCheck size={14} />}
                     </button>
                   )}
                   {role === "admin" && (
                     p.archived
-                      ? <button className="text-slate-400 hover:text-emerald-600" title="Restaurer" onClick={() => restore(p)}><RotateCcw size={14} /></button>
-                      : <button className="text-slate-400 hover:text-amber-600" title="Archiver (jamais supprimé)" onClick={() => archive(p)}><Archive size={14} /></button>
+                      ? <button className="text-slate-400 hover:text-emerald-600 disabled:opacity-50" title="Restaurer" disabled={busyId === p.id} onClick={() => restore(p)}>{busyId === p.id ? <Spinner size={14} /> : <RotateCcw size={14} />}</button>
+                      : <button className="text-slate-400 hover:text-amber-600 disabled:opacity-50" title="Archiver (jamais supprimé)" disabled={busyId === p.id} onClick={() => archive(p)}>{busyId === p.id ? <Spinner size={14} /> : <Archive size={14} />}</button>
                   )}
                   {role === "admin" && (
-                    <button className="text-slate-300 hover:text-red-600 ml-1.5"
+                    <button className="text-slate-300 hover:text-red-600 ml-1.5 disabled:opacity-50"
                       title="Supprimer définitivement (données cassées — à ré-importer)"
-                      onClick={() => supprimerDefinitif(p)}><Trash2 size={14} /></button>
+                      disabled={busyId === p.id}
+                      onClick={() => supprimerDefinitif(p)}>{busyId === p.id ? <Spinner size={14} /> : <Trash2 size={14} />}</button>
                   )}
                 </td>
               </tr>
@@ -894,40 +938,52 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
                 <option value="">— Statut... —</option>
                 {INTERNAL_STATUSES.map((s) => <option key={s}>{s}</option>)}
               </select>
-              <button className="btn !bg-emerald-600 hover:!bg-emerald-700"
-                onClick={appliquerStatut} disabled={busy || !bulkStatus}>
+              <BusyButton className="btn !bg-emerald-600 hover:!bg-emerald-700"
+                onClick={appliquerStatut} busy={busy} disabled={!bulkStatus}>
                 <PackageCheck size={15} /> Appliquer ({selectedAll.length})
-              </button>
-              <button className="btn btn-ghost border border-line" onClick={bonRemise} disabled={busy}
+              </BusyButton>
+              <BusyButton className="btn btn-ghost border border-line" onClick={bonRemise} busy={busy}
                 title="Lis koli pou ajan transpò yo">
                 <ClipboardList size={15} /> Créer Bon de Remise ({selectedAll.length})
-              </button>
+              </BusyButton>
             </>
           )}
-          <button className="btn btn-ghost border border-line"
-            onClick={() => exportPackagesPdf(selectedAll.length ? selectedAll : filtered, tarifMap,
-              selectedAll.length ? "Colis sélectionnés" : "Liste des colis")}
+          <BusyButton className="btn btn-ghost border border-line"
+            busy={exporting === "pdf"}
+            onClick={async () => {
+              setExporting("pdf");
+              try {
+                await exportPackagesPdf(selectedAll.length ? selectedAll : filtered, tarifMap,
+                  selectedAll.length ? "Colis sélectionnés" : "Liste des colis");
+              } finally { setExporting(null); }
+            }}
             title="Exporter la liste en PDF">
             <FileText size={15} /> Exporter PDF
-          </button>
-          <button className="btn btn-ghost border border-line"
-            onClick={() => exportPackagesExcel(selectedAll.length ? selectedAll : filtered, tarifMap,
-              selectedAll.length ? "Colis sélectionnés" : "Liste des colis")}
+          </BusyButton>
+          <BusyButton className="btn btn-ghost border border-line"
+            busy={exporting === "excel"}
+            onClick={async () => {
+              setExporting("excel");
+              try {
+                await exportPackagesExcel(selectedAll.length ? selectedAll : filtered, tarifMap,
+                  selectedAll.length ? "Colis sélectionnés" : "Liste des colis");
+              } finally { setExporting(null); }
+            }}
             title="Exporter la liste en Excel">
             <FileSpreadsheet size={15} /> Exporter Excel
-          </button>
-          <button className="btn btn-ghost border border-line" onClick={applyTarif} disabled={busy}>
+          </BusyButton>
+          <BusyButton className="btn btn-ghost border border-line" onClick={applyTarif} busy={busy}>
             <Calculator size={15} /> Appliquer tarification
-          </button>
+          </BusyButton>
           {selectedAll.length > 0 && (
             <button className="btn !bg-emerald-600 hover:!bg-emerald-700" onClick={() => setShowWaQueue(true)}>
               <MessageCircle size={15} /> Envoyer WhatsApp ({selectedAll.length})
             </button>
           )}
           {selectedAll.length > 0 && (
-            <button className="btn" onClick={ouvriFacture} disabled={busy || !selected.length}>
+            <BusyButton className="btn" onClick={ouvriFacture} busy={busy} disabled={!selected.length}>
               <FileText size={15} /> Générer Facture
-            </button>
+            </BusyButton>
           )}
         </div>
       </div>
@@ -1105,9 +1161,10 @@ function SpecialPackageEditor({
 
         <div className="mt-5 flex gap-3">
           {!isInvoiced && (
-            <button type="submit" className="btn flex-1 !bg-amber-600 hover:!bg-amber-700" disabled={busy}>
-              {busy ? "Enregistrement..." : "Enregistrer le colis spécial"}
-            </button>
+            <BusyButton type="submit" className="btn flex-1 !bg-amber-600 hover:!bg-amber-700" busy={busy}
+              busyLabel="Enregistrement...">
+              Enregistrer le colis spécial
+            </BusyButton>
           )}
           <button type="button" className="btn btn-ghost border border-line" onClick={onClose} disabled={busy}>{isInvoiced ? "Fermer" : "Annuler"}</button>
         </div>

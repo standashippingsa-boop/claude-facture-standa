@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { getPushPermissionState, isPushSupported, subscribeStaffToPush } from "@/lib/push";
 import { openSecureDocument } from "@/lib/secure-document";
 import { packageProgressPriority, sortPackagesAvailableFirst } from "@/lib/utils";
-import Loader from "@/components/Loader";
+import Loader, { Spinner } from "@/components/Loader";
 import { RemiseTicketOverlay } from "@/components/RemiseTicketPage";
 import ClientPaymentForm, { PaymentModal, type ClientPaymentSubmit } from "@/components/ClientPaymentForm";
 import { notify, useNoticeToast } from "@/lib/notify";
@@ -750,7 +750,7 @@ function RemiseOffer({ offer, busy, onRelease, onLater }: { offer: { customerCod
       <h2 id="remise-offer-title" className="mt-7 text-2xl font-black tracking-tight text-[#0a2b61]">Paiement enregistré — {offer.customerCode}</h2>
       <p className="mx-auto mt-3 whitespace-pre-line text-base font-semibold leading-relaxed text-slate-600">{offer.paymentText}</p>
       <p className="mx-auto mt-5 rounded-2xl bg-orange-50 px-4 py-3 text-sm font-bold text-[#bd450b]">{count} colis {count > 1 ? "sont prêts" : "est prêt"} à être remis au client.</p>
-      <button type="button" autoFocus disabled={busy} onClick={onRelease} className="mx-auto mt-6 flex min-h-12 w-full max-w-xs items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 text-base font-black text-white shadow-sm outline-none transition hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:opacity-60"><Printer size={19} />Remettre et voir le ticket</button>
+      <button type="button" autoFocus disabled={busy} onClick={onRelease} className="mx-auto mt-6 flex min-h-12 w-full max-w-xs items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 text-base font-black text-white shadow-sm outline-none transition hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:opacity-60">{busy ? <Spinner size={18} /> : <Printer size={19} />}{busy ? "Remise en cours..." : "Remettre et voir le ticket"}</button>
       <button type="button" disabled={busy} onClick={onLater} className="mx-auto mt-3 flex min-h-11 w-full max-w-xs items-center justify-center rounded-2xl border border-slate-200 px-6 text-sm font-bold text-slate-600 hover:bg-slate-50">Plus tard</button>
     </div>
   </div>;

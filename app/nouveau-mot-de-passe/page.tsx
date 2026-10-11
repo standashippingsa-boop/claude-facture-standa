@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { BusyButton } from "@/components/Loader";
 
 import { useNoticeToast } from "@/lib/notify";
 /** Chanjman modpas volontè pou kliyan ki prefere paj apa sa a. */
@@ -51,10 +52,10 @@ export default function NouveauMotDePassePage() {
           <input type="password" className="mt-1 w-full rounded-xl bg-[#122A52] border border-white/10 px-3 py-3 text-sm text-white focus:outline-none focus:border-blue-400"
             value={confirm} onChange={(e) => setConfirm(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()} /></label>
-        <button className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm disabled:opacity-50"
-          onClick={submit} disabled={busy}>
-          {busy ? "Enregistrement..." : "Enregistrer le mot de passe"}
-        </button>
+        <BusyButton className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 text-sm disabled:opacity-50"
+          onClick={submit} busy={busy} busyLabel="Enregistrement...">
+          Enregistrer le mot de passe
+        </BusyButton>
         <button type="button" onClick={() => router.replace("/espace-client")}
           className="w-full text-sm font-semibold text-slate-300 hover:text-white">
           Continuer sans modifier

@@ -13,6 +13,7 @@ import { htg, usd } from "@/lib/utils";
 import { specialPackageInfo } from "@/lib/special-package";
 import { Package } from "lucide-react";
 import { ShoppingBag } from "lucide-react";
+import { BusyButton } from "@/components/Loader";
 
 import { useNoticeToast } from "@/lib/notify";
 /**
@@ -510,9 +511,10 @@ export default function InvoiceDialog({
         </div>
 
         <div className="mt-5 flex gap-3">
-          <button className="btn flex-1" onClick={generer} disabled={busy || !comp || !comp.ok}>
-            {busy ? "Génération..." : "Confirmer & Générer PDF"}
-          </button>
+          <BusyButton className="btn flex-1" onClick={generer} busy={busy} disabled={!comp || !comp.ok}
+            busyLabel="Génération...">
+            Confirmer &amp; Générer PDF
+          </BusyButton>
           <button className="btn btn-ghost border border-line" onClick={onClose} disabled={busy}>Annuler</button>
         </div>
       </div>

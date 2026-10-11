@@ -4,6 +4,7 @@ import { Banknote, Eye, Download, Printer, Send, XCircle, Scale } from "lucide-r
 import { cancelInvoice, closeInvoicePayments, getInvoiceItems, getInvoices, getSettings, getUnsettledAgentPaymentIdsByInvoice, recordInvoicePayment, saveInvoicePdfPath } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import RefreshButton from "@/components/RefreshButton";
+import { Spinner } from "@/components/Loader";
 import FilterConsole from "@/components/FilterConsole";
 import { generateUploadDownload, openInvoicePdf } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
@@ -253,13 +254,13 @@ export default function InvoicesPage() {
                   )}
                   {role === "admin" && (
                     <button title="Annuler la facture (colis redeviennent Disponible)"
-                      className="text-slate-400 hover:text-red-600 ml-3" disabled={busy}
-                      onClick={() => annuler(f)}><XCircle size={16} /></button>
+                      className="text-slate-400 hover:text-red-600 ml-3 disabled:opacity-50" disabled={busy}
+                      onClick={() => annuler(f)}>{busy ? <Spinner size={14} /> : <XCircle size={16} />}</button>
                   )}
                   {role === "admin" && paymentStatus === "Payé" && (unsettledByInvoice.get(f.id)?.length ?? 0) > 0 && (
                     <button title="Clôturer la facture (sort de la caisse à remettre de l'agent)"
-                      className="text-indigo-600 hover:text-indigo-800 ml-3" disabled={busy}
-                      onClick={() => cloturer(f)}><Scale size={16} /></button>
+                      className="text-indigo-600 hover:text-indigo-800 ml-3 disabled:opacity-50" disabled={busy}
+                      onClick={() => cloturer(f)}>{busy ? <Spinner size={14} /> : <Scale size={16} />}</button>
                   )}
                 </td>
               </tr>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, MessageSquareText, Star } from "lucide-react";
-import Loader from "@/components/Loader";
+import Loader, { Spinner } from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
 import { supabase } from "@/lib/supabase";
 
@@ -97,7 +97,7 @@ export default function ReviewsAdminPage() {
                 <div className="flex flex-wrap items-center justify-end gap-3"><time className="text-xs text-mute">{date(review.created_at)}</time><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${review.is_visible ? "bg-emerald-50 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{review.is_visible ? "Visible" : "Masqué"}</span></div>
               </div>
               <p className="mt-3 max-w-3xl whitespace-pre-wrap text-sm leading-relaxed text-mute">{review.message}</p>
-              <button onClick={() => void changeVisibility(review)} disabled={busyId === review.id} className={`mt-4 inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-bold transition disabled:opacity-50 ${review.is_visible ? "bg-slate-100 text-slate-700 hover:bg-slate-200" : "bg-navy text-white hover:bg-navy-dark"}`}>{review.is_visible ? <><EyeOff size={15} />{busyId === review.id ? "Modification..." : "Masquer"}</> : <><Eye size={15} />{busyId === review.id ? "Modification..." : "Rendre visible"}</>}</button>
+              <button onClick={() => void changeVisibility(review)} disabled={busyId === review.id} className={`mt-4 inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-bold transition disabled:opacity-50 ${review.is_visible ? "bg-slate-100 text-slate-700 hover:bg-slate-200" : "bg-navy text-white hover:bg-navy-dark"}`}>{busyId === review.id ? <Spinner size={14} /> : review.is_visible ? <EyeOff size={15} /> : <Eye size={15} />}{busyId === review.id ? "Modification..." : review.is_visible ? "Masquer" : "Rendre visible"}</button>
             </article>
           ))}</div>}
         </section>

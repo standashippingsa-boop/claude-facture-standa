@@ -27,7 +27,7 @@ import {
   ArrowLeft, Boxes, CheckCircle2, ClipboardList, FileDown, Folder, FolderOpen, Trash2,
   TrendingUp, Plus, Sparkles, MapPin
 } from "lucide-react";
-import Loader from "@/components/Loader";
+import Loader, { BusyButton } from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
 import ConducePaymentControl from "@/components/ConducePaymentControl";
@@ -397,9 +397,10 @@ export default function ConducesPage() {
                 <input className="input font-mono flex-1" autoFocus placeholder="Numéro de Conduce (ex. 10534)"
                   value={newConduceNumber} onChange={(e) => setNewConduceNumber(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") createInFolder(); }} />
-                <button className="btn btn-brand justify-center" onClick={createInFolder} disabled={creating || !newConduceNumber.trim()}>
-                  <Plus size={15} /> {creating ? "Ajout…" : "Ajouter au classeur"}
-                </button>
+                <BusyButton className="btn btn-brand justify-center" onClick={createInFolder} busy={creating} disabled={!newConduceNumber.trim()}
+                  busyLabel="Ajout…">
+                  <Plus size={15} /> Ajouter au classeur
+                </BusyButton>
                 <button className="btn btn-ghost justify-center" onClick={() => { setAdding(false); setNewConduceNumber(""); }} disabled={creating}>
                   Annuler
                 </button>
@@ -456,9 +457,10 @@ export default function ConducesPage() {
             {!villes.length && <p className="mt-2 text-xs text-amber-700">Aucune ville active dans Paramètres.</p>}
             <div className="mt-5 flex justify-end gap-2">
               <button className="btn btn-ghost" onClick={() => setAvailabilityFolder(null)} disabled={availabilityBusy}>Annuler</button>
-              <button className="btn btn-brand" onClick={makeAvailable} disabled={availabilityBusy || !availabilityVilleId}>
-                <CheckCircle2 size={15} /> {availabilityBusy ? "Application…" : "Rendre disponible"}
-              </button>
+              <BusyButton className="btn btn-brand" onClick={makeAvailable} busy={availabilityBusy} disabled={!availabilityVilleId}
+                busyLabel="Application…">
+                <CheckCircle2 size={15} /> Rendre disponible
+              </BusyButton>
             </div>
           </div>
         </div>

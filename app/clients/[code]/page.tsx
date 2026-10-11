@@ -1,6 +1,6 @@
 "use client";
 import { use, useEffect, useState } from "react";
-import Loader from "@/components/Loader";
+import Loader, { BusyButton, Spinner } from "@/components/Loader";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X, Trash2, Printer } from "lucide-react";
@@ -42,6 +42,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   const [rate, setRate] = useState(132);
   const [footer, setFooter] = useState("Mèsi paske ou fè STANDA COMMERCIAL konfyans.");
   const [bulkStatus, setBulkStatus] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusF, setStatusF] = useState("");
   const [dateF, setDateF] = useState("");
@@ -160,7 +161,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       `Vous pourrez le ré-importer depuis MCPACK (Extension / Import Conduce).`
     )) return;
     if (!confirm(`Dernière confirmation — supprimer ${p.tracking_number} définitivement ?`)) return;
-    setBusy(true);
+    setBusy(true); setBusyId(p.id);
     try {
       const r = await hardDeletePackage(p.id);
       if (!r.ok) { setNotice("Erè: " + (r.reason ?? "inconnue")); return; }
@@ -169,7 +170,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       await load();
     } catch (e: any) {
       setNotice("Erè: " + (e?.message ?? String(e)));
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setBusyId(null); }
   };
 
   // ===== Chanjman statut (ak email Reçu à Miami / Disponible) =====
@@ -188,8 +189,11 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       try {
         const r = await detachPackagesFromInvoice(factures.map((p) => p.id));
         if (!r.ok) { setNotice("Erè: " + (r.reason ?? "inconnue")); setBusy(false); return; }
-        setNotice(`✅ ${r.detached} colis remis en « Disponible »` +
-          (r.invoicesDeleted ? ` — ${r.invoicesDeleted} facture(s) vide(s) supprimée(s).` : "."));
+        setNotice(`✅ ${r.detached} colis remis en « Disponible » — rien n'est supprimé, ils restent dans le système.` +
+          (r.invoicesDeleted ? ` ${r.invoicesDeleted} facture(s) vide(s) supprimée(s).` : ""));
+        // GAD: si yon filtè Statut aktif ap kache koli nou fèk chanje yo,
+        // chanje filtè a pou yo rete VIZIB — yo pa dwe sanble disparèt.
+        if (statusF && statusF !== "Disponible") setStatusF("Disponible");
         await load();
       } catch (e: any) {
         setNotice("Erè: " + (e?.message ?? String(e)));
@@ -233,7 +237,10 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           }
         } catch { mailInfo = " ⚠️ Email pa pati (rezo)."; }
       }
-      setNotice(`Statut "${bulkStatus}" aplike sou ${targets.length} colis.` + mailInfo);
+      // GAD: si yon filtè Statut aktif ap kache koli nou fèk chanje yo,
+      // chanje filtè a pou yo rete VIZIB — yo pa dwe sanble disparèt.
+      if (statusF && statusF !== bulkStatus) setStatusF(bulkStatus);
+      setNotice(`✅ ${targets.length} colis passés à "${bulkStatus}" — rien n'est supprimé, ils restent dans le système.` + mailInfo);
       setBulkStatus("");
       await load();
     } catch (e: any) { setNotice("Erè: " + e.message); }
@@ -294,19 +301,19 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       {/* ===== Operasyon sou koli yo ===== */}
       <div className="flex gap-2 flex-wrap items-center">
         <RefreshButton onRefresh={load} />
-        <button className="btn btn-ghost border border-line" onClick={applyTarif} disabled={busy}>
+        <BusyButton className="btn btn-ghost border border-line" onClick={applyTarif} busy={busy}>
           <Calculator size={14} /> Appliquer tarification
-        </button>
+        </BusyButton>
         <select className="input !w-44 !py-1.5 !text-xs" value={bulkStatus}
           onChange={(e) => setBulkStatus(e.target.value)}>
           <option value="">— Changer statut —</option>
           {[...INTERNAL_STATUSES, "Livré"].filter((s, i, a) => a.indexOf(s) === i)
             .map((s) => <option key={s}>{s}</option>)}
         </select>
-        <button className="btn !bg-emerald-600 hover:!bg-emerald-700" onClick={appliquerStatut}
-          disabled={busy || !bulkStatus || !selected.length}>
+        <BusyButton className="btn !bg-emerald-600 hover:!bg-emerald-700" onClick={appliquerStatut}
+          busy={busy} disabled={!bulkStatus || !selected.length}>
           <PackageCheck size={14} /> Appliquer ({selected.length})
-        </button>
+        </BusyButton>
         <button className="btn" onClick={facturer} disabled={busy || !selectedDisponible.length}>
           <FileText size={14} /> Générer Facture ({selectedDisponible.length})
         </button>
@@ -372,9 +379,10 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
                       title="Ticket de remise" onClick={() => setTicketPackageId(p.id)}><Printer size={12} /> Ticket</button>
                   )}
                   {role === "admin" && (
-                    <button className="text-slate-300 hover:text-red-600"
+                    <button className="text-slate-300 hover:text-red-600 disabled:opacity-50"
                       title="Supprimer définitivement (données cassées — à ré-importer)"
-                      onClick={() => supprimerDefinitif(p)}><Trash2 size={14} /></button>
+                      disabled={busyId === p.id}
+                      onClick={() => supprimerDefinitif(p)}>{busyId === p.id ? <Spinner size={14} /> : <Trash2 size={14} />}</button>
                   )}
                 </td>
               </tr>
@@ -436,9 +444,9 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
               </table>
             </div>
             <div className="flex gap-3">
-              <button className="btn" onClick={validerPdf} disabled={busy}>
-                {busy ? "Import en cours..." : `Importer ${pdfRows.length} colis`}
-              </button>
+              <BusyButton className="btn" onClick={validerPdf} busy={busy} busyLabel="Import en cours...">
+                {`Importer ${pdfRows.length} colis`}
+              </BusyButton>
               <button className="btn btn-ghost" onClick={() => setPdfRows(null)}>Annuler</button>
             </div>
             <p className="text-[11px] text-slate-400">

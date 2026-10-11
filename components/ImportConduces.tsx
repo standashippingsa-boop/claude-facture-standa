@@ -17,6 +17,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ClipboardList, ExternalLink, CheckCircle2, Clock } from "lucide-react";
+import { BusyButton } from "@/components/Loader";
 import { createPendingConduces } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import { withReturnTo } from "@/lib/list-context";
@@ -65,9 +66,9 @@ export default function ImportConduces({ onLinked }: { onLinked?: () => void }) 
       <textarea className="input !h-28 font-mono text-sm"
         placeholder={"10534\n10564\n10580\n10641"}
         value={numbersRaw} onChange={(e) => setNumbersRaw(e.target.value)} />
-      <button className="btn btn-brand" onClick={creer} disabled={busy || !numbersRaw.trim()}>
+      <BusyButton className="btn btn-brand" onClick={creer} busy={busy} disabled={!numbersRaw.trim()}>
         <CheckCircle2 size={15} /> Créer les conduces en attente
-      </button>
+      </BusyButton>
 
 
       {results.length > 0 && (

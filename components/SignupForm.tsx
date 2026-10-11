@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, MapPin } from "lucide-react";
+import { BusyButton } from "@/components/Loader";
 import { registerClientProfile } from "@/lib/db";
 import { safeMessage } from "@/lib/safeerror";
 
@@ -189,9 +190,10 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
             className="absolute h-px w-px -m-px overflow-hidden opacity-0" />
 
 
-          <button type="submit" className="btn w-full justify-center py-3" disabled={isSubmitting || citiesState !== "ready"}>
-            {isSubmitting ? "Création du compte..." : citiesState === "loading" ? "Chargement des villes..." : "Créer mon compte"}
-          </button>
+          <BusyButton type="submit" className="btn w-full justify-center py-3" busy={isSubmitting} disabled={citiesState !== "ready"}
+            busyLabel="Création du compte...">
+            {citiesState === "loading" ? "Chargement des villes..." : "Créer mon compte"}
+          </BusyButton>
 
       <p className="text-center text-xs text-slate-500">
         Vous avez déjà un compte ?{" "}
