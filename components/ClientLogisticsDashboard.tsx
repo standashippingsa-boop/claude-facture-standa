@@ -8,7 +8,7 @@ import {
 import type { Pkg } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
 
-export type ClientDashboardDestination = "adresse" | "disponibles" | "receptions" | "historique" | "retraits" | "factures" | "calc" | "notifications";
+export type ClientDashboardDestination = "adresse" | "disponibles" | "colisFactures" | "receptions" | "historique" | "retraits" | "factures" | "calc" | "notifications";
 
 type DashboardProps = {
   /** Colis au statut "Disponible" uniquement (pas encore facturé). */
@@ -73,7 +73,7 @@ export function ClientLogisticsDashboard({ availableCount, invoicedCount, recept
         <div className="space-y-2">
           <QuickAction icon={Truck} label="Miami" hint="Colis reçus" count={receptionCount} onClick={() => onNavigate("receptions")} />
           <QuickAction icon={PackageCheck} label="Disponible" hint="À l'agence" count={availableCount} onClick={() => onNavigate("disponibles")} />
-          <QuickAction icon={ReceiptText} label="Facturé" hint="À régler/retirer" count={invoicedCount} onClick={() => onNavigate("disponibles")} />
+          <QuickAction icon={ReceiptText} label="Facturé" hint="À régler/retirer" count={invoicedCount} onClick={() => onNavigate("colisFactures")} />
           <QuickAction icon={Handshake} label="Retrait" hint="Vos demandes" count={retraitCount} onClick={() => onNavigate("retraits")} />
         </div>
       </section>

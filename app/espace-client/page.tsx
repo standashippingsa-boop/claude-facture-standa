@@ -57,7 +57,7 @@ import { openSecureDocument } from "@/lib/secure-document";
 import { ClientLogisticsDashboard, ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
 
 import { useNoticeToast } from "@/lib/notify";
-type View = "home" | "disponibles" | "receptions" | "factures" | "historique" | "retraits" | "notifications" | "adresse" | "calc" | "infos";
+type View = "home" | "disponibles" | "colisFactures" | "receptions" | "factures" | "historique" | "retraits" | "notifications" | "adresse" | "calc" | "infos";
 type NoticeKind = "available" | "invoice" | "pickup" | "shipment";
 type ClientNotice = {
   id: string;
@@ -382,8 +382,10 @@ export default function EspaceClientPage() {
   // "Disponible" et "Facturé" comptés séparément sur l'accueil — un colis
   // facturé reste dans la liste "Disponibles" (règle métier inchangée),
   // mais les 2 tuiles de l'accueil doivent montrer chacune son propre compte.
-  const dispoCount = disponibles.filter((p) => p.status === "Disponible").length;
-  const factureCount = disponibles.filter((p) => p.status === "Facturé").length;
+  const disponiblesOnly = disponibles.filter((p) => p.status === "Disponible");
+  const facturesOnly = disponibles.filter((p) => p.status === "Facturé");
+  const dispoCount = disponiblesOnly.length;
+  const factureCount = facturesOnly.length;
   const trackQueryNorm = trackQuery.trim().toLowerCase();
   const trackMatches = trackQueryNorm.length < 2 ? [] : pkgs.filter((p) =>
     p.tracking_number?.toLowerCase().includes(trackQueryNorm)
@@ -903,31 +905,20 @@ export default function EspaceClientPage() {
         {view === "disponibles" && (
           <>
             <SubHeader title="Disponibles" sub="Colis prêts à être retirés" />
-            {disponibles.length === 0 ? <AvailableEmpty /> : (
+            {disponiblesOnly.length === 0 ? <AvailableEmpty /> : (
               <>
-                <AvailableHero count={disponibles.length} />
-                {outstandingBalanceUsd > 0 && (
-                  <button type="button" onClick={() => setView("factures")} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left transition hover:bg-amber-100">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">Solde de factures</p>
-                      <p className="mt-1 text-xl font-black text-amber-800">{usd(outstandingBalanceUsd)}</p>
-                      <p className="mt-0.5 text-[11px] text-amber-700">Montant restant à régler</p>
-                    </div>
-                    <ChevronRight size={18} className="shrink-0 text-amber-500" />
-                  </button>
-                )}
-                <Totaux list={disponibles} />
+                <AvailableHero count={disponiblesOnly.length} />
+                <Totaux list={disponiblesOnly} />
                 <div className="rounded-2xl border border-sky-100 bg-sky-50/65 p-3">
                   <div className="flex items-start gap-2.5">
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white text-[#1466b8] shadow-sm"><PackageCheck size={16} /></span>
                     <p className="pt-0.5 text-[12px] leading-relaxed text-slate-600">
                       Sélectionnez les colis à récupérer, puis appuyez sur <b className="text-[#0d478d]">« Préparer mon retrait »</b>.
-                      Les colis facturés restent affichés jusqu&apos;à leur remise.
                     </p>
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {disponibles.map((p) => <PkgCard key={p.id} p={p} check />)}
+                  {disponiblesOnly.map((p) => <PkgCard key={p.id} p={p} check />)}
                 </div>
               </>
             )}
@@ -937,6 +928,32 @@ export default function EspaceClientPage() {
                   {busy ? <Spinner size={15} /> : <Bell size={15} />} {busy ? "Envoi…" : `Préparer mon retrait (${sel.size})`}
                 </button>
               </div>
+            )}
+          </>
+        )}
+
+        {/* ═══════════ COLIS FACTURÉS (pas encore remis) ═══════════ */}
+        {view === "colisFactures" && (
+          <>
+            <SubHeader title="Facturé" sub="Colis facturés, en attente de remise" />
+            <SectionHero eyebrow="Facturé" title="Vos colis facturés" description="Réglez votre facture à l'agence pour pouvoir les retirer." icon={ReceiptText} />
+            {outstandingBalanceUsd > 0 && (
+              <button type="button" onClick={() => setView("factures")} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left transition hover:bg-amber-100">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">Solde de factures</p>
+                  <p className="mt-1 text-xl font-black text-amber-800">{usd(outstandingBalanceUsd)}</p>
+                  <p className="mt-0.5 text-[11px] text-amber-700">Montant restant à régler</p>
+                </div>
+                <ChevronRight size={18} className="shrink-0 text-amber-500" />
+              </button>
+            )}
+            {facturesOnly.length === 0 ? <Empty t="Aucun colis facturé en attente de remise." /> : (
+              <>
+                <Totaux list={facturesOnly} />
+                <div className="space-y-3">
+                  {facturesOnly.map((p) => <PkgCard key={p.id} p={p} />)}
+                </div>
+              </>
             )}
           </>
         )}
