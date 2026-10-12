@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import {
-  ChevronLeft, ChevronRight, CircleCheck, Clipboard, Clock, Handshake, MessageCircle,
-  Navigation, Package, PackageCheck, ReceiptText, Truck
+  ChevronLeft, ChevronRight, CircleCheck, Clipboard, Clock, MessageCircle,
+  Navigation, Package, Receipt, Store, Warehouse
 } from "lucide-react";
 import type { Pkg } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
@@ -32,18 +32,18 @@ const shipmentLabel = (pkg: Pkg | null) => {
 
 function QuickAction({
   icon: Icon, label, hint, count, onClick
-}: { icon: typeof Truck; label: string; hint: string; count?: number; onClick: () => void }) {
+}: { icon: typeof Package; label: string; hint: string; count?: number; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="group flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3.5 text-left shadow-[0_12px_30px_-24px_rgba(12,67,143,.55)] ring-1 ring-sky-100 transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-sky-100 bg-[#eaf4ff] text-[#145ca8] transition-colors group-hover:bg-[#dcebff]">
-        <Icon className="text-[#145ca8]" size={20} strokeWidth={2.1} />
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-navy text-white">
+        <Icon size={20} strokeWidth={2.25} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-extrabold text-slate-700">{label}</span>
         <span className="block text-[11px] font-medium leading-tight text-slate-400">{hint}</span>
       </span>
       {typeof count === "number" && count > 0 && (
-        <span className="grid h-6 min-w-6 shrink-0 place-items-center rounded-full bg-[#145ca8] px-1.5 text-[11px] font-black text-white">
+        <span className="grid h-6 min-w-6 shrink-0 place-items-center rounded-full bg-navy px-1.5 text-[11px] font-black text-white">
           {count > 99 ? "99+" : count}
         </span>
       )}
@@ -71,10 +71,10 @@ export function ClientLogisticsDashboard({ availableCount, invoicedCount, recept
           </button>
         </div>
         <div className="space-y-2">
-          <QuickAction icon={Truck} label="Miami" hint="Colis reçus" count={receptionCount} onClick={() => onNavigate("receptions")} />
-          <QuickAction icon={PackageCheck} label="Disponible" hint="À l'agence" count={availableCount} onClick={() => onNavigate("disponibles")} />
-          <QuickAction icon={ReceiptText} label="Facturé" hint="À régler/retirer" count={invoicedCount} onClick={() => onNavigate("colisFactures")} />
-          <QuickAction icon={Handshake} label="Retrait" hint="Vos demandes" count={retraitCount} onClick={() => onNavigate("retraits")} />
+          <QuickAction icon={Warehouse} label="Miami" hint="Colis reçus" count={receptionCount} onClick={() => onNavigate("receptions")} />
+          <QuickAction icon={Package} label="Disponible" hint="À l'agence" count={availableCount} onClick={() => onNavigate("disponibles")} />
+          <QuickAction icon={Receipt} label="Facturé" hint="À régler/retirer" count={invoicedCount} onClick={() => onNavigate("colisFactures")} />
+          <QuickAction icon={Store} label="Retrait" hint="Vos demandes" count={retraitCount} onClick={() => onNavigate("retraits")} />
         </div>
       </section>
 
