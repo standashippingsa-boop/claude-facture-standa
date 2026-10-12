@@ -184,7 +184,7 @@ export async function POST(req: Request) {
     }
 
     // ── ETAJ 2 : GEMINI, SÈLMAN SI AUKENN RÈG PA JWENN ANYEN ─────────────
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.Gemini_API_Key;
     if (!apiKey) return NextResponse.json({ ok: true, answer: pick(FALLBACK, lang) });
 
     try {
