@@ -30,7 +30,6 @@ import {
   MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, Search, ShieldCheck, Store, Trash2, Truck, X
 } from "lucide-react";
 import DeleteAccountModal from "@/components/DeleteAccountModal";
-import DahaChat from "@/components/DahaChat";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";
 import {
@@ -1385,8 +1384,6 @@ export default function EspaceClientPage() {
           </a>
         </div>
       </nav>
-
-      <DahaChat />
     </div>
   );
 }
