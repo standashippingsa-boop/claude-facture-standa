@@ -12,10 +12,10 @@
     "app:sync": "npm run build && npx cap sync"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.133.0",
     "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
     "@capacitor/push-notifications": "^8.1.2",
+    "@google/genai": "^2.28.0",
     "@hookform/resolvers": "^3.9.0",
     "@sentry/browser": "^11.0.0",
     "@sentry/nextjs": "^11.0.0",

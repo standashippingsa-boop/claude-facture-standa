@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
 import { hasSignificantInvoiceBalance, invoiceRemainingAmounts, type InvoicePayableSource } from "@/lib/invoice-payable";
@@ -15,14 +15,14 @@ import { detectLang, FALLBACK, GREETING, matchMessage, pick, type Lang } from "@
  *  1) RÈG GRATIS (lib/daha-faq.ts) — tcheke DABÒ pou chak mesaj. Si gen yon
  *     bon match (FAQ, salitasyon, estati/balans), repons lan soti la, san
  *     okenn apèl AI, san okenn kòb.
- *  2) CLAUDE (sèlman si ANTHROPIC_API_KEY konfigire) — SÈLMAN lè mo-kle yo
+ *  2) GEMINI, nivo gratis Google (sèlman si GEMINI_API_KEY konfigire) — SÈLMAN lè mo-kle yo
  *     pa jwenn anyen. Konsa w peye sèlman pou kesyon ki soti nan lòd (pa
  *     chak mesaj), epi san kle a, Daha kontinye reponn ak FAQ a + WhatsApp.
  *
  * SEKIRITE : `customer_code` la soti SÈLMAN nan sesyon kliyan an (jeton
  * Supabase Auth -> auth_user_id -> clients.customer_code).
  *
- * KONFIDANSYALITE (etaj Claude a) : enstriksyon strik anba a mande Claude
+ * KONFIDANSYALITE (etaj Gemini an) : enstriksyon strik anba a mande modèl la
  * pa janm site non "MCPACK" ni dekri fonisè/zouti/metòd entèn STANDA,
  * menm si kliyan an eseye fòmile kesyon an yon lòt jan pou "pyeje" l.
  */
@@ -142,7 +142,7 @@ export async function POST(req: Request) {
     if (match.kind === "faq") return NextResponse.json({ ok: true, answer: pick(match.topic.answer, lang) });
     if (match.kind === "greeting") return NextResponse.json({ ok: true, answer: pick(GREETING, lang) });
 
-    // "status", "balance" ak "none" (si Claude disponib) bezwen done kliyan an.
+    // "status", "balance" ak "none" (si Gemini disponib) bezwen done kliyan an.
     const [villeResult, settingsResult, packagesResult, invoicesResult] = await Promise.all([
       client.ville_id
         ? db.from("villes").select("name, price_personal, price_business, tax_personal, tax_business, fixed_fee, active").eq("id", client.ville_id).maybeSingle()
@@ -183,8 +183,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, answer: buildBalanceAnswer(lang, balanceLines, totalRemainingUsd, totalRemainingHtg) });
     }
 
-    // ── ETAJ 2 : CLAUDE, SÈLMAN SI AUKENN RÈG PA JWENN ANYEN ─────────────
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    // ── ETAJ 2 : GEMINI, SÈLMAN SI AUKENN RÈG PA JWENN ANYEN ─────────────
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return NextResponse.json({ ok: true, answer: pick(FALLBACK, lang) });
 
     try {
@@ -230,25 +230,21 @@ export async function POST(req: Request) {
         contextBlock,
       ].join("\n\n");
 
-      const anthropic = new Anthropic({ apiKey });
-      const messages: Anthropic.MessageParam[] = [
-        ...history.map((turn) => ({ role: turn.role, content: turn.content })),
-        { role: "user" as const, content: message },
-      ];
-      const response = await anthropic.messages.create({
-        model: "claude-opus-5-5",
-        max_tokens: 1024,
-        output_config: { effort: "low" },
-        system: systemPrompt,
-        messages,
+      const transcript = history.length
+        ? `Échanges précédents :\n${history.map((turn) => `${turn.role === "user" ? "Client" : "Daha"} : ${turn.content}`).join("\n")}\n\nNouvelle question du client : ${message}`
+        : message;
+      const ai = new GoogleGenAI({ apiKey });
+      const interaction = await ai.interactions.create({
+        model: "gemini-2.5-flash",
+        input: transcript,
+        system_instruction: systemPrompt,
       });
-      const textBlock = response.content.find((block): block is Anthropic.TextBlock => block.type === "text");
-      const answer = textBlock?.text?.trim() || pick(FALLBACK, lang);
+      const answer = text(interaction.output_text) || pick(FALLBACK, lang);
       return NextResponse.json({ ok: true, answer });
     } catch (error) {
-      // Claude en panne/limité : on ne bloque jamais le client, on dégrade
+      // Gemini en panne/limité : on ne bloque jamais le client, on dégrade
       // simplement vers la réponse WhatsApp au lieu d'une erreur.
-      console.error("[daha-chat] Claude (étage 2) indisponible", error);
+      console.error("[daha-chat] Gemini (étage 2) indisponible", error);
       return NextResponse.json({ ok: true, answer: pick(FALLBACK, lang) });
     }
   } catch (error) {
