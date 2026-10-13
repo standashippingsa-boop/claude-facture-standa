@@ -25,9 +25,14 @@ export const metadata: Metadata = {
 };
 
 const STEPS = [
-  { title: "Créez votre compte", text: "L'inscription est gratuite. Vous recevez votre code client personnel, votre repère pour chaque colis." },
-  { title: "Utilisez votre adresse à Miami", text: "Ajoutez notre dépôt et votre code MC lors de vos achats en ligne aux États-Unis." },
-  { title: "Recevez et récupérez", text: "Nous suivons votre colis de Miami jusqu'à sa disponibilité dans votre agence en Haïti." }
+  { title: "Créez votre compte", text: "L'inscription est gratuite. Remplissez le formulaire avec votre nom, votre téléphone et l'agence où vous voulez récupérer vos colis." },
+  { title: "Recevez votre code client", text: "Dès l'inscription, vous obtenez un code personnel qui commence par MC. C'est lui qui permet de reconnaître vos colis : gardez-le." },
+  { title: "Copiez votre adresse à Miami", text: "Dans votre espace client, vous trouvez l'adresse de notre dépôt à Miami. Votre code MC se place sur la deuxième ligne de l'adresse." },
+  { title: "Achetez en ligne", text: "Commandez sur la boutique de votre choix (SHEIN, Amazon, Temu…) et mettez l'adresse de Miami comme adresse de livraison, avec votre code MC." },
+  { title: "Nous recevons votre colis à Miami", text: "À son arrivée au dépôt, le colis est pesé et enregistré sur votre compte. Vous le voyez apparaître dans votre espace client." },
+  { title: "Votre colis voyage vers Haïti", text: "Suivez chaque étape : en préparation, en transit, arrivé en Haïti, puis en route vers votre agence. Le suivi fonctionne aussi sur cette page, sans compte." },
+  { title: "Votre colis est disponible", text: "Quand le colis est dans votre agence, son statut passe à « Disponible » et votre facture s'affiche dans votre espace client." },
+  { title: "Payez et récupérez", text: "Présentez-vous à votre agence avec votre code client, réglez votre facture et repartez avec votre colis." }
 ];
 
 const INTERDITS = [
@@ -103,13 +108,15 @@ export default function AccueilPage() {
 
         <section className="py-14 sm:py-20">
           <div className={WRAP}>
-            <SectionHeading title="Comment ça marche" text="Trois étapes : acheter, recevoir et savoir où en est votre colis." />
-            <ol className="mt-10 grid gap-8 lg:grid-cols-3 lg:gap-0 lg:divide-x lg:divide-line">
+            <SectionHeading title="Comment ça marche" text="De l'inscription au retrait de votre colis, voici tout ce qu'il faut faire." />
+            <ol className="mt-8 grid gap-x-12 lg:grid-cols-2">
               {STEPS.map((step, index) => (
-                <li key={step.title} className="lg:px-8 lg:first:pl-0 lg:last:pr-0">
-                  <p className="text-[40px] font-extrabold leading-none text-accent">{index + 1}</p>
-                  <h3 className="mt-4 text-[19px] font-bold text-navy">{step.title}</h3>
-                  <p className="mt-2 text-[15px] leading-relaxed text-mute">{step.text}</p>
+                <li key={step.title} className="flex gap-4 border-b border-line py-5">
+                  <p className="w-8 shrink-0 text-[28px] font-extrabold leading-none text-accent">{index + 1}</p>
+                  <div>
+                    <h3 className="text-[17px] font-bold text-navy">{step.title}</h3>
+                    <p className="mt-1.5 text-[15px] leading-relaxed text-mute">{step.text}</p>
+                  </div>
                 </li>
               ))}
             </ol>
