@@ -145,17 +145,6 @@ export default function AccueilPage() {
             <StoreBadges />
           </div>
         </section>
-
-        <section className="bg-accent py-14 text-white sm:py-20">
-          <div className={WRAP}>
-            <h2 className="max-w-2xl text-[32px] font-extrabold leading-tight tracking-tight sm:text-[44px]">Vos achats en ligne arrivent jusqu&apos;à vous.</h2>
-            <p className="mt-4 max-w-lg text-[16px] leading-relaxed text-white/90">Ouvrez votre compte, recevez votre code client et commencez à faire livrer vos colis à Miami.</p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Link href="/inscription" className={`${BTN} bg-navy text-white hover:bg-navy-dark focus-visible:outline-navy`}>Ouvrir un compte <ArrowRight size={16} /></Link>
-              <a href="#suivi" className={`${BTN} border border-white/60 text-white hover:bg-white/10 focus-visible:outline-navy`}>Suivre un colis</a>
-            </div>
-          </div>
-        </section>
       </main>
       <SiteFooter />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSONLD) }} />
