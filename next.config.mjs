@@ -87,6 +87,14 @@ export default {
       {
         source: "/manifest.webmanifest",
         headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }]
+      },
+      {
+        source: "/manifest-remise.webmanifest",
+        headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }]
+      },
+      {
+        source: "/manifest-reception.webmanifest",
+        headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }]
       }
     ];
   }

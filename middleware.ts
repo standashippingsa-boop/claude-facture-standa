@@ -111,5 +111,5 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   // Pa kouri sou resous estatik (pèfòmans)
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|manifest.webmanifest|sw.js|apple-touch-icon.png|logo.png|robots.txt|sitemap.xml).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|manifest.webmanifest|manifest-remise.webmanifest|manifest-reception.webmanifest|sw.js|apple-touch-icon.png|logo.png|robots.txt|sitemap.xml).*)"],
 };
