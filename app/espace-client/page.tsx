@@ -788,27 +788,32 @@ export default function EspaceClientPage() {
       {menuOpen && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/45 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Mon compte"
           onClick={() => setMenuOpen(false)}>
-          <div className="w-full max-w-md rounded-t-3xl bg-white px-5 pb-8 pt-3 sm:rounded-3xl sm:pb-5" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-t-[28px] bg-white px-5 pb-8 pt-3 sm:rounded-[28px] sm:pb-6" onClick={(e) => e.stopPropagation()}>
             <span aria-hidden="true" className="mx-auto block h-1.5 w-10 rounded-full bg-slate-200 sm:hidden" />
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-base font-extrabold text-navy">{clientName}</p>
-                <p className="mt-0.5 truncate text-xs font-medium text-mute">{client.customer_code}</p>
-              </div>
-              <button aria-label="Fermer" onClick={() => setMenuOpen(false)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-mist text-mute"><X size={18} /></button>
+            <div className="relative mt-5 flex flex-col items-center text-center">
+              <button aria-label="Fermer" onClick={() => setMenuOpen(false)} className="absolute -top-2 right-0 grid h-10 w-10 place-items-center rounded-full text-slate-400 hover:bg-mist"><X size={20} /></button>
+              <span aria-hidden="true" className="grid h-16 w-16 place-items-center rounded-full bg-navy text-xl font-extrabold text-white">{clientName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "S"}</span>
+              <p className="mt-3 max-w-full truncate text-lg font-extrabold text-ink">{clientName}</p>
+              <p className="mt-0.5 font-mono text-[13px] font-semibold text-mute">{client.customer_code}</p>
             </div>
-            <div className="mt-4 divide-y divide-line border-y border-line">
-              <button className="flex min-h-14 w-full items-center gap-3 text-left text-[15px] font-semibold text-ink"
-                onClick={() => { setMenuOpen(false); setShowPwd(true); }}>
-                <KeyRound size={19} className="shrink-0 text-navy" /> <span className="flex-1">Changer mon mot de passe</span> <ChevronRight size={17} className="text-slate-300" />
-              </button>
-              <button className="flex min-h-14 w-full items-center gap-3 text-left text-[15px] font-semibold text-ink" onClick={logout}>
-                <LogOut size={19} className="shrink-0 text-navy" /> <span className="flex-1">Se déconnecter</span> <ChevronRight size={17} className="text-slate-300" />
-              </button>
-            </div>
-            <button className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 text-sm font-semibold text-red-600"
+
+            <p className="mb-1.5 mt-6 px-1 text-xs font-bold text-mute">Sécurité</p>
+            <button className="flex min-h-[60px] w-full items-center gap-3 rounded-2xl bg-mist px-4 text-left"
+              onClick={() => { setMenuOpen(false); setShowPwd(true); }}>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-navy"><KeyRound size={18} /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-bold text-ink">Mot de passe</span>
+                <span className="block text-xs text-mute">Modifier le mot de passe de votre compte</span>
+              </span>
+              <ChevronRight size={18} className="shrink-0 text-slate-400" />
+            </button>
+
+            <button className="mt-5 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-navy text-[15px] font-bold text-navy" onClick={logout}>
+              <LogOut size={18} /> Se déconnecter
+            </button>
+            <button className="mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 text-[13px] font-semibold text-red-600"
               onClick={() => { setMenuOpen(false); setShowDelete(true); }}>
-              <Trash2 size={16} /> Supprimer mon compte
+              <Trash2 size={15} /> Supprimer mon compte
             </button>
           </div>
         </div>
@@ -819,17 +824,7 @@ export default function EspaceClientPage() {
         {/* ═══════════ ACCUEIL ═══════════ */}
         {view === "home" && (
           <>
-            <ClientLogisticsDashboard
-              availableCount={dispoCount}
-              invoicedCount={factureCount}
-              receptionCount={autres.length}
-              retraitCount={activeRetraits.length}
-              deliveredCount={historique.length}
-              unreadNotifications={unreadNotifications.length}
-              onNavigate={(destination) => destination === "notifications" ? openNotifications() : setView(destination)}
-            />
-
-            <div className="relative client-enter client-enter-d4">
+            <div className="relative z-20 client-enter">
               <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 value={trackQuery}
@@ -856,6 +851,16 @@ export default function EspaceClientPage() {
                 </div>
               )}
             </div>
+
+            <ClientLogisticsDashboard
+              availableCount={dispoCount}
+              invoicedCount={factureCount}
+              receptionCount={autres.length}
+              retraitCount={activeRetraits.length}
+              deliveredCount={historique.length}
+              unreadNotifications={unreadNotifications.length}
+              onNavigate={(destination) => destination === "notifications" ? openNotifications() : setView(destination)}
+            />
 
             {showPushBanner && (
               <div role="dialog" aria-modal="true" aria-labelledby="push-permission-title" className="fixed inset-0 z-[70] flex items-end bg-slate-950/35 p-3 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-5">
