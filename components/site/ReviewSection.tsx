@@ -102,23 +102,23 @@ export default function ReviewSection() {
   }
 
   return (
-    <section className="parcel-wash mx-auto max-w-7xl rounded-[2rem] px-5 py-16 sm:px-8 sm:py-24 lg:px-10 xl:px-6">
+    <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24 lg:px-10 xl:px-6">
       <div className="grid gap-8 lg:grid-cols-[.86fr_1.14fr] lg:items-start">
-        <div className="rounded-[1.65rem] bg-navy p-6 text-white shadow-[0_24px_60px_-38px_rgba(15,23,42,.7)] sm:p-8">
-          <p className="text-[11px] font-bold uppercase tracking-[.19em] text-accent">Votre avis compte</p>
-          <h2 className="mt-3 text-balance text-[30px] font-black leading-[1.05] tracking-[-.04em] sm:text-[40px]">Partagez votre expérience avec STANDA.</h2>
+        <div className="rounded-lg bg-navy p-6 text-white sm:p-8">
+          <p className="text-[14px] font-semibold text-accent-dark">Votre avis compte</p>
+          <h2 className="mt-3 text-[30px] font-extrabold leading-tight tracking-tight sm:text-[40px]">Partagez votre expérience avec STANDA.</h2>
           <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/70">Vos commentaires nous aident à mieux accompagner chaque client.</p>
-          <div className="mt-7 rounded-2xl border border-white/10 bg-white/[.07] p-4 text-[13px] leading-relaxed text-white/75">
+          <div className="mt-7 rounded-lg border border-white/10 bg-white/[.07] p-4 text-[13px] leading-relaxed text-white/75">
             <span className="font-bold text-white">Aucun compte nécessaire.</span> Utilisez simplement votre prénom ou un pseudonyme ; votre adresse e-mail n&apos;est pas demandée.
           </div>
         </div>
 
-        <div className="rounded-[1.65rem] border border-line bg-white p-5 shadow-[0_24px_60px_-38px_rgba(15,23,42,.5)] sm:p-7">
+        <div className="rounded-lg border border-line bg-white p-5 sm:p-7">
           <form onSubmit={submit} className="space-y-4">
-            <div className="flex items-center gap-2 text-navy"><MessageSquareText size={21} className="text-accent" /><h3 className="text-[20px] font-black tracking-[-.02em]">Laissez votre commentaire</h3></div>
+            <div className="flex items-center gap-2 text-navy"><MessageSquareText size={21} className="text-accent" /><h3 className="text-[20px] font-extrabold tracking-tight">Laissez votre commentaire</h3></div>
             <label className="block">
               <span className="mb-1.5 block text-[12.5px] font-bold text-navy">Votre prénom ou pseudonyme</span>
-              <div className="relative"><UserRound size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-mute" /><input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} required className="w-full rounded-xl border border-line bg-mist py-3 pl-10 pr-3.5 text-[14.5px] text-ink placeholder:text-mute transition focus:border-accent focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent" placeholder="Ex. Marie" /></div>
+              <div className="relative"><UserRound size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-mute" /><input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} required className="w-full rounded-md border border-line bg-mist py-3 pl-10 pr-3.5 text-[14.5px] text-ink placeholder:text-mute transition focus:border-accent focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent" placeholder="Ex. Marie" /></div>
             </label>
             <fieldset>
               <legend className="mb-1.5 block text-[12.5px] font-bold text-navy">Votre note</legend>
@@ -126,18 +126,18 @@ export default function ReviewSection() {
             </fieldset>
             <label className="block">
               <span className="mb-1.5 block text-[12.5px] font-bold text-navy">Votre commentaire</span>
-              <textarea value={message} onChange={(event) => setMessage(event.target.value)} maxLength={600} rows={5} required placeholder="Décrivez votre expérience avec STANDA..." className="w-full resize-none rounded-xl border border-line bg-mist px-3.5 py-3 text-[14.5px] text-ink placeholder:text-mute transition focus:border-accent focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent" />
+              <textarea value={message} onChange={(event) => setMessage(event.target.value)} maxLength={600} rows={5} required placeholder="Décrivez votre expérience avec STANDA..." className="w-full resize-none rounded-md border border-line bg-mist px-3.5 py-3 text-[14.5px] text-ink placeholder:text-mute transition focus:border-accent focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent" />
             </label>
             <input value={website} onChange={(event) => setWebsite(event.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute h-px w-px overflow-hidden opacity-0" />
             <div className="flex items-center justify-between gap-3 text-[12px] text-mute"><span>Votre avis sera affiché publiquement.</span><span>{message.length}/600</span></div>
-            <button type="submit" disabled={status === "sending"} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent px-5 text-[14px] font-bold text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:bg-slate-300">{status === "sending" ? <Spinner size={16} /> : <Send size={16} />}{status === "sending" ? "Publication..." : "Publier mon commentaire"}</button>
+            <button type="submit" disabled={status === "sending"} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-accent px-5 text-[14px] font-bold text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:bg-slate-300">{status === "sending" ? <Spinner size={16} /> : <Send size={16} />}{status === "sending" ? "Publication..." : "Publier mon commentaire"}</button>
           </form>
         </div>
       </div>
 
-      <div className="mt-8 rounded-[1.65rem] border border-line bg-white p-5 shadow-[0_18px_44px_-36px_rgba(15,23,42,.45)] sm:p-7">
-        <div className="flex items-center gap-2"><Star size={18} className="fill-accent text-accent" /><h3 className="text-[21px] font-black tracking-[-.025em] text-navy">Commentaires des clients</h3></div>
-        {status === "loading" ? <p className="mt-5 text-[14px] text-mute">Chargement des commentaires...</p> : reviews.length ? <div className="mt-6 grid gap-3 md:grid-cols-2">{reviews.map((review) => <article key={review.id} className="rounded-2xl bg-mist p-5"><div className="flex items-start justify-between gap-4"><div><p className="font-bold text-navy">{review.author_name}</p><div className="mt-1"><Stars rating={review.rating} /></div></div><time dateTime={review.created_at} className="shrink-0 text-[11px] font-medium text-mute">{formatDate(review.created_at)}</time></div><p className="mt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-mute">{review.message}</p></article>)}</div> : <p className="mt-5 text-[14px] leading-relaxed text-mute">Soyez le premier à partager votre expérience avec STANDA.</p>}
+      <div className="mt-8 rounded-lg border border-line bg-white p-5 sm:p-7">
+        <div className="flex items-center gap-2"><Star size={18} className="fill-accent text-accent" /><h3 className="text-[21px] font-extrabold tracking-tight text-navy">Commentaires des clients</h3></div>
+        {status === "loading" ? <p className="mt-5 text-[14px] text-mute">Chargement des commentaires...</p> : reviews.length ? <div className="mt-6 grid gap-3 md:grid-cols-2">{reviews.map((review) => <article key={review.id} className="rounded-lg bg-mist p-5"><div className="flex items-start justify-between gap-4"><div><p className="font-bold text-navy">{review.author_name}</p><div className="mt-1"><Stars rating={review.rating} /></div></div><time dateTime={review.created_at} className="shrink-0 text-[11px] font-medium text-mute">{formatDate(review.created_at)}</time></div><p className="mt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-mute">{review.message}</p></article>)}</div> : <p className="mt-5 text-[14px] leading-relaxed text-mute">Soyez le premier à partager votre expérience avec STANDA.</p>}
       </div>
     </section>
   );

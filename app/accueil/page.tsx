@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Check, MapPin, PackageCheck, Plane, Smartphone, Store, Truck, Warehouse } from "lucide-react";
+import { ArrowRight, Check, X } from "lucide-react";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
 import StoreBadges from "@/components/site/StoreBadges";
@@ -25,9 +25,9 @@ export const metadata: Metadata = {
 };
 
 const STEPS = [
-  { number: "01", icon: PackageCheck, title: "Créez votre compte", text: "L'inscription est gratuite. Vous recevez votre code client personnel, votre repère pour chaque colis." },
-  { number: "02", icon: Warehouse, title: "Utilisez votre adresse à Miami", text: "Ajoutez notre dépôt et votre code MC lors de vos achats en ligne aux États-Unis." },
-  { number: "03", icon: Truck, title: "Recevez et récupérez", text: "Nous suivons votre colis de Miami jusqu'à sa disponibilité dans votre agence en Haïti." }
+  { title: "Créez votre compte", text: "L'inscription est gratuite. Vous recevez votre code client personnel, votre repère pour chaque colis." },
+  { title: "Utilisez votre adresse à Miami", text: "Ajoutez notre dépôt et votre code MC lors de vos achats en ligne aux États-Unis." },
+  { title: "Recevez et récupérez", text: "Nous suivons votre colis de Miami jusqu'à sa disponibilité dans votre agence en Haïti." }
 ];
 
 const INTERDITS = [
@@ -63,53 +63,116 @@ const JSONLD = {
   sameAs: [SITE.instagramUrl, SITE.facebookUrl, SITE.tiktokUrl]
 };
 
+const WRAP = "mx-auto max-w-7xl px-5 sm:px-8 lg:px-10 xl:px-6";
+const BTN = "inline-flex h-12 items-center justify-center gap-2 rounded-md px-6 text-[15px] font-bold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4";
+
 export default function AccueilPage() {
   return (
-    <div className="min-h-screen overflow-hidden bg-[#fbfcff] text-ink">
+    <div className="min-h-screen bg-white text-ink">
       <SiteHeader />
       <main>
-        <section className="relative isolate overflow-hidden bg-navy">
-          <Image src="/parcel-boxes-background.png" alt="" fill priority sizes="100vw" unoptimized className="object-contain object-center opacity-70 sm:object-cover" />
-          <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,18,38,.98)_0%,rgba(8,18,38,.91)_42%,rgba(8,18,38,.56)_100%)]" />
-          <div aria-hidden="true" className="site-grid absolute inset-0 opacity-[0.14]" />
-          <div aria-hidden="true" className="absolute -right-36 -top-44 h-[34rem] w-[34rem] rounded-full bg-accent/20 blur-3xl" />
-          <div aria-hidden="true" className="absolute -bottom-64 left-1/3 h-[28rem] w-[28rem] rounded-full bg-sky-400/10 blur-3xl" />
-          <div className="relative mx-auto grid max-w-7xl gap-12 px-5 pb-16 pt-14 sm:px-8 sm:pb-24 sm:pt-20 lg:grid-cols-[minmax(0,1.04fr)_minmax(420px,.96fr)] lg:items-center lg:gap-16 lg:px-10 xl:px-6">
-            <div className="max-w-2xl site-fade">
-              <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.07] px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.17em] text-white/85 backdrop-blur-sm"><span className="h-1.5 w-1.5 rounded-full bg-accent" />Miami <span className="text-white/40">→</span> Haïti</p>
-              <h1 className="mt-6 max-w-xl text-balance text-[42px] font-black leading-[.98] tracking-[-0.055em] text-white sm:text-[60px] lg:text-[66px]">Vos achats en ligne, <span className="text-accent">livrés simplement</span> en Haïti.</h1>
-              <p className="mt-6 max-w-lg text-[16px] font-medium leading-relaxed text-white drop-shadow-[0_1px_1px_rgba(4,18,48,0.65)] sm:text-[18px]">Une adresse de dépôt à Miami, un suivi clair et une équipe qui vous accompagne jusqu'à la récupération de vos colis.</p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link href="/inscription" className="group inline-flex h-[3.25rem] items-center justify-center gap-2 rounded-xl bg-accent px-6 text-[15px] font-bold text-white shadow-[0_14px_34px_-12px_rgba(228,101,10,.8)] transition hover:-translate-y-0.5 hover:bg-accent-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">Créer mon compte <ArrowRight size={17} className="transition-transform group-hover:translate-x-0.5" /></Link>
-                <Link href="/agences" className="inline-flex h-[3.25rem] items-center justify-center rounded-xl border border-white/20 bg-white/[0.06] px-6 text-[15px] font-bold text-white transition hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">Voir nos agences</Link>
+        <section className="bg-navy text-white">
+          <div className={`${WRAP} grid gap-10 py-12 sm:py-16 lg:grid-cols-[1.05fr_.95fr] lg:items-start lg:gap-14`}>
+            <div className="max-w-xl">
+              <p className="text-[14px] font-semibold text-accent">Miami → Haïti</p>
+              <h1 className="mt-3 text-[36px] font-extrabold leading-[1.08] tracking-tight sm:text-[50px]">Vos achats en ligne, livrés simplement en Haïti.</h1>
+              <p className="mt-5 text-[16px] leading-relaxed text-white/80 sm:text-[17px]">Une adresse de dépôt à Miami, un suivi clair et une équipe qui vous accompagne jusqu&apos;à la récupération de vos colis.</p>
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                <Link href="/inscription" className={`${BTN} bg-accent text-white hover:bg-accent-dark focus-visible:outline-white`}>Créer mon compte <ArrowRight size={17} /></Link>
+                <Link href="/agences" className={`${BTN} border border-white/40 text-white hover:bg-white/10 focus-visible:outline-white`}>Voir nos agences</Link>
               </div>
-              <div className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-[13px] font-medium text-white/65"><TrustItem>Inscription gratuite</TrustItem><TrustItem>Code client personnel</TrustItem><TrustItem>Suivi de colis</TrustItem></div>
-              <div className="mt-8">
-                <p className="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[.16em] text-white/80"><Smartphone size={15} className="text-accent" />Application mobile · bientôt disponible</p>
+              <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[14px] text-white/75">
+                {["Inscription gratuite", "Code client personnel", "Suivi de colis"].map((item) => (
+                  <li key={item} className="inline-flex items-center gap-2"><Check size={15} className="text-accent" />{item}</li>
+                ))}
+              </ul>
+              <div className="mt-9 border-t border-white/15 pt-6">
+                <p className="text-[14px] font-semibold text-white/80">Application mobile · bientôt disponible</p>
                 <StoreBadges className="mt-3" />
               </div>
             </div>
-            <div className="relative site-fade site-fade-d2">
-              <div aria-hidden="true" className="absolute -inset-4 rounded-[2rem] bg-accent/15 blur-2xl" />
-              <div id="suivi" className="relative overflow-hidden rounded-[1.65rem] border border-white/15 bg-white/[0.09] p-3 shadow-[0_30px_80px_-28px_rgba(0,0,0,.7)] backdrop-blur-md sm:p-4">
-                <div className="relative aspect-[3/2] overflow-hidden rounded-[1.15rem] bg-navy/30 sm:aspect-auto sm:h-56"><Image src="/site-backgrounds/standa-package-scale.png" alt="Colis STANDA en préparation" width={1536} height={1024} priority unoptimized className="h-full w-full object-contain object-center opacity-90 sm:object-cover sm:opacity-80" /><div className="absolute inset-0 bg-gradient-to-t from-navy/75 via-navy/10 to-transparent" /><div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3 text-white"><div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-white/65">Un parcours maîtrisé</p><p className="mt-1 text-[15px] font-bold">De Miami à votre agence, vos colis avancent en toute confiance.</p></div><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/15 backdrop-blur-sm"><Plane size={19} /></div></div></div>
-                <div className="mt-3"><TrackBox /></div>
-              </div>
+            <div id="suivi">
+              <TrackBox />
+              <figure className="mt-4 overflow-hidden rounded-lg border border-white/15">
+                <Image src="/site-backgrounds/standa-package-scale.png" alt="Colis STANDA en préparation" width={1536} height={1024} priority unoptimized className="aspect-[3/2] w-full object-cover" />
+                <figcaption className="px-4 py-3 text-[13px] text-white/75">De Miami à votre agence, vos colis avancent en toute confiance.</figcaption>
+              </figure>
             </div>
           </div>
         </section>
 
-        <section className="parcel-wash-alt border-b border-line bg-[#fffdf9] py-16 sm:py-20"><div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10 xl:px-6"><SectionHeading eyebrow="Vos boutiques préférées" title="Commandez là où vous aimez déjà acheter." /><div className="mt-9 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{SHOPPING_PLATFORMS.map((platform) => <PlatformCard key={platform.name} {...platform} />)}</div></div></section>
+        <section className="border-b border-line py-14 sm:py-16">
+          <div className={WRAP}>
+            <SectionHeading title="Commandez là où vous aimez déjà acheter." />
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+              {SHOPPING_PLATFORMS.map((platform) => (
+                <div key={platform.name} className="flex h-20 items-center justify-center rounded-md border border-line bg-white px-3">
+                  <Image src={platform.image} alt={`Logo ${platform.name}`} width={150} height={72} unoptimized className="h-10 w-auto max-w-[120px] object-contain mix-blend-multiply" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-        <section className="parcel-wash mx-auto max-w-7xl rounded-[2rem] px-5 py-20 sm:px-8 sm:py-28 lg:px-10 xl:px-6"><SectionHeading title="Tout devient plus simple, étape par étape." text="Nous avons pensé l'expérience autour de ce dont vous avez besoin : acheter, recevoir et savoir où en est votre colis." /><div className="mt-11 grid gap-4 lg:grid-cols-3">{STEPS.map((step) => <StepCard key={step.number} {...step} />)}</div></section>
+        <section className="py-14 sm:py-20">
+          <div className={WRAP}>
+            <SectionHeading title="Comment ça marche" text="Trois étapes : acheter, recevoir et savoir où en est votre colis." />
+            <ol className="mt-10 grid gap-8 lg:grid-cols-3 lg:gap-0 lg:divide-x lg:divide-line">
+              {STEPS.map((step, index) => (
+                <li key={step.title} className="lg:px-8 lg:first:pl-0 lg:last:pr-0">
+                  <p className="text-[40px] font-extrabold leading-none text-accent">{index + 1}</p>
+                  <h3 className="mt-4 text-[19px] font-bold text-navy">{step.title}</h3>
+                  <p className="mt-2 text-[15px] leading-relaxed text-mute">{step.text}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
 
-        <section className="parcel-wash-alt mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10 xl:px-6"><div className="mx-auto flex max-w-3xl flex-col items-center gap-5 text-center sm:flex-row sm:text-left"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-accent-light text-accent-dark"><Smartphone size={22} /></span><div className="min-w-0 flex-1"><h2 className="text-[20px] font-black tracking-[-.025em] text-navy">Gardez STANDA à portée de main.</h2><p className="mt-1 text-[13px] leading-relaxed text-mute">Suivez vos colis et consultez vos factures depuis votre téléphone.</p></div><StoreBadges className="justify-center sm:justify-end" /></div></section>
+        <section className="bg-navy py-14 text-white sm:py-20">
+          <div className={`${WRAP} grid gap-8 lg:grid-cols-2 lg:items-center lg:gap-16`}>
+            <h2 className="max-w-xl text-[30px] font-extrabold leading-tight tracking-tight sm:text-[40px]">Vos colis arrivent là où vous pouvez les récupérer.</h2>
+            <div>
+              <p className="max-w-lg text-[16px] leading-relaxed text-white/80">Quand votre colis est disponible, rendez-vous dans votre agence. Consultez les villes, horaires et coordonnées de nos points de retrait.</p>
+              <Link href="/agences" className={`${BTN} mt-6 bg-white text-navy hover:bg-accent-light focus-visible:outline-white`}>Trouver mon agence <ArrowRight size={16} /></Link>
+            </div>
+          </div>
+        </section>
 
-        <section className="bg-navy py-20 sm:py-28"><div className="mx-auto grid max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-[1fr_.92fr] lg:items-center lg:gap-20 lg:px-10 xl:px-6"><div><h2 className="max-w-xl text-balance text-[34px] font-black leading-[1.02] tracking-[-0.045em] text-white sm:text-[46px]">Vos colis arrivent là où vous pouvez les récupérer.</h2><p className="mt-5 max-w-lg text-[16px] leading-relaxed text-white/65">Quand votre colis est disponible, rendez-vous dans votre agence. Notre réseau est là pour rendre la dernière étape plus simple.</p><Link href="/agences" className="group mt-8 inline-flex h-12 items-center gap-2 rounded-xl bg-white px-5 text-[14px] font-bold text-navy transition hover:-translate-y-0.5 hover:bg-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">Trouver mon agence <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" /></Link></div><div className="relative mx-auto w-full max-w-md rounded-[1.65rem] border border-white/12 bg-white/[.06] p-5 shadow-2xl backdrop-blur-sm sm:p-7"><div className="absolute right-6 top-7 text-accent/20"><MapPin size={100} strokeWidth={1} /></div><div className="relative"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-accent text-white"><Store size={22} /></span><p className="mt-8 text-[11px] font-bold uppercase tracking-[.18em] text-white/45">Prochaine étape</p><p className="mt-2 max-w-xs text-[23px] font-bold leading-tight text-white">Votre agence vous attend.</p><div className="mt-8 border-t border-white/10 pt-5"><p className="text-[13px] leading-relaxed text-white/60">Consultez les villes, horaires et coordonnées de nos points de retrait.</p><Link href="/agences" className="mt-3 inline-flex items-center gap-2 text-[13px] font-bold text-accent hover:text-white">Voir les agences <ArrowRight size={15} /></Link></div></div></div></div></section>
+        <section className="border-b border-line py-14 sm:py-20">
+          <div className={WRAP}>
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+              <SectionHeading title="Articles non acceptés" text="Pour la sécurité du transport, certains articles ne peuvent pas être pris en charge." />
+              <Link href="/contact" className="inline-flex items-center gap-2 text-[14px] font-bold text-navy underline-offset-4 hover:underline">Une question sur un article ? <ArrowRight size={16} /></Link>
+            </div>
+            <ul className="mt-8 grid gap-x-12 sm:grid-cols-2">
+              {INTERDITS.map((item) => (
+                <li key={item} className="flex gap-3 border-b border-line py-3.5 text-[15px] text-ink"><X size={17} className="mt-0.5 shrink-0 text-red-600" />{item}</li>
+              ))}
+            </ul>
+          </div>
+        </section>
 
-        <section className="parcel-wash-alt border-y border-line bg-mist py-[4.5rem] sm:py-24"><div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10 xl:px-6"><div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><SectionHeading eyebrow="Avant d'expédier" title="Articles non acceptés" text="Pour la sécurité du transport, certains articles ne peuvent pas être pris en charge." /><Link href="/contact" className="inline-flex items-center gap-2 text-[14px] font-bold text-navy hover:text-accent">Une question sur un article ? <ArrowRight size={16} /></Link></div><ul className="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{INTERDITS.map((item) => <li key={item} className="flex gap-3 rounded-xl border border-line bg-white px-4 py-4 text-[13px] leading-snug text-ink"><span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-red-50 text-red-600">×</span>{item}</li>)}</ul></div></section>
+        <section className="bg-mist py-12">
+          <div className={`${WRAP} flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between`}>
+            <div>
+              <h2 className="text-[22px] font-extrabold tracking-tight text-navy">Gardez STANDA à portée de main.</h2>
+              <p className="mt-1 text-[15px] text-mute">Suivez vos colis et consultez vos factures depuis votre téléphone.</p>
+            </div>
+            <StoreBadges />
+          </div>
+        </section>
 
-        <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28 lg:px-10 xl:px-6"><div className="relative overflow-hidden rounded-[1.8rem] bg-accent px-6 py-12 sm:px-12 sm:py-16"><div aria-hidden="true" className="absolute -right-20 -top-24 h-72 w-72 rounded-full border-[38px] border-white/10" /><div aria-hidden="true" className="absolute -bottom-28 left-[36%] h-56 w-56 rounded-full bg-navy/10 blur-2xl" /><div className="relative max-w-2xl"><p className="text-[11px] font-bold uppercase tracking-[.2em] text-white/70">Commencez aujourd&apos;hui</p><h2 className="mt-4 text-balance text-[36px] font-black leading-[1.01] tracking-[-.045em] text-white sm:text-[52px]">Vos achats en ligne arrivent jusqu&apos;à vous.</h2><p className="mt-5 max-w-lg text-[16px] leading-relaxed text-white/82">Ouvrez votre compte, recevez votre code client et commencez à faire livrer vos colis à Miami.</p><div className="mt-8 flex flex-col gap-3 sm:flex-row"><Link href="/inscription" className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-navy px-6 text-[14px] font-bold text-white transition hover:-translate-y-0.5 hover:bg-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-navy">Ouvrir un compte <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" /></Link><a href="#suivi" className="inline-flex h-12 items-center justify-center rounded-xl border border-white/35 bg-white/10 px-6 text-[14px] font-bold text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-navy">Suivre un colis</a></div></div></div></section>
+        <section className="bg-accent py-14 text-white sm:py-20">
+          <div className={WRAP}>
+            <h2 className="max-w-2xl text-[32px] font-extrabold leading-tight tracking-tight sm:text-[44px]">Vos achats en ligne arrivent jusqu&apos;à vous.</h2>
+            <p className="mt-4 max-w-lg text-[16px] leading-relaxed text-white/90">Ouvrez votre compte, recevez votre code client et commencez à faire livrer vos colis à Miami.</p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <Link href="/inscription" className={`${BTN} bg-navy text-white hover:bg-navy-dark focus-visible:outline-navy`}>Ouvrir un compte <ArrowRight size={16} /></Link>
+              <a href="#suivi" className={`${BTN} border border-white/60 text-white hover:bg-white/10 focus-visible:outline-navy`}>Suivre un colis</a>
+            </div>
+          </div>
+        </section>
       </main>
       <SiteFooter />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSONLD) }} />
@@ -117,9 +180,11 @@ export default function AccueilPage() {
   );
 }
 
-function TrustItem({ children }: { children: React.ReactNode }) { return <span className="inline-flex items-center gap-2"><Check size={15} className="text-accent" />{children}</span>; }
-function PlatformCard({ name, image, wordmarkClass }: { name: string; image?: string; wordmarkClass?: string }) { return <article className="flex min-h-[96px] items-center justify-center rounded-2xl border border-line bg-white px-4 shadow-[0_10px_30px_-24px_rgba(15,23,42,.45)]">
-  {image ? <Image src={image} alt={`Logo ${name}`} width={150} height={72} unoptimized className="h-12 w-auto max-w-[138px] object-contain mix-blend-multiply" /> : <span className={`font-black leading-none ${wordmarkClass ?? "text-navy"}`}>{name}</span>}
-</article>; }
-function SectionHeading({ eyebrow, title, text }: { eyebrow?: string; title: string; text?: string }) { return <div className="max-w-2xl">{eyebrow ? <p className="text-[11px] font-bold uppercase tracking-[.2em] text-accent">{eyebrow}</p> : null}<h2 className={`${eyebrow ? "mt-4 " : ""}text-balance text-[34px] font-black leading-[1.03] tracking-[-.045em] text-navy sm:text-[46px]`}>{title}</h2>{text ? <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-mute">{text}</p> : null}</div>; }
-function StepCard({ number, icon: Icon, title, text }: (typeof STEPS)[number]) { return <article className="group relative overflow-hidden rounded-[1.4rem] border border-line bg-white p-6 transition duration-300 hover:-translate-y-1 hover:shadow-lift"><span aria-hidden="true" className="absolute -right-2 -top-5 text-[86px] font-black leading-none tracking-[-.1em] text-navy/[.035]">{number}</span><div className="relative"><span className="grid h-11 w-11 place-items-center rounded-xl bg-navy text-white transition group-hover:bg-accent"><Icon size={19} /></span><p className="mt-7 text-[11px] font-bold tracking-[.18em] text-accent">ÉTAPE {number}</p><h3 className="mt-2 text-[18px] font-bold text-navy">{title}</h3><p className="mt-3 text-[14px] leading-relaxed text-mute">{text}</p></div></article>; }
+function SectionHeading({ title, text }: { title: string; text?: string }) {
+  return (
+    <div className="max-w-2xl">
+      <h2 className="text-[28px] font-extrabold leading-tight tracking-tight text-navy sm:text-[36px]">{title}</h2>
+      {text ? <p className="mt-3 max-w-xl text-[16px] leading-relaxed text-mute">{text}</p> : null}
+    </div>
+  );
+}
