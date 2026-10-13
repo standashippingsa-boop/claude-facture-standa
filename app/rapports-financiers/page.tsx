@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Banknote, BarChart3, CalendarDays, ChevronDown, CheckCircle2, CircleDollarSign, Download, FileText, History, Landmark, RefreshCw, Scale, UsersRound, WalletCards } from "lucide-react";
 import Loader, { Spinner } from "@/components/Loader";
 import ClientPaymentForm, { PaymentModal, type ClientPaymentSubmit } from "@/components/ClientPaymentForm";
+import { invoiceStatusLines } from "@/lib/payment-allocation";
 import { notify, useNoticeToast } from "@/lib/notify";
 import { supabase } from "@/lib/supabase";
 import { hasSignificantInvoiceBalance, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
@@ -212,17 +213,13 @@ export default function RapportsFinanciersPage() {
         body: JSON.stringify({
           token,
           invoice_ids: payload.invoiceIds,
-          amount: payload.amount,
-          currency: payload.currency,
-          payment_method: payload.method,
-          payment_reference: payload.reference
+          lines: payload.lines.map((line) => ({ amount: line.amount, currency: line.currency, payment_method: line.method, payment_reference: line.reference }))
         })
       });
       const result = await response.json().catch(() => ({ ok: false, reason: "Réponse du serveur illisible. Actualisez avant de réessayer." }));
       if (!response.ok || !result.ok) throw new Error(result.reason || "Paiement impossible.");
       const lines = (result.payments ?? []) as Array<{ invoice_number: string; payment_status: string }>;
-      const amountText = payload.currency === "USD" ? usd(payload.amount) : htg(payload.amount);
-      notify.success(`${amountText} par ${payload.method}\n${lines.map((line) => `${line.invoice_number} : ${line.payment_status}`).join("\n")}`, { title: `Paiement enregistré — ${paymentCustomer}` });
+      notify.success(`${payload.summary}\n${invoiceStatusLines(lines)}`, { title: `Paiement enregistré — ${paymentCustomer}` });
       setPaymentCustomer(null);
       await load();
     } catch (error) {

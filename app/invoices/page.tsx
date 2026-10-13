@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Banknote, Eye, Download, Printer, Send, XCircle, Scale } from "lucide-react";
-import { cancelInvoice, closeInvoicePayments, getInvoiceItems, getInvoices, getSettings, getUnsettledAgentPaymentIdsByInvoice, recordInvoicePayment, saveInvoicePdfPath } from "@/lib/db";
+import { cancelInvoice, closeInvoicePayments, getInvoiceItems, getInvoices, getSettings, getUnsettledAgentPaymentIdsByInvoice, saveInvoicePdfPath } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import RefreshButton from "@/components/RefreshButton";
 import { Spinner } from "@/components/Loader";
@@ -15,7 +15,9 @@ import { useRememberListContext } from "@/lib/list-context";
 import { openSecureDocument } from "@/lib/secure-document";
 
 import { useNoticeToast } from "@/lib/notify";
-const PAYMENT_METHODS = ["Espèces", "MonCash", "NatCash", "Zelle", "Virement bancaire"];
+import { supabase } from "@/lib/supabase";
+import ClientPaymentForm, { PaymentModal, type ClientPaymentSubmit } from "@/components/ClientPaymentForm";
+import { invoiceStatusLines, type PaymentInvoice } from "@/lib/payment-allocation";
 const PAYMENT_TONE: Record<string, string> = {
   "Payé": "bg-emerald-100 text-emerald-700",
   "Payé partiel": "bg-amber-100 text-amber-800",
@@ -51,10 +53,6 @@ export default function InvoicesPage() {
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
 
   const [paymentTarget, setPaymentTarget] = useState<Invoice | null>(null);
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentCurrency, setPaymentCurrency] = useState<"USD" | "HTG">("USD");
-  const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
-  const [paymentReference, setPaymentReference] = useState("");
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   useNoticeToast(paymentError, setPaymentError, { tone: "error", title: "Paiement non enregistré" });
@@ -132,33 +130,29 @@ export default function InvoicesPage() {
   /** Ouvri panno "Enregistrer un paiement" (ADMIN sèlman — RLS pa kite anplwaye). */
   const startPayment = (inv: Invoice) => {
     setPaymentTarget(inv);
-    setPaymentAmount("");
-    setPaymentCurrency("USD");
-    setPaymentMethod(PAYMENT_METHODS[0]);
-    setPaymentReference("");
     setPaymentError(null);
   };
 
-  const confirmPayment = async () => {
-    if (!paymentTarget) return;
-    const amount = Number(paymentAmount);
-    if (!Number.isFinite(amount) || amount <= 0) { setPaymentError("Entrez un montant valide."); return; }
+  /** Même route serveur que Rapports financiers / Points de retrait : une ou plusieurs lignes de paiement. */
+  const confirmPayment = async (payload: ClientPaymentSubmit) => {
+    if (!paymentTarget || paymentBusy) return;
     setPaymentBusy(true);
     setPaymentError(null);
     try {
-      const result = await recordInvoicePayment({
-        invoiceId: paymentTarget.id, amount, currency: paymentCurrency,
-        paymentMethod, paymentReference, who: staffName
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token ?? "";
+      const response = await fetch("/api/admin-invoice-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ token, invoice_ids: payload.invoiceIds, lines: payload.lines.map((line) => ({ amount: line.amount, currency: line.currency, payment_method: line.method, payment_reference: line.reference })) })
       });
-      const extra = result.overpaymentAmount > 0.009
-        ? ` Arrondi accepté : ${result.overpaymentAmount.toFixed(2)} ${paymentCurrency}.` : "";
-      setInvoices((prev) => prev.map((x) => x.id === paymentTarget.id
-        ? { ...x, payment_status: result.paymentStatus, payment_paid_usd: result.paidUsd, payment_paid_htg: result.paidHtg }
-        : x));
-      setNotice(`✅ Paiement enregistré sur ${paymentTarget.invoice_number} : ${result.paymentStatus}.${extra}`);
+      const result = await response.json().catch(() => ({ ok: false, reason: "Réponse du serveur illisible. Actualisez avant de réessayer." }));
+      if (!response.ok || !result.ok) throw new Error(result.reason || "Paiement impossible.");
+      setNotice(`✅ Paiement enregistré — ${payload.summary}\n${invoiceStatusLines(result.payments ?? [])}`);
       setPaymentTarget(null);
-    } catch (e: any) {
-      setPaymentError(e?.message ?? "Paiement impossible.");
+      await load();
+    } catch (e: unknown) {
+      setPaymentError((e as Error)?.message ?? "Paiement impossible.");
     } finally { setPaymentBusy(false); }
   };
 
@@ -280,49 +274,12 @@ export default function InvoicesPage() {
 
 
       {paymentTarget && (() => {
-        const remainingUsd = invoiceRemainingAmounts(paymentTarget).remainingUsd;
         return (
-          <div className="fixed inset-0 z-[70] grid place-items-center bg-navy/35 p-4" role="dialog" aria-modal="true" aria-label="Enregistrer un paiement">
-            <div className="card w-full max-w-sm p-5 shadow-lift">
-              <div className="flex items-start gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><Banknote size={20} /></span>
-                <div className="min-w-0">
-                  <h2 className="text-base font-extrabold text-navy">Enregistrer un paiement</h2>
-                  <p className="mt-1 text-xs text-mute">{paymentTarget.invoice_number} · {paymentTarget.customer_name}</p>
-                </div>
-              </div>
-              <p className="mt-3 text-xs text-mute">Reste à payer : <b className="text-ink">{usd(remainingUsd)}</b></p>
-              <div className="mt-3 space-y-3">
-                <label className="block text-xs font-bold uppercase tracking-wide text-mute">
-                  Montant
-                  <div className="mt-1 flex gap-2">
-                    <input type="number" inputMode="decimal" min={0.01} step={0.01} className="input flex-1"
-                      value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} disabled={paymentBusy} autoFocus />
-                    <select className="input !w-24" value={paymentCurrency} onChange={(e) => setPaymentCurrency(e.target.value as "USD" | "HTG")} disabled={paymentBusy}>
-                      <option value="USD">USD</option>
-                      <option value="HTG">HTG</option>
-                    </select>
-                  </div>
-                </label>
-                <label className="block text-xs font-bold uppercase tracking-wide text-mute">
-                  Méthode
-                  <select className="input mt-1" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} disabled={paymentBusy}>
-                    {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </label>
-                <label className="block text-xs font-bold uppercase tracking-wide text-mute">
-                  Référence
-                  <input type="text" className="input mt-1" value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} disabled={paymentBusy} placeholder="No transaction, chèque…" />
-                </label>
-              </div>
-              <div className="mt-5 flex justify-end gap-2">
-                <button className="btn btn-ghost" onClick={() => setPaymentTarget(null)} disabled={paymentBusy}>Annuler</button>
-                <button className="btn btn-brand" onClick={confirmPayment} disabled={paymentBusy || !paymentAmount}>
-                  {paymentBusy ? "Enregistrement…" : "Enregistrer"}
-                </button>
-              </div>
-            </div>
-          </div>
+          <PaymentModal onClose={() => { if (!paymentBusy) setPaymentTarget(null); }}>
+            <ClientPaymentForm key={paymentTarget.id} customerCode={paymentTarget.customer_code} customerName={paymentTarget.customer_name}
+              invoices={[{ ...paymentTarget, has_pdf: true } as unknown as PaymentInvoice]} initialSelected={[paymentTarget.id]}
+              busy={paymentBusy} onSubmit={(payload) => void confirmPayment(payload)} onClose={() => { if (!paymentBusy) setPaymentTarget(null); }} />
+          </PaymentModal>
         );
       })()}
     </div>

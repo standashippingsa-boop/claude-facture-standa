@@ -11,7 +11,7 @@ import { hasSignificantInvoiceBalance, invoicePayableAmounts, invoiceRemainingAm
 import ClientPaymentForm, { PaymentModal, type ClientPaymentSubmit } from "@/components/ClientPaymentForm";
 import Loader from "@/components/Loader";
 import { notify, useNoticeToast } from "@/lib/notify";
-import type { PaymentInvoice } from "@/lib/payment-allocation";
+import { invoiceStatusLines, type PaymentInvoice } from "@/lib/payment-allocation";
 
 type PaymentMethod = "Espèces" | "MonCash" | "NatCash" | "Zelle" | "Virement bancaire";
 type PaymentRow = { id: string; invoice_id: string; amount: number; currency: string; amount_usd: number; amount_htg: number; applied_usd: number; applied_htg: number; overpayment_amount: number; payment_method: PaymentMethod; payment_reference: string; received_by_name: string; recorded_by_role: string; created_at: string };
@@ -118,11 +118,11 @@ export default function PointsRetraitPage() {
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token ?? "";
-      const response = await fetch("/api/admin-invoice-payment", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ token, invoice_ids: payload.invoiceIds, amount: payload.amount, currency: payload.currency, payment_method: payload.method, payment_reference: payload.reference }) });
+      const response = await fetch("/api/admin-invoice-payment", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ token, invoice_ids: payload.invoiceIds, lines: payload.lines.map((line) => ({ amount: line.amount, currency: line.currency, payment_method: line.method, payment_reference: line.reference })) }) });
       const result = await response.json().catch(() => ({ ok: false, reason: "Réponse du serveur illisible. Actualisez avant de réessayer." }));
       if (!response.ok || !result.ok) throw new Error(result.reason || "Paiement impossible.");
       const lines = (result.payments ?? []) as Array<{ invoice_number: string; payment_status: string }>;
-      notify.success(`${payload.currency === "USD" ? usd(payload.amount) : htg(payload.amount)} par ${payload.method}\n${lines.map((line) => `${line.invoice_number} : ${line.payment_status}`).join("\n")}`, { title: `Paiement enregistré — ${paymentTarget?.customerCode ?? ""}` });
+      notify.success(`${payload.summary}\n${invoiceStatusLines(lines)}`, { title: `Paiement enregistré — ${paymentTarget?.customerCode ?? ""}` });
       setPaymentTarget(null);
       await load();
     } catch (error) { notify.error(error instanceof Error ? error.message : "Paiement impossible.", { title: "Paiement non enregistré" }); }

@@ -10,6 +10,7 @@ import { packageProgressPriority, sortPackagesAvailableFirst } from "@/lib/utils
 import Loader, { Spinner } from "@/components/Loader";
 import { RemiseTicketOverlay } from "@/components/RemiseTicketPage";
 import ClientPaymentForm, { PaymentModal, type ClientPaymentSubmit } from "@/components/ClientPaymentForm";
+import { invoiceStatusLines } from "@/lib/payment-allocation";
 import { notify, useNoticeToast } from "@/lib/notify";
 import type { PaymentInvoice } from "@/lib/payment-allocation";
 import Logo from "@/components/Logo";
@@ -382,13 +383,12 @@ export default function PickupAgentPortal() {
     setPaymentError(null);
     try {
       const result = await call({
-        action: "record_payment", invoice_ids: payload.invoiceIds, amount: payload.amount,
-        currency: payload.currency, payment_method: payload.method, payment_reference: payload.reference
+        action: "record_payment", invoice_ids: payload.invoiceIds,
+        lines: payload.lines.map((line) => ({ amount: line.amount, currency: line.currency, payment_method: line.method, payment_reference: line.reference }))
       });
       if (!result) return;
       const lines = (result.payments ?? []) as Array<{ invoice_number: string; payment_status: string }>;
-      const amountText = payload.currency === "HTG" ? fmtHtg(payload.amount) : fmtUsd(payload.amount);
-      const paymentText = `${amountText} par ${payload.method}\n${lines.map((line) => `${line.invoice_number} : ${line.payment_status}`).join("\n")}`;
+      const paymentText = `${payload.summary}\n${invoiceStatusLines(lines)}`;
       const customerCode = paymentTarget?.customerCode ?? "";
       setPaymentTarget(null);
       const fresh = await load(true);

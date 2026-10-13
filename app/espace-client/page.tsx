@@ -45,7 +45,7 @@ import {
   DEFAULT_SMALL_PARCEL, SmallParcelConfig, TAX_FIXED_USD, TAX_THRESHOLD_LB,
   estimateForPackages, round2
 } from "@/lib/pricing";
-import { dateFr, usd } from "@/lib/utils";
+import { dateFr, htg, usd } from "@/lib/utils";
 import { specialPackageInfo } from "@/lib/special-package";
 import { hasSignificantInvoiceBalance, invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 import Loader, { BusyButton, SavedToast, Spinner, SuccessCheck } from "@/components/Loader";
@@ -143,6 +143,8 @@ export default function EspaceClientPage() {
   const [trackQuery, setTrackQuery] = useState("");
   const [openRetrait, setOpenRetrait] = useState<string | null>(null);
   const [openInvoiceId, setOpenInvoiceId] = useState<string | null>(null);
+  // Détail des paiements (montant, devise, moyen) — lu par /api/client-payments.
+  const [payments, setPayments] = useState<Array<{ id: string; invoice_id: string; amount: number; currency: "USD" | "HTG"; method: string; created_at: string }>>([]);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -189,6 +191,14 @@ export default function EspaceClientPage() {
         getClientRetraits(c.customer_code)
       ]);
       setPkgs(p); setInvs(i); setRetraits(rs);
+      // Canal à part : si le détail des paiements échoue, le reste de l'espace s'affiche quand même.
+      supabase.auth.getSession().then(({ data: sessionData }) => {
+        const token = sessionData.session?.access_token;
+        if (!token) return;
+        return fetch("/api/client-payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) })
+          .then((response) => response.json())
+          .then((json) => { if (json?.ok && Array.isArray(json.payments)) setPayments(json.payments); });
+      }).catch(() => undefined);
     }
     setLoading(false);
   };
@@ -992,6 +1002,8 @@ export default function EspaceClientPage() {
                   const invoicePackages = pkgs.filter((p) => p.invoice_id === f.id);
                   const payable = invoicePayableAmounts(f);
                   const paymentStatus = paymentStatusFromAmounts(f);
+                  const invoicePayments = payments.filter((payment) => payment.invoice_id === f.id);
+                  const rest = invoiceRemainingAmounts(f);
                   const deliveredCount = invoicePackages.filter(isDelivered).length;
                   const paymentTone = paymentStatus === "Payé" ? "bg-emerald-100 text-emerald-700" : paymentStatus === "Payé partiel" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-700";
                   return <div key={f.id} className="border-b border-line py-1 last:border-0">
@@ -1016,6 +1028,18 @@ export default function EspaceClientPage() {
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-900">Solde à payer <b className="font-black">{usd(payable.payableUsd)}</b></span>
                         <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${deliveredCount === invoicePackages.length && invoicePackages.length ? "bg-emerald-50 text-emerald-800" : "bg-orange-50 text-orange-800"}`}>Remise {deliveredCount}/{invoicePackages.length} livré{deliveredCount > 1 ? "s" : ""}</span>
                       </div>
+                      {invoicePayments.length > 0 && <>
+                        <p className="mb-1 mt-4 text-xs font-bold uppercase tracking-wide text-slate-500">Paiements reçus</p>
+                        <ul>
+                          {invoicePayments.map((payment) => (
+                            <li key={payment.id} className="flex items-center justify-between gap-3 border-b border-line py-2 text-sm last:border-0">
+                              <span className="min-w-0"><span className="block font-semibold text-ink">{payment.method}</span><span className="block text-xs text-mute">{dateFr(payment.created_at)}</span></span>
+                              <b className="shrink-0 text-ink">{payment.currency === "HTG" ? htg(payment.amount) : usd(payment.amount)}</b>
+                            </li>
+                          ))}
+                        </ul>
+                        {paymentStatus !== "Payé" && <p className="mt-2 text-sm font-bold text-amber-800">Reste à payer : {usd(rest.remainingUsd)} · {htg(rest.remainingHtg)}</p>}
+                      </>}
                       <p className="mb-1 mt-4 text-xs font-bold uppercase tracking-wide text-slate-500">Colis facturés dans cette facture</p>
                       {invoicePackages.length ? <div>{invoicePackages.map((p) => <PkgCard key={p.id} p={p} />)}</div> : <p className="py-2 text-sm text-slate-500">Les colis de cette facture seront affichés ici après la synchronisation.</p>}
                     </div>}

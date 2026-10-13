@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
-import { hasSignificantInvoiceBalance, invoicePayableAmounts, invoiceRemainingAmounts, parsePaymentAmount, paymentStatusFromAmounts } from "@/lib/invoice-payable";
+import { hasSignificantInvoiceBalance, invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 import { specialPackageInfo } from "@/lib/special-package";
 import { computePrice, round2 } from "@/lib/pricing";
 import type { AccountType, Ville } from "@/lib/types";
 import { sendPushToCustomer } from "@/lib/push-server";
 import { sendFcmToCustomer } from "@/lib/push-fcm-server";
 import { pushParcelEventToCustomers } from "@/lib/customer-push";
-import { commitPaymentAllocations, PAYMENT_INVOICE_COLUMNS, PAYMENT_METHOD_SET, planPaymentAllocation, readInvoiceIds, type PaymentInvoice } from "@/lib/invoice-payment-server";
+import { commitPaymentAllocations, describePaymentLines, PAYMENT_INVOICE_COLUMNS, planPaymentLines, readInvoiceIds, readPaymentLines, type PaymentInvoice } from "@/lib/invoice-payment-server";
 
 /**
  * API isolée des points de retrait.
@@ -575,20 +575,11 @@ export async function POST(req: Request) {
       // ses factures choisies (la plus ancienne d'abord). Ancien champ
       // `invoice_id` toujours accepté.
       const invoiceIds = readInvoiceIds(body, uuid);
-      const amount = parsePaymentAmount(body.amount);
-      const currency = code(body.currency).toUpperCase() as "USD" | "HTG";
-      const paymentMethod = code(body.payment_method) || "Espèces";
-      const paymentReference = code(body.payment_reference).slice(0, 120);
       if (!invoiceIds) return NextResponse.json({ ok: false, reason: "Choisissez au moins une facture." }, { status: 400 });
-      if (!["USD", "HTG"].includes(currency) || amount === null || amount <= 0) {
-        return NextResponse.json({ ok: false, reason: "Entrez un montant et une devise valides." }, { status: 400 });
-      }
-      if (!PAYMENT_METHOD_SET.has(paymentMethod)) {
-        return NextResponse.json({ ok: false, reason: "Choisissez le moyen de paiement." }, { status: 400 });
-      }
-      if ((currency === "USD" && amount > 100000) || (currency === "HTG" && amount > 50000000)) {
-        return NextResponse.json({ ok: false, reason: "Montant trop élevé : vérifiez votre saisie." }, { status: 400 });
-      }
+      // Une ou plusieurs lignes (ex. gourdes en espèces + dollars par Zelle).
+      const parsedLines = readPaymentLines(body);
+      if (!parsedLines.ok) return NextResponse.json({ ok: false, reason: parsedLines.reason }, { status: 400 });
+      const lines = parsedLines.lines;
       const invoiceResult = await db.from("invoices").select(PAYMENT_INVOICE_COLUMNS).in("id", invoiceIds);
       if (invoiceResult.error) throw invoiceResult.error;
       const invoices = (invoiceResult.data ?? []) as PaymentInvoice[];
@@ -606,18 +597,17 @@ export async function POST(req: Request) {
           return NextResponse.json({ ok: false, reason: `La facture ${invoice.invoice_number} doit être générée pour le client avant tout encaissement.` }, { status: 409 });
         }
       }
-      const plan = planPaymentAllocation(invoices, amount, currency);
+      const plan = planPaymentLines(invoices, lines);
       if (!plan.ok) return NextResponse.json({ ok: false, reason: plan.reason }, { status: 409 });
       const committed = await commitPaymentAllocations(db, plan.allocations, {
-        currency, method: paymentMethod, reference: paymentReference,
         recorder: { staffId: agent.id, staffName: agentName(agent), role: "agent_retrait" }
       });
       if (!committed.ok) return NextResponse.json({ ok: false, reason: committed.reason }, { status: committed.conflict ? 409 : 500 });
-      const numbers = committed.payments.map((payment) => payment.invoice_number).join(", ");
-      await writeAudit(db, req, agent, "Paiement client reçu", `${numbers} · ${amount} ${currency} · ${paymentMethod} · ${zoneName}`, numbers, code(invoices[0].customer_code));
+      const numbers = Array.from(new Set(committed.payments.map((payment) => payment.invoice_number))).join(", ");
+      await writeAudit(db, req, agent, "Paiement client reçu", `${numbers} · ${describePaymentLines(lines)} · ${zoneName}`, numbers, code(invoices[0].customer_code));
       const last = committed.payments[committed.payments.length - 1];
       return NextResponse.json({
-        ok: true, currency, payments: committed.payments,
+        ok: true, currency: lines[0].currency, payments: committed.payments,
         payment_status: last?.payment_status ?? "",
         overpayment_amount: committed.payments.reduce((total, payment) => total + payment.overpayment_amount, 0)
       });
