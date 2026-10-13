@@ -47,6 +47,18 @@ begin
     return 0;
   end if;
 
+  -- Yon Conduce ki kreye men ki POKO gen fichye Excel li (zewo koli): nou pa
+  -- kreye okenn bon toutotan l ap tann. Apre 24 è san fichye, li sispann
+  -- bloke lòt Conduce yo (li menm rete san bon, paske li pa gen koli).
+  if exists (
+    select 1 from conduces c
+    where c.created_at >= v_since
+      and c.created_at > now() - interval '24 hours'
+      and not exists (select 1 from packages p where p.conduce_id = c.id)
+  ) then
+    return 0;
+  end if;
+
   create temporary table tmp_auto_bon on commit drop as
   select p.id as package_id, p.conduce_id, v.name as ville_name, p.status_changed_at
   from packages p
