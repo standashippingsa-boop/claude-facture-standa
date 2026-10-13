@@ -391,7 +391,19 @@ export default function EspaceClientPage() {
   // = Disponible + Facturé nan PickupAgentPortal.tsx). Se PEMAN + LIVREZON ki fè
   // l soti, pa fakti a sèl. Li rete vizib TOU sou fakti li (onglet Factures).
   const historique = pkgs.filter(isDelivered);
-  const activeRetraits = retraits.filter((retrait) => retrait.status !== "Remis");
+  // Yon koli kliyan an mete nan yon demann retrait SOTI nan "Disponible" pou
+  // l parèt nan "Retrait" — jiskaske admin nan fakti l (li janbe nan "Facturé"),
+  // epi "Livré" voye l nan Historique. Se statut REYÈL koli a ki deside: yon
+  // demann ki pa gen koli "Disponible" ankò pa parèt nan Retrait.
+  const statusByTracking = new Map(pkgs.map((p) => [p.tracking_number, p.status]));
+  const activeRetraits = retraits
+    .filter((retrait) => retrait.status !== "Remis")
+    .map((retrait) => {
+      const items = (retrait.items ?? []).filter((item) => statusByTracking.get(item.tracking_number) === "Disponible");
+      return { ...retrait, items, package_count: items.length, total_weight: round2(items.reduce((s, item) => s + (Number(item.weight) || 0), 0)) };
+    })
+    .filter((retrait) => retrait.items.length > 0);
+  const retraitTrackings = new Set(activeRetraits.flatMap((retrait) => retrait.items.map((item) => item.tracking_number)));
   const receptionsAll = pkgs.filter((p) => !isDelivered(p));
   const disponibles = receptionsAll.filter((p) => p.status === "Disponible" || p.status === "Facturé");
   // Yon koli facturé pa dwe parèt nan "Miami" — l ap parèt SÈLMAN nan "Disponible".
@@ -418,7 +430,7 @@ export default function EspaceClientPage() {
   // "Disponible" et "Facturé" comptés séparément sur l'accueil — un colis
   // facturé reste dans la liste "Disponibles" (règle métier inchangée),
   // mais les 2 tuiles de l'accueil doivent montrer chacune son propre compte.
-  const disponiblesOnly = disponibles.filter((p) => p.status === "Disponible");
+  const disponiblesOnly = disponibles.filter((p) => p.status === "Disponible" && !retraitTrackings.has(p.tracking_number));
   const facturesOnly = disponibles.filter((p) => p.status === "Facturé");
   const dispoCount = disponiblesOnly.length;
   const factureCount = facturesOnly.length;
@@ -862,7 +874,7 @@ export default function EspaceClientPage() {
         {view === "retraits" && (
           <>
             {activeRetraits.length === 0
-              ? <Empty t="Aucune demande de retrait pour le moment. Sélectionnez vos colis disponibles pour en créer une." />
+              ? <Empty t="Aucun colis en attente de retrait. Sélectionnez vos colis disponibles pour créer une demande." />
               : <div className="space-y-2"><RetraitsList list={activeRetraits} /></div>}
           </>
         )}

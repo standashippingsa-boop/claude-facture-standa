@@ -1,5 +1,5 @@
 "use client";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import Loader, { BusyButton, Spinner } from "@/components/Loader";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,8 +9,8 @@ import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
 import { usePackageSelection } from "@/lib/selection";
 import {
-  commitPdfImport, detachPackagesFromInvoice, hardDeletePackage, getClient, getClientPackagesAndInvoices,
-  getInvoiceFlags, getSettings, getUsdRate, logAction, setPackagesStatus, updatePackagePrice, notifyEmail
+  commitPdfImport, detachPackagesFromInvoice, hardDeletePackage, getClient, getClientPackagesAndInvoices, getClientRetraits,
+  getInvoiceFlags, getSettings, getUsdRate, logAction, setPackagesStatus, setRetraitStatus, updatePackagePrice, notifyEmail
 } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
@@ -254,6 +254,39 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
 
   // ===== Facturation — MÊME fenêtre partagée que Packages =====
   const [showInvoice, setShowInvoice] = useState(false);
+  // ===== Demande de retrait (lyen "Préparer" nan paj Retraits) =====
+  // Koli demann lan seleksyone otomatikman; apre fakti a, demann lan pase "Préparé".
+  const retraitId = searchParams.get("retrait");
+  const retraitApplied = useRef(false);
+  const [retraitCount, setRetraitCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!retraitId || retraitApplied.current || !pkgs.length) return;
+    retraitApplied.current = true;
+    getClientRetraits(decoded).then((list) => {
+      const retrait = list.find((r) => r.id === retraitId);
+      if (!retrait) { setNotice("Demande de retrait introuvable pour ce client."); return; }
+      const trackings = new Set((retrait.items ?? []).map((item) => item.tracking_number));
+      const wanted = pkgs.filter((p) => trackings.has(p.tracking_number) && p.status === "Disponible");
+      // Sèl koli demann lan rete seleksyone pou kliyan sa a, epi okenn filtè pa kache yo.
+      clearFilters();
+      sel.setMany(pkgs.map(snap), false);
+      sel.setMany(wanted.map(snap), true);
+      setRetraitCount(wanted.length);
+    }).catch((e: unknown) => setNotice("Erè: " + (e as Error).message));
+    /* eslint-disable-next-line */
+  }, [retraitId, pkgs]);
+  const apresFacture = async (msg: string) => {
+    if (!retraitId || retraitCount === null) { setNotice(msg); await load(); return; }
+    try {
+      await setRetraitStatus(retraitId, "Préparé");
+      setNotice(msg + " Demande de retrait marquée « Préparé ».");
+    } catch {
+      setNotice(msg + " La facture est créée, mais le statut de la demande doit être actualisé.");
+    }
+    setRetraitCount(null);
+    await load();
+  };
+
   const facturer = () => {
     if (!client || !selectedDisponible.length) return;
     setShowInvoice(true);
@@ -302,6 +335,14 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           ))}
         </section>
       </div>
+
+      {retraitCount !== null && (
+        <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-navy">
+          {retraitCount > 0
+            ? <><b>Demande de retrait</b> — {retraitCount} colis sélectionné(s). Cliquez sur <b>Générer Facture</b> pour préparer le retrait.</>
+            : <><b>Demande de retrait</b> — aucun colis de cette demande n&apos;est encore « Disponible » et non facturé.</>}
+        </p>
+      )}
 
       {/* ===== Operasyon sou koli yo ===== */}
       <div className="flex gap-2 flex-wrap items-center">
@@ -467,7 +508,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           pkgs={selectedDisponible}
           footer={footer}
           onClose={() => setShowInvoice(false)}
-          onDone={(msg) => { setNotice(msg); load(); }}
+          onDone={apresFacture}
         />
       )}
 

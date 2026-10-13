@@ -15,6 +15,7 @@
  *  • Yon fwa fakti: koli a soti nan lis la epi ale nan Historique/Factures.
  */
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { FileText, Inbox, Loader2 } from "lucide-react";
 import RefreshButton from "@/components/RefreshButton";
 import { SavedToast, Spinner } from "@/components/Loader";
@@ -160,9 +161,9 @@ export default function RetraitsPage() {
         ]} />
 
       <p className="text-xs text-slate-500">
-        Ouvrez une demande pour voir les colis, les préparer, puis les <b>facturer directement</b> —
-        même moteur de facturation que la page Packages. Seuls les colis <b>Disponible</b> et
-        <b> non facturés</b> peuvent être sélectionnés.
+        Cliquez sur <b>Préparer</b> : le dossier du client s&apos;ouvre avec les colis de la demande
+        déjà sélectionnés, il reste à générer la facture. Seuls les colis <b>Disponible</b> et
+        <b> non facturés</b> peuvent être facturés.
       </p>
 
       <div className="card overflow-x-auto">
@@ -228,6 +229,13 @@ function RetraitRow({
         <td className="td text-right">{Number(r.total_weight).toFixed(2)}</td>
         <td className="td"><span className={`badge ${BADGE[r.status]}`}>{r.status}</span></td>
         <td className="td whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+          {/* Préparer = ouvrir le dossier du client avec les colis de la demande déjà sélectionnés, prêts à facturer. */}
+          {r.status === "En attente" && (
+            <Link href={`/clients/${encodeURIComponent(r.customer_code)}?retrait=${encodeURIComponent(r.id)}&returnTo=${encodeURIComponent("/retraits")}`}
+              className="btn !py-1 !px-2.5 !text-xs mr-3">
+              <FileText size={13} /> Préparer
+            </Link>
+          )}
           {STATUTS.filter((s) => s !== r.status).map((s) => (
             <button key={s} onClick={() => onStatus(s)}
               className="text-navy hover:underline text-xs font-semibold mr-3">
