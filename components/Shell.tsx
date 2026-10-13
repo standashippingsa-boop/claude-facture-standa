@@ -10,6 +10,7 @@ import { getMyStaff } from "@/lib/authx";
 import { getClientByAuthId } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Staff } from "@/lib/types";
+import { isOffline, rememberedAgent } from "@/lib/reception-offline";
 import { AppRole, isClientPath, isPublicPath, isPickupAgentPath, isReceptionAgentPath, resolveAccess } from "@/lib/access";
 
 /**
@@ -34,6 +35,15 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     if (publicPath) { setReady(true); return; }
     let cancelled = false;
     (async () => {
+      // Ajan resepsyon san entènèt: nou pa ka verifye wòl la sou sèvè a. Si
+      // aparèy sa a te deja konekte kòm ajan resepsyon, ekran an louvri —
+      // li montre sèlman kopi lokal la; tout anvwa ap tann rezo a (API a
+      // toujou verifye sesyon an).
+      if (isReceptionAgentPath(path) && rememberedAgent() !== null && await isOffline()) {
+        if (cancelled) return;
+        setStaff(null); setRole("agent_reception"); setReady(true);
+        return;
+      }
       // 1) Staff an premye
       const s = await getMyStaff();
       let r: AppRole | null = null;

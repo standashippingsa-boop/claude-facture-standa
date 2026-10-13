@@ -3,11 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ClipboardList, LogOut, MapPin, PackagePlus, Search, User } from "lucide-react";
+import { ClipboardList, CloudOff, LogOut, MapPin, PackagePlus, Search, User } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import Logo from "@/components/Logo";
 
 import { useNoticeToast } from "@/lib/notify";
+import { normalizeMcCode } from "@/lib/utils";
+import {
+  clearReceptionOffline, enqueueConduce, loadDirectory, loadQueue, rememberAgent, rememberedAgent,
+  saveDirectory, saveQueue, searchDirectory, type QueuedConduce, type ReceptionClient
+} from "@/lib/reception-offline";
 /**
  * PÒTAY AJAN RESEPSYON — Conduce + chèche kliyan.
  * ═══════════════════════════════════════════════════════════════════
@@ -22,8 +27,12 @@ import { useNoticeToast } from "@/lib/notify";
  * V2 — FÒMA APP TELEFÒN: max-w-md (pa yon lajè sit dèsktòp), gwo ilistrasyon
  * anlè (mwatye ekran an), tab olye 2 katab anpile, ak ZEWO tèks eksplikasyon
  * — ajan an deja konnen kisa l ap fè, li pa bezwen yon manyèl.
+ *
+ * V3 — SAN ENTÈNÈT: rechèch la tonbe sou kopi lokal lis kliyan yo, epi yon
+ * Conduce anrejistre san rezo rete nan yon fil datant sou telefòn nan; li
+ * voye pou kont li depi rezo a tounen (gade lib/reception-offline.ts).
  */
-type ClientResult = { customer_code: string; fullname: string; ville_name: string; miami_count: number };
+type ClientResult = ReceptionClient;
 type Tab = "search" | "conduce";
 
 export default function ReceptionAgentPortal() {
@@ -45,23 +54,95 @@ export default function ReceptionAgentPortal() {
   const [conduceMessage, setConduceMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   useNoticeToast(conduceMessage, setConduceMessage);
 
+  const [offline, setOffline] = useState(false);
+  const [queue, setQueue] = useState<QueuedConduce[]>([]);
+  const [localResults, setLocalResults] = useState(false);
+  const flushingRef = useRef(false);
+
   const authHeader = useCallback(async (): Promise<string | null> => {
     const session = await supabase.auth.getSession();
     const token = session.data.session?.access_token;
     return token ? "Bearer " + token : null;
   }, []);
 
+  /** Aksè rezo ki pa janm voye yon erè: null = pa gen rezo (oswa sèvè a pa reponn). */
+  const callApi = useCallback(async (body: Record<string, unknown>): Promise<{ status: number; json: any } | null> => {
+    try {
+      const auth = await authHeader();
+      if (!auth) return navigator.onLine ? { status: 401, json: { ok: false, reason: "Session requise." } } : null;
+      const res = await fetch("/api/reception", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: auth },
+        body: JSON.stringify(body)
+      });
+      return { status: res.status, json: await res.json().catch(() => ({})) };
+    } catch { return null; }
+  }, [authHeader]);
+
+  /** Voye Conduce ki t ap tann yo. Yon nimewo ki deja egziste konte kòm reyisi (sèvè a idanpotan). */
+  const flushQueue = useCallback(async () => {
+    if (flushingRef.current) return;
+    const pending = loadQueue();
+    if (!pending.length) { setQueue([]); return; }
+    flushingRef.current = true;
+    let sent = 0;
+    try {
+      for (const item of pending) {
+        const result = await callApi({ action: "create_conduce", conduce_number: item.number, office: item.office });
+        if (!result || result.status === 401 || result.status === 429 || result.status >= 500) break;   // rezo/sesyon: n ap reeseye pita
+        // 200 (kreye oswa deja la) oswa 400 (nimewo envalid): li soti nan fil la.
+        saveQueue(loadQueue().filter((queued) => queued.number !== item.number));
+        if (result.json?.ok) sent++;
+      }
+    } finally { flushingRef.current = false; }
+    setQueue(loadQueue());
+    if (sent) setConduceMessage({ type: "ok", text: `${sent} Conduce envoyée${sent > 1 ? "s" : ""} — internet retrouvé.` });
+  }, [callApi]);
+
+  /** Mete kopi lokal lis kliyan yo ajou (silansye: san rezo, ansyen kopi a rete). */
+  const refreshDirectory = useCallback(async () => {
+    const result = await callApi({ action: "directory" });
+    if (result?.json?.ok && Array.isArray(result.json.clients)) saveDirectory(result.json.clients as ReceptionClient[]);
+  }, [callApi]);
+
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.auth.getUser();
-      const { data: staff } = data.user
-        ? await supabase.from("staff").select("prenom, nom, username").eq("auth_user_id", data.user.id).maybeSingle()
-        : { data: null };
-      const s = staff as { prenom?: string; nom?: string; username?: string } | null;
-      setAgentName(s ? [s.prenom, s.nom].filter(Boolean).join(" ") || s.username || "" : "");
+      setQueue(loadQueue());
+      setOffline(!navigator.onLine);
+      setAgentName(rememberedAgent() ?? "");
+      try {
+        const { data } = await supabase.auth.getUser();
+        const { data: staff } = data.user
+          ? await supabase.from("staff").select("prenom, nom, username").eq("auth_user_id", data.user.id).maybeSingle()
+          : { data: null };
+        const s = staff as { prenom?: string; nom?: string; username?: string } | null;
+        if (s) {
+          const name = [s.prenom, s.nom].filter(Boolean).join(" ") || s.username || "";
+          setAgentName(name);
+          rememberAgent(name);
+        }
+      } catch { /* san rezo: non ki sou aparèy la rete */ }
       setReady(true);
+      // Mande service worker la kenbe paj la pou li ka louvri san rezo.
+      navigator.serviceWorker?.ready.then((reg) => reg.active?.postMessage({ type: "WARM_PAGE", url: "/reception" })).catch(() => undefined);
+      void refreshDirectory();
+      void flushQueue();
     })();
-  }, []);
+  }, [refreshDirectory, flushQueue]);
+
+  // Rezo a tounen -> voye fil la epi rafrechi lis la. Yon ti revèy tou, paske
+  // evènman "online" pa toujou tire sou telefòn.
+  useEffect(() => {
+    const onOnline = () => { setOffline(false); void flushQueue(); void refreshDirectory(); };
+    const onOffline = () => setOffline(true);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    const timer = setInterval(() => { if (loadQueue().length) void flushQueue(); }, 30000);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+      clearInterval(timer);
+    };
+  }, [flushQueue, refreshDirectory]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -70,35 +151,44 @@ export default function ReceptionAgentPortal() {
     debounceRef.current = setTimeout(async () => {
       setSearching(true); setSearchError(null);
       try {
-        const auth = await authHeader();
-        if (!auth) { router.replace("/reception-login"); return; }
-        const res = await fetch("/api/reception", {
-          method: "POST", headers: { "Content-Type": "application/json", Authorization: auth },
-          body: JSON.stringify({ action: "lookup_client", query: q })
-        });
-        const json = await res.json();
-        if (!json.ok) throw new Error(json.reason || "Recherche impossible.");
-        setResults(json.clients as ClientResult[]);
+        const result = await callApi({ action: "lookup_client", query: q });
+        if (result?.status === 401) { router.replace("/reception-login"); return; }
+        if (result?.json?.ok) {
+          setLocalResults(false);
+          setResults(result.json.clients as ClientResult[]);
+          return;
+        }
+        // San rezo (oswa sèvè a pa reponn): kopi lokal lis kliyan yo.
+        const directory = loadDirectory();
+        if (!result && directory) {
+          setLocalResults(true);
+          setResults(searchDirectory(directory.clients, q, normalizeMcCode(q)));
+          return;
+        }
+        throw new Error(result?.json?.reason || "Pas d'internet et aucune liste enregistrée sur ce téléphone.");
       } catch (e) {
         setResults(null);
         setSearchError(e instanceof Error ? e.message : "Recherche impossible.");
       } finally { setSearching(false); }
     }, 350);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, authHeader, router]);
+  }, [query, callApi, router]);
 
   const submitConduce = async () => {
     const num = conduceNumber.trim();
     if (!num || conduceBusy) return;
     setConduceBusy(true); setConduceMessage(null);
     try {
-      const auth = await authHeader();
-      if (!auth) { router.replace("/reception-login"); return; }
-      const res = await fetch("/api/reception", {
-        method: "POST", headers: { "Content-Type": "application/json", Authorization: auth },
-        body: JSON.stringify({ action: "create_conduce", conduce_number: num, office: office.trim() })
-      });
-      const json = await res.json();
+      const result = await callApi({ action: "create_conduce", conduce_number: num, office: office.trim() });
+      if (result?.status === 401) { router.replace("/reception-login"); return; }
+      if (!result || result.status >= 500) {
+        // San rezo: Conduce la rete sou telefòn nan, l ap voye pou kont li.
+        setQueue(enqueueConduce(num, office.trim()));
+        setConduceMessage({ type: "ok", text: `Conduce ${num} gardée sur le téléphone — elle sera envoyée dès le retour d'internet.` });
+        setConduceNumber(""); setOffice("");
+        return;
+      }
+      const json = result.json;
       if (!json.ok) { setConduceMessage({ type: "error", text: json.reason || "Création impossible." }); return; }
       setConduceMessage({
         type: "ok",
@@ -113,6 +203,8 @@ export default function ReceptionAgentPortal() {
   };
 
   const logout = async () => {
+    if (loadQueue().length && !confirm("Des Conduces ne sont pas encore envoyées. Se déconnecter les supprimera de ce téléphone. Continuer ?")) return;
+    clearReceptionOffline();
     await supabase.auth.signOut({ scope: "local" });
     router.replace("/reception-login");
   };
@@ -156,6 +248,16 @@ export default function ReceptionAgentPortal() {
             </button>
           </div>
 
+          {(offline || queue.length > 0) && (
+            <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-[13px] font-semibold text-amber-800">
+              <CloudOff size={15} className="shrink-0" />
+              <span>
+                {offline ? "Hors ligne — vous pouvez continuer à travailler." : "Envoi en cours…"}
+                {queue.length > 0 && ` ${queue.length} Conduce${queue.length > 1 ? "s" : ""} en attente d'envoi.`}
+              </span>
+            </p>
+          )}
+
           {tab === "search" ? (
             <div className="mt-5">
               <div className="relative">
@@ -181,6 +283,9 @@ export default function ReceptionAgentPortal() {
                   <div className="flex flex-col items-center gap-2 py-12 text-center opacity-70">
                     <span className="grid h-14 w-14 place-items-center rounded-full bg-accent-light text-accent-dark"><User size={22} /></span>
                   </div>
+                )}
+                {!searching && results && results.length > 0 && localResults && (
+                  <p className="text-[12px] text-mute">Liste enregistrée sur ce téléphone.</p>
                 )}
                 {!searching && results && results.map((c) => (
                   <div key={c.customer_code} className="rounded-2xl border border-line bg-white p-4 shadow-[0_2px_10px_-6px_rgba(15,23,42,.15)]">
@@ -219,6 +324,16 @@ export default function ReceptionAgentPortal() {
                   : <PackagePlus size={18} />}
                 {conduceBusy ? "Enregistrement…" : "Enregistrer"}
               </button>
+              {queue.length > 0 && (
+                <ul className="divide-y divide-line rounded-2xl border border-line">
+                  {queue.map((item) => (
+                    <li key={item.number} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13px]">
+                      <span className="font-mono font-bold text-navy">{item.number}</span>
+                      <span className="text-amber-700">En attente d&apos;envoi</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </div>

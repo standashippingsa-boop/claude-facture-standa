@@ -379,6 +379,80 @@ export async function makeConducesAvailableForVille(
   return { cityName: ville.name, available, priced, alreadyAvailable, skippedLocked, customersInCity: accountByCode.size };
 }
 
+/** Bons de remise qui contiennent des colis de ces Conduces — pour le bouton « Disponible ». */
+export async function getBonsRemiseForConduces(conduceIds: string[]): Promise<BonRemiseRecord[]> {
+  const ids = Array.from(new Set(conduceIds.filter(Boolean)));
+  if (!ids.length) return [];
+  const { data: links, error: linksError } = await supabase.from("bon_remise_conduces")
+    .select("bon_remise_id").in("conduce_id", ids);
+  if (linksError) throw linksError;
+  const bonIds = Array.from(new Set((links ?? []).map((line: any) => String(line.bon_remise_id))));
+  if (!bonIds.length) return [];
+  const { data, error } = await supabase.from("bons_remise").select("*")
+    .in("id", bonIds).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as BonRemiseRecord[];
+}
+
+/**
+ * « Disponible » relié au Bon de remise : les colis DU BON passent à
+ * Disponible avec le tarif de la ville du Bon. Mêmes garde-fous que
+ * makeConducesAvailableForVille (un colis facturé/livré n'est jamais touché).
+ */
+export async function makeBonRemiseAvailable(bonId: string, who = ""): Promise<ConduceAvailabilityResult> {
+  const { data: bon, error: bonError } = await supabase.from("bons_remise")
+    .select("id,bon_number,destination").eq("id", bonId).maybeSingle();
+  if (bonError) throw bonError;
+  if (!bon) throw new Error("Bon de remise introuvable.");
+  const destination = String(bon.destination ?? "").trim();
+  if (!destination) throw new Error("Ce Bon de remise n'a pas de ville de destination.");
+
+  const [{ data: ville, error: villeError }, { data: pkgRows, error: pkgError }, rate] = await Promise.all([
+    supabase.from("villes").select("id,name,price_personal,price_business,tax_personal,tax_business,fixed_fee,active").ilike("name", destination).maybeSingle(),
+    supabase.from("packages").select("id,customer_code,weight,status,invoice_id").eq("bon_remise_id", bonId),
+    getUsdRate(),
+  ]);
+  if (villeError) throw villeError;
+  if (pkgError) throw pkgError;
+  if (!ville || !ville.active) throw new Error(`La ville « ${destination} » est introuvable ou désactivée dans Paramètres.`);
+  const packages = (pkgRows ?? []) as Array<{ id: string; customer_code: string; weight: number; status: string; invoice_id: string | null }>;
+  if (!packages.length) throw new Error("Ce Bon de remise ne contient aucun colis.");
+
+  const codes = Array.from(new Set(packages.map((pkg) => String(pkg.customer_code ?? "").trim()).filter(Boolean)));
+  const { data: clientRows, error: clientError } = codes.length
+    ? await supabase.from("clients").select("customer_code,account_type").in("customer_code", codes)
+    : { data: [], error: null };
+  if (clientError) throw clientError;
+  const accountByCode = new Map<string, AccountType>();
+  for (const client of (clientRows ?? []) as Array<{ customer_code?: string; account_type?: AccountType }>) {
+    const code = String(client.customer_code ?? "").trim();
+    if (code) accountByCode.set(code, client.account_type ?? "Personnel");
+  }
+
+  let available = 0, priced = 0, alreadyAvailable = 0, skippedLocked = 0;
+  for (const pkg of packages) {
+    if (pkg.status === "Facturé" || pkg.status === "Livré" || pkg.invoice_id) { skippedLocked++; continue; }
+    const price = computePrice(Number(pkg.weight) || 0, accountByCode.get(String(pkg.customer_code ?? "").trim()) ?? "Personnel", ville as Ville);
+    if (!price) continue;
+    const { error } = await supabase.from("packages").update({
+      status: "Disponible",
+      price_usd: price.price, tax_usd: 0,
+      price_htg: round2(price.price * rate), tax_htg: 0,
+    }).eq("id", pkg.id);
+    if (error) throw error;
+    if (pkg.status === "Disponible") alreadyAvailable++;
+    else available++;
+    priced++;
+  }
+
+  await logAction(
+    "Colis rendus disponibles par Bon de remise",
+    `Bon ${bon.bon_number} → ${ville.name}: ${available} rendus disponibles, ${priced} tarifés, ${alreadyAvailable} déjà disponibles, ${skippedLocked} facturé(s)/livré(s) conservé(s) — par ${who || "système"}`,
+    "", ""
+  );
+  return { cityName: ville.name, available, priced, alreadyAvailable, skippedLocked, customersInCity: codes.length };
+}
+
 // ================= BONS DE REMISE =================
 // Yon Conduce ka gen colis pou PLIZYÈ vil (Gonaïves AK Port-de-Paix pa
 // egzanp) — donk li ka antre nan PLIZYÈ Bon de remise, youn pa vil. Blokaj

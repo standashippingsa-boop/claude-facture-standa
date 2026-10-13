@@ -33,10 +33,11 @@ import FilterConsole from "@/components/FilterConsole";
 import ConducePaymentControl from "@/components/ConducePaymentControl";
 import McpackInvoiceWorkspace from "@/components/McpackInvoiceWorkspace";
 import { useRole } from "@/lib/authx";
-import { createPendingConduces, deleteConduce, deriveConduceStatus, getBonRemiseConduceIds, getConduces, getConduceStats, getMcpackInvoices, getVilles, makeConducesAvailableForVille, setConduceStatus } from "@/lib/db";
+import { createPendingConduces, deleteConduce, deriveConduceStatus, getBonRemiseConduceIds, getBonsRemiseForConduces, getConduces, getConduceStats, getMcpackInvoices, makeBonRemiseAvailable, setConduceStatus } from "@/lib/db";
 import { PROFIT_PER_LB, estimateProfit } from "@/lib/pricing";
 import { usd } from "@/lib/utils";
-import type { Conduce, McpackInvoiceStatus, Ville } from "@/lib/types";
+import type { BonRemiseRecord, Conduce, McpackInvoiceStatus } from "@/lib/types";
+import { dateFr } from "@/lib/utils";
 import { useRememberListContext, withReturnTo } from "@/lib/list-context";
 
 import { useNoticeToast } from "@/lib/notify";
@@ -66,7 +67,6 @@ export default function ConducesPage() {
   const pathname = usePathname() ?? "/conduces";
   const { staff } = useRole();
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [villes, setVilles] = useState<Ville[]>([]);
   const [search, setSearch] = useState("");
   const [officeF, setOfficeF] = useState("");
   const [fromF, setFromF] = useState("");
@@ -86,7 +86,8 @@ export default function ConducesPage() {
   const [newConduceNumber, setNewConduceNumber] = useState("");
   const [creating, setCreating] = useState(false);
   const [availabilityFolder, setAvailabilityFolder] = useState<Classeur | null>(null);
-  const [availabilityVilleId, setAvailabilityVilleId] = useState("");
+  const [availabilityBons, setAvailabilityBons] = useState<BonRemiseRecord[] | null>(null);
+  const [availabilityBonId, setAvailabilityBonId] = useState("");
   const [availabilityBusy, setAvailabilityBusy] = useState(false);
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
   useRememberListContext("conduces", {
@@ -103,8 +104,7 @@ export default function ConducesPage() {
 
   const load = async () => {
     try {
-      const [list, mcpackInvoices, cityRows] = await Promise.all([getConduces(), getMcpackInvoices(), getVilles()]);
-      setVilles(cityRows.filter((city) => city.active));
+      const [list, mcpackInvoices] = await Promise.all([getConduces(), getMcpackInvoices()]);
       let recordedBonRemiseConduces = new Set<string>();
       try {
         recordedBonRemiseConduces = await getBonRemiseConduceIds();
@@ -270,23 +270,27 @@ export default function ConducesPage() {
     } finally { setCreating(false); }
   };
 
-  /** Ouvre le choix de ville pour un classeur; aucune ville n'est présélectionnée. */
-  const openAvailability = (cl: Classeur) => {
+  /** « Disponible » est relié aux Bons de remise du classeur : on choisit un Bon (une ville). */
+  const openAvailability = async (cl: Classeur) => {
     setAvailabilityFolder(cl);
-    setAvailabilityVilleId("");
+    setAvailabilityBonId("");
+    setAvailabilityBons(null);
+    try {
+      setAvailabilityBons(await getBonsRemiseForConduces(cl.rows.map((row) => row.id)));
+    } catch (e: unknown) {
+      setAvailabilityBons([]);
+      setNotice((e as Error)?.message ?? "Impossible de charger les Bons de remise.");
+    }
   };
   const makeAvailable = async () => {
-    if (!availabilityFolder || !availabilityVilleId) return;
+    if (!availabilityFolder || !availabilityBonId) return;
     setAvailabilityBusy(true);
     try {
-      const result = await makeConducesAvailableForVille(
-        availabilityFolder.rows.map((row) => row.id), availabilityVilleId, staffName
-      );
+      const result = await makeBonRemiseAvailable(availabilityBonId, staffName);
       setNotice(
         `${result.available} colis de ${result.cityName} rendus disponibles et ${result.priced} tarifés.` +
         (result.alreadyAvailable ? ` ${result.alreadyAvailable} déjà disponible(s) ont été recalculé(s).` : "") +
-        (result.skippedLocked ? ` ${result.skippedLocked} colis facturé(s) ou livré(s) n'ont pas été touché(s).` : "") +
-        (!result.customersInCity ? ` Aucun client n'est associé à ${result.cityName}.` : "")
+        (result.skippedLocked ? ` ${result.skippedLocked} colis facturé(s) ou livré(s) n'ont pas été touché(s).` : "")
       );
       setAvailabilityFolder(null);
       await load();
@@ -440,24 +444,36 @@ export default function ConducesPage() {
             <div className="flex items-start gap-3">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-navy"><MapPin size={20} /></span>
               <div className="min-w-0">
-                <h2 className="text-base font-extrabold text-navy">Rendre disponible par ville</h2>
+                <h2 className="text-base font-extrabold text-navy">Rendre disponible par Bon de remise</h2>
                 <p className="mt-1 text-xs text-mute">Classeur du {availabilityFolder.label} · {availabilityFolder.count} colis</p>
               </div>
             </div>
             <p className="mt-4 text-sm text-ink">
-              Choisissez le point de retrait. Seuls les colis des clients déjà associés à cette ville passeront à <b>Disponible</b> et recevront le tarif de cette ville.
+              Choisissez le Bon de remise. Les colis de ce Bon passeront à <b>Disponible</b> avec le tarif de sa ville.
             </p>
-            <label className="mt-4 block text-xs font-bold uppercase tracking-wide text-mute">
-              Ville de destination
-              <select className="input mt-1" value={availabilityVilleId} onChange={(e) => setAvailabilityVilleId(e.target.value)} disabled={availabilityBusy}>
-                <option value="">— Choisir une ville —</option>
-                {villes.map((city) => <option key={city.id} value={city.id}>{city.name}</option>)}
-              </select>
-            </label>
-            {!villes.length && <p className="mt-2 text-xs text-amber-700">Aucune ville active dans Paramètres.</p>}
+            {availabilityBons === null ? (
+              <p className="mt-4 text-xs text-mute">Chargement des Bons de remise…</p>
+            ) : availabilityBons.length === 0 ? (
+              <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                Aucun Bon de remise pour ce classeur. Le système le crée 1 heure après la dernière Conduce saisie, ou créez-le depuis « Bon de Remise ».
+              </p>
+            ) : (
+              <div className="mt-4 max-h-64 space-y-2 overflow-y-auto">
+                {availabilityBons.map((bon) => (
+                  <label key={bon.id} className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 ${availabilityBonId === bon.id ? "border-navy bg-blue-50" : "border-line"}`}>
+                    <input type="radio" name="availability-bon" className="h-4 w-4" checked={availabilityBonId === bon.id}
+                      onChange={() => setAvailabilityBonId(bon.id)} disabled={availabilityBusy} />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold text-navy">{bon.destination || "Sans ville"} · {bon.package_count} colis</span>
+                      <span className="block truncate text-[11px] text-mute">{bon.bon_number} · {dateFr(bon.created_at)}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
             <div className="mt-5 flex justify-end gap-2">
               <button className="btn btn-ghost" onClick={() => setAvailabilityFolder(null)} disabled={availabilityBusy}>Annuler</button>
-              <BusyButton className="btn btn-brand" onClick={makeAvailable} busy={availabilityBusy} disabled={!availabilityVilleId}
+              <BusyButton className="btn btn-brand" onClick={makeAvailable} busy={availabilityBusy} disabled={!availabilityBonId}
                 busyLabel="Application…">
                 <CheckCircle2 size={15} /> Rendre disponible
               </BusyButton>
@@ -572,7 +588,7 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPa
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <button onClick={onMakeAvailable} disabled={!cl.count} title="Rendre les colis de cette journée disponibles dans une ville"
+            <button onClick={onMakeAvailable} disabled={!cl.count} title="Rendre disponibles les colis d'un Bon de remise de cette journée"
               className="btn btn-brand !px-2.5 !py-1.5 text-xs disabled:opacity-40">
               <MapPin size={14} /> Disponible
             </button>

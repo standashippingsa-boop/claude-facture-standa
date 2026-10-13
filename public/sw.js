@@ -87,8 +87,37 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+/**
+ * PAJ KI DWE LOUVRI SAN ENTENET (ajan resepsyon an travay kote ki pa gen rezo).
+ * Se SELMAN paj sa yo SW la kenbe: tout lot navigasyon rete "rezo direk".
+ */
+const OFFLINE_PAGES = ["/reception"];
+
+/** Telechaje paj la + tout fichye /_next/static li bezwen, epi mete yo nan cache. */
+async function warmPage(path) {
+  const cache = await caches.open(SHELL_CACHE);
+  const res = await fetch(path, { credentials: "same-origin", cache: "no-store" });
+  // Yon redireksyon (sesyon fini) oswa yon ere pa dwe ranplase bon kopi a.
+  if (!res || res.status !== 200 || res.redirected) return res;
+  const html = await res.clone().text();
+  await cache.put(path, res.clone());
+  const assets = Array.from(new Set(html.match(/\/_next\/static\/[^"'\\ )<>]+/g) || []));
+  assets.push("/account-agent-hero.png", "/logo.png");
+  await Promise.all(assets.map(async (asset) => {
+    try {
+      if (await cache.match(asset)) return;
+      const file = await fetch(asset);
+      if (file && file.status === 200) await cache.put(asset, file);
+    } catch (e) { /* yon fichye ki manke pa dwe bloke res la */ }
+  }));
+  return res;
+}
+
 self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") self.skipWaiting();
+  if (event.data && event.data.type === "WARM_PAGE" && OFFLINE_PAGES.includes(event.data.url)) {
+    event.waitUntil(warmPage(event.data.url).catch(() => undefined));
+  }
 });
 
 self.addEventListener("fetch", (event) => {
@@ -97,7 +126,26 @@ self.addEventListener("fetch", (event) => {
 
   // ⚠️ NAVIGASYON PAJ: pa entèsepte — browser voye l dirèk sou rezo.
   //    Se sa ki anpeche fo paj "hors ligne" a bloke itilizatè ki gen entènèt.
-  if (req.mode === "navigate") return;
+  //    SEL EKSEPSYON: paj OFFLINE_PAGES yo — rezo an premye, kopi cache la
+  //    sevi SELMAN le rezo a tonbe (donk yon moun ki gen entenet toujou we
+  //    denye vesyon an).
+  if (req.mode === "navigate") {
+    let page;
+    try { page = new URL(req.url).pathname.replace(/\/$/, "") || "/"; } catch { return; }
+    if (!OFFLINE_PAGES.includes(page)) return;
+    event.respondWith(
+      warmPage(page).then((res) => {
+        // Yon repons ki soti nan yon redireksyon pa ka sevi dirèk pou yon
+        // navigasyon: nou voye navigatè a sou adrès final la (ex: login).
+        return res.redirected ? Response.redirect(res.url, 302) : res;
+      }).catch(async () => {
+        const cached = await (await caches.open(SHELL_CACHE)).match(page);
+        if (cached) return cached;
+        throw new Error("offline");
+      })
+    );
+    return;
+  }
 
   let url;
   try { url = new URL(req.url); } catch { return; }

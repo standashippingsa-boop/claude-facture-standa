@@ -113,6 +113,38 @@ export async function POST(req: Request) {
     });
   }
 
+  // ---------- directory : kopi lis kliyan yo pou mòd san entènèt ----------
+  // Menm chan ak lookup_client (kòd, non, vil, koli k ap soti Miami) — anyen
+  // anplis. Telefòn ajan an kenbe l pou rechèch la mache san rezo.
+  if (action === "directory") {
+    const { data: clients, error } = await db.from("clients")
+      .select("customer_code, fullname, ville_id")
+      .not("customer_code", "is", null).neq("customer_code", "")
+      .order("fullname").limit(5000);
+    if (error) return NextResponse.json({ ok: false, reason: "Liste indisponible." }, { status: 500 });
+    const rows = (clients ?? []) as { customer_code: string; fullname: string; ville_id: string | null }[];
+
+    const { data: villes } = await db.from("villes").select("id, name");
+    const villeName = new Map(((villes ?? []) as { id: string; name: string }[]).map((v) => [v.id, v.name]));
+
+    const { data: pkgs } = await db.from("packages")
+      .select("customer_code").in("status", EN_ROUTE_DEPUIS_MIAMI).limit(20000);
+    const miamiCount = new Map<string, number>();
+    for (const p of (pkgs ?? []) as { customer_code: string }[]) {
+      miamiCount.set(p.customer_code, (miamiCount.get(p.customer_code) ?? 0) + 1);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      clients: rows.map((r) => ({
+        customer_code: r.customer_code,
+        fullname: r.fullname ?? "",
+        ville_name: r.ville_id ? (villeName.get(r.ville_id) ?? "—") : "—",
+        miami_count: miamiCount.get(r.customer_code) ?? 0
+      }))
+    });
+  }
+
   // ---------- create_conduce : anrejistre yon nouvo nimewo Conduce ----------
   if (action === "create_conduce") {
     const conduceNumber = money(body.conduce_number).slice(0, 60);

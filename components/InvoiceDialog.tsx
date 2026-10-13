@@ -1,7 +1,8 @@
 "use client";
+import { createBonRemiseNumber } from "@/lib/bonremise";
 import { useEffect, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
-import { cancelInvoice, createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, notifyEmail, saveInvoicePdfPath } from "@/lib/db";
+import { cancelInvoice, createBonRemiseRecord, createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, notifyEmail, saveInvoicePdfPath } from "@/lib/db";
 import { computeInvoice, invoiceLineContent, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { FixedPriceMap, OrderFeeTier, SpecialArticle, TAX_THRESHOLD_LB } from "@/lib/pricing";
 import { Invoice, InvoiceItem, InvoiceKind, Ville } from "@/lib/types";
@@ -260,6 +261,28 @@ export default function InvoiceDialog({
       const { inv, items } = pending;
       const pdf = await generateUploadDownload(inv, items, footer, { download: true });
       if (pdf.path) { await saveInvoicePdfPath(inv.id, pdf.path); inv.pdf_path = pdf.path; inv.has_pdf = true; }
+      // COMPTE CENTRAL : pas de Bon automatique par Conduce. C'est ici, une
+      // fois le PDF généré, que ses colis rejoignent un Bon de la VILLE de la
+      // facture — l'agence de retrait de cette ville voit alors la facture.
+      // Canal à part : un échec ne doit jamais annuler la facture.
+      let centralInfo = "";
+      if (isCentral && villeChoisie) {
+        try {
+          const sansBon = pkgs.filter((p) => !p.bon_remise_id);
+          const conduceIds = Array.from(new Set(sansBon.map((p) => String(p.conduce_id ?? "").trim()).filter(Boolean)));
+          if (sansBon.length && conduceIds.length) {
+            const bon = await createBonRemiseRecord({
+              bonNumber: createBonRemiseNumber(), packageIds: sansBon.map((p) => p.id), conduceIds,
+              packageCount: sansBon.length, destination: villeChoisie.name, who: "Facture compte central"
+            });
+            centralInfo = ` Bon ${bon.bon_number} créé pour l'agence de ${villeChoisie.name}.`;
+          } else if (sansBon.length) {
+            centralInfo = ` ⚠️ Colis sans Conduce : créez le Bon de remise de ${villeChoisie.name} à la main.`;
+          }
+        } catch (e: unknown) {
+          centralInfo = ` ⚠️ Bon de remise non créé pour ${villeChoisie.name} : ${(e as Error)?.message ?? "erreur"}`;
+        }
+      }
       const how = await sendInvoicePdfWhatsApp(inv, pdf.blob, pdf.filename);
       // Notification push — kanal apa, pa dwe janm bloke oswa anile fakti a
       // si l echwe (kliyan an deja gen PDF la sou WhatsApp kanmenm).
@@ -274,7 +297,7 @@ export default function InvoiceDialog({
       onDone(
         `Facture ${inv.invoice_number} créée — ${items.length} colis → Facturé, taux ${rate.toFixed(2)}. ` +
         (how === "file" ? "PDF pataje sou WhatsApp."
-          : how === "manual" ? "WhatsApp ouvri — telechaje PDF la epi atache li." : "Fakti a nan Invoices.")
+          : how === "manual" ? "WhatsApp ouvri — telechaje PDF la epi atache li." : "Fakti a nan Invoices.") + centralInfo
       );
       onClose();
     } catch (e: unknown) {
