@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import { Clock3, MapPin, Phone, ShieldCheck } from "lucide-react";
+import { MapPin } from "lucide-react";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
 import ContactForm from "@/components/site/ContactForm";
-import PageHero from "@/components/site/PageHero";
 import ReviewSection from "@/components/site/ReviewSection";
-import { FacebookIcon, InstagramIcon, TikTokIcon, WhatsAppIcon } from "@/components/site/BrandIcons";
+import { FacebookIcon, InstagramIcon, TikTokIcon } from "@/components/site/BrandIcons";
 import { SITE } from "@/lib/site";
 import { DEPOT } from "@/lib/depot";
 
@@ -26,7 +25,6 @@ const MAP_QUERY = encodeURIComponent(`${DEPOT.address1}, ${DEPOT.city}, ${DEPOT.
 
 export default function ContactPage() {
   return <div className="min-h-screen bg-[#f7f9fd] text-ink"><SiteHeader /><main>
-    <PageHero image="/contact-agent-hero.png" eyebrow="Une équipe à votre écoute" title="Une question ? Nous sommes là pour vous." description="Écrivez-nous pour un colis, une facture, une inscription ou toute autre demande. Notre équipe vous accompagne avec attention." actions={<><a href={`tel:${SITE.whatsapp}`} className="inline-flex h-12 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/[0.09] px-5 text-[14px] font-bold text-white transition hover:bg-white/20"><Phone size={16} />{SITE.phone}</a><a href={`https://wa.me/${SITE.whatsapp}`} target="_blank" rel="noreferrer" className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#25D366] px-5 text-[14px] font-bold text-white transition hover:bg-[#1eb857]"><WhatsAppIcon size={17} />Écrire sur WhatsApp</a></>}><div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-[12px] font-semibold text-white/70"><span className="inline-flex items-center gap-2"><ShieldCheck size={16} className="text-accent" />Réponse humaine</span><span className="inline-flex items-center gap-2"><Clock3 size={16} className="text-accent" />Suivi clair</span></div></PageHero>
 
     <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24 lg:px-10 xl:px-6"><div className="grid gap-8 lg:grid-cols-[minmax(0,1.14fr)_minmax(300px,.86fr)] lg:items-start"><div className="rounded-lg border border-line bg-white p-2 sm:p-3"><ContactForm /></div><aside className="space-y-4"><div className="rounded-lg bg-navy p-6 text-white"><p className="text-[14px] font-semibold text-accent-dark">Nos disponibilités</p><h2 className="mt-3 text-[22px] font-extrabold tracking-tight">Parlons de votre demande.</h2><div className="mt-5 divide-y divide-white/10">{HOURS.map(([day, time]) => <div key={day} className="flex items-center justify-between gap-4 py-3 text-[13px]"><span className="text-white/60">{day}</span><span className={`font-bold ${time === "Ferme" ? "text-red-300" : "text-white"}`}>{time}</span></div>)}</div></div><div className="rounded-lg border border-line bg-white p-6"><p className="text-[14px] font-semibold text-accent-dark">Retrouvez-nous</p><div className="mt-4 space-y-2">{SOCIALS.map(({ name, handle, href, icon: Icon }) => <a key={name} href={href} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-md bg-mist px-4 py-3 text-[13px] transition hover:bg-accent-light"><span className="inline-flex items-center gap-2 font-bold text-navy"><Icon size={18} className="text-accent-dark" />{name}</span><span className="max-w-[170px] truncate text-mute">{handle}</span></a>)}</div></div></aside></div></section>
 

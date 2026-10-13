@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Check, X } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
 import StoreBadges from "@/components/site/StoreBadges";
@@ -74,18 +74,11 @@ export default function AccueilPage() {
         <section className="bg-navy text-white">
           <div className={`${WRAP} grid gap-10 py-12 sm:py-16 lg:grid-cols-[1.05fr_.95fr] lg:items-start lg:gap-14`}>
             <div className="max-w-xl">
-              <p className="text-[14px] font-semibold text-accent">Miami → Haïti</p>
-              <h1 className="mt-3 text-[36px] font-extrabold leading-[1.08] tracking-tight sm:text-[50px]">Vos achats en ligne, livrés simplement en Haïti.</h1>
-              <p className="mt-5 text-[16px] leading-relaxed text-white/80 sm:text-[17px]">Une adresse de dépôt à Miami, un suivi clair et une équipe qui vous accompagne jusqu&apos;à la récupération de vos colis.</p>
+              <h1 className="text-[36px] font-extrabold leading-[1.08] tracking-tight sm:text-[50px]">Vos achats en ligne, livrés simplement en Haïti.</h1>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <Link href="/inscription" className={`${BTN} bg-accent text-white hover:bg-accent-dark focus-visible:outline-white`}>Créer mon compte <ArrowRight size={17} /></Link>
                 <Link href="/agences" className={`${BTN} border border-white/40 text-white hover:bg-white/10 focus-visible:outline-white`}>Voir nos agences</Link>
               </div>
-              <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[14px] text-white/75">
-                {["Inscription gratuite", "Code client personnel", "Suivi de colis"].map((item) => (
-                  <li key={item} className="inline-flex items-center gap-2"><Check size={15} className="text-accent" />{item}</li>
-                ))}
-              </ul>
               <div className="mt-9 border-t border-white/15 pt-6">
                 <p className="text-[14px] font-semibold text-white/80">Application mobile · bientôt disponible</p>
                 <StoreBadges className="mt-3" />
@@ -93,10 +86,6 @@ export default function AccueilPage() {
             </div>
             <div id="suivi">
               <TrackBox />
-              <figure className="mt-4 overflow-hidden rounded-lg border border-white/15">
-                <Image src="/site-backgrounds/standa-package-scale.png" alt="Colis STANDA en préparation" width={1536} height={1024} priority unoptimized className="aspect-[3/2] w-full object-cover" />
-                <figcaption className="px-4 py-3 text-[13px] text-white/75">De Miami à votre agence, vos colis avancent en toute confiance.</figcaption>
-              </figure>
             </div>
           </div>
         </section>
@@ -104,11 +93,9 @@ export default function AccueilPage() {
         <section className="border-b border-line py-14 sm:py-16">
           <div className={WRAP}>
             <SectionHeading title="Commandez là où vous aimez déjà acheter." />
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+            <div className="mt-7 flex flex-wrap items-center gap-x-8 gap-y-5">
               {SHOPPING_PLATFORMS.map((platform) => (
-                <div key={platform.name} className="flex h-20 items-center justify-center rounded-md border border-line bg-white px-3">
-                  <Image src={platform.image} alt={`Logo ${platform.name}`} width={150} height={72} unoptimized className="h-10 w-auto max-w-[120px] object-contain mix-blend-multiply" />
-                </div>
+                <Image key={platform.name} src={platform.image} alt={`Logo ${platform.name}`} width={150} height={72} unoptimized className="h-7 w-auto max-w-[84px] object-contain mix-blend-multiply" />
               ))}
             </div>
           </div>
@@ -154,11 +141,7 @@ export default function AccueilPage() {
         </section>
 
         <section className="bg-mist py-12">
-          <div className={`${WRAP} flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between`}>
-            <div>
-              <h2 className="text-[22px] font-extrabold tracking-tight text-navy">Gardez STANDA à portée de main.</h2>
-              <p className="mt-1 text-[15px] text-mute">Suivez vos colis et consultez vos factures depuis votre téléphone.</p>
-            </div>
+          <div className={`${WRAP} flex justify-center`}>
             <StoreBadges />
           </div>
         </section>

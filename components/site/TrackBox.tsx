@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { CheckCircle2, Package, RotateCcw, Search, X } from "lucide-react";
+import { RotateCcw, X } from "lucide-react";
 import { dateFr } from "@/lib/utils";
 
 import { useNoticeToast } from "@/lib/notify";
@@ -109,27 +109,19 @@ export default function TrackBox() {
   return (
     <div className="w-full">
 
-      {/* ══════════ FÒM LAN ══════════ */}
+      {/* ══════════ FÒM LAN — menm prensip ak USPS: yon chan, yon bouton ══════════ */}
       <form
         onSubmit={(e) => { e.preventDefault(); void search(); }}
-        className="bg-white rounded-2xl shadow-lift p-4 sm:p-5"
+        className="bg-white p-5 sm:p-6"
       >
-        <div className="flex items-center gap-2.5 mb-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent-light text-accent-dark">
-            <Package size={18} />
-          </span>
-          <div>
-            <label htmlFor="track-input" className="block text-[15px] font-bold text-navy leading-tight">
-              Suivre un colis
-            </label>
-            <p className="text-[12px] text-mute">Sans compte · résultat immédiat</p>
-          </div>
-        </div>
+        <label htmlFor="track-input" className="block text-[22px] font-bold leading-tight text-navy">
+          Suivre un colis
+        </label>
+        <p className="mt-1 text-[14px] text-ink">Entrez votre numéro de suivi.</p>
 
         {/* Sou telefòn: anpile. Sou òdinatè: kòt a kòt. */}
-        <div className="flex flex-col sm:flex-row gap-2.5">
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
-            <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-mute" />
             <input
               ref={input}
               id="track-input"
@@ -140,11 +132,9 @@ export default function TrackBox() {
               spellCheck={false}
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              placeholder="Collez votre numéro de tracking"
-              className="w-full h-12 pl-10 pr-11 rounded-xl border border-line bg-mist
-                         text-[15px] text-ink placeholder:text-mute font-mono tracking-wide
-                         focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent
-                         focus:bg-white transition"
+              className="h-12 w-full border border-slate-500 bg-white pl-3 pr-11
+                         font-mono text-[15px] text-ink
+                         focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/30"
             />
             {value && (
               <button
@@ -152,8 +142,8 @@ export default function TrackBox() {
                 onClick={clearAll}
                 aria-label="Effacer le numéro de tracking"
                 title="Effacer"
-                className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center
-                           rounded-lg text-mute hover:bg-slate-200 hover:text-navy transition"
+                className="absolute right-1.5 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center
+                           text-mute hover:text-navy"
               >
                 <X size={17} />
               </button>
@@ -162,10 +152,9 @@ export default function TrackBox() {
           <button
             type="submit"
             disabled={busy || !value.trim()}
-            className="h-12 px-6 rounded-xl bg-accent hover:bg-accent-dark
-                       disabled:bg-slate-300 disabled:cursor-not-allowed
-                       text-white font-bold text-[15px] transition
-                       inline-flex items-center justify-center gap-2 shrink-0"
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 bg-navy px-8
+                       text-[15px] font-bold text-white transition-colors hover:bg-navy-dark
+                       disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             {busy ? (
               <>
@@ -177,12 +166,10 @@ export default function TrackBox() {
           </button>
         </div>
 
-        <p className="mt-2.5 text-[12px] text-mute leading-relaxed">
+        <p className="mt-2.5 text-[12px] leading-relaxed text-mute">
           Numéro Standa ou numéro du transporteur.
         </p>
       </form>
-
-      {/* ══════════ MESAJ (pa jwenn / erè) ══════════ */}
 
       {/* ══════════ REZILTA ══════════ */}
       {result && <ResultCard result={result} onClose={closeResult} onNewSearch={clearAll} />}
@@ -193,63 +180,73 @@ export default function TrackBox() {
 function ResultCard({ result, onClose, onNewSearch }: { result: Found; onClose: () => void; onNewSearch: () => void }) {
   const current = stepIndex(result.status);
   const delivered = result.status === "Livré";
+  const label = result.status === "Facturé" ? "Disponible" : (result.status || "—");
+  // Istorik la: etap koli a deja pase yo, pi resan an anlè (tankou USPS).
+  const history = current >= 0 ? STEPS.slice(0, current + 1).reverse() : [];
+  const receivedDate = result.received_at ? dateFr(result.received_at) : "";
 
   return (
-    <div className="mt-3 bg-white rounded-2xl shadow-lift overflow-hidden">
+    <div className="mt-px bg-white">
 
       {/* Tèt: nimewo a + bouton pou fèmen */}
-      <div className="flex items-start justify-between gap-3 px-4 sm:px-5 pt-4">
+      <div className="flex items-start justify-between gap-3 border-t border-line px-5 pt-5 sm:px-6">
         <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-mute">Colis trouvé</p>
-          <p className="mt-0.5 font-mono text-[14px] font-bold text-navy break-all">{result.tracking_number || "—"}</p>
+          <p className="text-[13px] text-mute">Numéro de suivi :</p>
+          <p className="mt-0.5 break-all font-mono text-[15px] font-bold text-ink">{result.tracking_number || "—"}</p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-mute
-                     hover:bg-mist hover:text-navy transition"
+          className="inline-flex shrink-0 items-center gap-1 text-[13px] font-bold text-navy underline-offset-2 hover:underline"
         >
           <X size={15} /> Fermer
         </button>
       </div>
 
-      {/* Statut aktyèl la + sa l vle di */}
-      <div className="px-4 sm:px-5 pt-3 pb-4 border-b border-line">
-        <span className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[14px] font-bold ring-1
-          ${delivered ? "bg-slate-100 text-slate-700 ring-slate-300" : "bg-accent-light text-accent-dark ring-accent/30"}`}>
-          <span className="w-2 h-2 rounded-full bg-current" />
-          {result.status === "Facturé" ? "Disponible" : (result.status || "—")}
-        </span>
-        {current >= 0 && <p className="mt-2 text-[13px] leading-relaxed text-ink">{STEPS[current].text}</p>}
+      {/* Statut aktyèl la an gwo + sa l vle di */}
+      <div className="px-5 pb-5 pt-4 sm:px-6">
+        <p className="text-[13px] text-mute">Dernier statut</p>
+        <p className={`mt-1 text-[26px] font-bold leading-tight ${delivered ? "text-green-700" : "text-navy"}`}>{label}</p>
+        {current >= 0 && <p className="mt-2 text-[14px] leading-relaxed text-ink">{STEPS[current].text}</p>}
+
+        {/* Ba pwogrè: yon segman pa etap, soti Miami rive nan remiz */}
+        {current >= 0 && (
+          <div className="mt-5">
+            <div className="flex gap-1" role="img" aria-label={`Étape ${current + 1} sur ${STEPS.length}`}>
+              {STEPS.map((step, i) => (
+                <span key={step.status} className={`h-2 flex-1 ${i <= current ? (delivered ? "bg-green-700" : "bg-navy") : "bg-slate-200"}`} />
+              ))}
+            </div>
+            <div className="mt-1.5 flex justify-between text-[12px] text-mute">
+              <span>Miami</span>
+              <span>Livré</span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Liy pwogrè: 7 etap, soti Miami rive nan remiz */}
-      {current >= 0 && (
-        <ol className="px-4 sm:px-5 py-4 border-b border-line space-y-0">
-          {STEPS.map((step, i) => {
-            const done = i < current || (i === current && delivered);
-            const active = i === current && !delivered;
-            return (
-              <li key={step.status} className="relative flex items-center gap-3 pb-3 last:pb-0">
-                {i < STEPS.length - 1 && (
-                  <span aria-hidden="true"
-                    className={`absolute left-[9px] top-5 h-[calc(100%-10px)] w-0.5 ${i < current ? "bg-accent" : "bg-line"}`} />
-                )}
-                <span className={`relative z-10 grid h-5 w-5 shrink-0 place-items-center rounded-full
-                  ${done ? "bg-accent text-white" : active ? "bg-white ring-4 ring-accent/25 border-2 border-accent" : "bg-white border-2 border-line"}`}>
-                  {done && <CheckCircle2 size={13} strokeWidth={3} />}
-                </span>
-                <span className={`text-[13px] ${active ? "font-bold text-navy" : done ? "font-semibold text-ink" : "text-mute"}`}>
-                  {step.status}
-                </span>
+      {/* Istorik: etap ki fèt yo, pi resan an anlè */}
+      {history.length > 0 && (
+        <div className="border-t border-line px-5 py-5 sm:px-6">
+          <h3 className="text-[16px] font-bold text-navy">Historique du suivi</h3>
+          <ol className="mt-4">
+            {history.map((step, i) => (
+              <li key={step.status} className="relative flex gap-3 pb-4 last:pb-0">
+                {i < history.length - 1 && <span aria-hidden="true" className="absolute left-[5px] top-4 h-full w-0.5 bg-slate-300" />}
+                <span className={`relative z-10 mt-1 h-3 w-3 shrink-0 rounded-full ${i === 0 ? (delivered ? "bg-green-700" : "bg-navy") : "bg-slate-400"}`} />
+                <div className="min-w-0">
+                  <p className={`text-[14px] text-ink ${i === 0 ? "font-bold" : "font-semibold"}`}>{step.status}</p>
+                  <p className="text-[13px] leading-relaxed text-mute">{step.text}</p>
+                  {step.status === "Reçu à Miami" && receivedDate && <p className="text-[13px] text-mute">{receivedDate}</p>}
+                </div>
               </li>
-            );
-          })}
-        </ol>
+            ))}
+          </ol>
+        </div>
       )}
 
       {/* Detay yo — PA GEN kòd kliyan (sèvè a pa voye l ditou). */}
-      <dl className="divide-y divide-line">
+      <dl className="divide-y divide-line border-t border-line">
         {result.tracking_manual && result.tracking_manual !== result.tracking_number && (
           <Row label="Référence transporteur" value={result.tracking_manual} mono />
         )}
@@ -260,19 +257,19 @@ function ResultCard({ result, onClose, onNewSearch }: { result: Found; onClose: 
       </dl>
 
       {/* Aksyon yo */}
-      <div className="bg-mist px-4 sm:px-5 py-4 border-t border-line">
+      <div className="border-t border-line bg-mist px-5 py-4 sm:px-6">
         <button
           type="button"
           onClick={onNewSearch}
-          className="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl bg-white ring-1 ring-line
-                     text-navy font-bold text-[14px] hover:ring-accent transition"
+          className="inline-flex h-11 items-center justify-center gap-2 border border-navy bg-white px-5
+                     text-[14px] font-bold text-navy transition-colors hover:bg-navy hover:text-white"
         >
           <RotateCcw size={15} /> Nouvelle recherche
         </button>
-        <p className="mt-3 text-[13px] text-ink leading-relaxed">
+        <p className="mt-3 text-[13px] leading-relaxed text-ink">
           <span className="font-bold">Pas encore de compte ?</span>{" "}
           Créez-en un gratuitement pour recevoir votre adresse à Miami et suivre tous vos colis au même endroit.{" "}
-          <Link href="/inscription" className="font-bold text-accent-dark underline underline-offset-2">Créer mon compte</Link>
+          <Link href="/inscription" className="font-bold text-navy underline underline-offset-2">Créer mon compte</Link>
         </p>
       </div>
     </div>
@@ -282,7 +279,7 @@ function ResultCard({ result, onClose, onNewSearch }: { result: Found; onClose: 
 /** Yon liy detay nan kat rezilta a */
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="px-4 sm:px-5 py-3 flex items-start justify-between gap-4">
+    <div className="px-5 sm:px-6 py-3 flex items-start justify-between gap-4">
       <dt className="text-[13px] text-mute shrink-0">{label}</dt>
       <dd className={`text-[14px] font-semibold text-ink text-right break-all ${mono ? "font-mono text-[13px]" : ""}`}>
         {value}

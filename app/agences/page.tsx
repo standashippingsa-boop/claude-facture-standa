@@ -3,7 +3,6 @@ import type { ElementType } from "react";
 import { Clock3, MapPin, Navigation, Phone, Store } from "lucide-react";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
-import PageHero from "@/components/site/PageHero";
 import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import { SITE } from "@/lib/site";
 import { getAgences, type Agence } from "@/lib/agences";
@@ -25,9 +24,8 @@ export default async function AgencesPage() {
   try { agences = await getAgences(); } catch { loadError = true; }
 
   return <div className="min-h-screen bg-[#f7f9fd] text-ink"><SiteHeader /><main>
-    <PageHero image="/agencies-agent-hero.png" eyebrow={agences.length ? `${agences.length} points de retrait en Haïti` : "Nos points de retrait"} title="Votre agence STANDA vous attend." description="Retrouvez facilement le point de retrait le plus proche, ses horaires et les moyens de la contacter." actions={<><a href={`tel:${SITE.whatsapp}`} className="inline-flex h-12 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/[0.09] px-5 text-[14px] font-bold text-white transition hover:bg-white/20"><Phone size={16} />{SITE.phone}</a><a href={`https://wa.me/${SITE.whatsapp}`} target="_blank" rel="noreferrer" className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#25D366] px-5 text-[14px] font-bold text-white transition hover:bg-[#1eb857]"><WhatsAppIcon size={17} />Besoin d&apos;aide ?</a></>}><div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-[12px] font-semibold text-white/70"><span className="inline-flex items-center gap-2"><MapPin size={16} className="text-accent" />Trouvez votre ville</span><span className="inline-flex items-center gap-2"><Clock3 size={16} className="text-accent" />Consultez les horaires</span></div></PageHero>
 
-    <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24 lg:px-10 xl:px-6"><div className="max-w-2xl"><p className="text-[14px] font-semibold text-accent-dark">Choisissez votre ville</p><h2 className="mt-4 text-[28px] font-extrabold leading-tight tracking-tight text-navy sm:text-[36px]">Les agences à votre service.</h2><p className="mt-4 text-[16px] leading-relaxed text-mute">Appelez, écrivez sur WhatsApp ou ouvrez directement l&apos;itinéraire vers l&apos;agence de votre choix.</p></div>
+    <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24 lg:px-10 xl:px-6"><div className="max-w-2xl"><p className="text-[14px] font-semibold text-accent-dark">Choisissez votre ville</p><h1 className="mt-4 text-[28px] font-extrabold leading-tight tracking-tight text-navy sm:text-[36px]">Les agences à votre service.</h1><p className="mt-4 text-[16px] leading-relaxed text-mute">Appelez, écrivez sur WhatsApp ou ouvrez directement l&apos;itinéraire vers l&apos;agence de votre choix.</p></div>
       {loadError && <p className="mt-8 rounded-lg border border-amber-200 bg-amber-50 px-5 py-4 text-[14px] text-amber-800">La liste des agences est temporairement indisponible. Contactez-nous directement sur WhatsApp.</p>}
       {!loadError && !agences.length && <p className="mt-8 rounded-lg border border-line bg-white px-5 py-7 text-center text-[14px] text-mute">Aucune agence n&apos;est disponible pour le moment.</p>}
       <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{agences.map((agence) => <AgenceCard key={agence.id ?? agence.nom} agence={agence} />)}</div>

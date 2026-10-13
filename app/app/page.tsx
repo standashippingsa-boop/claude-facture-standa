@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { Bell, Download, MapPin, PackageSearch, Settings, ShieldCheck, Smartphone } from "lucide-react";
+import { Bell, Download, MapPin, PackageSearch, Settings, ShieldCheck } from "lucide-react";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
-import PageHero from "@/components/site/PageHero";
 import StoreBadges from "@/components/site/StoreBadges";
 
 export const metadata: Metadata = {
@@ -28,26 +27,17 @@ const STEPS = [
 
 export default function AppPage() {
   return <div className="min-h-screen bg-[#f7f9fd] text-ink"><SiteHeader /><main>
-    <PageHero
-      image="/account-agent-hero.png"
-      eyebrow="Application mobile Android"
-      title="Standa dans votre poche."
-      description="Suivez vos colis, vos factures et vos retraits — sans ouvrir votre navigateur."
-      actions={
-        <a href={APK_URL} download
-          className="inline-flex h-14 items-center justify-center gap-2.5 rounded-xl bg-accent px-7 text-[15px] font-bold text-white shadow-[0_18px_40px_-16px_rgba(0,0,0,.6)] transition hover:-translate-y-0.5 hover:bg-accent-dark">
-          <Download size={19} /> Télécharger pour Android
-        </a>
-      }
-    >
-      <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-[12px] font-semibold text-white/70">
-        <span className="inline-flex items-center gap-2"><Smartphone size={16} className="text-accent" />Android 8 et plus</span>
-        <span className="inline-flex items-center gap-2"><ShieldCheck size={16} className="text-accent" />Fichier officiel Standa</span>
-      </div>
-    </PageHero>
+    <section className="mx-auto max-w-5xl px-5 pt-12 sm:px-8 lg:px-10 xl:px-6">
+      <h1 className="text-[28px] font-extrabold leading-tight tracking-tight text-navy sm:text-[36px]">Application mobile Android</h1>
+      <a href={APK_URL} download
+        className="mt-5 inline-flex h-12 items-center justify-center gap-2.5 rounded-md bg-accent px-6 text-[15px] font-bold text-white transition-colors hover:bg-accent-dark">
+        <Download size={19} /> Télécharger pour Android
+      </a>
+    </section>
 
-    <section className="parcel-wash relative -mt-6 px-5 sm:-mt-8 sm:px-8 lg:px-10 xl:px-6">
-      <div className="mx-auto grid max-w-7xl gap-3 rounded-[1.4rem] border border-line bg-white p-3 shadow-[0_20px_48px_-32px_rgba(15,23,42,.45)] sm:grid-cols-3">
+
+    <section className="mx-auto max-w-5xl px-5 pt-8 sm:px-8 lg:px-10 xl:px-6">
+      <div className="grid gap-3 rounded-lg border border-line bg-white p-3 sm:grid-cols-3">
         {FEATURES.map(({ icon: Icon, title, text }) => (
           <div key={title} className="flex items-center gap-3 rounded-xl px-3 py-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-light text-accent-dark"><Icon size={18} /></span>
@@ -57,7 +47,7 @@ export default function AppPage() {
       </div>
     </section>
 
-    <section className="parcel-wash-alt mx-auto max-w-5xl rounded-[2rem] px-5 py-16 sm:px-8 sm:py-24 lg:px-10 xl:px-6">
+    <section className="mx-auto max-w-5xl px-5 py-14 sm:px-8 sm:py-16 lg:px-10 xl:px-6">
       <p className="text-[11px] font-bold uppercase tracking-[.19em] text-accent">Première installation</p>
       <h2 className="mt-4 text-balance text-[30px] font-black leading-[1.05] tracking-[-.04em] text-navy sm:text-[38px]">
         Android demande une autorisation — c&apos;est normal.
@@ -89,7 +79,7 @@ export default function AppPage() {
       </div>
     </section>
 
-    <section className="parcel-wash border-y border-line bg-white">
+    <section className="border-y border-line bg-white">
       <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-5 py-14 text-center sm:px-8">
         <MapPin size={22} className="text-accent" />
         <p className="max-w-md text-[15px] leading-relaxed text-mute">
