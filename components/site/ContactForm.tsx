@@ -119,14 +119,7 @@ export default function ContactForm() {
 
   return (
     <div className="bg-white rounded-2xl shadow-lift ring-1 ring-line p-5 sm:p-6">
-      <h2 className="text-[19px] sm:text-[21px] font-black text-navy tracking-tight">
-        Envoyez-nous un message
-      </h2>
-      <p className="mt-1.5 text-[13.5px] leading-relaxed text-mute">
-        Réponse rapide par email ou WhatsApp, selon votre préférence.
-      </p>
-
-      <form className="mt-5 space-y-4" onSubmit={(e) => e.preventDefault()}>
+      <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
         {/* Pyèj bot — envizib pou moun */}
         <input
           type="text"
