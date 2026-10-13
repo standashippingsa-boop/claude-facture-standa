@@ -48,12 +48,12 @@ begin
   end if;
 
   -- Yon Conduce ki kreye men ki POKO gen fichye Excel li (zewo koli): nou pa
-  -- kreye okenn bon toutotan l ap tann. Apre 24 è san fichye, li sispann
+  -- kreye okenn bon toutotan l ap tann. Apre 48 è san fichye, li sispann
   -- bloke lòt Conduce yo (li menm rete san bon, paske li pa gen koli).
   if exists (
     select 1 from conduces c
     where c.created_at >= v_since
-      and c.created_at > now() - interval '24 hours'
+      and c.created_at > now() - interval '48 hours'
       and not exists (select 1 from packages p where p.conduce_id = c.id)
   ) then
     return 0;
