@@ -334,6 +334,7 @@ export default function EspaceClientPage() {
    * kite app la vrèman (konpòtman nòmal yon app Android sou ekran rasin).
    */
   const closeTopmostScreen = (): boolean => {
+    if (menuOpen) { setMenuOpen(false); return true; }
     if (showPwd) { setShowPwd(false); return true; }
     if (showDelete) { setShowDelete(false); return true; }
     if (detail) { setDetail(null); return true; }
@@ -760,25 +761,6 @@ export default function EspaceClientPage() {
               <p className="truncate text-sm font-extrabold text-white">{clientName}</p>
               <p className="mt-0.5 truncate text-[11px] font-medium tracking-wide text-white/70">{client.customer_code}</p>
             </div>
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 mt-1 w-56 bg-white rounded-xl shadow-lift border border-line py-1 z-20 text-ink">
-                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-mist text-left"
-                    onClick={() => { setMenuOpen(false); setShowPwd(true); }}>
-                    <KeyRound size={15} className="text-mute" /> Changer mon mot de passe
-                  </button>
-                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-mist text-left text-red-600"
-                    onClick={logout}>
-                    <LogOut size={15} /> Dekonekte
-                  </button>
-                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-mist text-left text-red-600 border-t border-line"
-                    onClick={() => { setMenuOpen(false); setShowDelete(true); }}>
-                    <Trash2 size={15} /> Supprimer mon compte
-                  </button>
-                </div>
-              </>
-            )}
           </div>
 
           <button onClick={refresh} disabled={refreshing} aria-label="Actualiser"
@@ -801,6 +783,36 @@ export default function EspaceClientPage() {
           </button>
         </div>
       </header>
+
+      {/* ══ MON COMPTE — fèy ki monte depi anba ekran an (pa yon ti meni ki koupe anlè) ══ */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/45 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Mon compte"
+          onClick={() => setMenuOpen(false)}>
+          <div className="w-full max-w-md rounded-t-3xl bg-white px-5 pb-8 pt-3 sm:rounded-3xl sm:pb-5" onClick={(e) => e.stopPropagation()}>
+            <span aria-hidden="true" className="mx-auto block h-1.5 w-10 rounded-full bg-slate-200 sm:hidden" />
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-base font-extrabold text-navy">{clientName}</p>
+                <p className="mt-0.5 truncate text-xs font-medium text-mute">{client.customer_code}</p>
+              </div>
+              <button aria-label="Fermer" onClick={() => setMenuOpen(false)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-mist text-mute"><X size={18} /></button>
+            </div>
+            <div className="mt-4 divide-y divide-line border-y border-line">
+              <button className="flex min-h-14 w-full items-center gap-3 text-left text-[15px] font-semibold text-ink"
+                onClick={() => { setMenuOpen(false); setShowPwd(true); }}>
+                <KeyRound size={19} className="shrink-0 text-navy" /> <span className="flex-1">Changer mon mot de passe</span> <ChevronRight size={17} className="text-slate-300" />
+              </button>
+              <button className="flex min-h-14 w-full items-center gap-3 text-left text-[15px] font-semibold text-ink" onClick={logout}>
+                <LogOut size={19} className="shrink-0 text-navy" /> <span className="flex-1">Se déconnecter</span> <ChevronRight size={17} className="text-slate-300" />
+              </button>
+            </div>
+            <button className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 text-sm font-semibold text-red-600"
+              onClick={() => { setMenuOpen(false); setShowDelete(true); }}>
+              <Trash2 size={16} /> Supprimer mon compte
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="client-app-content mx-auto space-y-4 px-4 pb-5 pt-5 sm:px-5">
 
