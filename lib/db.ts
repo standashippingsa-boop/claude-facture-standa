@@ -78,13 +78,33 @@ export async function deleteClient(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Supabase (PostgREST) pa janm voye plis pase 1000 liy nan yon sèl repons —
+ * san avètisman. Depi bazdone a depase 1000 koli, tout lekti "tout liy yo"
+ * te koupe an silans (grafik dashboard la pa t wè nouvo koli yo). Fonksyon
+ * sa a li paj pa paj (1000 chak fwa) jiskaske tout liy yo rive.
+ * `build` dwe retounen yon NOUVO rekèt ak yon lòd estab (ex: order("id")).
+ */
+async function fetchAllRows<T>(build: () => any, cap = 100000): Promise<T[]> {
+  const pageSize = 1000;
+  const out: T[] = [];
+  for (let from = 0; from < cap; from += pageSize) {
+    const { data, error } = await build().range(from, Math.min(from + pageSize, cap) - 1);
+    if (error) throw error;
+    out.push(...((data ?? []) as T[]));
+    if (!data || data.length < pageSize) break;
+  }
+  return out;
+}
+
 // ================= PACKAGES =================
 export async function getPackages(status?: string, includeArchived = false, conduceId?: string): Promise<Pkg[]> {
-  let q = supabase.from("packages").select("*").order("created_at", { ascending: false });
-  if (status) q = q.eq("status", status);
-  if (conduceId) q = q.eq("conduce_id", conduceId);   // Modil Conduces — menm motè, filtè sèlman
-  const { data, error } = await q;
-  if (error) throw error;
+  const data = await fetchAllRows<any>(() => {
+    let q = supabase.from("packages").select("*").order("created_at", { ascending: false }).order("id", { ascending: true });
+    if (status) q = q.eq("status", status);
+    if (conduceId) q = q.eq("conduce_id", conduceId);   // Modil Conduces — menm motè, filtè sèlman
+    return q;
+  });
   const rows = (data ?? []).map((p) =>
     asNum(p, ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[];
   // Filtre nan JS -> pa kraze si migration 'archived' poko kouri (pwen #4)
@@ -163,11 +183,8 @@ export async function getPackagesPage(
 
 /** Chaje TOUT koli ki matche filtè yo (sou demand — pou seleksyon global/bulk sou anpil paj). */
 export async function getAllPackagesMatching(filters: PackagesQueryFilters, cap = 3000): Promise<Pkg[]> {
-  let q = supabase.from("packages").select("*");
-  q = applyPackagesFilters(q, filters);
-  q = q.order("created_at", { ascending: false }).limit(cap);
-  const { data, error } = await q;
-  if (error) throw error;
+  const data = await fetchAllRows<any>(() => applyPackagesFilters(supabase.from("packages").select("*"), filters)
+    .order("created_at", { ascending: false }).order("id", { ascending: true }), cap);
   return (data ?? []).map((p) =>
     asNum(p, ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[];
 }
@@ -2305,12 +2322,13 @@ export interface ChartsData {
   clientSignups: { created_at: string; customer_code: string | null }[];
 }
 export async function getChartsData(): Promise<ChartsData> {
-  const [{ data: pkgs, error: e1 }, { data: cls, error: e2 }] = await Promise.all([
-    supabase.from("packages").select("received_at, created_at, customer_code"),
-    supabase.from("clients").select("created_at, customer_code"),
+  // Lekti paj pa paj: chak koli ajoute (ekstansyon, Excel, alamen) antre nan grafik la.
+  const [pkgs, cls] = await Promise.all([
+    fetchAllRows<{ received_at: string | null; created_at: string; customer_code: string | null }>(() =>
+      supabase.from("packages").select("id, received_at, created_at, customer_code").order("id", { ascending: true })),
+    fetchAllRows<{ created_at: string; customer_code: string | null }>(() =>
+      supabase.from("clients").select("id, created_at, customer_code").order("id", { ascending: true })),
   ]);
-  if (e1) throw e1;
-  if (e2) throw e2;
   const packageDates = (pkgs ?? [])
     .map((p: { received_at: string | null; created_at: string }) => p.received_at ?? p.created_at)
     .filter((d): d is string => !!d);

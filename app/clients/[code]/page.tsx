@@ -16,6 +16,8 @@ import { useRole } from "@/lib/authx";
 import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
 import { computePrice, round2 } from "@/lib/pricing";
 import InvoiceDialog from "@/components/InvoiceDialog";
+import TimeSeriesBarChart from "@/components/TimeSeriesBarChart";
+import { bucketByMonth, peakIndex } from "@/lib/dashboard-charts";
 import { Client, INTERNAL_STATUSES, Invoice, Pkg } from "@/lib/types";
 import { dateFr, sortPackagesAvailableFirst, usd } from "@/lib/utils";
 import { returnToOr, useRememberListContext, withReturnTo } from "@/lib/list-context";
@@ -130,6 +132,10 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   const lastInvoiceAt = invs.reduce((latest, i) => String(i.created_at ?? "") > latest ? String(i.created_at) : latest, "");
   const nonFacture = round2(visible.filter((p) => p.status === "Disponible")
     .reduce((s, p) => s + p.price_usd + p.tax_usd, 0));
+
+  // ===== Aktivite pa mwa — menm dat ak grafik dashboard la (resepsyon Miami, sinon antre nan sistèm nan) =====
+  const activitySeries = bucketByMonth(pkgs.map((p) => p.received_at ?? (p as { created_at?: string }).created_at ?? p.created_date), 12);
+  const activityPeak = activitySeries[peakIndex(activitySeries)];
 
   // ===== Tarification (menm règ ak paj Packages) =====
   const applyTarif = async () => {
@@ -335,6 +341,19 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           ))}
         </section>
       </div>
+
+      {/* ===== Aktivite kliyan an mwa pa mwa (12 dènye mwa) ===== */}
+      <section className="card p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-xs font-bold text-navy uppercase tracking-wide">Activité par mois</h2>
+          <p className="text-xs text-mute">
+            {activityPeak
+              ? <>Mois le plus actif : <b className="text-ink">{activityPeak.label}</b> — <b className="text-ink">{activityPeak.value} colis</b></>
+              : "Aucun colis sur les 12 derniers mois."}
+          </p>
+        </div>
+        <div className="mt-3"><TimeSeriesBarChart series={activitySeries} color="#122B5C" height={120} /></div>
+      </section>
 
       {retraitCount !== null && (
         <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-navy">
