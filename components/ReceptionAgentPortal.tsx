@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ClipboardList, CloudOff, LogOut, MapPin, PackagePlus, Search, User } from "lucide-react";
+import { ClipboardList, LogOut, MapPin, PackagePlus, Search, User } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import Logo from "@/components/Logo";
 
@@ -74,8 +74,9 @@ export default function ReceptionAgentPortal() {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: auth },
         body: JSON.stringify(body)
       });
+      setOffline(false);
       return { status: res.status, json: await res.json().catch(() => ({})) };
-    } catch { return null; }
+    } catch { setOffline(true); return null; }
   }, [authHeader]);
 
   /** Voye Conduce ki t ap tann yo. Yon nimewo ki deja egziste konte kòm reyisi (sèvè a idanpotan). */
@@ -224,6 +225,8 @@ export default function ReceptionAgentPortal() {
             <div className="flex items-center gap-2.5 rounded-full bg-white/15 py-1.5 pl-1.5 pr-3.5 backdrop-blur-md">
               <Logo size={30} rounded="rounded-full" tone="light" />
               <span className="text-[13px] font-bold text-white">{agentName || "Réception"}</span>
+              <span role="status" aria-label={offline ? "Hors ligne" : "Connecté"} title={offline ? "Hors ligne" : "Connecté"}
+                className={`h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white/70 ${offline ? "bg-red-500" : "bg-emerald-400"}`} />
             </div>
             <button onClick={logout} aria-label="Déconnexion"
               className="grid h-9 w-9 place-items-center rounded-full bg-white/15 text-white backdrop-blur-md hover:bg-white/25">
@@ -247,16 +250,6 @@ export default function ReceptionAgentPortal() {
               <ClipboardList size={15} /> Conduce
             </button>
           </div>
-
-          {(offline || queue.length > 0) && (
-            <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-[13px] font-semibold text-amber-800">
-              <CloudOff size={15} className="shrink-0" />
-              <span>
-                {offline ? "Hors ligne — vous pouvez continuer à travailler." : "Envoi en cours…"}
-                {queue.length > 0 && ` ${queue.length} Conduce${queue.length > 1 ? "s" : ""} en attente d'envoi.`}
-              </span>
-            </p>
-          )}
 
           {tab === "search" ? (
             <div className="mt-5">
