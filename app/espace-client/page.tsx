@@ -164,6 +164,8 @@ export default function EspaceClientPage() {
   const [calcW, setCalcW] = useState("");
   const [showPushBanner, setShowPushBanner] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  // Eta notifikasyon sou telefòn sa a — pou bouton « Activer les notifications ».
+  const [pushState, setPushState] = useState<"on" | "off" | "denied" | "unsupported">("off");
   const [retraitConfirmedCount, setRetraitConfirmedCount] = useState<number | null>(null);
 
   const load = async () => {
@@ -218,13 +220,15 @@ export default function EspaceClientPage() {
   const PUSH_DISMISS_KEY_PREFIX = "standa:push-permission-dismissed-v2:";
   useEffect(() => {
     const customerCode = client?.customer_code;
-    if (!customerCode || !isPushSupported()) return;
+    if (!customerCode) return;
+    if (!isPushSupported()) { setPushState("unsupported"); return; }
     let dismissed = false;
     try { dismissed = window.localStorage.getItem(`${PUSH_DISMISS_KEY_PREFIX}${customerCode}`) === "1"; } catch { /* ignore */ }
     // Fenèt otorizasyon telefòn nan parèt dirèkteman lè kliyan an antre.
     // Si navigatè a mande yon tap (iPhone), fenèt pa nou an parèt kòm sekou.
     void autoEnablePush(() => subscribeToPush(customerCode)).then((state) => {
       if (state === "prompt-needed" && !dismissed) setShowPushBanner(true);
+      setPushState(state === "ok" ? "on" : state === "denied" ? "denied" : state === "unsupported" ? "unsupported" : "off");
     });
   }, [client?.customer_code]);
 
@@ -240,8 +244,8 @@ export default function EspaceClientPage() {
     setPushBusy(true);
     try {
       const r = await subscribeToPush(client.customer_code);
-      if (r.ok) { setToast("Notifications activées."); dismissPushBanner(); }
-      else if (r.reason === "denied") { setToast("Notifications refusées — activez-les depuis les réglages de votre navigateur si vous changez d'avis."); dismissPushBanner(); }
+      if (r.ok) { setToast("Notifications activées."); setPushState("on"); dismissPushBanner(); }
+      else if (r.reason === "denied") { setPushState("denied"); setToast("Notifications refusées — activez-les depuis les réglages de votre navigateur si vous changez d'avis."); dismissPushBanner(); }
       // "timeout" (réseau lent, service worker pas encore prêt) : la bannière
       // reste affichée pour que le client puisse simplement réessayer.
       else if (r.reason === "timeout") setToast("La demande a pris trop de temps. Vérifiez votre connexion et réessayez.");
@@ -629,6 +633,26 @@ export default function EspaceClientPage() {
     </div>
   );
 
+  /** Bouton « Activer les notifications » : eta reyèl telefòn nan + aksyon. */
+  const NotificationButton = ({ compact = false }: { compact?: boolean }) => {
+    if (pushState === "unsupported") {
+      return compact ? <p className="rounded-2xl bg-mist px-4 py-3 text-xs text-mute">Ce téléphone ou ce navigateur ne reçoit pas les notifications. Sur iPhone, installez d&apos;abord l&apos;application sur l&apos;écran d&apos;accueil.</p> : null;
+    }
+    if (pushState === "on") {
+      return <p className="flex min-h-[52px] items-center gap-3 rounded-2xl bg-emerald-50 px-4 text-sm font-bold text-emerald-800"><BellRing size={18} /> Notifications activées sur ce téléphone</p>;
+    }
+    if (pushState === "denied") {
+      return <div className={`rounded-2xl bg-amber-50 px-4 py-3 text-amber-900 ${compact ? "" : "client-enter"}`}>
+        <p className="flex items-center gap-2 text-sm font-bold"><Bell size={17} /> Notifications bloquées</p>
+        <p className="mt-1 text-xs leading-relaxed">Pour les activer : touchez le cadenas à côté de l&apos;adresse du site (ou les réglages de l&apos;application), puis autorisez les notifications. Revenez ensuite ici.</p>
+      </div>;
+    }
+    return <button type="button" onClick={activatePush} disabled={pushBusy}
+      className={`flex w-full items-center justify-center gap-2 rounded-2xl bg-navy font-bold text-white disabled:opacity-60 ${compact ? "min-h-[52px] text-[15px]" : "client-enter min-h-12 text-sm"}`}>
+      {pushBusy ? <Spinner size={16} /> : <BellRing size={17} />} {pushBusy ? "Activation…" : "Activer les notifications"}
+    </button>;
+  };
+
   /** Lis demann retrait yo — sèvi ni sou Akèy (rezime), ni sou paj Retrait la. */
   const RetraitsList = ({ list = retraits }: { list?: Retrait[] }) => (
     <>
@@ -801,7 +825,10 @@ export default function EspaceClientPage() {
               <p className="mt-0.5 font-mono text-[13px] font-semibold text-mute">{client.customer_code}</p>
             </div>
 
-            <p className="mb-1.5 mt-6 px-1 text-xs font-bold text-mute">Sécurité</p>
+            <p className="mb-1.5 mt-6 px-1 text-xs font-bold text-mute">Notifications</p>
+            <NotificationButton compact />
+
+            <p className="mb-1.5 mt-5 px-1 text-xs font-bold text-mute">Sécurité</p>
             <button className="flex min-h-[60px] w-full items-center gap-3 rounded-2xl bg-mist px-4 text-left"
               onClick={() => { setMenuOpen(false); setShowPwd(true); }}>
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-navy"><KeyRound size={18} /></span>
@@ -884,6 +911,8 @@ export default function EspaceClientPage() {
                 </section>
               </div>
             )}
+
+            {(pushState === "off" || pushState === "denied") && <NotificationButton />}
 
             <ClientInstallCard />
 
