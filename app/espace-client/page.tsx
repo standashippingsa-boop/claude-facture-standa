@@ -53,6 +53,7 @@ import StatusBadge from "@/components/StatusBadge";
 import { StatusTimeline } from "@/components/StatusFlow";
 import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import { openSecureDocument } from "@/lib/secure-document";
+import ClientInstallCard from "@/components/ClientInstallCard";
 import { ClientLogisticsDashboard, ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
 
 import { useNoticeToast } from "@/lib/notify";
@@ -880,6 +881,8 @@ export default function EspaceClientPage() {
                 </section>
               </div>
             )}
+
+            <ClientInstallCard />
 
             <button onClick={() => setView("infos")} className="client-help-link client-enter client-enter-d4">
               <span><BookOpen size={19} /> Guide et aide</span><ChevronRight size={17} />
