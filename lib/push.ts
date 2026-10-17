@@ -224,3 +224,39 @@ export async function unsubscribeFromPush(): Promise<void> {
     // San danje pou itilizatè a kontinye — se yon dezabònman, pa yon aksyon kritik.
   }
 }
+
+/** Voye rezon yon echèk aktivasyon bay ekip la (jounal). Pa janm bloke app la. */
+export async function reportPushFailure(reason: string): Promise<void> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return;
+    await fetch("/api/push-report", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, reason, platform: isNative() ? "android-app" : "navigateur" })
+    });
+  } catch { /* rapò a pa kritik */ }
+}
+
+/**
+ * Aktivasyon OTOMATIK lè moun nan antre nan app la (tankou lòt app yo):
+ *  • otorizasyon poko mande  -> fenèt sistèm telefòn nan parèt dirèkteman;
+ *  • otorizasyon deja bay     -> aparèy la re-anrejistre an silans (sa repare
+ *    telefòn ki te di "wi" lè anrejistreman an t ap echwe);
+ *  • otorizasyon refize       -> nou pa mande ankò.
+ * Retounen "prompt-needed" si navigatè a refize montre fenèt la san yon tap
+ * (iPhone) — lè sa a ekran an montre yon bouton.
+ */
+export async function autoEnablePush(subscribe: () => Promise<{ ok: boolean; reason?: string }>): Promise<"ok" | "denied" | "prompt-needed" | "failed" | "unsupported"> {
+  if (!isPushSupported()) return "unsupported";
+  const before = await getPushPermissionState();
+  if (before === "denied") return "denied";
+  if (before === "unsupported") return "unsupported";
+  const result = await subscribe();
+  if (result.ok) return "ok";
+  if (result.reason === "denied") return "denied";
+  const after = await getPushPermissionState();
+  if (after === "default") return "prompt-needed";
+  void reportPushFailure(result.reason ?? "inconnu");
+  return "failed";
+}

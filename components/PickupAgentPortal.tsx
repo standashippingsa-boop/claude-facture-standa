@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Banknote, Bell, BellRing, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, Printer, RefreshCw, Search, Settings, ShieldCheck, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { getPushPermissionState, isPushSupported, subscribeStaffToPush } from "@/lib/push";
+import { autoEnablePush, getPushPermissionState, isPushSupported, reportPushFailure, subscribeStaffToPush } from "@/lib/push";
 import { openSecureDocument } from "@/lib/secure-document";
 import { packageProgressPriority, sortPackagesAvailableFirst } from "@/lib/utils";
 import Loader, { Spinner } from "@/components/Loader";
@@ -164,10 +164,13 @@ export default function PickupAgentPortal() {
     let dismissed = false;
     try { dismissed = window.localStorage.getItem("standa-agence:push-dismissed") === "1"; } catch { /* ignore */ }
     if (!isPushSupported()) { setPushPermission("unsupported"); return; }
-    getPushPermissionState().then((state) => {
+    const agentId = data.agent.id;
+    // Menm jan ak app kliyan an: fenèt sistèm nan parèt dirèkteman, epi yon
+    // aparèy ki deja otorize re-anrejistre an silans.
+    void autoEnablePush(() => subscribeStaffToPush(agentId)).then(async (state) => {
       if (!active) return;
-      setPushPermission(state);
-      if (!dismissed) setShowPushBanner(state === "default");
+      setPushPermission(await getPushPermissionState());
+      if (state === "prompt-needed" && !dismissed) setShowPushBanner(true);
     }).catch(() => { if (active) setPushPermission("unsupported"); });
     return () => { active = false; };
   }, [data?.agent.id]);
@@ -184,7 +187,7 @@ export default function PickupAgentPortal() {
       const r = await subscribeStaffToPush(data.agent.id);
       if (r.ok) { setPushPermission("granted"); setMessage({ type: "ok", text: "Notifications activées sur cet appareil." }); dismissPushBanner(); }
       else if (r.reason === "denied") { setPushPermission("denied"); setMessage({ type: "error", text: "Notifications refusées — activez-les depuis les réglages de l'application si vous changez d'avis." }); dismissPushBanner(); }
-      else setMessage({ type: "error", text: "Impossible d'activer les notifications pour le moment." });
+      else { setMessage({ type: "error", text: "Impossible d'activer les notifications pour le moment." }); void reportPushFailure(r.reason ?? "inconnu"); }
     } finally { setPushBusy(false); }
   };
   const packages = data?.packages ?? [];

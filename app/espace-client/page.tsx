@@ -37,7 +37,7 @@ import {
   getClientRetraits, getSmallParcelConfig
 } from "@/lib/db";
 import { Agence, getAgences } from "@/lib/agences";
-import { getPushPermissionState, isPushSupported, subscribeToPush } from "@/lib/push";
+import { autoEnablePush, isPushSupported, reportPushFailure, subscribeToPush } from "@/lib/push";
 import { Client, Invoice, INTERNAL_STATUSES, Pkg, Retrait } from "@/lib/types";
 import { DEPOT } from "@/lib/depot";
 import { SUPPORT_PHONE } from "@/lib/branding";
@@ -221,8 +221,11 @@ export default function EspaceClientPage() {
     if (!customerCode || !isPushSupported()) return;
     let dismissed = false;
     try { dismissed = window.localStorage.getItem(`${PUSH_DISMISS_KEY_PREFIX}${customerCode}`) === "1"; } catch { /* ignore */ }
-    if (dismissed) return;
-    getPushPermissionState().then((state) => setShowPushBanner(state === "default"));
+    // Fenèt otorizasyon telefòn nan parèt dirèkteman lè kliyan an antre.
+    // Si navigatè a mande yon tap (iPhone), fenèt pa nou an parèt kòm sekou.
+    void autoEnablePush(() => subscribeToPush(customerCode)).then((state) => {
+      if (state === "prompt-needed" && !dismissed) setShowPushBanner(true);
+    });
   }, [client?.customer_code]);
 
   const dismissPushBanner = () => {
@@ -242,7 +245,7 @@ export default function EspaceClientPage() {
       // "timeout" (réseau lent, service worker pas encore prêt) : la bannière
       // reste affichée pour que le client puisse simplement réessayer.
       else if (r.reason === "timeout") setToast("La demande a pris trop de temps. Vérifiez votre connexion et réessayez.");
-      else setToast("Impossible d'activer les notifications pour le moment.");
+      else { setToast("Impossible d'activer les notifications pour le moment."); void reportPushFailure(r.reason ?? "inconnu"); }
     } finally { setPushBusy(false); }
   };
 
