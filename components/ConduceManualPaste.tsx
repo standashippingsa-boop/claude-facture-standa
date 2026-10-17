@@ -59,7 +59,7 @@ export default function ConduceManualPaste({
     setBusy(true);
     try {
       const r = await importConduceExcelRows(conduceId, conduceNumber, excelRows, staffName);
-      setMsg({ t: "ok", s: `✔ ${r.created} créés, ${r.updated} mis à jour/liés${r.special ? ` — ${r.special} colis spécial${r.special > 1 ? "aux" : ""}` : ""} — ${r.totalWeight.toFixed(2)} lb au total.` });
+      setMsg({ t: "ok", s: `✔ ${r.created} créés, ${r.updated} mis à jour/liés${r.special ? ` — ${r.special} colis spécial${r.special > 1 ? "aux" : ""}` : ""} — ${r.totalWeight.toFixed(2)} lb au total.${r.bons.length ? ` Bon de remise créé : ${r.bons.map((bon) => `${bon.destination} (${bon.package_count})`).join(", ")}.` : ""}` });
       setExcelRows(null); setFileName("");
       onLinked?.();
     } catch (e: any) {

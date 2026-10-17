@@ -148,7 +148,15 @@ export async function POST(req: Request) {
       package_ref: "", customer_code: ""
     });
 
-    return NextResponse.json({ ok: true, conduce_id: conduce.id, created, updated, linked, promus, ignored, total: items.length });
+    // Bon de remise pou chak vil touswit (pwogram 10 minit la rete filè sekirite si sa echwe).
+    let bons = 0;
+    try {
+      const result = await db.rpc("create_bons_remise_for_conduce", { p_conduce_id: conduce.id });
+      if (result.error) console.error("[ingest-conduce] bons", result.error);
+      else bons = Array.isArray(result.data) ? result.data.length : 0;
+    } catch (error) { console.error("[ingest-conduce] bons", error); }
+
+    return NextResponse.json({ ok: true, conduce_id: conduce.id, created, updated, linked, promus, ignored, total: items.length, bons });
   } catch (e) {
     // Pa gen detay entèn (non tab, erè Postgres, stack) ki soti bay kliyan an.
     console.error("[ingest-conduce]", e);

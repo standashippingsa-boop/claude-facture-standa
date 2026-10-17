@@ -571,6 +571,25 @@ export async function createBonRemiseRecord(input: {
   return bon as BonRemiseRecord;
 }
 
+/**
+ * Kreye yon Bon de remise PA VIL pou koli yon Conduce ki poko sou yon bon
+ * (fonksyon SQL create_bons_remise_for_conduce), epi avèti ajan retrè chak vil.
+ */
+export async function createBonsForConduce(conduceId: string): Promise<{ destination: string; package_count: number }[]> {
+  const { data, error } = await supabase.rpc("create_bons_remise_for_conduce", { p_conduce_id: conduceId });
+  if (error) throw error;
+  const bons = (Array.isArray(data) ? data : []) as Array<{ bon_number: string; destination: string; package_count: number }>;
+  if (bons.length) {
+    const { data: session } = await supabase.auth.getSession();
+    await Promise.allSettled(bons.map((bon) => fetch("/api/notify-agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: session.session?.access_token ?? "", destination: bon.destination, bon_number: bon.bon_number, package_count: bon.package_count })
+    })));
+  }
+  return bons.map((bon) => ({ destination: bon.destination, package_count: bon.package_count }));
+}
+
 /** Sèlman pou netwaye yon dosye ki fèk kreye si jenerasyon PDF la ta echwe. */
 export async function deleteBonRemiseRecord(id: string): Promise<void> {
   const { error } = await supabase.from("bons_remise").delete().eq("id", id);
@@ -1089,6 +1108,8 @@ export async function linkPackagesToConduce(
     await logAction("Import Conduce",
       `Conduce ${conduceNumber} : ${linked} colis liés, ${promus} passés en "${CONDUCE_ARRIVAL_STATUS}"`, "", "");
   }
+  // Bon de remise pou chak vil touswit apre koli yo antre nan Conduce a.
+  if (linked > 0) await createBonsForConduce(conduceId).catch((error) => console.error("[bons conduce]", error));
   return { linked, alreadyElsewhere };
 }
 
@@ -1104,7 +1125,7 @@ export async function importConduceExcelRows(
   rows: { guia: string; tracking_number: string; customer_code: string; customer_name: string;
            office: string; weight: number; content: string; quantity: number; is_special?: boolean; special_reason?: string }[],
   who = ""
-): Promise<{ created: number; updated: number; linked: number; special: number; totalWeight: number }> {
+): Promise<{ created: number; updated: number; linked: number; special: number; totalWeight: number; bons: { destination: string; package_count: number }[] }> {
   let created = 0, updated = 0, linked = 0;
   const special = rows.filter((row) => row.is_special).length;
   let officeSeen = "";
@@ -1172,7 +1193,10 @@ export async function importConduceExcelRows(
   await logAction("Import Conduce · Excel",
     `Conduce ${conduceNumber} : ${created} créés, ${updated} mis à jour/liés, ${rows.length} colis dont ${special} spécial(aux), ${totalWeight.toFixed(2)} lb — par ${who}`,
     "", "");
-  return { created, updated, linked, special, totalWeight };
+  // Bon de remise pou chak vil, touswit apre koli yo antre nan Conduce a.
+  // Kanal apa: yon echèk isit la pa anile enpòtasyon an (pwogram 10 minit la ap pran l).
+  const bons = await createBonsForConduce(conduceId).catch((error) => { console.error("[bons conduce]", error); return []; });
+  return { created, updated, linked, special, totalWeight, bons };
 }
 
 export interface FactureMatch {
