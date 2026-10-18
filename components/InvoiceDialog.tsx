@@ -95,6 +95,9 @@ export default function InvoiceDialog({
   const [fixedSel, setFixedSel] = useState<Record<string, string>>({});
   /** Pri manyèl obligatwa pou chak colis spécial. */
   const [specialPrices, setSpecialPrices] = useState<Record<string, string>>({});
+  /** Mòd tarif chak colis spécial: "manual" (pri fiks) oswa "weight" (pa liv + taks). */
+  const [specialModes, setSpecialModes] = useState<Record<string, "manual" | "weight">>({});
+  const [specialTaxes, setSpecialTaxes] = useState<Record<string, string>>({});
   /** Kont santral: lis vil yo + vil ki chwazi pou fakti sa a. */
   const [centralCode, setCentralCode] = useState("");
   const [villes, setVilles] = useState<Ville[]>([]);
@@ -168,10 +171,24 @@ export default function InvoiceDialog({
     .filter(({ info }) => info.isSpecial);
   const specialPackageIds = new Set(specialPackages.map(({ pkg }) => pkg.id));
   const specialPriceValue = (pkgId: string) => Number(String(specialPrices[pkgId] ?? "").replace(",", "."));
+  const specialModeOf = (pkgId: string) => specialModes[pkgId] ?? "manual";
+  const specialTaxValue = (pkgId: string) => {
+    const raw = String(specialTaxes[pkgId] ?? "").trim().replace(",", ".");
+    return raw === "" ? NaN : Number(raw);
+  };
   const specialWithoutPrice = specialPackages.filter(({ pkg }) => {
+    if (specialModeOf(pkg.id) === "weight") {
+      const tax = specialTaxValue(pkg.id);
+      return !Number.isFinite(tax) || tax < 0;
+    }
     const amount = specialPriceValue(pkg.id);
     return !Number.isFinite(amount) || amount <= 0;
   });
+  /** Taks colis spécial « au poids + taxe » pou motè a. */
+  const specialSurcharges: Record<string, number> = {};
+  for (const { pkg } of specialPackages) {
+    if (specialModeOf(pkg.id) === "weight") specialSurcharges[pkg.id] = Number.isFinite(specialTaxValue(pkg.id)) ? specialTaxValue(pkg.id) : -1;
+  }
 
   /** Kat fòfè a: { [pkg.id]: { label, price } } — sèlman koli ki gen yon atik. */
   const fixedPrices: FixedPriceMap = {};
@@ -183,19 +200,20 @@ export default function InvoiceDialog({
   // Yon colis spécial toujou pran pri manyèl la: pwa ni katalòg default pa
   // janm antre nan kalkil li. Yon pri vid vin 0 pou moteur a bloke fakti a.
   for (const { pkg, info } of specialPackages) {
+    if (specialModeOf(pkg.id) === "weight") continue;
     fixedPrices[pkg.id] = {
       label: `Colis spécial${info.reason ? ` — ${info.reason}` : ""}`,
       price: specialPriceValue(pkg.id)
     };
   }
   const fixedKey = JSON.stringify(fixedSel);
-  const specialPriceKey = JSON.stringify(specialPrices);
+  const specialPriceKey = JSON.stringify([specialPrices, specialModes, specialTaxes]);
 
   // Rekalkile ak MOTEUR FINANCIER chak fwa yon opsyon chanje
   useEffect(() => {
     if (!ready || !pkgs.length) { setComp(null); return; }
     setComp(computeInvoice({
-      client: effClient, pkgs, rate, smallCfg, mode: calcMode, fixedPrices,
+      client: effClient, pkgs, rate, smallCfg, mode: calcMode, fixedPrices, specialSurcharges,
       taxeFixe: useTaxe ? Number(taxeVal) || 0 : 0,
       fraisDga: useDga ? Number(fraisDga) || 0 : 0,
       discount: useDisc ? Number(discount) || 0 : 0,
@@ -227,7 +245,7 @@ export default function InvoiceDialog({
   const creerFacture = async () => {
     if (!comp) return;
     if (specialWithoutPrice.length) {
-      setErr(`Prix manuel requis pour ${specialWithoutPrice.length} colis spécial${specialWithoutPrice.length > 1 ? "aux" : ""}.`);
+      setErr(`Prix ou taxe requis pour ${specialWithoutPrice.length} colis spécial${specialWithoutPrice.length > 1 ? "aux" : ""}.`);
       return;
     }
     if (!comp.ok) { setErr(comp.errors.join(" ")); return; }
@@ -238,7 +256,7 @@ export default function InvoiceDialog({
       const items = comp.lines.map((l) => ({
         invoice_id: inv.id, tracking_number: l.pkg.tracking_number,
         tracking_manual: l.pkg.tracking_manual ?? "",
-        weight: l.weight, content: invoiceLineContent(l), price: l.amount, tax: 0, total: l.amount,
+        weight: l.weight, content: invoiceLineContent(l), price: Math.round((l.amount - l.surcharge) * 100) / 100, tax: l.surcharge, total: l.amount,
         is_small: l.isSmall, per_lb: l.perLb, fixed_label: l.isFixed ? l.fixedLabel : ""
       }));
       setPending({ inv, items });
@@ -487,27 +505,53 @@ export default function InvoiceDialog({
               <AlertTriangle size={14} /> {specialPackages.length} colis spécial{specialPackages.length > 1 ? "aux" : ""} à tarifer
             </p>
             <p className="mt-1 text-[12px] leading-relaxed text-amber-900">
-              Le prix au poids ne s&apos;applique pas à ces colis. Saisissez le montant à facturer pour chacun avant de générer le PDF.
+              Pour chaque colis : un <b>prix fixe</b>, ou le <b>prix au poids + une taxe</b> (les deux montants restent séparés sur la facture).
             </p>
             <div className="mt-3 divide-y divide-amber-200">
-              {specialPackages.map(({ pkg, info }) => (
-                <label key={pkg.id} className="flex items-center gap-2 py-2.5 text-sm">
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-mono text-[12px] font-bold text-amber-950">* {pkg.tracking_number}</span>
-                    <span className="mt-0.5 block text-[11px] leading-relaxed text-amber-800">{info.reason || "Colis spécial"}</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="text-xs font-bold text-amber-900">USD</span>
-                    <input type="number" inputMode="decimal" step="0.01" min="0.01" required
-                      aria-label={`Prix manuel pour ${pkg.tracking_number}`}
-                      placeholder="0.00" className="input !w-24 !py-1 text-right font-bold"
-                      value={specialPrices[pkg.id] ?? ""}
-                      onChange={(event) => setSpecialPrices((previous) => ({ ...previous, [pkg.id]: event.target.value }))} />
-                  </span>
-                </label>
-              ))}
+              {specialPackages.map(({ pkg, info }) => {
+                const mode = specialModeOf(pkg.id);
+                const line = comp?.lines.find((l) => l.pkg.id === pkg.id);
+                const weightPart = line ? Math.round((line.amount - line.surcharge) * 100) / 100 : 0;
+                return (
+                <div key={pkg.id} className="py-2.5 text-sm">
+                  <span className="block truncate font-mono text-[12px] font-bold text-amber-950">* {pkg.tracking_number} · {Number(pkg.weight || 0).toFixed(2)} lb</span>
+                  <span className="mt-0.5 block text-[11px] leading-relaxed text-amber-800">{info.reason || "Colis spécial"}</span>
+                  <div className="mt-2 grid grid-cols-2 gap-1.5">
+                    {([["manual", "Prix fixe"], ["weight", "Au poids + taxe"]] as const).map(([value, label]) => (
+                      <button key={value} type="button" aria-pressed={mode === value}
+                        onClick={() => setSpecialModes((previous) => ({ ...previous, [pkg.id]: value }))}
+                        className={`min-h-9 rounded-lg border-2 px-2 text-xs font-bold ${mode === value ? "border-amber-700 bg-amber-700 text-white" : "border-amber-300 bg-white text-amber-900"}`}>{label}</button>
+                    ))}
+                  </div>
+                  {mode === "manual" ? (
+                    <label className="mt-2 flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-amber-900">Prix du colis (USD)</span>
+                      <input type="number" inputMode="decimal" step="0.01" min="0.01" required
+                        aria-label={`Prix manuel pour ${pkg.tracking_number}`}
+                        placeholder="0.00" className="input !w-28 !py-1 text-right font-bold"
+                        value={specialPrices[pkg.id] ?? ""}
+                        onChange={(event) => setSpecialPrices((previous) => ({ ...previous, [pkg.id]: event.target.value }))} />
+                    </label>
+                  ) : (
+                    <>
+                      <label className="mt-2 flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-amber-900">Taxe en plus (USD)</span>
+                        <input type="number" inputMode="decimal" step="0.01" min="0" required
+                          aria-label={`Taxe pour ${pkg.tracking_number}`}
+                          placeholder="0.00" className="input !w-28 !py-1 text-right font-bold"
+                          value={specialTaxes[pkg.id] ?? ""}
+                          onChange={(event) => setSpecialTaxes((previous) => ({ ...previous, [pkg.id]: event.target.value }))} />
+                      </label>
+                      {line && <p className="mt-1.5 text-right text-xs text-amber-950">
+                        Au poids {usd(weightPart)} + taxe {usd(line.surcharge)} = <b>{usd(line.amount)}</b>
+                      </p>}
+                    </>
+                  )}
+                </div>
+                );
+              })}
             </div>
-            {specialWithoutPrice.length > 0 && <p className="mt-2 text-[11px] font-bold text-red-700">Prix manuel requis pour chaque colis spécial.</p>}
+            {specialWithoutPrice.length > 0 && <p className="mt-2 text-[11px] font-bold text-red-700">Entrez le prix fixe ou la taxe de chaque colis spécial.</p>}
           </section>
         )}
 

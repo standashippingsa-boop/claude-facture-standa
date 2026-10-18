@@ -1751,8 +1751,9 @@ export async function createInvoiceFromComputation(
     tracking_manual: l.pkg.tracking_manual ?? "",
     weight: l.weight,
     content: invoiceLineContent(l),
-    price: l.amount,
-    tax: 0,
+    // Colis spécial « au poids + taxe » : les deux parts restent séparées.
+    price: round2(l.amount - (l.surcharge || 0)),
+    tax: round2(l.surcharge || 0),
     total: l.amount
   }));
   let { error: e2 } = await supabase.from("invoice_items").insert(items);
@@ -1775,10 +1776,10 @@ export async function createInvoiceFromComputation(
   const applyInvoiceToPackage = async (line: typeof comp.lines[number]) => {
     const pricing = {
       status: "Facturé", invoice_id: inv.id,
-      price_usd: line.amount, tax_usd: 0,
+      price_usd: round2(line.amount - (line.surcharge || 0)), tax_usd: round2(line.surcharge || 0),
       // Totaux dérivés automatiquement de price_* + tax_* dans Supabase.
       // Les inclure ici bloque toute la facture (colonnes générées).
-      price_htg: round2(line.amount * rate), tax_htg: 0
+      price_htg: round2((line.amount - (line.surcharge || 0)) * rate), tax_htg: round2((line.surcharge || 0) * rate)
     };
     let result = await supabase.from("packages").update({ ...pricing, invoiced_at: invoicedAt })
       .eq("id", line.pkg.id).select("id");

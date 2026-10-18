@@ -56,6 +56,12 @@ export interface InvoiceInput {
   taxeFixe: number;                          // 0 si dezaktive
   /** Pri fòfè pa koli: { [pkg.id]: { label, price } }. Vid = tout pa liv. */
   fixedPrices?: FixedPriceMap;
+  /**
+   * COLIS SPÉCIAL « AU POIDS + TAXE » : { [pkg.id]: taks USD }. Koli a fakti
+   * PA LIV nòmalman (pwa × Prix/LB, san tarif ti koli), epi taks la AJOUTE
+   * sou liy li. De pati yo rete apa (price / tax) sou fakti a.
+   */
+  specialSurcharges?: Record<string, number>;
   fraisDga: number;                          // 0 si dezaktive
   discount: number;                          // 0 si dezaktive
 
@@ -80,7 +86,9 @@ export interface InvoiceLine {
   isFixed: boolean;
   /** Non atik la lè isFixed (ex: "Laptop"). Vid sinon. */
   fixedLabel: string;
-  amount: number;                            // montan liy lan (USD)
+  /** Taks colis spécial ajoute sou pati pa liv la (USD). 0 sinon. Deja ANNDAN `amount`. */
+  surcharge: number;
+  amount: number;                            // montan liy lan (USD) = pati pa liv + surcharge
 }
 
 /**
@@ -89,6 +97,7 @@ export interface InvoiceLine {
  */
 export function invoiceLineContent(line: InvoiceLine): string {
   const content = String(line.pkg.content ?? "").trim();
+  if (line.surcharge > 0) return [content, `Colis spécial — taxe ${line.surcharge.toFixed(2)} USD`].filter(Boolean).join(" — ");
   if (!line.isFixed || !line.fixedLabel.startsWith("Colis spécial")) return content;
   return [content, line.fixedLabel].filter(Boolean).join(" — ");
 }
@@ -145,6 +154,7 @@ function perLbFromSettings(ville: Ville, accountType: AccountType): number {
 export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   const { client, pkgs, rate, smallCfg, mode, taxeFixe, fraisDga, discount } = input;
   const fixedPrices: FixedPriceMap = input.fixedPrices ?? {};
+  const surcharges: Record<string, number> = input.specialSurcharges ?? {};
   const errors: string[] = [];
 
   // ---- DOUBLE VALIDATION (§3) ----
@@ -172,6 +182,10 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
     }
     if (!Number.isFinite(p.weight) || p.weight <= 0) {
       errors.push(`Poids invalide pour le colis ${p.tracking_number || p.id}.`);
+    }
+    if (p.id in surcharges) {
+      const sc = Number(surcharges[p.id]);
+      if (!Number.isFinite(sc) || sc < 0) errors.push(`Taxe invalide pour le colis spécial ${p.tracking_number || p.id}.`);
     }
   }
   // Frè yo dwe valab (pa negatif, se nonm)
@@ -226,6 +240,8 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
 
   // Koli a FÒFÈ (atik a pri fiks) vs koli ki fakti PA LIV
   const isFix = (p: Pkg) => !!fixedPrices[p.id];
+  const surchargeOf = (p: Pkg) => !isFix(p) && p.id in surcharges ? round2(Math.max(0, Number(surcharges[p.id]) || 0)) : 0;
+  const totalSurcharges = round2(pkgs.reduce((s, p) => s + surchargeOf(p), 0));
   const auPoids = pkgs.filter((p) => !isFix(p));
   const forfaits = round2(pkgs.filter(isFix).reduce((s, p) => s + round2(fixedPrices[p.id].price), 0));
 
@@ -237,7 +253,7 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
     // Koli fòfè yo rete deyò adisyon an — yo ajoute apre, pri fiks yo.
     const poidsAuPoids = round2(auPoids.reduce((s, p) => s + w(p), 0));
     const partPoids = round2(poidsAuPoids * perLb);
-    subtotal = round2(partPoids + forfaits);
+    subtotal = round2(partPoids + forfaits + totalSurcharges);
 
     // Reparti `partPoids` sou koli au poids yo; dènye a absòbe rès awondi a,
     // konsa som liy yo egal EGZAKTEMAN subtotal la (verifyTotal rete valab).
@@ -247,13 +263,14 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
       if (isFix(p)) {
         const f = fixedPrices[p.id];
         return { pkg: p, weight: w(p), perLb: 0, isSmall: false,
-                 isFixed: true, fixedLabel: f.label, amount: round2(f.price) };
+                 isFixed: true, fixedLabel: f.label, surcharge: 0, amount: round2(f.price) };
       }
       vus++;
       const last = vus === auPoids.length;
-      const amount = last ? round2(partPoids - cumul) : round2(w(p) * perLb);
-      if (!last) cumul = round2(cumul + amount);
-      return { pkg: p, weight: w(p), perLb, isSmall: false, isFixed: false, fixedLabel: "", amount };
+      const weightPart = last ? round2(partPoids - cumul) : round2(w(p) * perLb);
+      if (!last) cumul = round2(cumul + weightPart);
+      const surcharge = surchargeOf(p);
+      return { pkg: p, weight: w(p), perLb, isSmall: false, isFixed: false, fixedLabel: "", surcharge, amount: round2(weightPart + surcharge) };
     });
   } else {
     // LÒT KONT: chak koli apa — fòfè; sinon ti koli; sinon pwa × pri/lb.
@@ -261,11 +278,13 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
       if (isFix(p)) {
         const f = fixedPrices[p.id];
         return { pkg: p, weight: w(p), perLb: 0, isSmall: false,
-                 isFixed: true, fixedLabel: f.label, amount: round2(f.price) };
+                 isFixed: true, fixedLabel: f.label, surcharge: 0, amount: round2(f.price) };
       }
-      const small = mode === "small_control" && isSmallParcel(p.weight, smallCfg);
-      const amount = small ? round2(smallCfg.price) : round2(p.weight * perLb);
-      return { pkg: p, weight: w(p), perLb, isSmall: small, isFixed: false, fixedLabel: "", amount };
+      const surcharge = surchargeOf(p);
+      // Yon colis spécial « au poids + taxe » pa janm pran tarif ti koli.
+      const small = !(p.id in surcharges) && mode === "small_control" && isSmallParcel(p.weight, smallCfg);
+      const weightPart = small ? round2(smallCfg.price) : round2(p.weight * perLb);
+      return { pkg: p, weight: w(p), perLb, isSmall: small, isFixed: false, fixedLabel: "", surcharge, amount: round2(weightPart + surcharge) };
     });
     subtotal = round2(lines.reduce((s, l) => s + l.amount, 0));
   }
