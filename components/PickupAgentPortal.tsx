@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Banknote, Bell, BellRing, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, Printer, RefreshCw, Search, Settings, ShieldCheck, Truck, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Banknote, Bell, BellRing, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, Printer, RefreshCw, Search, Settings, ShieldCheck, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { autoEnablePush, getPushPermissionState, isPushSupported, reportPushFailure, subscribeStaffToPush } from "@/lib/push";
 import { openSecureDocument } from "@/lib/secure-document";
@@ -375,8 +375,9 @@ export default function PickupAgentPortal() {
   // ouverte à l'écran ; sinon (rapport, historique) dans une fenêtre au-dessus.
   const inlineCustomer = (tab === "dossiers" || tab === "ready") && expandedCustomer && hostHasCustomer(expandedCustomer) ? expandedCustomer : null;
   const selectedInvoice = selectedInvoiceId ? invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null : null;
-  const invoiceInline = Boolean(selectedInvoice && inlineCustomer === selectedInvoice.customer_code);
-  const paymentInline = Boolean(paymentTarget && inlineCustomer === paymentTarget.customerCode);
+  void inlineCustomer;
+  const invoiceInline = false;
+  const paymentInline = false;
   const paymentInvoicesFor = (customerCode: string) => invoices
     .filter((invoice) => invoice.customer_code === customerCode && invoice.has_pdf && invoice.payment_status !== "Payé")
     .map(toPaymentInvoice);
@@ -393,7 +394,8 @@ export default function PickupAgentPortal() {
       const lines = (result.payments ?? []) as Array<{ invoice_number: string; payment_status: string }>;
       const paymentText = `${payload.summary}\n${invoiceStatusLines(lines)}`;
       const customerCode = paymentTarget?.customerCode ?? "";
-      setPaymentTarget(null);
+      // Operasyon fini: tounen sou paj anvan an (dosye kliyan an), pa rete sou fòm nan.
+      window.history.back();
       const fresh = await load(true);
       const releasable = (fresh?.packages ?? []).filter((item) => item.customer_code === customerCode && canReleaseParcel(item)).map((item) => item.id);
       if (releasable.length) setRemiseOffer({ customerCode, packageIds: releasable, paymentText });
@@ -419,7 +421,8 @@ export default function PickupAgentPortal() {
   };
 
   const openInvoice = (invoiceId: string) => {
-    setSelectedInvoiceId((current) => current === invoiceId ? null : invoiceId);
+    setPaymentTarget(null);
+    setSelectedInvoiceId(invoiceId);
     window.setTimeout(() => document.getElementById("invoice-inline-" + invoiceId)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
   };
 
@@ -434,6 +437,55 @@ export default function PickupAgentPortal() {
     try { await openSecureDocument(kind, id); }
     catch (error) { setMessage({ type: "error", text: error instanceof Error ? error.message : "PDF indisponible." }); }
   };
+
+  // ── NAVIGASYON PA PAJ ─────────────────────────────────────────────────
+  // Chak aksyon ki louvri yon bagay (dosye, fakti, peman, tikè, onglè) se yon
+  // PAJ: li antre nan istorik navigatè a. Bouton « Retour » ak gès retou
+  // telefòn nan tounen sou paj anvan an, pa soti nan app la.
+  type NavSnapshot = { tab: Tab; expandedCustomer: string | null; selectedInvoiceId: string | null; paymentTarget: PaymentTarget | null; arrivalSection: ArrivalSection | null; ticketPackageId: string | null };
+  const snapshot: NavSnapshot = { tab, expandedCustomer, selectedInvoiceId, paymentTarget, arrivalSection, ticketPackageId };
+  const snapshotKey = JSON.stringify(snapshot);
+  const lastKeyRef = useRef<string | null>(null);
+  const restoringRef = useRef(false);
+  const applySnapshot = (next: NavSnapshot) => {
+    restoringRef.current = true;
+    setTab(next.tab); setExpandedCustomer(next.expandedCustomer); setSelectedInvoiceId(next.selectedInvoiceId);
+    setPaymentTarget(next.paymentTarget); setArrivalSection(next.arrivalSection); setTicketPackageId(next.ticketPackageId);
+    setPaymentError(null); setMobileMoreOpen(false);
+  };
+  const applySnapshotRef = useRef(applySnapshot);
+  applySnapshotRef.current = applySnapshot;
+  useEffect(() => {
+    if (lastKeyRef.current === null) { lastKeyRef.current = snapshotKey; return; }
+    if (lastKeyRef.current === snapshotKey) return;
+    lastKeyRef.current = snapshotKey;
+    if (restoringRef.current) { restoringRef.current = false; }
+    else { try { window.history.pushState({ ...(window.history.state ?? {}), standaAgentNav: snapshot }, "", window.location.href); } catch { /* noop */ } }
+    window.scrollTo({ top: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshotKey]);
+  useEffect(() => {
+    const onPop = (event: PopStateEvent) => {
+      const saved = event.state && typeof event.state === "object" ? (event.state as { standaAgentNav?: NavSnapshot }).standaAgentNav : undefined;
+      applySnapshotRef.current(saved ?? { tab: "home", expandedCustomer: null, selectedInvoiceId: null, paymentTarget: null, arrivalSection: null, ticketPackageId: null });
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const goBack = () => { if (!paymentBusy) window.history.back(); };
+
+  const subPage: "payment" | "invoice" | null = paymentTarget ? "payment" : selectedInvoice ? "invoice" : null;
+  // Yon dosye kliyan ouvè = yon paj pou kliyan sa a sèlman.
+  const dossierPage = expandedCustomer ? dossiers.filter((dossier) => dossier.customerCode === expandedCustomer) : [];
+  const groupPage = expandedCustomer ? groups.filter((group) => group.customerCode === expandedCustomer) : [];
+  const shownDossiers = dossierPage.length ? dossierPage : matchingDossiers;
+  const shownGroups = groupPage.length ? groupPage : groups;
+  const onCustomerPage = (tab === "dossiers" && dossierPage.length > 0) || ((tab === "ready" || tab === "arrivals") && groupPage.length > 0);
+  const TAB_TITLES: Record<Tab, string> = { home: "Accueil", dossiers: "Dossiers clients", arrivals: "Colis à venir", ready: "À remettre", bons: "Bons de remise", history: "Colis remis", reports: "Rapport", settings: "Paramètres" };
+  const pageTitle = subPage === "payment" ? `Paiement — ${paymentTarget?.customerCode ?? ""}`
+    : subPage === "invoice" ? `Facture ${selectedInvoice?.invoice_number ?? ""}`
+    : onCustomerPage ? `Client ${expandedCustomer}`
+    : TAB_TITLES[tab];
 
   const logout = async () => { await supabase.auth.signOut(); router.replace("/point-retrait"); };
 
@@ -461,7 +513,11 @@ export default function PickupAgentPortal() {
         </section>}
 
         <section className="rounded-2xl border border-white bg-white p-3 shadow-[0_10px_35px_rgba(17,54,110,0.07)] sm:rounded-3xl sm:p-5">
-          {tab !== "home" && tab !== "settings" && <div className="mb-4 flex flex-col gap-3">
+          {(tab !== "home" || subPage) && <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
+            <button type="button" onClick={goBack} disabled={paymentBusy} aria-label="Retour" className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-sm font-bold text-[#0b3270] hover:bg-slate-100 disabled:opacity-40"><ArrowLeft size={19} /> Retour</button>
+            <h2 className="min-w-0 truncate text-base font-extrabold text-[#0a2b61]">{pageTitle}</h2>
+          </div>}
+          {tab !== "home" && tab !== "settings" && !subPage && !onCustomerPage && <div className="mb-4 flex flex-col gap-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h2 className="text-lg font-extrabold text-[#0a2b61]">{tab === "arrivals" ? "Colis à venir" : `Opérations — ${data.zone.name}`}</h2><p className="text-xs text-slate-500">{tab === "arrivals" ? "Touchez un code client : arrivés en Haïti, ou encore en cours." : "Colis, factures, paiements et bons de remise liés à votre zone."}</p></div><form onSubmit={(event) => { event.preventDefault(); openDossier(); }} className="flex min-h-11 gap-2 md:w-[27rem]"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3"><Search size={17} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => { setSearch(event.target.value); setFocusedPackageId(null); }} className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="Numéro de client, suivi ou facture" aria-label="Rechercher un dossier client" /></label><button type="submit" className="shrink-0 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white hover:bg-[#0f448f]">Dossier</button></form></div>
             <p className="text-xs font-semibold text-emerald-700">Les statuts sont synchronisés automatiquement avec le système principal.</p>
             <nav className="hidden">{([
@@ -488,18 +544,18 @@ export default function PickupAgentPortal() {
               </div>
             </div>
           )}
-          {tab === "settings" && <AgentSettingsView agentName={data.agent.name} pushPermission={pushPermission} pushBusy={pushBusy} onActivate={() => void activatePush()} />}
-          {tab === "home" && <HomeDashboard search={search} onSearchChange={(value) => { setSearch(value); setFocusedPackageId(null); }} onOpenDossier={openDossier}
+          {!subPage && tab === "settings" && <AgentSettingsView agentName={data.agent.name} pushPermission={pushPermission} pushBusy={pushBusy} onActivate={() => void activatePush()} />}
+          {!subPage && tab === "home" && <HomeDashboard search={search} onSearchChange={(value) => { setSearch(value); setFocusedPackageId(null); }} onOpenDossier={openDossier}
             bons={data.bons} selectedBonId={selectedBonId} onSelectBon={setSelectedBonId}
             bonBusy={bonBusy} bonConfirmedId={bonConfirmedId} onConfirmBon={confirmBonRemise} />}
-          {tab === "dossiers" && <ClientDossiersView dossiers={matchingDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
-          {tab === "arrivals" && <ArrivalsView groups={groups} expanded={expandedCustomer} section={arrivalSection} onToggleCustomer={toggleArrivalCustomer} onSelectSection={(value) => setArrivalSection((current) => current === value ? null : value)} />}
-          {tab === "ready" && <ReadyView groups={groups} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
-          {tab === "history" && <RemiseHistoryView packages={filteredPackages} onOpenTicket={(packageId) => setTicketPackageId(packageId)} />}
-          {tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
-          {tab === "reports" && <ReportsView agentName={data.agent.name} payments={reportPayments} balances={reportBalances} onOpenInvoice={openInvoice} onStartPayment={(customerCode) => startPayment(customerCode)} onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} />}
-          {selectedInvoice && !invoiceInline && <PaymentModal onClose={() => setSelectedInvoiceId(null)}><InvoiceDetails invoice={selectedInvoice} packages={packages.filter((item) => item.invoice_id === selectedInvoice.id)} onClose={() => setSelectedInvoiceId(null)} onPay={selectedInvoice.payment_status !== "Payé" && selectedInvoice.has_pdf ? () => startPayment(selectedInvoice.customer_code, [selectedInvoice.id]) : undefined} /></PaymentModal>}
-          {paymentTarget && !paymentInline && <PaymentModal onClose={() => { if (!paymentBusy) { setPaymentTarget(null); setPaymentError(null); } }}><ClientPaymentForm key={paymentTarget.customerCode} title="Paiement avant remise" customerCode={paymentTarget.customerCode} customerName={report.customer_balances.find((balance) => balance.customer_code === paymentTarget.customerCode)?.customer_name} invoices={paymentInvoicesFor(paymentTarget.customerCode)} initialSelected={paymentTarget.invoiceIds} busy={paymentBusy} error={paymentError} onSubmit={(payload) => void recordPayment(payload)} onClose={() => { setPaymentTarget(null); setPaymentError(null); }} /></PaymentModal>}
+          {!subPage && tab === "dossiers" && <ClientDossiersView dossiers={shownDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
+          {!subPage && tab === "arrivals" && <ArrivalsView groups={shownGroups} expanded={expandedCustomer} section={arrivalSection} onToggleCustomer={toggleArrivalCustomer} onSelectSection={(value) => setArrivalSection((current) => current === value ? null : value)} />}
+          {!subPage && tab === "ready" && <ReadyView groups={shownGroups} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
+          {!subPage && tab === "history" && <RemiseHistoryView packages={filteredPackages} onOpenTicket={(packageId) => setTicketPackageId(packageId)} />}
+          {!subPage && tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
+          {!subPage && tab === "reports" && <ReportsView agentName={data.agent.name} payments={reportPayments} balances={reportBalances} onOpenInvoice={openInvoice} onStartPayment={(customerCode) => startPayment(customerCode)} onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} />}
+          {subPage === "invoice" && selectedInvoice && !invoiceInline && <InvoiceDetails invoice={selectedInvoice} packages={packages.filter((item) => item.invoice_id === selectedInvoice.id)} onClose={goBack} onPay={selectedInvoice.payment_status !== "Payé" && selectedInvoice.has_pdf ? () => startPayment(selectedInvoice.customer_code, [selectedInvoice.id]) : undefined} />}
+          {subPage === "payment" && paymentTarget && !paymentInline && <ClientPaymentForm key={paymentTarget.customerCode + (paymentTarget.invoiceIds ?? []).join()} title="Paiement avant remise" customerCode={paymentTarget.customerCode} customerName={dossiers.find((dossier) => dossier.customerCode === paymentTarget.customerCode)?.customerName ?? report.customer_balances.find((balance) => balance.customer_code === paymentTarget.customerCode)?.customer_name} invoices={paymentInvoicesFor(paymentTarget.customerCode)} initialSelected={paymentTarget.invoiceIds} busy={paymentBusy} error={paymentError} onSubmit={(payload) => void recordPayment(payload)} onClose={goBack} />}
         </section>
         </div>
         </div>
@@ -507,7 +563,7 @@ export default function PickupAgentPortal() {
         {selectedPackageIds.length > 0 && confirmedParcelIds.length === 0 && !mobileMoreOpen && <RemiseConfirmBar customerCode={selectedCustomerCode} count={selectedPackageIds.length} busy={releasing} onConfirm={() => void releaseSelectedPackages()} onClear={() => setSelectedPackageIds([])} />}
         {confirmedParcelIds.length > 0 && <RemiseSuccessOverlay customerCode={selectedCustomerCode} count={confirmedParcelIds.length} />}
         {remiseOffer && <RemiseOffer offer={remiseOffer} busy={releasing} onRelease={() => { const ids = remiseOffer.packageIds; setRemiseOffer(null); void releasePackages(ids); }} onLater={() => setRemiseOffer(null)} />}
-        {ticketPackageId && <RemiseTicketOverlay packageId={ticketPackageId} onClose={() => setTicketPackageId(null)} />}
+        {ticketPackageId && <RemiseTicketOverlay packageId={ticketPackageId} onClose={goBack} />}
       </>}
     </main>
   </div>;

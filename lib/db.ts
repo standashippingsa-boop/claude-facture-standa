@@ -405,8 +405,9 @@ export async function getBonsRemiseForConduces(conduceIds: string[]): Promise<Bo
   if (linksError) throw linksError;
   const bonIds = Array.from(new Set((links ?? []).map((line: any) => String(line.bon_remise_id))));
   if (!bonIds.length) return [];
+  // Sèlman bon ki poko trete: yon bon ki deja "Disponible" (oswa resevwa pa ajans lan) disparèt.
   const { data, error } = await supabase.from("bons_remise").select("*")
-    .in("id", bonIds).order("created_at", { ascending: false });
+    .in("id", bonIds).is("received_at", null).order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as BonRemiseRecord[];
 }
@@ -461,6 +462,13 @@ export async function makeBonRemiseAvailable(bonId: string, who = ""): Promise<C
     else available++;
     priced++;
   }
+
+  // Koli yo disponib: bon an konsidere kòm resevwa (menm efè ak konfimasyon ajans lan),
+  // li disparèt nan lis bon pou trete yo epi ajans lan pa resevwa l de fwa.
+  const { error: receivedError } = await supabase.from("bons_remise")
+    .update({ received_at: new Date().toISOString(), received_by: who ? `${who} · Disponible` : "Disponible (administration)" })
+    .eq("id", bonId).is("received_at", null);
+  if (receivedError) throw receivedError;
 
   await logAction(
     "Colis rendus disponibles par Bon de remise",
