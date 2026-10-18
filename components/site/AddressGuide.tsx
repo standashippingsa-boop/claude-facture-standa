@@ -24,10 +24,10 @@ function Field({ label, value, n, empty, hint, select, prefix }: {
 }) {
   return (
     <div className="relative">
-      {n !== undefined && (
-        <span aria-hidden="true" className="absolute -left-2 -top-2 z-10 grid h-6 w-6 place-items-center rounded-full bg-red-600 text-[12px] font-black text-white shadow">{n}</span>
-      )}
-      <p className="mb-1 text-[13px] font-bold text-[#111]">{label}</p>
+      <p className="mb-1 flex items-center gap-1.5 text-[13px] font-bold text-[#111]">
+        {n !== undefined && <span aria-hidden="true" className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-red-600 text-[11px] font-black text-white">{n}</span>}
+        {label}
+      </p>
       <div className={`flex min-h-11 items-center justify-between gap-2 rounded-md border bg-white px-3 text-[14px] ${n !== undefined ? "border-red-600 ring-[3px] ring-red-500/70" : "border-slate-400"}`}>
         {prefix && <span className="shrink-0 border-r border-slate-300 pr-2 text-slate-500">{prefix}</span>}
         <span className={`min-w-0 flex-1 truncate ${value ? "font-semibold text-[#111]" : "text-slate-400"}`}>{value || empty}</span>
