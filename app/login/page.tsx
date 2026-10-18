@@ -13,6 +13,7 @@ import Logo from "@/components/Logo";
 import AuthBackdrop from "@/components/site/AuthBackdrop";
 import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import StoreBadges from "@/components/site/StoreBadges";
+import ClientInstallCard from "@/components/ClientInstallCard";
 import { BusyButton } from "@/components/Loader";
 
 import { useNoticeToast } from "@/lib/notify";
@@ -93,7 +94,7 @@ function LoginInner() {
 
           <div className="mt-5 grid grid-cols-3 gap-2.5">{[{ icon: MapPin, label: "Miami" }, { icon: PackageCheck, label: "Suivi" }, { icon: ShieldCheck, label: "Sécurité" }].map(({ icon: Icon, label }) => <div key={label} className="flex items-center justify-center gap-1.5 rounded-2xl border border-white/15 bg-navy/35 px-2 py-3 text-[11px] font-semibold text-white/80 backdrop-blur-md"><Icon size={14} className="text-orange-300" />{label}</div>)}</div>
           <Link href="/inscription" className="mt-5 flex w-full items-center justify-center rounded-xl border border-white/25 bg-white/[.08] py-3.5 text-sm font-bold text-white transition hover:bg-white/[.16]">Vous n&apos;avez pas encore de compte ? Créez-en un</Link>
-          <section className="mt-5 border-t border-white/15 pt-5 text-center"><p className="text-[11px] font-bold uppercase tracking-[.16em] text-white/60">Application mobile</p><p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-white/65">Téléchargez l&apos;application STANDA dès sa publication officielle.</p><StoreBadges className="mt-4 justify-center" /></section>
+          <section className="mt-5 border-t border-white/15 pt-5 text-center"><p className="text-[11px] font-bold uppercase tracking-[.16em] text-white/60">Application mobile</p><p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-white/65">Téléchargez l&apos;application STANDA dès sa publication officielle.</p><StoreBadges className="mt-4 justify-center" /><ClientInstallCard className="mt-4 ring-1 ring-white/25" /></section>
           <p className="mt-5 text-center text-[11px] text-white/45"><Link href="/confidentialite" className="transition hover:text-white/80">Politique de confidentialité</Link></p>
         </main>
       </div>

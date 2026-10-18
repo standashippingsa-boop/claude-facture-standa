@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Download, Share, SquarePlus, X } from "lucide-react";
+import { Download, EllipsisVertical, Share, SquarePlus, X } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
@@ -8,18 +8,18 @@ type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Pro
 const HIDE_KEY = "standa-install-card-hidden";
 
 /**
- * « Ajouter l'application sur mon téléphone » — espace client.
- *  • Android / Chrome : le navigateur propose l'installation → un bouton suffit.
- *  • iPhone (Safari) : Apple n'autorise pas de bouton ; on montre les 2 gestes
- *    (Partager → « Sur l'écran d'accueil »).
- * Rien n'apparaît si l'app est déjà installée, dans l'APK Android, ou si le
- * client a fermé la carte.
+ * « Installer l'application » — espace client (et page de connexion).
+ * La carte est TOUJOUR visible (sauf app déjà installée, APK Android, ou carte
+ * fermée par le client) :
+ *  • Chrome propose l'installation → le bouton ouvre la fenêtre d'installation ;
+ *  • sinon (Chrome n'a pas encore proposé, autre navigateur Android, iPhone) →
+ *    le bouton montre les gestes à faire dans le menu du navigateur.
  */
-export default function ClientInstallCard() {
+export default function ClientInstallCard({ className = "" }: { className?: string }) {
   const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null);
   const [ios, setIos] = useState(false);
   const [hidden, setHidden] = useState(true);
-  const [showIosSteps, setShowIosSteps] = useState(false);
+  const [showSteps, setShowSteps] = useState(false);
 
   useEffect(() => {
     const standalone = window.matchMedia("(display-mode: standalone)").matches
@@ -29,11 +29,10 @@ export default function ClientInstallCard() {
     if (standalone || Capacitor.isNativePlatform() || dismissed) return;
 
     const ua = navigator.userAgent;
-    const isIos = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-    setIos(isIos);
-    if (isIos) setHidden(false);
+    setIos(/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1));
+    setHidden(false);
 
-    const onPrompt = (event: Event) => { event.preventDefault(); setPromptEvent(event as InstallPromptEvent); setHidden(false); };
+    const onPrompt = (event: Event) => { event.preventDefault(); setPromptEvent(event as InstallPromptEvent); };
     const onInstalled = () => { setPromptEvent(null); setHidden(true); };
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
@@ -43,15 +42,14 @@ export default function ClientInstallCard() {
     };
   }, []);
 
-  if (hidden || (!ios && !promptEvent)) return null;
+  if (hidden) return null;
 
   const dismiss = () => {
     try { localStorage.setItem(HIDE_KEY, "1"); } catch { /* noop */ }
     setHidden(true);
   };
   const install = async () => {
-    if (ios) { setShowIosSteps((value) => !value); return; }
-    if (!promptEvent) return;
+    if (!promptEvent) { setShowSteps((value) => !value); return; }
     await promptEvent.prompt();
     const choice = await promptEvent.userChoice.catch(() => null);
     setPromptEvent(null);
@@ -59,7 +57,7 @@ export default function ClientInstallCard() {
   };
 
   return (
-    <section className="rounded-2xl bg-navy p-4 text-white">
+    <section className={`rounded-2xl bg-navy p-4 text-left text-white ${className}`}>
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10"><Download size={19} /></span>
         <div className="min-w-0 flex-1">
@@ -69,14 +67,20 @@ export default function ClientInstallCard() {
         <button type="button" onClick={dismiss} aria-label="Ne plus afficher" className="-mr-1 -mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/60 hover:bg-white/10"><X size={17} /></button>
       </div>
       <button type="button" onClick={install} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-bold text-navy">
-        <Download size={16} /> {ios ? "Comment l'installer" : "Installer"}
+        <Download size={16} /> {promptEvent ? "Installer" : "Comment l'installer"}
       </button>
-      {ios && showIosSteps && (
+      {showSteps && !promptEvent && (ios ? (
         <ol className="mt-3 space-y-2 text-[13px] text-white/90">
-          <li className="flex items-center gap-2"><span className="font-bold">1.</span> Touchez <Share size={16} className="shrink-0" /> <b>Partager</b> en bas de Safari.</li>
+          <li className="flex items-center gap-2"><span className="font-bold">1.</span> Ouvrez ce site dans <b>Safari</b>, puis touchez <Share size={16} className="shrink-0" /> <b>Partager</b>.</li>
           <li className="flex items-center gap-2"><span className="font-bold">2.</span> Choisissez <SquarePlus size={16} className="shrink-0" /> <b>Sur l&apos;écran d&apos;accueil</b>, puis <b>Ajouter</b>.</li>
         </ol>
-      )}
+      ) : (
+        <ol className="mt-3 space-y-2 text-[13px] text-white/90">
+          <li className="flex items-center gap-2"><span className="font-bold">1.</span> Dans Chrome, touchez le menu <EllipsisVertical size={16} className="shrink-0" /> en haut à droite.</li>
+          <li className="flex items-center gap-2"><span className="font-bold">2.</span> Choisissez <b>Installer l&apos;application</b> ou <b>Ajouter à l&apos;écran d&apos;accueil</b>.</li>
+          <li className="flex items-center gap-2"><span className="font-bold">3.</span> Confirmez avec <b>Installer</b>.</li>
+        </ol>
+      ))}
     </section>
   );
 }
