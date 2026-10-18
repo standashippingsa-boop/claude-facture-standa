@@ -44,6 +44,7 @@ export const PUBLIC_PREFIXES = [
   "/contact",                           // fòm kontak + WhatsApp
   "/agences",                           // lis ajans yo an Ayiti
   "/app",                               // telechaje APK Android kliyan an
+  "/guide-adresse",                     // gid adrès SHEIN/Amazon (paj kache, lyen nan Paramètres)
 
   // ── PWOGRAM AFFILIATION ──
   // /affiliation: lyen PRIVE (pa nan menu sit la) — kandida yo ranpli fòm nan.

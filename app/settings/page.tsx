@@ -461,7 +461,8 @@ function PlatformLinksSection() {
     { label: "Point de retrait", description: "Connexion pour les agents de remise", path: "/point-retrait" },
     { label: "Programme affiliation", description: "Présentation et demande d’affiliation", path: "/affiliation" },
     { label: "Espace affilié", description: "Connexion des affiliés approuvés", path: "/espace-affilie/login" },
-    { label: "Nos agences", description: "Liste publique des agences STANDA", path: "/agences" }
+    { label: "Nos agences", description: "Liste publique des agences STANDA", path: "/agences" },
+    { label: "Guide adresse SHEIN / Amazon", description: "À envoyer à un client : comment écrire l’adresse de Miami, case par case (page cachée du site)", path: "/guide-adresse" }
   ];
 
   const copy = async (path: string) => {

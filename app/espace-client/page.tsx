@@ -54,10 +54,11 @@ import { StatusTimeline } from "@/components/StatusFlow";
 import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import { openSecureDocument } from "@/lib/secure-document";
 import ClientInstallCard from "@/components/ClientInstallCard";
+import AddressGuide from "@/components/site/AddressGuide";
 import { ClientLogisticsDashboard, ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
 
 import { useNoticeToast } from "@/lib/notify";
-type View = "home" | "disponibles" | "colisFactures" | "receptions" | "factures" | "historique" | "retraits" | "notifications" | "adresse" | "calc" | "infos";
+type View = "home" | "disponibles" | "colisFactures" | "receptions" | "factures" | "historique" | "retraits" | "notifications" | "adresse" | "calc" | "infos" | "guideAdresse";
 type NoticeKind = "available" | "invoice" | "pickup" | "shipment";
 type ClientNotice = {
   id: string;
@@ -348,6 +349,7 @@ export default function EspaceClientPage() {
     if (detail) { setDetail(null); return true; }
     if (retraitConfirmedCount !== null) { setRetraitConfirmedCount(null); return true; }
     if (showPushBanner) { dismissPushBanner(); return true; }
+    if (view === "guideAdresse") { setView("infos"); return true; }
     if (view !== "home") { setView("home"); return true; }
     return false;
   };
@@ -1129,6 +1131,10 @@ export default function EspaceClientPage() {
         {/* ═══════════ GUIDE & AIDE ═══════════ */}
         {view === "infos" && (
           <>
+            <button type="button" onClick={() => setView("guideAdresse")} className="client-help-link">
+              <span><MapPin size={19} /> Comment entrer mon adresse sur SHEIN et Amazon</span><ChevronRight size={17} />
+            </button>
+
             {/* Kijan sa mache */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
@@ -1327,8 +1333,16 @@ export default function EspaceClientPage() {
         )}
 
         {/* ═══════════ MON ADRESSE ═══════════ */}
+        {view === "guideAdresse" && (
+          <AddressGuide code={client.customer_code || undefined} fullName={non || undefined} />
+        )}
+
         {view === "adresse" && (
           <>
+            <button type="button" onClick={() => setView("guideAdresse")} className="client-help-link">
+              <span><MapPin size={19} /> Comment entrer mon adresse sur SHEIN et Amazon</span><ChevronRight size={17} />
+            </button>
+
             <div className="card p-5">
               {([["Full Name / Nombre completo", non || "—"],
                  ["Address 1", DEPOT.address1],
