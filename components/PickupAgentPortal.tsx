@@ -487,6 +487,7 @@ export default function PickupAgentPortal() {
   const TAB_TITLES: Record<Tab, string> = { home: "Accueil", dossiers: "Dossiers clients", arrivals: "Colis à venir", ready: "À remettre", bons: "Bons de remise", history: "Colis remis", reports: "Rapport", settings: "Paramètres" };
   const pageTitle = subPage === "payment" ? `Paiement — ${paymentTarget?.customerCode ?? ""}`
     : subPage === "invoice" ? `Facture ${selectedInvoice?.invoice_number ?? ""}`
+    : onCustomerPage && tab === "arrivals" && arrivalSection ? `${expandedCustomer} · ${arrivalSection === "haiti" ? "Arrivés en Haïti" : "À Miami · en cours"}`
     : onCustomerPage ? `Client ${expandedCustomer}`
     : TAB_TITLES[tab];
 
@@ -552,7 +553,7 @@ export default function PickupAgentPortal() {
             bons={data.bons} selectedBonId={selectedBonId} onSelectBon={setSelectedBonId}
             bonBusy={bonBusy} bonConfirmedId={bonConfirmedId} onConfirmBon={confirmBonRemise} />}
           {!subPage && tab === "dossiers" && <ClientDossiersView dossiers={shownDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
-          {!subPage && tab === "arrivals" && <ArrivalsView groups={shownGroups} expanded={expandedCustomer} section={arrivalSection} onToggleCustomer={toggleArrivalCustomer} onSelectSection={(value) => setArrivalSection((current) => current === value ? null : value)} />}
+          {!subPage && tab === "arrivals" && <ArrivalsView groups={shownGroups} expanded={expandedCustomer} section={arrivalSection} onToggleCustomer={toggleArrivalCustomer} onSelectSection={(value) => setArrivalSection(value)} />}
           {!subPage && tab === "ready" && <ReadyView groups={shownGroups} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
           {!subPage && tab === "history" && <RemiseHistoryView packages={filteredPackages} onOpenTicket={(packageId) => setTicketPackageId(packageId)} openCustomer={expandedCustomer} onOpenCustomer={setExpandedCustomer} />}
           {!subPage && tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
@@ -908,7 +909,6 @@ function ArrivalsView({ groups, expanded, section, onToggleCustomer, onSelectSec
     const open = expanded === group.customerCode;
     const haiti = group.packages.filter((item) => arrivalSectionOf(item) === "haiti");
     const miami = group.packages.filter((item) => arrivalSectionOf(item) === "miami");
-    void section; void onSelectSection;
     const options: Array<[ArrivalSection, string, ZonePackage[], string, string]> = [
       ["haiti", "Arrivés en Haïti", haiti, "border-violet-200 bg-violet-50 text-violet-800", "border-violet-600 bg-violet-600 text-white"],
       ["miami", "À Miami · en cours", miami, "border-sky-200 bg-sky-50 text-sky-800", "border-sky-600 bg-sky-600 text-white"]
@@ -919,7 +919,12 @@ function ArrivalsView({ groups, expanded, section, onToggleCustomer, onSelectSec
         <span className="flex shrink-0 items-center gap-2"><span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-800">{group.packages.length} en route</span>{!open && <span className="grid h-8 w-8 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a]"><ChevronRight size={17} /></span>}</span>
       </button>
       {open && <div className="space-y-2 border-t border-slate-100 bg-slate-50/70 p-2.5 sm:p-3">
-        {options.map(([id, label, items, idle]) => <section key={id} className="space-y-1.5">
+        {!section && options.map(([id, label, items, idle]) => <button key={id} type="button" onClick={() => onSelectSection(id)}
+          className={cn("flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left", idle)}>
+          <span className="text-sm font-black">{label}</span>
+          <span className="flex items-center gap-2 text-lg font-black">{items.length}<ChevronRight size={18} /></span>
+        </button>)}
+        {section && options.filter(([id]) => id === section).map(([id, label, items, idle]) => <section key={id} className="space-y-1.5">
           <p className={cn("flex items-center justify-between rounded-xl border-2 px-3 py-2 text-sm font-black", idle)}><span>{label}</span><span>{items.length}</span></p>
           {items.length ? items.map((item) => <ParcelRow key={item.id} item={item} />) : <p className="rounded-lg bg-white px-3 py-2 text-sm text-slate-500">Aucun colis à cette étape.</p>}
         </section>)}
