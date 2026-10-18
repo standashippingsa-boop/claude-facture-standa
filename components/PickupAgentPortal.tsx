@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowLeft, Banknote, Bell, BellRing, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, Printer, RefreshCw, Search, Settings, ShieldCheck, Truck, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Banknote, ChevronRight, Bell, BellRing, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, Printer, RefreshCw, Search, Settings, ShieldCheck, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { autoEnablePush, getPushPermissionState, isPushSupported, reportPushFailure, subscribeStaffToPush } from "@/lib/push";
 import { openSecureDocument } from "@/lib/secure-document";
@@ -472,6 +472,8 @@ export default function PickupAgentPortal() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
+  /** Meni an: chak onglè louvri sou LIS li, pa sou paj yon kliyan ki te louvri anvan. */
+  const goTab = (next: Tab) => { setTab(next); setExpandedCustomer(null); setSelectedInvoiceId(null); setPaymentTarget(null); setArrivalSection(null); setFocusedPackageId(null); };
   const goBack = () => { if (!paymentBusy) window.history.back(); };
 
   const subPage: "payment" | "invoice" | null = paymentTarget ? "payment" : selectedInvoice ? "invoice" : null;
@@ -480,7 +482,8 @@ export default function PickupAgentPortal() {
   const groupPage = expandedCustomer ? groups.filter((group) => group.customerCode === expandedCustomer) : [];
   const shownDossiers = dossierPage.length ? dossierPage : matchingDossiers;
   const shownGroups = groupPage.length ? groupPage : groups;
-  const onCustomerPage = (tab === "dossiers" && dossierPage.length > 0) || ((tab === "ready" || tab === "arrivals") && groupPage.length > 0);
+  const onCustomerPage = (tab === "dossiers" && dossierPage.length > 0) || ((tab === "ready" || tab === "arrivals") && groupPage.length > 0)
+    || (tab === "history" && !!expandedCustomer && filteredPackages.some((item) => item.customer_code === expandedCustomer));
   const TAB_TITLES: Record<Tab, string> = { home: "Accueil", dossiers: "Dossiers clients", arrivals: "Colis à venir", ready: "À remettre", bons: "Bons de remise", history: "Colis remis", reports: "Rapport", settings: "Paramètres" };
   const pageTitle = subPage === "payment" ? `Paiement — ${paymentTarget?.customerCode ?? ""}`
     : subPage === "invoice" ? `Facture ${selectedInvoice?.invoice_number ?? ""}`
@@ -502,7 +505,7 @@ export default function PickupAgentPortal() {
       {!loading && !data && <MessageScreen tone="error" title="Accès à vérifier" text={loadError || "Impossible de préparer votre espace."} actionLabel="Réessayer" onAction={() => void load()} />}
       {!loading && data && <>
         <div className="md:grid md:grid-cols-[190px_minmax(0,1fr)] md:gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
-        <SideNavigation tab={tab} incoming={incoming.length} ready={ready.length} dossiers={dossiers.length} delivered={delivered.length} bons={data.bons.length} balanceCount={report.customer_balances.length} onHome={() => setTab("home")} onArrivals={() => { setTab("arrivals"); setArrivalSection(null); }} onReady={() => setTab("ready")} onDossiers={() => setTab("dossiers")} onHistory={() => setTab("history")} onBons={() => setTab("bons")} onReports={() => setTab("reports")} onSettings={() => setTab("settings")} />
+        <SideNavigation tab={tab} incoming={incoming.length} ready={ready.length} dossiers={dossiers.length} delivered={delivered.length} bons={data.bons.length} balanceCount={report.customer_balances.length} onHome={() => goTab("home")} onArrivals={() => { goTab("arrivals"); setArrivalSection(null); }} onReady={() => goTab("ready")} onDossiers={() => goTab("dossiers")} onHistory={() => goTab("history")} onBons={() => goTab("bons")} onReports={() => goTab("reports")} onSettings={() => goTab("settings")} />
         <div className={cn("min-w-0", selectedPackageIds.length ? "pb-44 md:pb-28" : "pb-20 md:pb-0")}>
         {tab !== "home" && <section className="hidden">
           <Stat icon={<ClipboardCheck size={20} />} label="Dossiers clients" value={dossiers.length} tint="bg-emerald-50 text-emerald-700" active={tab === "dossiers"} onClick={() => setTab("dossiers")} />
@@ -551,7 +554,7 @@ export default function PickupAgentPortal() {
           {!subPage && tab === "dossiers" && <ClientDossiersView dossiers={shownDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
           {!subPage && tab === "arrivals" && <ArrivalsView groups={shownGroups} expanded={expandedCustomer} section={arrivalSection} onToggleCustomer={toggleArrivalCustomer} onSelectSection={(value) => setArrivalSection((current) => current === value ? null : value)} />}
           {!subPage && tab === "ready" && <ReadyView groups={shownGroups} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
-          {!subPage && tab === "history" && <RemiseHistoryView packages={filteredPackages} onOpenTicket={(packageId) => setTicketPackageId(packageId)} />}
+          {!subPage && tab === "history" && <RemiseHistoryView packages={filteredPackages} onOpenTicket={(packageId) => setTicketPackageId(packageId)} openCustomer={expandedCustomer} onOpenCustomer={setExpandedCustomer} />}
           {!subPage && tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
           {!subPage && tab === "reports" && <ReportsView agentName={data.agent.name} payments={reportPayments} balances={reportBalances} onOpenInvoice={openInvoice} onStartPayment={(customerCode) => startPayment(customerCode)} onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} />}
           {subPage === "invoice" && selectedInvoice && !invoiceInline && <InvoiceDetails invoice={selectedInvoice} packages={packages.filter((item) => item.invoice_id === selectedInvoice.id)} onClose={goBack} onPay={selectedInvoice.payment_status !== "Payé" && selectedInvoice.has_pdf ? () => startPayment(selectedInvoice.customer_code, [selectedInvoice.id]) : undefined} />}
@@ -559,7 +562,7 @@ export default function PickupAgentPortal() {
         </section>
         </div>
         </div>
-        <MobileNavigation tab={tab} moreOpen={mobileMoreOpen} onHome={() => { setTab("home"); setMobileMoreOpen(false); }} onArrivals={() => { setTab("arrivals"); setArrivalSection(null); setMobileMoreOpen(false); }} onReports={() => { setTab("reports"); setMobileMoreOpen(false); }} onReady={() => { setTab("ready"); setMobileMoreOpen(false); }} onToggleMore={() => setMobileMoreOpen((open) => !open)} onDossiers={() => { setTab("dossiers"); setMobileMoreOpen(false); }} onHistory={() => { setTab("history"); setMobileMoreOpen(false); }} onBons={() => { setTab("bons"); setMobileMoreOpen(false); }} onSettings={() => { setTab("settings"); setMobileMoreOpen(false); }} />
+        <MobileNavigation tab={tab} moreOpen={mobileMoreOpen} onHome={() => { goTab("home"); setMobileMoreOpen(false); }} onArrivals={() => { goTab("arrivals"); setArrivalSection(null); setMobileMoreOpen(false); }} onReports={() => { goTab("reports"); setMobileMoreOpen(false); }} onReady={() => { goTab("ready"); setMobileMoreOpen(false); }} onToggleMore={() => setMobileMoreOpen((open) => !open)} onDossiers={() => { goTab("dossiers"); setMobileMoreOpen(false); }} onHistory={() => { goTab("history"); setMobileMoreOpen(false); }} onBons={() => { goTab("bons"); setMobileMoreOpen(false); }} onSettings={() => { goTab("settings"); setMobileMoreOpen(false); }} />
         {selectedPackageIds.length > 0 && confirmedParcelIds.length === 0 && !mobileMoreOpen && <RemiseConfirmBar customerCode={selectedCustomerCode} count={selectedPackageIds.length} busy={releasing} onConfirm={() => void releaseSelectedPackages()} onClear={() => setSelectedPackageIds([])} />}
         {confirmedParcelIds.length > 0 && <RemiseSuccessOverlay customerCode={selectedCustomerCode} count={confirmedParcelIds.length} />}
         {remiseOffer && <RemiseOffer offer={remiseOffer} busy={releasing} onRelease={() => { const ids = remiseOffer.packageIds; setRemiseOffer(null); void releasePackages(ids); }} onLater={() => setRemiseOffer(null)} />}
@@ -880,7 +883,7 @@ function ReadyView({ groups, expanded, onExpand, selectedPackageIds, confirmedPa
     const open = expanded === group.customerCode;
     const hasBalance = group.balanceUsd > 0.01;
     return <article id={"package-group-" + group.customerCode} key={group.customerCode} className={cn("scroll-mt-6 overflow-hidden rounded-xl border bg-white sm:rounded-2xl", hasBalance ? "border-amber-300" : group.isCentralAccount ? "border-indigo-200" : "border-slate-200")}>
-      <button type="button" aria-expanded={open} onClick={() => onExpand(open ? null : group.customerCode)} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 sm:p-4"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:text-[11px]">{group.isCentralAccount ? "Opérations centrales" : "Code client"}</p><p className="mt-0.5 text-lg font-black tracking-tight text-[#0a2b61] sm:text-xl">{group.isCentralAccount ? "Compte central STANDA" : <>{group.customerCode} {group.customerName && <span className="ml-1 text-xs font-semibold text-slate-500 sm:text-sm">· {group.customerName}</span>}</>}</p><p className="mt-1 text-xs font-semibold text-orange-700 sm:text-sm">{group.packages.length} colis à remettre · {quantityTotal(group.packages)} article{quantityTotal(group.packages) > 1 ? "s" : ""}</p></div><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a] sm:h-10 sm:w-10"><ChevronDown size={18} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span></button>
+      <button type="button" aria-expanded={open} onClick={() => { if (!open) onExpand(group.customerCode); }} disabled={open} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 disabled:cursor-default disabled:hover:bg-white sm:p-4"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:text-[11px]">{group.isCentralAccount ? "Opérations centrales" : "Code client"}</p><p className="mt-0.5 text-lg font-black tracking-tight text-[#0a2b61] sm:text-xl">{group.isCentralAccount ? "Compte central STANDA" : <>{group.customerCode} {group.customerName && <span className="ml-1 text-xs font-semibold text-slate-500 sm:text-sm">· {group.customerName}</span>}</>}</p><p className="mt-1 text-xs font-semibold text-orange-700 sm:text-sm">{group.packages.length} colis à remettre · {quantityTotal(group.packages)} article{quantityTotal(group.packages) > 1 ? "s" : ""}</p></div>{!open && <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a] sm:h-10 sm:w-10"><ChevronRight size={18} /></span>}</button>
       {open && <div className="space-y-2 border-t border-slate-100 bg-slate-50/70 p-2.5 sm:space-y-3 sm:p-3">
         {hasBalance && <BalanceNotice balanceUsd={group.balanceUsd} balanceHtg={group.balanceHtg} invoiceNumber={group.balanceInvoiceNumber} onPay={group.balanceInvoiceId ? () => onStartPayment(group.customerCode) : undefined} />}
         {renderPayment(group.customerCode)}
@@ -905,19 +908,21 @@ function ArrivalsView({ groups, expanded, section, onToggleCustomer, onSelectSec
     const open = expanded === group.customerCode;
     const haiti = group.packages.filter((item) => arrivalSectionOf(item) === "haiti");
     const miami = group.packages.filter((item) => arrivalSectionOf(item) === "miami");
-    const shown = section === "haiti" ? haiti : section === "miami" ? miami : [];
+    void section; void onSelectSection;
     const options: Array<[ArrivalSection, string, ZonePackage[], string, string]> = [
       ["haiti", "Arrivés en Haïti", haiti, "border-violet-200 bg-violet-50 text-violet-800", "border-violet-600 bg-violet-600 text-white"],
       ["miami", "À Miami · en cours", miami, "border-sky-200 bg-sky-50 text-sky-800", "border-sky-600 bg-sky-600 text-white"]
     ];
     return <article id={"package-group-" + group.customerCode} key={group.customerCode} className="scroll-mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white sm:rounded-2xl">
-      <button type="button" aria-expanded={open} onClick={() => onToggleCustomer(group.customerCode)} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 sm:p-4">
+      <button type="button" aria-expanded={open} onClick={() => { if (!open) onToggleCustomer(group.customerCode); }} disabled={open} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 disabled:cursor-default disabled:hover:bg-white sm:p-4">
         <div className="min-w-0"><p className="truncate text-lg font-black tracking-tight text-[#0a2b61] sm:text-xl">{group.isCentralAccount ? "Compte central STANDA" : group.customerCode}{!group.isCentralAccount && group.customerName && <span className="ml-1 text-xs font-semibold text-slate-500 sm:text-sm">· {group.customerName}</span>}</p></div>
-        <span className="flex shrink-0 items-center gap-2"><span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-800">{group.packages.length} en route</span><span className="grid h-8 w-8 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a]"><ChevronDown size={17} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span></span>
+        <span className="flex shrink-0 items-center gap-2"><span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-800">{group.packages.length} en route</span>{!open && <span className="grid h-8 w-8 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a]"><ChevronRight size={17} /></span>}</span>
       </button>
       {open && <div className="space-y-2 border-t border-slate-100 bg-slate-50/70 p-2.5 sm:p-3">
-        <div className="grid grid-cols-2 gap-2">{options.map(([id, label, items, idle, active]) => <button key={id} type="button" aria-pressed={section === id} onClick={() => onSelectSection(id)} className={cn("flex min-h-14 flex-col items-start justify-center rounded-xl border-2 px-3 py-2 text-left transition", section === id ? active : idle)}><span className="text-xs font-black leading-tight sm:text-sm">{label}</span><span className="mt-0.5 text-lg font-black leading-none">{items.length}</span></button>)}</div>
-        {section && (shown.length ? <div className="space-y-1.5">{shown.map((item) => <ParcelRow key={item.id} item={item} />)}</div> : <p className="rounded-lg bg-white px-3 py-2 text-sm text-slate-500">Aucun colis à cette étape.</p>)}
+        {options.map(([id, label, items, idle]) => <section key={id} className="space-y-1.5">
+          <p className={cn("flex items-center justify-between rounded-xl border-2 px-3 py-2 text-sm font-black", idle)}><span>{label}</span><span>{items.length}</span></p>
+          {items.length ? items.map((item) => <ParcelRow key={item.id} item={item} />) : <p className="rounded-lg bg-white px-3 py-2 text-sm text-slate-500">Aucun colis à cette étape.</p>}
+        </section>)}
       </div>}
     </article>;
   })}</div>;
@@ -928,9 +933,8 @@ function ArrivalsView({ groups, expanded, section, onToggleCustomer, onSelectSec
  * affiche ses tickets de remise — chaque ticket porte le numéro de la
  * facture des colis remis, comme le ticket imprimé.
  */
-function RemiseHistoryView({ packages, onOpenTicket }: { packages: ZonePackage[]; onOpenTicket: (packageId: string) => void }) {
+function RemiseHistoryView({ packages, onOpenTicket, openCustomer, onOpenCustomer }: { packages: ZonePackage[]; onOpenTicket: (packageId: string) => void; openCustomer: string | null; onOpenCustomer: (code: string) => void }) {
   const [visible, setVisible] = useState(40);
-  const [openCustomer, setOpenCustomer] = useState<string | null>(null);
   const clients = useMemo(() => {
     const byClient = new Map<string, { customerCode: string; customerName: string; lastAt: string; tickets: Map<string, { key: string; deliveredAt: string; packages: ZonePackage[] }> }>();
     for (const item of packages) {
@@ -954,16 +958,16 @@ function RemiseHistoryView({ packages, onOpenTicket }: { packages: ZonePackage[]
       <h3 className="text-base font-black text-[#0a2b61]">Colis remis</h3>
       <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-700">{clients.length} client{clients.length > 1 ? "s" : ""}</span>
     </div>
-    <div className="space-y-2">{clients.slice(0, visible).map((client) => {
+    <div className="space-y-2">{(openCustomer && clients.some((client) => client.customerCode === openCustomer) ? clients.filter((client) => client.customerCode === openCustomer) : clients.slice(0, visible)).map((client) => {
       const open = openCustomer === client.customerCode;
       return <article key={client.customerCode} className="rounded-2xl border border-emerald-100 bg-white shadow-sm">
-        <button type="button" aria-expanded={open} onClick={() => setOpenCustomer(open ? null : client.customerCode)} className="flex w-full items-center justify-between gap-3 p-3 text-left sm:p-4">
+        <button type="button" aria-expanded={open} onClick={() => { if (!open) onOpenCustomer(client.customerCode); }} disabled={open} className="flex w-full items-center justify-between gap-3 p-3 text-left disabled:cursor-default sm:p-4">
           <span className="min-w-0">
             <span className="block text-lg font-black text-[#0a2b61]">{client.customerCode}</span>
             {client.customerName && <span className="block truncate text-sm font-semibold text-slate-600">{client.customerName}</span>}
             <span className="mt-0.5 block text-xs text-slate-500">{client.lastAt ? "Dernière remise le " + dateTimeText(client.lastAt) : "Date de remise non archivée"}</span>
           </span>
-          <span className="flex shrink-0 items-center gap-2"><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">{client.tickets.length} ticket{client.tickets.length > 1 ? "s" : ""}</span><ChevronDown size={18} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} /></span>
+          <span className="flex shrink-0 items-center gap-2"><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">{client.tickets.length} ticket{client.tickets.length > 1 ? "s" : ""}</span>{!open && <ChevronRight size={18} className="text-slate-400" />}</span>
         </button>
         {open && <div className="space-y-2 border-t border-emerald-100 p-3 sm:p-4">{client.tickets.map((ticket) => {
           const numbers = Array.from(new Set(ticket.packages.map((item) => item.invoice_number).filter(Boolean)));
@@ -977,7 +981,7 @@ function RemiseHistoryView({ packages, onOpenTicket }: { packages: ZonePackage[]
         })}</div>}
       </article>;
     })}</div>
-    {clients.length > visible && <button type="button" onClick={() => setVisible((count) => count + 40)} className="mt-3 min-h-11 w-full rounded-xl border border-emerald-300 bg-white px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50">Afficher plus de clients</button>}
+    {!openCustomer && clients.length > visible && <button type="button" onClick={() => setVisible((count) => count + 40)} className="mt-3 min-h-11 w-full rounded-xl border border-emerald-300 bg-white px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50">Afficher plus de clients</button>}
   </section>;
 }
 
@@ -1012,7 +1016,7 @@ function ClientDossiersView({ dossiers, focusedPackageId, expanded, onExpand, se
     const openInvoices = (focusedPackageId ? dossier.invoices.filter((invoice) => scopedPackages.some((item) => item.invoice_id === invoice.id)) : dossier.invoices)
       .filter((invoice) => invoice.delivery_status !== "Livrée" || invoice.payment_status !== "Payé");
     return <article id={"dossier-" + dossier.customerCode} key={dossier.customerCode} className={cn("scroll-mt-6 overflow-hidden rounded-xl border bg-white sm:rounded-2xl", balanceUsd > 0.01 ? "border-amber-300" : "border-slate-200")}>
-      <button type="button" aria-expanded={open} onClick={() => onExpand(open ? null : dossier.customerCode)} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 sm:p-4"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:text-[11px]">Dossier client</p><h3 className="mt-0.5 truncate text-lg font-black text-[#0a2b61] sm:text-xl">{dossier.customerCode}{dossier.customerName && <span className="ml-1 text-xs font-semibold text-slate-500 sm:text-sm">· {dossier.customerName}</span>}</h3><div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-semibold sm:mt-3 sm:gap-2 sm:text-xs">{available.length > 0 && <span className="rounded-lg bg-orange-100 px-2 py-1 text-orange-800">À remettre : {available.length}</span>}{haiti.length > 0 && <span className="rounded-lg bg-violet-100 px-2 py-1 text-violet-800">Arrivés en Haïti : {haiti.length}</span>}{miami.length > 0 && <span className="rounded-lg bg-sky-100 px-2 py-1 text-sky-800">En cours : {miami.length}</span>}</div></div><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a] sm:h-10 sm:w-10"><ChevronDown size={18} className={open ? "rotate-180 transition-transform" : "transition-transform"} /></span></button>
+      <button type="button" aria-expanded={open} onClick={() => { if (!open) onExpand(dossier.customerCode); }} disabled={open} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 disabled:cursor-default disabled:hover:bg-white sm:p-4"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:text-[11px]">Dossier client</p><h3 className="mt-0.5 truncate text-lg font-black text-[#0a2b61] sm:text-xl">{dossier.customerCode}{dossier.customerName && <span className="ml-1 text-xs font-semibold text-slate-500 sm:text-sm">· {dossier.customerName}</span>}</h3><div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-semibold sm:mt-3 sm:gap-2 sm:text-xs">{available.length > 0 && <span className="rounded-lg bg-orange-100 px-2 py-1 text-orange-800">À remettre : {available.length}</span>}{haiti.length > 0 && <span className="rounded-lg bg-violet-100 px-2 py-1 text-violet-800">Arrivés en Haïti : {haiti.length}</span>}{miami.length > 0 && <span className="rounded-lg bg-sky-100 px-2 py-1 text-sky-800">En cours : {miami.length}</span>}</div></div>{!open && <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a] sm:h-10 sm:w-10"><ChevronRight size={18} /></span>}</button>
       {open && <div className="space-y-3 border-t border-slate-100 bg-slate-50/70 p-2.5 sm:p-3">
         {focusedPackageId && <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900">Recherche précise : seul le colis correspondant aux 6 derniers chiffres est affiché.</p>}
         {balanceUsd > 0.01 && <BalanceNotice balanceUsd={balanceUsd} balanceHtg={balanceHtg} invoiceNumber={balanceInvoice?.invoice_number ?? ""} onPay={balanceInvoice ? () => onStartPayment(dossier.customerCode) : undefined} />}
