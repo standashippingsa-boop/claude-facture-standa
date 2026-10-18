@@ -43,7 +43,7 @@ import { DEPOT } from "@/lib/depot";
 import { SUPPORT_PHONE } from "@/lib/branding";
 import {
   DEFAULT_SMALL_PARCEL, SmallParcelConfig, TAX_FIXED_USD, TAX_THRESHOLD_LB,
-  estimateForPackages, round2
+  estimateForPackages, isSmallParcel, round2
 } from "@/lib/pricing";
 import { dateFr, htg, usd } from "@/lib/utils";
 import { specialPackageInfo } from "@/lib/special-package";
@@ -456,6 +456,13 @@ export default function EspaceClientPage() {
   const dispoCount = disponiblesOnly.length;
   const factureCount = facturesOnly.length;
   const dispoEst = disponiblesOnly.length ? estimation(disponiblesOnly) : null;
+  const pkgEstimate = (pkg: Pkg): number | null => {
+    if (!dispoEst) return null;
+    const w = Number(pkg.weight) || 0;
+    if (w <= 0) return null;
+    if (client.account_type !== "Business" && isSmallParcel(w, smallCfg)) return round2(smallCfg.price);
+    return round2(w * dispoEst.perLb);
+  };
   const trackQueryNorm = trackQuery.trim().toLowerCase();
   const trackMatches = trackQueryNorm.length < 2 ? [] : pkgs.filter((p) =>
     p.tracking_number?.toLowerCase().includes(trackQueryNorm)
@@ -702,7 +709,7 @@ export default function EspaceClientPage() {
     </>
   );
 
-  const PkgCard = ({ p, check }: { p: Pkg; check?: boolean }) => {
+  const PkgCard = ({ p, check, price }: { p: Pkg; check?: boolean; price?: number | null }) => {
     const facture = Number(p.total_usd) > 0 && isInvoiced(p);
     const special = specialPackageInfo(p);
     // Un colis déjà facturé reste visible dans "Disponible" (il attend d'être
@@ -739,8 +746,9 @@ export default function EspaceClientPage() {
           )}
           <div className="flex items-center justify-between gap-2 mt-2.5">
             <span className="text-xs text-mute truncate">{p.content || "—"}</span>
-            <span className="text-xs font-semibold text-ink shrink-0">
-              {Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : "—"}
+            <span className="flex shrink-0 items-baseline gap-2">
+              <span className="text-xs font-semibold text-ink">{Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : "—"}</span>
+              {price != null && <span className="text-base font-extrabold text-accent-dark">{usd(price)}</span>}
             </span>
           </div>
           {facture && (
@@ -949,20 +957,24 @@ export default function EspaceClientPage() {
             {disponiblesOnly.length === 0 ? <AvailableEmpty /> : (
               <>
                 {dispoEst ? (
-                  <div className="space-y-2 px-1">
-                    <div className="flex flex-wrap gap-2">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">Shipping fee <b className="font-black">{usd(dispoEst.subtotal)}</b></span>
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">Fixed tax <b className="font-black">{dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : "—"}</b></span>
+                  <section className="rounded-3xl bg-accent p-5 text-white shadow-[0_14px_30px_-16px_rgba(228,101,10,.7)]">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold text-white/85">Total</p>
+                        <p className="mt-1 text-[32px] font-extrabold leading-none tracking-tight">{usd(dispoEst.total)}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-white px-3.5 py-2 text-sm font-extrabold text-accent-dark">{dispoEst.totalWeight.toFixed(2)} lb</span>
                     </div>
-                    <div>
-                      <span className="inline-flex items-center gap-2 rounded-full bg-navy px-4 py-2.5 text-base font-bold text-white">Total <b className="text-lg font-black">{usd(dispoEst.total)}</b></span>
+                    <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/25 pt-3 text-[13px]">
+                      <div><p className="text-white/80">Shipping fee</p><p className="mt-0.5 text-base font-extrabold">{usd(dispoEst.subtotal)}</p></div>
+                      <div><p className="text-white/80">Fixed tax</p><p className="mt-0.5 text-base font-extrabold">{dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : "—"}</p></div>
                     </div>
-                  </div>
+                  </section>
                 ) : (
                   <p className="px-1 text-xs text-amber-700">Le tarif de votre ville n&apos;est pas encore configuré. Contactez-nous sur WhatsApp.</p>
                 )}
                 <div>
-                  {disponiblesOnly.map((p) => <PkgCard key={p.id} p={p} check />)}
+                  {disponiblesOnly.map((p) => <PkgCard key={p.id} p={p} check price={pkgEstimate(p)} />)}
                 </div>
               </>
             )}
