@@ -2,10 +2,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  Inbox, LayoutDashboard, LogOut, Users, Package, FileText, History,
+import {  Inbox, LayoutDashboard, LogOut, Users, Package, FileText, History,
   RefreshCw, Settings, ClipboardList, Truck, FileDown, MessageSquareText, MapPinned, ChartNoAxesCombined,
-  HandCoins
+  HandCoins, Megaphone
 } from "lucide-react";
 import Logo from "./Logo";
 import { supabase } from "@/lib/supabase";
@@ -32,7 +31,8 @@ const groups: { title: string; items: { href: string; label: string; icon: typeo
       { href: "/bon-remise", label: "Bon de Remise", icon: FileDown },
       { href: "/retraits", label: "Retraits", icon: Inbox },
       { href: "/rapports-financiers", label: "Rapports financiers", icon: ChartNoAxesCombined },
-      { href: "/affiliates", label: "Affiliation", icon: HandCoins }
+      { href: "/affiliates", label: "Affiliation", icon: HandCoins },
+      { href: "/annonces", label: "Annonces", icon: Megaphone }
     ]
   },
   {

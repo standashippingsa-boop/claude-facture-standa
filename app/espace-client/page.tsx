@@ -25,7 +25,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle, Ban, Bell, BellRing, BookOpen, Calculator, ChevronDown, CircleCheck,
+  AlertTriangle, Ban, Bell, BellRing, Megaphone, BookOpen, Calculator, ChevronDown, CircleCheck,
   ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
   MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, Search, ShieldCheck, Store, Trash2, Truck, X
 } from "lucide-react";
@@ -54,12 +54,13 @@ import { StatusTimeline } from "@/components/StatusFlow";
 import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import { openSecureDocument } from "@/lib/secure-document";
 import ClientInstallCard from "@/components/ClientInstallCard";
+import { announcementImageUrl, getActiveAnnouncements, type Announcement } from "@/lib/announcements";
 import AddressGuide from "@/components/site/AddressGuide";
 import { ClientLogisticsDashboard, ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
 
 import { useNoticeToast } from "@/lib/notify";
 type View = "home" | "disponibles" | "colisFactures" | "receptions" | "factures" | "historique" | "retraits" | "notifications" | "adresse" | "calc" | "infos" | "guideAdresse";
-type NoticeKind = "available" | "invoice" | "pickup" | "shipment";
+type NoticeKind = "available" | "invoice" | "pickup" | "shipment" | "announce";
 type ClientNotice = {
   id: string;
   key: string;
@@ -68,6 +69,7 @@ type ClientNotice = {
   stamp: string;
   to: View;
   kind: NoticeKind;
+  announcementId?: string;
 };
 
 const WA_NUM = SUPPORT_PHONE.replace(/\D/g, "");
@@ -145,6 +147,9 @@ export default function EspaceClientPage() {
   const [trackQuery, setTrackQuery] = useState("");
   const [openRetrait, setOpenRetrait] = useState<string | null>(null);
   const [openInvoiceId, setOpenInvoiceId] = useState<string | null>(null);
+  // Annons administrasyon an (flyer + mesaj) — yon fenèt parèt pou chak nouvo annons.
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [openAnnouncement, setOpenAnnouncement] = useState<Announcement | null>(null);
   // Détail des paiements (montant, devise, moyen) — lu par /api/client-payments.
   const [payments, setPayments] = useState<Array<{ id: string; invoice_id: string; amount: number; currency: "USD" | "HTG"; method: string; created_at: string }>>([]);
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -195,6 +200,13 @@ export default function EspaceClientPage() {
         getClientRetraits(c.customer_code)
       ]);
       setPkgs(p); setInvs(i); setRetraits(rs);
+      getActiveAnnouncements().then((list) => {
+        setAnnouncements(list);
+        let seen: string[] = [];
+        try { seen = JSON.parse(localStorage.getItem("standa:announcements-seen") || "[]"); } catch { /* noop */ }
+        const fresh = list.find((item) => !seen.includes(item.id));
+        if (fresh) setOpenAnnouncement(fresh);
+      }).catch(() => undefined);
       // Canal à part : si le détail des paiements échoue, le reste de l'espace s'affiche quand même.
       supabase.auth.getSession().then(({ data: sessionData }) => {
         const token = sessionData.session?.access_token;
@@ -343,6 +355,7 @@ export default function EspaceClientPage() {
    * kite app la vrèman (konpòtman nòmal yon app Android sou ekran rasin).
    */
   const closeTopmostScreen = (): boolean => {
+    if (openAnnouncement) { closeAnnouncement(); return true; }
     if (menuOpen) { setMenuOpen(false); return true; }
     if (showPwd) { setShowPwd(false); return true; }
     if (showDelete) { setShowDelete(false); return true; }
@@ -479,6 +492,18 @@ export default function EspaceClientPage() {
   // evènman ki "efase" yon ansyen. Se konsa mesaj yo pa disparèt.
   const clientNotifications: ClientNotice[] = [];
 
+  for (const item of announcements) {
+    clientNotifications.push({
+      id: `announce-${item.id}`,
+      key: noticeKey("announce", item.id),
+      title: item.title,
+      description: item.body ? item.body.slice(0, 120) : "Nouvelle annonce STANDA COMMERCIAL",
+      stamp: dateFr(item.created_at),
+      to: "notifications",
+      kind: "announce",
+      announcementId: item.id
+    });
+  }
   if (nonFactures.length > 0) {
     clientNotifications.push({
       id: "available",
@@ -559,13 +584,24 @@ export default function EspaceClientPage() {
 
   const openNotice = (notice: ClientNotice) => {
     markNoticesRead([notice]);
+    if (notice.announcementId) { setOpenAnnouncement(announcements.find((item) => item.id === notice.announcementId) ?? null); return; }
     setView(notice.to);
+  };
+  const closeAnnouncement = () => {
+    if (openAnnouncement) {
+      try {
+        const seen: string[] = JSON.parse(localStorage.getItem("standa:announcements-seen") || "[]");
+        localStorage.setItem("standa:announcements-seen", JSON.stringify([...new Set([...seen, openAnnouncement.id])].slice(-50)));
+      } catch { /* noop */ }
+    }
+    setOpenAnnouncement(null);
   };
 
   const NotificationIcon = ({ kind, size = 18 }: { kind: NoticeKind; size?: number }) => {
     if (kind === "available") return <PackageCheck size={size} />;
     if (kind === "invoice") return <ReceiptText size={size} />;
     if (kind === "pickup") return <BellRing size={size} />;
+    if (kind === "announce") return <Megaphone size={size} />;
     return <Route size={size} />;
   };
 
@@ -821,6 +857,23 @@ export default function EspaceClientPage() {
           </button>
         </div>
       </header>
+
+      {/* ══ ANNONCE — flyer + message de l'administration ══ */}
+      {openAnnouncement && (
+        <div className="fixed inset-0 z-[85] flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={openAnnouncement.title} onClick={closeAnnouncement}>
+          <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-[28px] bg-white sm:rounded-[28px]" onClick={(e) => e.stopPropagation()}>
+            {openAnnouncement.image_path && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={announcementImageUrl(openAnnouncement.image_path)} alt={openAnnouncement.title} className="w-full rounded-t-[28px] object-contain" />
+            )}
+            <div className="p-5">
+              <p className="text-lg font-extrabold text-navy">{openAnnouncement.title}</p>
+              {openAnnouncement.body && <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-ink">{openAnnouncement.body}</p>}
+              <button type="button" onClick={closeAnnouncement} className="mt-5 flex min-h-12 w-full items-center justify-center rounded-2xl bg-navy text-[15px] font-bold text-white">Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══ MON COMPTE — fèy ki monte depi anba ekran an (pa yon ti meni ki koupe anlè) ══ */}
       {menuOpen && (
