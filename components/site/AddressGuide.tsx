@@ -91,8 +91,8 @@ export default function AddressGuide({ code = "MC-XXXXX", fullName }: { code?: s
     { n: 2, title: "First Name", text: <>Votre <b>prénom</b>.</> },
     { n: 3, title: "Last Name", text: <>Votre <b>nom de famille</b>.</> },
     { n: 4, title: "Phone Number", text: <>Laissez <b>US +1</b> et écrivez le téléphone de notre dépôt : <b>{phonePlain}</b>.</> },
-    { n: 5, title: "Street address", text: <>Écrivez <b>{DEPOT.address1}</b>, puis <b>#</b> et votre code : <b>{DEPOT.address1} # </b>{C}. N&apos;utilisez pas « Address Finder » : il peut effacer votre code.</> },
-    { n: 6, title: "Apt, suite, unit", text: <>Laissez <b>vide</b>.</> },
+    { n: 5, title: "Street address", text: <>Écrivez seulement <b>{DEPOT.address1}</b>. N&apos;utilisez pas « Address Finder » : il peut changer l&apos;adresse.</> },
+    { n: 6, title: "Apt, suite, unit (ligne 2)", text: <>Écrivez votre code {C} ici, et rien d&apos;autre. Sur SHEIN, le code va <b>toujours</b> dans cette case.</> },
     { n: 7, title: "State/Province", text: <>Choisissez <b>FLORIDA</b>.</> },
     { n: 8, title: "City", text: <>Choisissez <b>Miami</b>.</> },
     { n: 9, title: "Postcode", text: <>Écrivez <b>{DEPOT.zip}</b>.</> },
@@ -104,8 +104,8 @@ export default function AddressGuide({ code = "MC-XXXXX", fullName }: { code?: s
       <section className="rounded-xl border border-red-200 bg-red-50 p-4">
         <p className="text-[15px] font-extrabold text-red-800">La règle la plus importante</p>
         <p className="mt-1 text-[14px] leading-relaxed text-red-900">
-          Votre code {C} doit apparaître sur <b>chaque</b> adresse, juste après <b>{DEPOT.address1}</b>.
-          Sans ce code, nous ne pouvons pas savoir à qui appartient le colis.
+          Votre code {C} doit apparaître sur <b>chaque</b> adresse. Sur <b>Amazon</b>, écrivez-le juste après <b>{DEPOT.address1}</b>, sur la même ligne.
+          Sur <b>SHEIN</b>, écrivez-le dans la case de la <b>ligne 2</b> (Apt, suite, unit). Sans ce code, nous ne pouvons pas savoir à qui appartient le colis.
         </p>
       </section>
 
@@ -144,8 +144,8 @@ export default function AddressGuide({ code = "MC-XXXXX", fullName }: { code?: s
             <Field n={3} label="Last Name *" value={lastName} />
             <Field n={4} label="Phone Number *" value={phonePlain} prefix="US +1" />
             <Field label="Address Finder" empty="Ne pas utiliser" />
-            <Field n={5} label="Street address *" value={`${DEPOT.address1} # ${code}`} />
-            <Field n={6} label="Apt, suite, unit, etc (optional)" empty="Laisser vide" />
+            <Field n={5} label="Street address *" value={DEPOT.address1} />
+            <Field n={6} label="Apt, suite, unit, etc (optional)" value={code} />
             <Field n={7} label="State/Province *" value="FLORIDA" select />
             <Field n={8} label="City *" value="Miami" select />
             <Field n={9} label="Postcode *" value={DEPOT.zip} />
