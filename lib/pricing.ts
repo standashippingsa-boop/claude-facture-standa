@@ -64,6 +64,26 @@ export const TAX_THRESHOLD_LB = 6.5;
 export const TAX_FIXED_USD = 10;
 
 /** Taxe fiks la pou yon pwa total bay. */
+/**
+ * KONT VIP (biznis shipping): pri pa liv la se pa pa vil, se pa KLIYAN
+ * (clients.vip_price_per_lb). Fonksyon sa a mete pri sa a nan yon kopi vil la
+ * (`price_vip`) pou tout kalkil yo itilize MENM motè a.
+ */
+export function villeForClient<V extends Ville>(client: { account_type?: AccountType | null; vip_price_per_lb?: number | null; ville?: V | null }): V | null {
+  const ville = client.ville ?? null;
+  if (!ville || client.account_type !== "VIP") return ville;
+  return { ...ville, price_vip: Number(client.vip_price_per_lb) || 0 };
+}
+
+/** Pri/LB dapre tip kont lan. VIP: pri kliyan an (0 si pa fikse → kalkil bloke). */
+export function perLbFor(accountType: AccountType, ville: Ville): number {
+  if (accountType === "VIP") return Number(ville.price_vip) || 0;
+  return accountType === "Business" ? Number(ville.price_business) : Number(ville.price_personal);
+}
+
+/** Business ak VIP adisyone pwa koli yo ANVAN yo miltipliye (pa gen tarif ti koli). */
+export const sumsWeights = (accountType: AccountType) => accountType === "Business" || accountType === "VIP";
+
 export function fixedTaxForWeight(totalWeight: number): number {
   const w = Number(totalWeight);
   return Number.isFinite(w) && w >= TAX_THRESHOLD_LB ? TAX_FIXED_USD : 0;
@@ -145,7 +165,7 @@ export function estimateForPackages(
   cfg: SmallParcelConfig
 ): EstimateResult | null {
   if (!ville || !ville.active) return null;
-  const perLb = accountType === "Business" ? Number(ville.price_business) : Number(ville.price_personal);
+  const perLb = perLbFor(accountType, ville);
   if (!Number.isFinite(perLb) || perLb <= 0) return null;
 
   const ws = weights.map((w) => (Number.isFinite(Number(w)) && Number(w) > 0 ? Number(w) : 0));
@@ -153,7 +173,7 @@ export function estimateForPackages(
 
   let subtotal = 0;
   let smallCount = 0;
-  if (accountType === "Business") {
+  if (sumsWeights(accountType)) {
     // Adisyone tout pwa yo ANVAN, apre sa miltipliye pa pri/lb la.
     subtotal = round2(totalWeight * perLb);
   } else {
@@ -164,7 +184,8 @@ export function estimateForPackages(
     subtotal = round2(subtotal);
   }
 
-  const fixedTax = fixedTaxForWeight(totalWeight);
+  // Kont VIP pa janm peye taks fiks la.
+  const fixedTax = accountType === "VIP" ? 0 : fixedTaxForWeight(totalWeight);
   return {
     count: ws.length, totalWeight, subtotal, fixedTax,
     total: round2(subtotal + fixedTax), perLb, smallCount
@@ -198,11 +219,12 @@ export function computePrice(
   // v8: TOUT koli (menm sa ki poko rive 1 lb yo) kalkile pwa × pri/lb vil la.
   // Ex: vil 3.99 USD/lb, koli 0.60 lb -> 3.99 × 0.60 = 2.39 USD.
   if (!ville || !ville.active) return null;
-  const perLb = accountType === "Business" ? Number(ville.price_business) : Number(ville.price_personal);
-  const taxLb = accountType === "Business" ? Number(ville.tax_business) : Number(ville.tax_personal);
+  const perLb = perLbFor(accountType, ville);
+  if (accountType === "VIP" && !(perLb > 0)) return null;   // pri VIP poko fikse
+  const taxLb = accountType === "VIP" ? 0 : accountType === "Business" ? Number(ville.tax_business) : Number(ville.tax_personal);
   // Pri transpò a PA JANM gen frè ladan l (frais fixe / tax ale nan taxFix).
   const price = round2(weight * perLb);
-  const taxFix = round2(weight * taxLb + Number(ville.fixed_fee || 0));
+  const taxFix = accountType === "VIP" ? 0 : round2(weight * taxLb + Number(ville.fixed_fee || 0));
   return { price, taxFix, tax: taxFix, rule: "ville" };
 }
 

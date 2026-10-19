@@ -23,7 +23,14 @@ const schema = z.object({
   pickup_location: z.string().default(""),
   email: z.string().email("Email pa valid").or(z.literal("")).default(""),
   ville_id: z.string().min(1, "Chwazi vil kliyan an"),
-  account_type: z.enum(["Personnel", "Business"], { errorMap: () => ({ message: "Chwazi tip kont lan" }) })
+  account_type: z.enum(["Personnel", "Business", "VIP"], { errorMap: () => ({ message: "Chwazi tip kont lan" }) }),
+  // Kont VIP: pri pa liv pwòp kliyan an (obligatwa pou VIP).
+  vip_price_per_lb: z.union([z.string(), z.number()]).optional()
+}).superRefine((value, ctx) => {
+  const price = Number(String(value.vip_price_per_lb ?? "").replace(",", "."));
+  if (value.account_type === "VIP" && !(Number.isFinite(price) && price > 0)) {
+    ctx.addIssue({ code: "custom", path: ["vip_price_per_lb"], message: "Entrez le prix VIP par livre (ex. 2.50)." });
+  }
 });
 type Form = z.infer<typeof schema>;
 
@@ -51,6 +58,7 @@ export default function ClientsPage() {
   // Apre aktivasyon: kredansyèl yo (pou montre + voye WhatsApp)
   const [creds, setCreds] = useState<{ client: Client; username: string; password: string } | null>(null);
   const { role } = useRole();
+  const isAdmin = role === "admin";
   const [dups, setDups] = useState<DupGroup[] | null>(null);   // modal Fusionner
   const [primaryPick, setPrimaryPick] = useState<Record<string, string>>({});
   const [merging, setMerging] = useState(false);
@@ -82,7 +90,7 @@ export default function ClientsPage() {
     finally { setMerging(false); }
   };
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
+  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } =
     useForm<Form>({ resolver: zodResolver(schema) });
 
   const load = () => Promise.all([getClients(), getVilles()])
@@ -90,12 +98,12 @@ export default function ClientsPage() {
     .catch((e) => setNotice("Erè: " + e.message));
   useEffect(() => { load(); }, []);
 
-  const openNew = () => { setEditing(null); reset({ customer_code: "", fullname: "", whatsapp: "", pickup_location: "", email: "", ville_id: "", account_type: "Personnel" }); setShowForm(true); };
-  const openEdit = (c: Client) => { setEditing(c); reset({ ...c, email: c.email ?? "", ville_id: c.ville_id ?? "", account_type: c.account_type ?? "Personnel" }); setShowForm(true); };
+  const openNew = () => { setEditing(null); reset({ customer_code: "", fullname: "", whatsapp: "", pickup_location: "", email: "", ville_id: "", account_type: "Personnel", vip_price_per_lb: "" }); setShowForm(true); };
+  const openEdit = (c: Client) => { setEditing(c); reset({ ...c, email: c.email ?? "", ville_id: c.ville_id ?? "", account_type: c.account_type ?? "Personnel", vip_price_per_lb: c.vip_price_per_lb ? String(c.vip_price_per_lb) : "" }); setShowForm(true); };
 
   const onSubmit = async (f: Form) => {
     try {
-      await upsertClient({ ...f, id: editing?.id });
+      await upsertClient({ ...f, id: editing?.id, vip_price_per_lb: f.account_type === "VIP" ? Number(String(f.vip_price_per_lb ?? "").replace(",", ".")) : null } as Client);
       setShowForm(false);
       setNotice(editing ? `Client ${f.customer_code} modifié.` : `Client ${f.customer_code} ajouté.`);
       load();
@@ -172,7 +180,7 @@ export default function ClientsPage() {
         resultCount={filtered.length} onClear={clearFilters}
         fields={[
           { key: "city", label: "Ville", type: "select", value: cityF, onChange: setCityF, options: villes.flatMap((ville) => ville.id ? [{ value: ville.id, label: ville.name }] : []) },
-          { key: "type", label: "Type de compte", type: "select", value: accountTypeF, onChange: setAccountTypeF, options: [{ value: "Personnel", label: "Personnel" }, { value: "Business", label: "Business" }] },
+          { key: "type", label: "Type de compte", type: "select", value: accountTypeF, onChange: setAccountTypeF, options: [{ value: "Personnel", label: "Personnel" }, { value: "Business", label: "Business" }, { value: "VIP", label: "VIP" }] },
           { key: "status", label: "Statut du compte", type: "select", value: accountStatusF, onChange: setAccountStatusF, options: Array.from(new Set(clients.map((client) => client.account_status || "Actif"))).map((value) => ({ value: value ?? "Actif", label: value ?? "Actif" })) },
           { key: "from", label: "Créé à partir du", type: "date", value: fromF, onChange: setFromF },
           { key: "to", label: "Créé jusqu'au", type: "date", value: toF, onChange: setToF },
@@ -215,9 +223,20 @@ export default function ClientsPage() {
               <select className="input mt-1" {...register("account_type")}>
                 <option value="Personnel">Personnel</option>
                 <option value="Business">Business</option>
+                {/* VIP : seul l'administrateur attribue ce tarif. */}
+                {(isAdmin || editing?.account_type === "VIP") && <option value="VIP">VIP (tarif spécial)</option>}
               </select>
               {errors.account_type && <span className="text-xs text-red-600">{errors.account_type.message}</span>}
             </label>
+            {watch("account_type") === "VIP" && (
+              <label className="block">
+                <span className="text-xs font-medium text-slate-500">Prix VIP par livre (USD) *</span>
+                <input className="input mt-1" type="number" inputMode="decimal" step="0.01" min="0.01" placeholder="ex. 2.50"
+                  readOnly={!isAdmin} {...register("vip_price_per_lb")} />
+                <span className="mt-0.5 block text-[11px] text-slate-500">Poids additionnés comme Business · pas de tarif petit colis · pas de taxe fixe.{!isAdmin && " Seul l'administrateur peut modifier ce prix."}</span>
+                {errors.vip_price_per_lb && <span className="text-xs text-red-600">{String(errors.vip_price_per_lb.message ?? "")}</span>}
+              </label>
+            )}
           </div>
           <div className="mt-4 flex gap-3">
             <button type="submit" className="btn" disabled={isSubmitting}>
@@ -255,9 +274,9 @@ export default function ClientsPage() {
                   </span>
                 </td>
                 <td className="tdc">
-                  <span className={`badge ${c.account_type === "Business"
+                  <span className={`badge ${c.account_type === "VIP" ? "bg-amber-100 text-amber-800" : c.account_type === "Business"
                     ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-600"}`}>
-                    {c.account_type ?? "Personnel"}
+                    {c.account_type ?? "Personnel"}{c.account_type === "VIP" && c.vip_price_per_lb ? ` · ${Number(c.vip_price_per_lb).toFixed(2)}/lb` : ""}
                   </span>
                 </td>
                 <td className="tdc">

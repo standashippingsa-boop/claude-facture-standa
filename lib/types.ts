@@ -6,11 +6,13 @@ export interface Ville {
   tax_personal: number;   // USD / lb
   tax_business: number;   // USD / lb
   fixed_fee: number;      // USD (opsyonèl)
+  /** Pri/LB VIP kliyan an — PA yon kolòn vil: ajoute pa villeForClient() pou kont VIP. */
+  price_vip?: number | null;
   active: boolean;
   created_at?: string;
 }
 
-export type AccountType = "Personnel" | "Business";
+export type AccountType = "Personnel" | "Business" | "VIP";
 
 export type AccountStatus = "En attente d'activation" | "Actif";
 
@@ -24,6 +26,8 @@ export interface Client {
   ville_id?: string | null;
   ville?: Ville | null;   // join lekti sèlman
   account_type: AccountType;
+  /** Kont VIP: pri pa liv pwòp kliyan sa a (admin fikse l). */
+  vip_price_per_lb?: number | null;
   // ---- Enskripsyon kliyan (v6) ----
   surname?: string;
   phone?: string;

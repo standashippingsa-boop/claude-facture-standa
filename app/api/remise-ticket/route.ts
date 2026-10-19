@@ -6,7 +6,7 @@ import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
 import { invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 import { SITE } from "@/lib/site";
-import { computePrice, round2 } from "@/lib/pricing";
+import { computePrice, round2, villeForClient } from "@/lib/pricing";
 import type { AccountType, Ville } from "@/lib/types";
 import type { RemiseTicket } from "@/lib/remise-ticket";
 
@@ -123,7 +123,7 @@ export async function GET(req: Request) {
     const centralResult = await db.from("app_settings").select("value").eq("key", "central_account_code").maybeSingle();
     const centralCode = text(centralResult.data?.value).toUpperCase();
     const isCentral = Boolean(centralCode) && customerCode.toUpperCase() === centralCode;
-    const clientResult = await db.from("clients").select("customer_code, fullname, surname, phone, ville_id, account_type").eq("customer_code", customerCode).maybeSingle();
+    const clientResult = await db.from("clients").select("customer_code, fullname, surname, phone, ville_id, account_type, vip_price_per_lb").eq("customer_code", customerCode).maybeSingle();
     if (clientResult.error) throw clientResult.error;
     const client = clientResult.data as { fullname: string | null; surname: string | null; phone: string | null; ville_id: string | null; account_type: string | null } | null;
 
@@ -159,9 +159,10 @@ export async function GET(req: Request) {
       const [villeRes, rateRes] = await Promise.all([villeQuery, db.from("exchange_rate").select("usd_rate").eq("id", 1).maybeSingle()]);
       const ville = (villeRes.data ?? null) as Ville | null;
       const rate = Number(rateRes.data?.usd_rate) || 0;
-      const accountType: AccountType = client?.account_type === "Business" ? "Business" : "Personnel";
+      const accountType: AccountType = client?.account_type === "Business" || client?.account_type === "VIP" ? client.account_type : "Personnel";
+      const tarifVille = villeForClient({ account_type: accountType, vip_price_per_lb: (client as { vip_price_per_lb?: number | null } | null)?.vip_price_per_lb ?? null, ville });
       for (const row of unpriced) {
-        const price = computePrice(Number(row.weight) || 0, accountType, ville);
+        const price = computePrice(Number(row.weight) || 0, accountType, tarifVille);
         if (!price || !(price.price > 0)) continue;
         const patch = { price_usd: price.price, tax_usd: 0, price_htg: round2(price.price * rate), tax_htg: 0 };
         const updated = await db.from("packages").update(patch).eq("id", row.id).select("id");

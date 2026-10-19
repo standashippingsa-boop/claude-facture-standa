@@ -4,7 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
 import { hasSignificantInvoiceBalance, invoiceRemainingAmounts, type InvoicePayableSource } from "@/lib/invoice-payable";
-import { DEFAULT_SMALL_PARCEL, estimateForPackages, type SmallParcelConfig } from "@/lib/pricing";
+import { DEFAULT_SMALL_PARCEL, estimateForPackages, type SmallParcelConfig, villeForClient } from "@/lib/pricing";
 import { AccountType, Ville } from "@/lib/types";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 import { detectLang, FALLBACK, GREETING, matchMessage, pick, type Lang } from "@/lib/daha-faq";
@@ -124,10 +124,10 @@ export async function POST(req: Request) {
     if (staff.data) return NextResponse.json({ ok: false, reason: "Cet assistant est réservé à l'espace client." }, { status: 403 });
 
     const clientResult = await db.from("clients")
-      .select("customer_code, fullname, surname, account_type, ville_id, pickup_location")
+      .select("customer_code, fullname, surname, account_type, vip_price_per_lb, ville_id, pickup_location")
       .eq("auth_user_id", userId).maybeSingle();
     if (clientResult.error) throw clientResult.error;
-    const client = clientResult.data as { customer_code: string | null; fullname: string; surname: string | null; account_type: AccountType; ville_id: string | null; pickup_location: string | null } | null;
+    const client = clientResult.data as { customer_code: string | null; fullname: string; surname: string | null; account_type: AccountType; vip_price_per_lb?: number | null; ville_id: string | null; pickup_location: string | null } | null;
     if (!client) return NextResponse.json({ ok: false, reason: "Compte client introuvable." }, { status: 404 });
     const customerCode = text(client.customer_code);
 
@@ -198,7 +198,7 @@ export async function POST(req: Request) {
       const disponibles = visiblePkgs.filter((p) => p.status === "Disponible" || p.status === "Facturé");
       const nonFacturesEnAttente = disponibles.filter((p) => p.status !== "Facturé" && !p.invoice_id);
       const estimate = nonFacturesEnAttente.length
-        ? estimateForPackages(nonFacturesEnAttente.map((p) => Number(p.weight) || 0), client.account_type, ville, smallCfg)
+        ? estimateForPackages(nonFacturesEnAttente.map((p) => Number(p.weight) || 0), client.account_type, villeForClient({ account_type: client.account_type, vip_price_per_lb: client.vip_price_per_lb, ville }), smallCfg)
         : null;
       const recentPkgLines = visiblePkgs.slice(0, 25).map((p) =>
         `  • ${p.tracking_manual || p.tracking_number} — ${STATUS_LABELS[p.status] ?? p.status} — ${Number(p.weight) || 0} lb${p.content ? ` — ${p.content}` : ""}`

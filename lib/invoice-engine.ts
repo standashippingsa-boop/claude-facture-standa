@@ -1,6 +1,6 @@
 import { AccountType, Client, Pkg, Ville, InvoiceKind } from "./types";
 import { round2, isSmallParcel, SmallParcelConfig, FixedPriceMap, TAX_THRESHOLD_LB, TAX_FIXED_USD,
-         OrderFeeTier, orderServiceFee, orderFeeLabel } from "./pricing";
+         OrderFeeTier, orderServiceFee, orderFeeLabel, perLbFor, sumsWeights, villeForClient } from "./pricing";
 
 /**
  * MOTEUR DE FACTURATION — NIVEAU FINANCIER (STANDA COMMERCIAL)
@@ -142,9 +142,7 @@ export interface InvoiceComputation {
 
 /** Pri/LB kliyan an SÈLMAN soti nan vil la (Paramètres). */
 function perLbFromSettings(ville: Ville, accountType: AccountType): number {
-  return accountType === "Business"
-    ? Number(ville.price_business)
-    : Number(ville.price_personal);
+  return perLbFor(accountType, ville);
 }
 
 /**
@@ -158,7 +156,8 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   const errors: string[] = [];
 
   // ---- DOUBLE VALIDATION (§3) ----
-  const ville = client.ville ?? null;
+  // Kont VIP: pri pa liv pwòp kliyan an (villeForClient mete l nan `price_vip`).
+  const ville = villeForClient(client);
   if (!ville) errors.push("Ville du client introuvable — associez une ville tarifaire au client.");
   if (ville && !ville.active) errors.push(`La ville "${ville.name}" est désactivée dans Paramètres.`);
   const accountType: AccountType = client.account_type ?? "Personnel";
@@ -167,7 +166,9 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   if (ville) {
     perLb = perLbFromSettings(ville, accountType);
     if (!Number.isFinite(perLb) || perLb <= 0) {
-      errors.push(`Prix/LB introuvable ou invalide pour "${ville.name}" (${accountType}). Vérifiez Paramètres.`);
+      errors.push(accountType === "VIP"
+        ? "Prix VIP de ce client non défini — fixez-le dans la fiche du client (Clients → Modifier)."
+        : `Prix/LB introuvable ou invalide pour "${ville.name}" (${accountType}). Vérifiez Paramètres.`);
     }
   }
   if (!pkgs.length) errors.push("Aucun colis sélectionné.");
@@ -248,8 +249,8 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   let lines: InvoiceLine[];
   let subtotal: number;
 
-  if (accountType === "Business") {
-    // BUSINESS: adisyone pwa KOLI AU POIDS yo ANVAN, miltipliye YON SÈL FWA.
+  if (sumsWeights(accountType)) {
+    // BUSINESS (ak VIP): adisyone pwa KOLI AU POIDS yo ANVAN, miltipliye YON SÈL FWA.
     // Koli fòfè yo rete deyò adisyon an — yo ajoute apre, pri fiks yo.
     const poidsAuPoids = round2(auPoids.reduce((s, p) => s + w(p), 0));
     const partPoids = round2(poidsAuPoids * perLb);
@@ -290,7 +291,8 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   }
 
   // Siyal taks la — SIJESYON sèlman. Motè a PA ajoute anyen pou kont li.
-  const taxThresholdReached = totalWeight >= TAX_THRESHOLD_LB;
+  // Kont VIP pa janm resevwa sijesyon taks fiks.
+  const taxThresholdReached = accountType !== "VIP" && totalWeight >= TAX_THRESHOLD_LB;
   const fixedTaxSuggested = taxThresholdReached ? TAX_FIXED_USD : 0;
 
   // TOTAL. Sou yon fakti shipping, `purchase` ak `serviceFee` vo 0 —

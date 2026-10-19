@@ -43,7 +43,7 @@ import { DEPOT } from "@/lib/depot";
 import { SUPPORT_PHONE } from "@/lib/branding";
 import {
   DEFAULT_SMALL_PARCEL, SmallParcelConfig, TAX_FIXED_USD, TAX_THRESHOLD_LB,
-  estimateForPackages, isSmallParcel, round2
+  estimateForPackages, isSmallParcel, round2, sumsWeights, villeForClient
 } from "@/lib/pricing";
 import { dateFr, htg, usd } from "@/lib/utils";
 import { specialPackageInfo } from "@/lib/special-package";
@@ -454,7 +454,7 @@ export default function EspaceClientPage() {
 
   const poidsDe = (list: Pkg[]) => round2(list.reduce((s, p) => s + (Number(p.weight) || 0), 0));
   const estimation = (list: Pkg[]) =>
-    estimateForPackages(list.map((p) => Number(p.weight) || 0), client.account_type, client.ville, smallCfg);
+    estimateForPackages(list.map((p) => Number(p.weight) || 0), client.account_type, villeForClient(client), smallCfg);
 
   const clientName = non || client.customer_code;
   const activePackage = autres.find((p) => ["En transit", "Arrivé en Haïti", "En route vers agence"].includes(p.status))
@@ -477,7 +477,7 @@ export default function EspaceClientPage() {
     if (!dispoEst || isSpecialPkg(pkg)) return null;
     const w = Number(pkg.weight) || 0;
     if (w <= 0) return null;
-    if (client.account_type !== "Business" && isSmallParcel(w, smallCfg)) return round2(smallCfg.price);
+    if (!sumsWeights(client.account_type) && isSmallParcel(w, smallCfg)) return round2(smallCfg.price);
     return round2(w * dispoEst.perLb);
   };
   const trackQueryNorm = trackQuery.trim().toLowerCase();
@@ -811,7 +811,7 @@ export default function EspaceClientPage() {
   // ── Kalkilatris ─────────────────────────────────────────────────────────
   const w = Number(calcW.replace(",", "."));
   const calcOk = Number.isFinite(w) && w > 0;
-  const calcRes = calcOk ? estimateForPackages([w], client.account_type, client.ville, smallCfg) : null;
+  const calcRes = calcOk ? estimateForPackages([w], client.account_type, villeForClient(client), smallCfg) : null;
 
   // ── Bare navigasyon anba ────────────────────────────────────────────────
   const NavBtn = ({ icon: Icon, label, to, href }: {

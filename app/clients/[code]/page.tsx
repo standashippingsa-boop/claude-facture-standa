@@ -14,7 +14,7 @@ import {
 } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
-import { computePrice, round2 } from "@/lib/pricing";
+import { computePrice, round2, villeForClient } from "@/lib/pricing";
 import InvoiceDialog from "@/components/InvoiceDialog";
 import TimeSeriesBarChart from "@/components/TimeSeriesBarChart";
 import { bucketByMonth, peakIndex } from "@/lib/dashboard-charts";
@@ -148,7 +148,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     setBusy(true);
     try {
       for (const p of targets) {
-        const r = computePrice(p.weight, client.account_type, client.ville);
+        const r = computePrice(p.weight, client.account_type, villeForClient(client));
         if (r) await updatePackagePrice(p.id, r.price, flags.taxFix ? r.taxFix : 0, rate);
       }
       setNotice(`Tarification aplike sou ${targets.length} colis.`);

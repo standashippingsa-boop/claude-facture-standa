@@ -470,6 +470,16 @@ export default function InvoiceDialog({
           </div>
         )}
 
+        {/* KONT VIP — pri pa liv pwòp kliyan an */}
+        {client.account_type === "VIP" && (
+          <div className="border border-amber-300 bg-amber-50 rounded-lg p-3 mb-3">
+            <p className="text-xs font-bold text-amber-900 uppercase mb-1">Compte VIP · {client.vip_price_per_lb ? `${usd(Number(client.vip_price_per_lb))}/lb` : "prix non défini"}</p>
+            <p className="text-[12px] text-amber-900 leading-relaxed">
+              Tous les poids sont additionnés puis multipliés par le prix VIP de ce client. Pas de tarif petits colis, pas de taxe fixe proposée.
+            </p>
+          </div>
+        )}
+
         {/* KONT BUSINESS — pwa yo adisyone ANVAN, yon sèl miltiplikasyon */}
         {client.account_type === "Business" && (
           <div className="border border-navy/20 bg-blue-50 rounded-lg p-3 mb-3">
@@ -482,7 +492,7 @@ export default function InvoiceDialog({
         )}
 
         {/* MODE DE CALCUL — lòt kont yo sèlman */}
-        {client.account_type !== "Business" && (
+        {client.account_type !== "Business" && client.account_type !== "VIP" && (
         <div className="border border-line rounded-lg p-3 mb-3">
           <p className="text-xs font-bold text-navy uppercase mb-2">Mode de calcul des colis</p>
           <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">

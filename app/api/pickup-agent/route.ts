@@ -4,7 +4,7 @@ import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
 import { hasSignificantInvoiceBalance, invoicePayableAmounts, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 import { specialPackageInfo } from "@/lib/special-package";
-import { computePrice, round2 } from "@/lib/pricing";
+import { computePrice, round2, villeForClient } from "@/lib/pricing";
 import type { AccountType, Ville } from "@/lib/types";
 import { sendPushToCustomer } from "@/lib/push-server";
 import { sendFcmToCustomer } from "@/lib/push-fcm-server";
@@ -513,7 +513,7 @@ export async function POST(req: Request) {
           db.from("villes").select("id, name, price_personal, price_business, tax_personal, tax_business, fixed_fee, active")
             .eq("id", agent.pickup_ville_id).maybeSingle(),
           db.from("exchange_rate").select("usd_rate").eq("id", 1).maybeSingle(),
-          db.from("clients").select("customer_code, account_type")
+          db.from("clients").select("customer_code, account_type, vip_price_per_lb")
             .in("customer_code", Array.from(new Set(targets.map((p) => code(p.customer_code)))))
         ]);
         if (villeResult.error) throw villeResult.error;
@@ -521,10 +521,12 @@ export async function POST(req: Request) {
         const rate = Number(rateResult.data?.usd_rate) || 0;
         const accountByCode = new Map<string, AccountType>((clientsResult.data ?? [])
           .map((c: { customer_code: string; account_type: AccountType | null }) => [code(c.customer_code), c.account_type ?? "Personnel"] as const));
+        const vipByCode = new Map<string, number | null>((clientsResult.data ?? [])
+          .map((c: { customer_code: string; vip_price_per_lb?: number | null }) => [code(c.customer_code), c.vip_price_per_lb ?? null] as const));
 
         const updates = await Promise.all(targets.map(async (parcel) => {
           const accountType: AccountType = accountByCode.get(code(parcel.customer_code)) ?? "Personnel";
-          const price = computePrice(Number(parcel.weight) || 0, accountType, ville);
+          const price = computePrice(Number(parcel.weight) || 0, accountType, villeForClient({ account_type: accountType, vip_price_per_lb: vipByCode.get(code(parcel.customer_code)), ville }));
           const priceUsd = price?.price ?? 0;
           // total_usd/total_htg sont des colonnes calculées dans PostgreSQL.
           // Les écrire provoquait une erreur silencieuse et marquait le Bon

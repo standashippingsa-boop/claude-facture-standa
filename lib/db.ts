@@ -8,7 +8,7 @@ import {
 , Affiliate, AffiliateApplication, AffiliateCommission } from "./types";
 import { McpackRow } from "./xlsx";
 import { specialPackageInfo, withManualSpecialPackageMetadata, withSpecialPackageMetadata, ManualSpecialPackageKind, SPECIAL_PACKAGE_FLAG, SPECIAL_PACKAGE_REASON, SPECIAL_PACKAGE_SOURCE } from "./special-package";
-import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS } from "./pricing";
+import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS, villeForClient } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
 import { computeInvoice, invoiceLineContent, InvoiceComputation, verifyTotal } from "./invoice-engine";
 import { invoicePayableAmounts, parsePaymentAmount, paymentIsWithinRoundingMargin, paymentStatusFromAmounts } from "./invoice-payable";
@@ -51,7 +51,7 @@ export interface ClientTarifInfo {
 export async function getClientTarifMap(): Promise<Map<string, ClientTarifInfo>> {
   const cs = await getClients();
   return new Map(cs.map((c) => [c.customer_code, {
-    ville: c.ville ?? null,
+    ville: villeForClient(c),
     account_type: c.account_type ?? "Personnel",
     phone: [c.phone, c.whatsapp].filter(Boolean).join(" "),
     fullname: [c.fullname, c.surname].filter(Boolean).join(" "),
@@ -66,7 +66,9 @@ export async function upsertClient(c: Client): Promise<void> {
     pickup_location: c.pickup_location.trim(),
     email: c.email?.trim() || null,
     ville_id: c.ville_id || null,
-    account_type: c.account_type || "Personnel"
+    account_type: c.account_type || "Personnel",
+    // Pri VIP: sèlman pou kont VIP; lòt kont yo pa kenbe youn.
+    vip_price_per_lb: c.account_type === "VIP" && Number(c.vip_price_per_lb) > 0 ? Math.round(Number(c.vip_price_per_lb) * 100) / 100 : null
   };
   const { error } = c.id
     ? await supabase.from("clients").update(row).eq("id", c.id)
@@ -349,7 +351,7 @@ export async function makeConducesAvailableForVille(
 
   const [{ data: ville, error: villeError }, { data: clientRows, error: clientError }, rate] = await Promise.all([
     supabase.from("villes").select("id,name,price_personal,price_business,tax_personal,tax_business,fixed_fee,active").eq("id", zoneId).maybeSingle(),
-    supabase.from("clients").select("customer_code,account_type").eq("ville_id", zoneId).neq("customer_code", ""),
+    supabase.from("clients").select("customer_code,account_type,vip_price_per_lb").eq("ville_id", zoneId).neq("customer_code", ""),
     getUsdRate(),
   ]);
   if (villeError) throw villeError;
@@ -357,9 +359,10 @@ export async function makeConducesAvailableForVille(
   if (!ville || !ville.active) throw new Error("Cette ville est introuvable ou désactivée dans Paramètres.");
 
   const accountByCode = new Map<string, AccountType>();
-  for (const client of (clientRows ?? []) as Array<{ customer_code?: string; account_type?: AccountType }>) {
+  const vipByCode = new Map<string, number | null>();
+  for (const client of (clientRows ?? []) as Array<{ customer_code?: string; account_type?: AccountType; vip_price_per_lb?: number | null }>) {
     const code = String(client.customer_code ?? "").trim();
-    if (code) accountByCode.set(code, client.account_type ?? "Personnel");
+    if (code) { accountByCode.set(code, client.account_type ?? "Personnel"); vipByCode.set(code, client.vip_price_per_lb ?? null); }
   }
   const all = await getPackagesByConduceIds(ids);
   const zonePackages = all.filter((pkg) => accountByCode.has(pkg.customer_code));
@@ -371,7 +374,8 @@ export async function makeConducesAvailableForVille(
       skippedLocked++;
       continue;
     }
-    const price = computePrice(Number(pkg.weight) || 0, accountByCode.get(pkg.customer_code)!, ville as Ville);
+    const accountType = accountByCode.get(pkg.customer_code)!;
+    const price = computePrice(Number(pkg.weight) || 0, accountType, villeForClient({ account_type: accountType, vip_price_per_lb: vipByCode.get(pkg.customer_code), ville: ville as Ville }));
     if (!price) continue;
     const priceUsd = price.price;
     const patch = {
@@ -438,19 +442,22 @@ export async function makeBonRemiseAvailable(bonId: string, who = ""): Promise<C
 
   const codes = Array.from(new Set(packages.map((pkg) => String(pkg.customer_code ?? "").trim()).filter(Boolean)));
   const { data: clientRows, error: clientError } = codes.length
-    ? await supabase.from("clients").select("customer_code,account_type").in("customer_code", codes)
+    ? await supabase.from("clients").select("customer_code,account_type,vip_price_per_lb").in("customer_code", codes)
     : { data: [], error: null };
   if (clientError) throw clientError;
   const accountByCode = new Map<string, AccountType>();
-  for (const client of (clientRows ?? []) as Array<{ customer_code?: string; account_type?: AccountType }>) {
+  const vipByCode = new Map<string, number | null>();
+  for (const client of (clientRows ?? []) as Array<{ customer_code?: string; account_type?: AccountType; vip_price_per_lb?: number | null }>) {
     const code = String(client.customer_code ?? "").trim();
-    if (code) accountByCode.set(code, client.account_type ?? "Personnel");
+    if (code) { accountByCode.set(code, client.account_type ?? "Personnel"); vipByCode.set(code, client.vip_price_per_lb ?? null); }
   }
 
   let available = 0, priced = 0, alreadyAvailable = 0, skippedLocked = 0;
   for (const pkg of packages) {
     if (pkg.status === "Facturé" || pkg.status === "Livré" || pkg.invoice_id) { skippedLocked++; continue; }
-    const price = computePrice(Number(pkg.weight) || 0, accountByCode.get(String(pkg.customer_code ?? "").trim()) ?? "Personnel", ville as Ville);
+    const pkgCode = String(pkg.customer_code ?? "").trim();
+    const accountType = accountByCode.get(pkgCode) ?? "Personnel";
+    const price = computePrice(Number(pkg.weight) || 0, accountType, villeForClient({ account_type: accountType, vip_price_per_lb: vipByCode.get(pkgCode), ville: ville as Ville }));
     if (!price) continue;
     const { error } = await supabase.from("packages").update({
       status: "Disponible",
