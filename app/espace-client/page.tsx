@@ -468,9 +468,13 @@ export default function EspaceClientPage() {
   const facturesOnly = disponibles.filter((p) => p.status === "Facturé");
   const dispoCount = disponiblesOnly.length;
   const factureCount = facturesOnly.length;
-  const dispoEst = disponiblesOnly.length ? estimation(disponiblesOnly) : null;
+  const isSpecialPkg = (pkg: Pkg) => specialPackageInfo(pkg).isSpecial;
+  const dispoPriced = disponiblesOnly.filter((pkg) => !isSpecialPkg(pkg));
+  const dispoSpecialCount = disponiblesOnly.length - dispoPriced.length;
+  const dispoEst = dispoPriced.length ? estimation(dispoPriced) : null;
+  const dispoWeight = poidsDe(disponiblesOnly);
   const pkgEstimate = (pkg: Pkg): number | null => {
-    if (!dispoEst) return null;
+    if (!dispoEst || isSpecialPkg(pkg)) return null;
     const w = Number(pkg.weight) || 0;
     if (w <= 0) return null;
     if (client.account_type !== "Business" && isSmallParcel(w, smallCfg)) return round2(smallCfg.price);
@@ -615,7 +619,8 @@ export default function EspaceClientPage() {
     const facturedItems = list.filter(isInvoiced);
     const nonFacturedItems = reel ? [] : list.filter((p) => !isInvoiced(p));
     const totalFacture = round2(facturedItems.reduce((s, p) => s + (Number(p.total_usd) || 0), 0));
-    const est = nonFacturedItems.length ? estimation(nonFacturedItems) : null;
+    const nonFacturedPriced = nonFacturedItems.filter((pkg) => !specialPackageInfo(pkg).isSpecial);
+    const est = nonFacturedPriced.length ? estimation(nonFacturedPriced) : null;
     return (
       <div className="rounded-3xl border border-sky-100 bg-white p-4 shadow-sm">
         <div className="grid grid-cols-2 gap-3">
@@ -785,6 +790,7 @@ export default function EspaceClientPage() {
             <span className="flex shrink-0 items-baseline gap-2">
               <span className="text-xs font-semibold text-ink">{Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : "—"}</span>
               {price != null && <span className="text-base font-extrabold text-accent-dark">{usd(price)}</span>}
+              {price == null && check && special.isSpecial && !facture && <span className="text-xs font-bold text-amber-700">Prix à confirmer</span>}
             </span>
           </div>
           {facture && (
@@ -1009,19 +1015,24 @@ export default function EspaceClientPage() {
           <>
             {disponiblesOnly.length === 0 ? <AvailableEmpty /> : (
               <>
-                {dispoEst ? (
+                {dispoEst || dispoSpecialCount > 0 ? (
                   <section className="rounded-3xl bg-accent p-5 text-white shadow-[0_14px_30px_-16px_rgba(228,101,10,.7)]">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-[13px] font-semibold text-white/85">Total</p>
-                        <p className="mt-1 text-[32px] font-extrabold leading-none tracking-tight">{usd(dispoEst.total)}</p>
+                        <p className="mt-1 text-[32px] font-extrabold leading-none tracking-tight">{dispoEst ? usd(dispoEst.total) : "—"}</p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-white px-3.5 py-2 text-sm font-extrabold text-accent-dark">{dispoEst.totalWeight.toFixed(2)} lb</span>
+                      <span className="shrink-0 rounded-full bg-white px-3.5 py-2 text-sm font-extrabold text-accent-dark">{dispoWeight.toFixed(2)} lb</span>
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/25 pt-3 text-[13px]">
-                      <div><p className="text-white/80">Shipping fee</p><p className="mt-0.5 text-base font-extrabold">{usd(dispoEst.subtotal)}</p></div>
-                      <div><p className="text-white/80">Fixed tax</p><p className="mt-0.5 text-base font-extrabold">{dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : "—"}</p></div>
+                      <div><p className="text-white/80">Shipping fee</p><p className="mt-0.5 text-base font-extrabold">{dispoEst ? usd(dispoEst.subtotal) : "—"}</p></div>
+                      <div><p className="text-white/80">Fixed tax</p><p className="mt-0.5 text-base font-extrabold">{dispoEst && dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : "—"}</p></div>
                     </div>
+                    {dispoSpecialCount > 0 && (
+                      <p className="mt-3 rounded-xl bg-white/15 px-3 py-2 text-[12px] font-semibold leading-relaxed">
+                        + {dispoSpecialCount} colis spécial{dispoSpecialCount > 1 ? "aux" : ""} : prix communiqué sur votre facture.
+                      </p>
+                    )}
                   </section>
                 ) : (
                   <p className="px-1 text-xs text-amber-700">Le tarif de votre ville n&apos;est pas encore configuré. Contactez-nous sur WhatsApp.</p>
