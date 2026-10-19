@@ -333,7 +333,7 @@ function pushCopy(body: NotifyBody): { title: string; text: string } {
   return customerParcelCopy(body.type === "recu_miami" ? "recu_miami" : "disponible", n);
 }
 
-interface ProbeBody { probe?: "diag" | "test"; token?: string; to?: string }
+interface ProbeBody { probe?: "diag" | "test" | "sample"; token?: string; to?: string; sample?: "recu_miami" | "disponible" }
 
 export async function POST(req: Request) {
   // Rate limiting — imèl: 60 / èdtan pa IP (anti-spam kliyan)
@@ -347,6 +347,28 @@ export async function POST(req: Request) {
   const key = process.env.RESEND_API_KEY;
 
   // ── PROBE : dyagnostik + imèl tès (Paramètres > Notifications email) ──
+  // ── EGZANP: voye VRÈ modèl imèl kliyan an (fo done) bay admin nan ──
+  if (body.probe === "sample") {
+    const gate = await requireStaff(String(body.token ?? ""));
+    if (!gate.ok) return NextResponse.json({ ok: false, code: "auth", error: gate.error }, { status: gate.status });
+    const to = String(body.to ?? "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(to)) return NextResponse.json({ ok: false, code: "bad_to", error: "Adrès imèl la pa valab." }, { status: 200 });
+    if (!key) return NextResponse.json({ ok: false, code: "no_key", error: "RESEND_API_KEY pa konfigire nan Vercel." }, { status: 200 });
+    const type = body.sample === "disponible" ? "disponible" : "recu_miami";
+    const { subject, html } = buildHtml({
+      type,
+      client: { name: "Marie Joseph", code: "MC-XXXXX", ville: "Cap-Haïtien", email: to },
+      packages: [
+        { tracking_number: "WR102600237168", tracking_manual: "SPXMIA0136726100", content: "ACC. PERSONAL", weight: 4, fournisseur: "SHEIN" },
+        { tracking_number: "WR102600233342", tracking_manual: "1Z999AA10123456784", content: "Chaussures", weight: 0.65, fournisseur: "Amazon" }
+      ]
+    } as NotifyBody);
+    const r = await sendViaResend(key, to, `[EXEMPLE] ${subject}`, html);
+    return r.ok
+      ? NextResponse.json({ ok: true, id: r.id, to })
+      : NextResponse.json({ ok: false, code: r.code, status: r.status, error: r.message, to }, { status: 200 });
+  }
+
   if (body.probe === "diag" || body.probe === "test") {
     const gate = await requireStaff(String(body.token ?? ""));
     if (!gate.ok) return NextResponse.json({ ok: false, code: "auth", error: gate.error }, { status: gate.status });

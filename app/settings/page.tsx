@@ -753,14 +753,27 @@ function EmailNotificationsSection() {
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
   useNoticeToast(result ? { ok: result.ok, text: result.msg } : null, setResult);
 
-  const callProbe = async (probe: "diag" | "test", to?: string) => {
+  const callProbe = async (probe: "diag" | "test" | "sample", to?: string, sample?: "recu_miami" | "disponible") => {
     const { data } = await supabase.auth.getSession();
     const res = await fetch("/api/notify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ probe, to, token: data.session?.access_token ?? "" }),
+      body: JSON.stringify({ probe, to, sample, token: data.session?.access_token ?? "" }),
     });
     return res.json();
+  };
+
+  /** Voye VRÈ modèl imèl kliyan an (fo done) pou wè jan li parèt sou telefòn. */
+  const sendSample = async (sample: "recu_miami" | "disponible") => {
+    setBusy(true); setResult(null);
+    try {
+      const j = await callProbe("sample", testTo.trim(), sample);
+      setResult(j?.ok
+        ? { ok: true, msg: `Exemple envoyé à ${j.to}. Ouvrez-le sur votre téléphone (vérifiez aussi les Spams).` }
+        : { ok: false, msg: j?.error || j?.reason || "Échec inconnu." });
+    } catch (e) {
+      setResult({ ok: false, msg: "Erreur réseau : " + (e instanceof Error ? e.message : String(e)) });
+    } finally { setBusy(false); }
   };
 
   useEffect(() => {
@@ -817,6 +830,14 @@ function EmailNotificationsSection() {
         <BusyButton className="btn" onClick={runTest} busy={busy} disabled={!testTo.trim()} busyLabel="Envoi…">
           Envoyer le test
         </BusyButton>
+      </div>
+      <div className="rounded-lg border border-line p-3">
+        <p className="text-xs font-semibold text-navy">Voir l&apos;email que reçoivent les clients</p>
+        <p className="mt-0.5 text-[11px] text-slate-500">Envoie le vrai modèle (exemple « MC-XXXXX », 2 colis) à l&apos;adresse ci-dessus.</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button type="button" className="btn btn-ghost border border-line" disabled={busy || !testTo.trim()} onClick={() => void sendSample("recu_miami")}>Exemple « Reçu à Miami »</button>
+          <button type="button" className="btn btn-ghost border border-line" disabled={busy || !testTo.trim()} onClick={() => void sendSample("disponible")}>Exemple « Disponible »</button>
+        </div>
       </div>
 
 
