@@ -9,7 +9,7 @@ import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
 import { usePackageSelection } from "@/lib/selection";
 import {
-  commitPdfImport, detachPackagesFromInvoice, hardDeletePackage, getClient, getClientPackagesAndInvoices, getClientRetraits,
+  commitPdfImport, detachPackagesFromInvoice, hardDeletePackage, getClient, getClientPackagesAndInvoices, getClientRetraits, getConduces,
   getInvoiceFlags, getSettings, getUsdRate, logAction, setPackagesStatus, setRetraitStatus, updatePackagePrice, notifyEmail
 } from "@/lib/db";
 import { useRole } from "@/lib/authx";
@@ -41,6 +41,8 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   const [client, setClient] = useState<Client | null>(null);
   const [pkgs, setPkgs] = useState<SelPkg[]>([]);
   const [invs, setInvs] = useState<Invoice[]>([]);
+  /** Nimewo Conduce pa id — pou montre nan ki Conduce chak koli ye. */
+  const [conduceNumbers, setConduceNumbers] = useState<Map<string, string>>(new Map());
   const [rate, setRate] = useState(132);
   const [footer, setFooter] = useState("Mèsi paske ou fè STANDA COMMERCIAL konfyans.");
   const [bulkStatus, setBulkStatus] = useState("");
@@ -93,6 +95,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     setFlags(fl);
     setClient(c); setRate(r);
     if (s.invoice_footer) setFooter(s.invoice_footer);
+    getConduces().then((list) => setConduceNumbers(new Map(list.map((conduce) => [conduce.id, conduce.conduce_number])))).catch(() => undefined);
     const { pkgs: p, invs: i } = await getClientPackagesAndInvoices(decoded);
     setPkgs(sortPackagesAvailableFirst(p));
     setInvs(i);
@@ -422,7 +425,12 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
               return (
               <tr key={p.id} className={`${i % 2 ? "bg-mist" : ""} ${sel.has(p.id) ? "!bg-blue-50" : ""}`}>
                 <td className="tdc"><input type="checkbox" checked={sel.has(p.id)} onChange={() => toggle(p.id)} /></td>
-                <td className="tdc font-mono text-[11px]">{p.tracking_number}</td>
+                <td className="tdc font-mono text-[11px]" title={p.conduce_id && conduceNumbers.get(p.conduce_id) ? `Conduce ${conduceNumbers.get(p.conduce_id)}` : "Sans conduce"}>
+                  {p.tracking_number}
+                  {p.conduce_id && conduceNumbers.get(p.conduce_id)
+                    ? <span className="mt-0.5 block font-sans text-[10px] font-bold text-violet-700">Conduce {conduceNumbers.get(p.conduce_id)}</span>
+                    : <span className="mt-0.5 block font-sans text-[10px] text-slate-400">Sans conduce</span>}
+                </td>
                 <td className="tdc font-mono text-[11px]">{p.tracking_manual || <span className="text-slate-300">—</span>}</td>
                 <td className="tdc whitespace-nowrap">{p.created_date}</td>
                 <td className="tdc text-right">{p.weight}</td>

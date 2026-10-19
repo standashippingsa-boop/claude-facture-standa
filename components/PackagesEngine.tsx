@@ -352,6 +352,9 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
   const cityOptions = useMemo(() => Array.from(new Set(Array.from(tarifMap.values()).map((info) => info.ville?.name).filter(Boolean) as string[]))
     .sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value })), [tarifMap]);
   const customerOptions = useMemo(() => Array.from(tarifMap.keys()).sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value })), [tarifMap]);
+  // Nimewo Conduce pa koli — pou jwenn vit koli ki rive men ki poko « Disponible ».
+  const conduceNumberById = useMemo(() => new Map(conduces.map((conduce) => [conduce.id, conduce.conduce_number])), [conduces]);
+  const conduceOf = (p: { conduce_id?: string | null }) => (p.conduce_id ? conduceNumberById.get(p.conduce_id) ?? "" : "");
   const conduceOptions = useMemo(() => conduces.map((conduce) => ({ value: conduce.id, label: `Conduce ${conduce.conduce_number}` })), [conduces]);
 
   /**
@@ -796,6 +799,9 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
                   onMouseMove={(e) => showTip(p, e)}
                   onMouseLeave={() => setHover(null)}>
                   {special.isSpecial && <span className="mr-1 font-black text-amber-700" title="Colis spécial">*</span>}{p.tracking_number}
+                  {conduceOf(p)
+                    ? <span className="mt-0.5 block font-sans text-[10px] font-bold text-violet-700">Conduce {conduceOf(p)}</span>
+                    : <span className="mt-0.5 block font-sans text-[10px] text-slate-400">Sans conduce</span>}
                 </td>
                 <td className="tdc">
                   {!p.tracking_manual ? (
@@ -1031,6 +1037,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
           ["Ville", hover.ville],
           ["Tracking ID", <span className="font-mono">{p.tracking_number}</span>],
           ["Tracking Number", <span className="font-mono">{p.tracking_manual || "—"}</span>],
+          ["Conduce", conduceOf(p) ? <span className="font-bold text-violet-700">{conduceOf(p)}</span> : <span className="text-slate-400">Aucune</span>],
           ["Poids", `${Number(p.weight || 0)} lb`],
           ["Contenu", p.content || "—"],
           ...(special.isSpecial ? [["Colis spécial", <span className="text-amber-800" title={special.reason}>{special.reason}</span>] as [string, React.ReactNode]] : []),
