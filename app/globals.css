@@ -157,6 +157,12 @@ body { @apply bg-mist text-slate-700 antialiased; }
 /* Le zoom réduit aussi les hauteurs « plein écran » : on compense pour garder tout l'écran. */
 .client-app-font .min-h-screen { min-height: calc(100vh / var(--client-zoom)); }
 
+/* App point de retrait (components/PickupAgentPortal.tsx) : même échelle réduite que l'app client.
+   Le ticket de remise est rendu HORS de .agent-app : l'impression garde la vraie largeur du papier. */
+.agent-app { --agent-zoom: .8; zoom: var(--agent-zoom); }
+.agent-app.min-h-screen { min-height: calc(100vh / var(--agent-zoom)); }
+@media print { .agent-app { zoom: 1; } }
+
 .client-app {
   background-color: #f8faff;
   background-image:

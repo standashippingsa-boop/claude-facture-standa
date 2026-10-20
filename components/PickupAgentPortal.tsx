@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowLeft, Banknote, ChevronRight, Bell, BellRing, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, Printer, RefreshCw, Search, Settings, ShieldCheck, Truck, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Banknote, Bell, BellRing, Check, CheckCircle2, ChevronRight, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, Printer, RefreshCw, Search, Settings, Truck, Users, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { autoEnablePush, getPushPermissionState, isPushSupported, reportPushFailure, subscribeStaffToPush } from "@/lib/push";
 import { openSecureDocument } from "@/lib/secure-document";
@@ -475,6 +475,8 @@ export default function PickupAgentPortal() {
   /** Meni an: chak onglè louvri sou LIS li, pa sou paj yon kliyan ki te louvri anvan. */
   const goTab = (next: Tab) => { setTab(next); setExpandedCustomer(null); setSelectedInvoiceId(null); setPaymentTarget(null); setArrivalSection(null); setFocusedPackageId(null); };
   const goBack = () => { if (!paymentBusy) window.history.back(); };
+  // Changer de page referme toujours le menu « Plus ».
+  useEffect(() => { setMobileMoreOpen(false); }, [tab, expandedCustomer, paymentTarget, selectedInvoiceId]);
 
   const subPage: "payment" | "invoice" | null = paymentTarget ? "payment" : selectedInvoice ? "invoice" : null;
   // Yon dosye kliyan ouvè = yon paj pou kliyan sa a sèlman.
@@ -493,84 +495,76 @@ export default function PickupAgentPortal() {
 
   const logout = async () => { await supabase.auth.signOut(); router.replace("/point-retrait"); };
 
-  return <div className="min-h-screen bg-gradient-to-b from-sky-100 via-[#f5f7fb] to-white text-slate-900">
-    <header className="bg-gradient-to-r from-[#071b43] via-[#0d3270] to-[#154b91] text-white shadow-lg">
-      <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-2 px-3 py-2 sm:min-h-20 sm:gap-3 sm:px-6 sm:py-3">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3"><span className="sm:hidden"><Logo size={38} rounded="rounded-lg" tone="light" /></span><span className="hidden sm:inline"><Logo size={44} rounded="rounded-xl" tone="light" /></span><div><p className="text-base font-black tracking-tight sm:text-lg">STANDA</p><p className="text-[9px] font-semibold tracking-[0.16em] text-white/70 sm:text-[10px] sm:tracking-[0.18em]">POINT DE RETRAIT</p></div></div>
-        <div className="flex items-center gap-1 sm:gap-2"><StaffNotifications variant="icon" /><button type="button" onClick={logout} className="inline-flex min-h-10 items-center gap-2 rounded-xl px-2.5 text-sm font-semibold text-white/90 hover:bg-white/10 sm:min-h-11 sm:px-3"><LogOut size={17} /><span className="hidden sm:inline">Se déconnecter</span></button></div>
-      </div>
-    </header>
+  const firstName = (data?.agent.name ?? "").trim().split(/\s+/)[0] || "Agent";
+  const showBack = Boolean(data) && (tab !== "home" || Boolean(subPage));
+  const cash = cashTotals(report.agent_payments);
+  const pendingBonCount = (data?.bons ?? []).filter((bon) => !bon.received_at).length;
 
-    <main className="mx-auto max-w-6xl px-3 py-3 pb-20 sm:px-6 sm:py-8 sm:pb-12">
-      {loading && <div className="grid min-h-[45vh] place-items-center"><Loader inline size={64} /></div>}
-      {!loading && !data && <MessageScreen tone="error" title="Accès à vérifier" text={loadError || "Impossible de préparer votre espace."} actionLabel="Réessayer" onAction={() => void load()} />}
-      {!loading && data && <>
-        <div className="md:grid md:grid-cols-[190px_minmax(0,1fr)] md:gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
-        <SideNavigation tab={tab} incoming={incoming.length} ready={ready.length} dossiers={dossiers.length} delivered={delivered.length} bons={data.bons.length} balanceCount={report.customer_balances.length} onHome={() => goTab("home")} onArrivals={() => { goTab("arrivals"); setArrivalSection(null); }} onReady={() => goTab("ready")} onDossiers={() => goTab("dossiers")} onHistory={() => goTab("history")} onBons={() => goTab("bons")} onReports={() => goTab("reports")} onSettings={() => goTab("settings")} />
-        <div className={cn("min-w-0", selectedPackageIds.length ? "pb-44 md:pb-28" : "pb-20 md:pb-0")}>
-        {tab !== "home" && <section className="hidden">
-          <Stat icon={<ClipboardCheck size={20} />} label="Dossiers clients" value={dossiers.length} tint="bg-emerald-50 text-emerald-700" active={tab === "dossiers"} onClick={() => setTab("dossiers")} />
-          <Stat icon={<PackageCheck size={20} />} label="Colis à venir" value={incoming.length} tint="bg-cyan-50 text-cyan-700" active={tab === "arrivals"} onClick={() => { setTab("arrivals"); setArrivalSection(null); }} />
-          <Stat icon={<Banknote size={20} />} label="Rapport" value={report.customer_balances.length} tint="bg-blue-50 text-[#0d3b7a]" active={tab === "reports"} onClick={() => setTab("reports")} />
-          <Stat icon={<PackageCheck size={20} />} label="Disponibles" value={ready.length} tint="bg-orange-50 text-[#e85e19]" active={tab === "ready"} onClick={() => setTab("ready")} />
-          <Stat icon={<CheckCircle2 size={20} />} label="Historique" value={delivered.length} tint="bg-indigo-50 text-indigo-700" active={tab === "history"} onClick={() => setTab("history")} />
-        </section>}
+  return <>
+    <div className="agent-app min-h-screen bg-[#f2f4f8] text-slate-900">
+      {/* ── Ba anlè : tit paj la + Retour, tankou yon app bank ── */}
+      <header className="sticky top-0 z-30 bg-[#0b2a5b] text-white">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-3 sm:px-6">
+          {showBack
+            ? <button type="button" onClick={goBack} disabled={paymentBusy} aria-label="Retour" className="grid h-10 w-10 shrink-0 place-items-center rounded-full transition hover:bg-white/10 disabled:opacity-40"><ArrowLeft size={20} /></button>
+            : <Logo size={32} rounded="rounded-lg" tone="light" />}
+          <div className="min-w-0 flex-1">
+            {showBack
+              ? <p className="truncate text-[15px] font-semibold">{pageTitle}</p>
+              : <><p className="truncate text-[15px] font-semibold leading-tight">{data ? `Bonjour, ${firstName}` : "STANDA"}</p><p className="truncate text-[11px] text-white/65">{data ? `Point de retrait · ${data.zone.name}` : "Point de retrait"}</p></>}
+          </div>
+          <StaffNotifications variant="icon" />
+          <button type="button" onClick={logout} aria-label="Se déconnecter" title="Se déconnecter" className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white/85 transition hover:bg-white/10"><LogOut size={18} /></button>
+        </div>
+      </header>
 
-        <section className="rounded-2xl border border-white bg-white p-3 shadow-[0_10px_35px_rgba(17,54,110,0.07)] sm:rounded-3xl sm:p-5">
-          {(tab !== "home" || subPage) && <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
-            <button type="button" onClick={goBack} disabled={paymentBusy} aria-label="Retour" className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-sm font-bold text-[#0b3270] hover:bg-slate-100 disabled:opacity-40"><ArrowLeft size={19} /> Retour</button>
-            <h2 className="min-w-0 truncate text-base font-extrabold text-[#0a2b61]">{pageTitle}</h2>
-          </div>}
-          {tab !== "home" && tab !== "settings" && !subPage && !onCustomerPage && <div className="mb-4 flex flex-col gap-3">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h2 className="text-lg font-extrabold text-[#0a2b61]">{tab === "arrivals" ? "Colis à venir" : `Opérations — ${data.zone.name}`}</h2><p className="text-xs text-slate-500">{tab === "arrivals" ? "Touchez un code client : arrivés en Haïti, ou encore en cours." : "Colis, factures, paiements et bons de remise liés à votre zone."}</p></div><form onSubmit={(event) => { event.preventDefault(); openDossier(); }} className="flex min-h-11 gap-2 md:w-[27rem]"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3"><Search size={17} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => { setSearch(event.target.value); setFocusedPackageId(null); }} className="min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="Numéro de client, suivi ou facture" aria-label="Rechercher un dossier client" /></label><button type="submit" className="shrink-0 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white hover:bg-[#0f448f]">Dossier</button></form></div>
-            <p className="text-xs font-semibold text-emerald-700">Les statuts sont synchronisés automatiquement avec le système principal.</p>
-            <nav className="hidden">{([
-              ["dossiers", "Dossiers clients", dossiers.length],
-              ["arrivals", "Colis à venir", incoming.length],
-              ["ready", "Colis disponibles", ready.length],
-              ["bons", "Bons de remise", data.bons.length],
-              ["history", "Historique", delivered.length]
-            ] as Array<[Tab, string, number]>).map(([id, label, count]) => <button key={id} type="button" onClick={() => { setTab(id); if (id === "arrivals") setArrivalSection(null); }} className={cn("whitespace-nowrap rounded-xl px-3 py-2 text-sm font-bold transition", tab === id ? "bg-[#0b3270] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}>{label} <span className={cn("ml-1 rounded-full px-1.5 py-0.5 text-xs", tab === id ? "bg-white/20" : "bg-white")}>{count}</span></button>)}</nav>
-          </div>}
+      <main className="mx-auto max-w-6xl px-3 pb-28 pt-4 sm:px-6 md:pb-10">
+        {loading && <div className="grid min-h-[45vh] place-items-center"><Loader inline size={64} /></div>}
+        {!loading && !data && <MessageScreen tone="error" title="Accès à vérifier" text={loadError || "Impossible de préparer votre espace."} actionLabel="Réessayer" onAction={() => void load()} />}
+        {!loading && data && <>
+          <div className="md:grid md:grid-cols-[200px_minmax(0,1fr)] md:gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <SideNavigation tab={tab} incoming={incoming.length} ready={ready.length} dossiers={dossiers.length} delivered={delivered.length} bons={data.bons.length} balanceCount={report.customer_balances.length} onHome={() => goTab("home")} onArrivals={() => { goTab("arrivals"); setArrivalSection(null); }} onReady={() => goTab("ready")} onDossiers={() => goTab("dossiers")} onHistory={() => goTab("history")} onBons={() => goTab("bons")} onReports={() => goTab("reports")} onSettings={() => goTab("settings")} />
+            <div className={cn("min-w-0 space-y-4", selectedPackageIds.length ? "pb-24 md:pb-20" : "")}>
+              {showPushBanner && tab !== "settings" && <PushBanner busy={pushBusy} onActivate={() => void activatePush()} onDismiss={dismissPushBanner} />}
+              {tab !== "home" && tab !== "settings" && !subPage && !onCustomerPage && <SearchBar value={search} onChange={(value) => { setSearch(value); setFocusedPackageId(null); }} onSubmit={openDossier}
+                hint={tab === "arrivals" ? "Touchez un client pour voir ses colis arrivés en Haïti ou encore en cours." : null} />}
 
-          {showPushBanner && tab !== "settings" && (
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#0d3b7a]/15 bg-[#0d3b7a]/5 px-4 py-3">
-              <div className="flex items-center gap-2.5">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#0d3b7a]/10 text-[#0d3b7a]"><Bell size={16} /></span>
-                <p className="text-[13px] font-semibold text-[#0a2b61]">Activer les notifications pour les nouveaux Bons de Remise ?</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={activatePush} disabled={pushBusy}
-                  className="rounded-xl bg-[#0d3b7a] px-3.5 py-2 text-[13px] font-bold text-white hover:bg-[#0f448f] disabled:opacity-60">
-                  {pushBusy ? "…" : "Activer"}
-                </button>
-                <button type="button" onClick={dismissPushBanner} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
-              </div>
+              {!subPage && tab === "settings" && <AgentSettingsView agentName={data.agent.name} pushPermission={pushPermission} pushBusy={pushBusy} onActivate={() => void activatePush()} />}
+              {!subPage && tab === "home" && <HomeDashboard zoneName={data.zone.name} cash={cash} balanceCount={report.customer_balances.length}
+                counts={{ ready: ready.length, incoming: incoming.length, dossiers: dossiers.length, bons: pendingBonCount }}
+                payments={report.agent_payments} onGo={(next) => { goTab(next); if (next === "arrivals") setArrivalSection(null); }}
+                onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")}
+                search={search} onSearchChange={(value) => { setSearch(value); setFocusedPackageId(null); }} onOpenDossier={openDossier}
+                bons={data.bons} selectedBonId={selectedBonId} onSelectBon={setSelectedBonId}
+                bonBusy={bonBusy} bonConfirmedId={bonConfirmedId} onConfirmBon={confirmBonRemise} />}
+              {!subPage && tab === "dossiers" && <ClientDossiersView dossiers={shownDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
+              {!subPage && tab === "arrivals" && <ArrivalsView groups={shownGroups} expanded={expandedCustomer} section={arrivalSection} onToggleCustomer={toggleArrivalCustomer} onSelectSection={(value) => setArrivalSection(value)} />}
+              {!subPage && tab === "ready" && <ReadyView groups={shownGroups} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
+              {!subPage && tab === "history" && <RemiseHistoryView packages={filteredPackages} onOpenTicket={(packageId) => setTicketPackageId(packageId)} openCustomer={expandedCustomer} onOpenCustomer={setExpandedCustomer} />}
+              {!subPage && tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
+              {!subPage && tab === "reports" && <ReportsView agentName={data.agent.name} payments={reportPayments} balances={reportBalances} onOpenInvoice={openInvoice} onStartPayment={(customerCode) => startPayment(customerCode)} onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} />}
+              {subPage === "invoice" && selectedInvoice && !invoiceInline && <InvoiceDetails invoice={selectedInvoice} packages={packages.filter((item) => item.invoice_id === selectedInvoice.id)} onClose={goBack} onPay={selectedInvoice.payment_status !== "Payé" && selectedInvoice.has_pdf ? () => startPayment(selectedInvoice.customer_code, [selectedInvoice.id]) : undefined} />}
+              {subPage === "payment" && paymentTarget && !paymentInline && <ClientPaymentForm plain key={paymentTarget.customerCode + (paymentTarget.invoiceIds ?? []).join()} title="Paiement avant remise" customerCode={paymentTarget.customerCode} customerName={dossiers.find((dossier) => dossier.customerCode === paymentTarget.customerCode)?.customerName ?? report.customer_balances.find((balance) => balance.customer_code === paymentTarget.customerCode)?.customer_name} invoices={paymentInvoicesFor(paymentTarget.customerCode)} initialSelected={paymentTarget.invoiceIds} busy={paymentBusy} error={paymentError} onSubmit={(payload) => void recordPayment(payload)} onClose={goBack} />}
             </div>
-          )}
-          {!subPage && tab === "settings" && <AgentSettingsView agentName={data.agent.name} pushPermission={pushPermission} pushBusy={pushBusy} onActivate={() => void activatePush()} />}
-          {!subPage && tab === "home" && <HomeDashboard search={search} onSearchChange={(value) => { setSearch(value); setFocusedPackageId(null); }} onOpenDossier={openDossier}
-            bons={data.bons} selectedBonId={selectedBonId} onSelectBon={setSelectedBonId}
-            bonBusy={bonBusy} bonConfirmedId={bonConfirmedId} onConfirmBon={confirmBonRemise} />}
-          {!subPage && tab === "dossiers" && <ClientDossiersView dossiers={shownDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
-          {!subPage && tab === "arrivals" && <ArrivalsView groups={shownGroups} expanded={expandedCustomer} section={arrivalSection} onToggleCustomer={toggleArrivalCustomer} onSelectSection={(value) => setArrivalSection(value)} />}
-          {!subPage && tab === "ready" && <ReadyView groups={shownGroups} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
-          {!subPage && tab === "history" && <RemiseHistoryView packages={filteredPackages} onOpenTicket={(packageId) => setTicketPackageId(packageId)} openCustomer={expandedCustomer} onOpenCustomer={setExpandedCustomer} />}
-          {!subPage && tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
-          {!subPage && tab === "reports" && <ReportsView agentName={data.agent.name} payments={reportPayments} balances={reportBalances} onOpenInvoice={openInvoice} onStartPayment={(customerCode) => startPayment(customerCode)} onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} />}
-          {subPage === "invoice" && selectedInvoice && !invoiceInline && <InvoiceDetails invoice={selectedInvoice} packages={packages.filter((item) => item.invoice_id === selectedInvoice.id)} onClose={goBack} onPay={selectedInvoice.payment_status !== "Payé" && selectedInvoice.has_pdf ? () => startPayment(selectedInvoice.customer_code, [selectedInvoice.id]) : undefined} />}
-          {subPage === "payment" && paymentTarget && !paymentInline && <ClientPaymentForm key={paymentTarget.customerCode + (paymentTarget.invoiceIds ?? []).join()} title="Paiement avant remise" customerCode={paymentTarget.customerCode} customerName={dossiers.find((dossier) => dossier.customerCode === paymentTarget.customerCode)?.customerName ?? report.customer_balances.find((balance) => balance.customer_code === paymentTarget.customerCode)?.customer_name} invoices={paymentInvoicesFor(paymentTarget.customerCode)} initialSelected={paymentTarget.invoiceIds} busy={paymentBusy} error={paymentError} onSubmit={(payload) => void recordPayment(payload)} onClose={goBack} />}
-        </section>
-        </div>
-        </div>
-        <MobileNavigation tab={tab} moreOpen={mobileMoreOpen} onHome={() => { goTab("home"); setMobileMoreOpen(false); }} onArrivals={() => { goTab("arrivals"); setArrivalSection(null); setMobileMoreOpen(false); }} onReports={() => { goTab("reports"); setMobileMoreOpen(false); }} onReady={() => { goTab("ready"); setMobileMoreOpen(false); }} onToggleMore={() => setMobileMoreOpen((open) => !open)} onDossiers={() => { goTab("dossiers"); setMobileMoreOpen(false); }} onHistory={() => { goTab("history"); setMobileMoreOpen(false); }} onBons={() => { goTab("bons"); setMobileMoreOpen(false); }} onSettings={() => { goTab("settings"); setMobileMoreOpen(false); }} />
-        {selectedPackageIds.length > 0 && confirmedParcelIds.length === 0 && !mobileMoreOpen && <RemiseConfirmBar customerCode={selectedCustomerCode} count={selectedPackageIds.length} busy={releasing} onConfirm={() => void releaseSelectedPackages()} onClear={() => setSelectedPackageIds([])} />}
-        {confirmedParcelIds.length > 0 && <RemiseSuccessOverlay customerCode={selectedCustomerCode} count={confirmedParcelIds.length} />}
-        {remiseOffer && <RemiseOffer offer={remiseOffer} busy={releasing} onRelease={() => { const ids = remiseOffer.packageIds; setRemiseOffer(null); void releasePackages(ids); }} onLater={() => setRemiseOffer(null)} />}
-        {ticketPackageId && <RemiseTicketOverlay packageId={ticketPackageId} onClose={goBack} />}
-      </>}
-    </main>
-  </div>;
+          </div>
+          <MobileNavigation tab={tab} moreOpen={mobileMoreOpen} onHome={() => { goTab("home"); setMobileMoreOpen(false); }} onArrivals={() => { goTab("arrivals"); setArrivalSection(null); setMobileMoreOpen(false); }} onReports={() => { goTab("reports"); setMobileMoreOpen(false); }} onReady={() => { goTab("ready"); setMobileMoreOpen(false); }} onToggleMore={() => setMobileMoreOpen((open) => !open)} onDossiers={() => { goTab("dossiers"); setMobileMoreOpen(false); }} onHistory={() => { goTab("history"); setMobileMoreOpen(false); }} onBons={() => { goTab("bons"); setMobileMoreOpen(false); }} onSettings={() => { goTab("settings"); setMobileMoreOpen(false); }} />
+          {selectedPackageIds.length > 0 && confirmedParcelIds.length === 0 && !mobileMoreOpen && <RemiseConfirmBar customerCode={selectedCustomerCode} count={selectedPackageIds.length} busy={releasing} onConfirm={() => void releaseSelectedPackages()} onClear={() => setSelectedPackageIds([])} />}
+          {confirmedParcelIds.length > 0 && <RemiseSuccessOverlay customerCode={selectedCustomerCode} count={confirmedParcelIds.length} />}
+          {remiseOffer && <RemiseOffer offer={remiseOffer} busy={releasing} onRelease={() => { const ids = remiseOffer.packageIds; setRemiseOffer(null); void releasePackages(ids); }} onLater={() => setRemiseOffer(null)} />}
+        </>}
+      </main>
+    </div>
+    {/* Ticket : hors de l'échelle réduite, pour que l'impression garde la vraie largeur du papier. */}
+    {data && ticketPackageId && <RemiseTicketOverlay packageId={ticketPackageId} onClose={goBack} />}
+  </>;
+}
+
+/** Argent encaissé par l'agent (Zelle exclu : il arrive directement sur le compte STANDA). */
+function cashTotals(payments: AgentPayment[]) {
+  return payments.filter((payment) => payment.payment_method !== "Zelle").reduce((value, payment) => ({
+    usd: value.usd + (payment.currency === "USD" ? Number(payment.amount || 0) : 0),
+    htg: value.htg + (payment.currency === "HTG" ? Number(payment.amount || 0) : 0)
+  }), { usd: 0, htg: 0 });
 }
 
 function packageText(item: ZonePackage) {
@@ -631,22 +625,84 @@ function groupClientDossiers(packages: ZonePackage[], invoices: ZoneInvoice[]): 
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PRÉSENTATION — style application bancaire : en-tête bleu marine plein, cartes
+// blanches plates, listes à lignes, chiffres en avant. Aucune logique ici :
+// toutes les actions viennent des props du composant principal.
+// ═══════════════════════════════════════════════════════════════════════════
+const NAVY = "#0b2a5b";
+
+function initialsOf(name: string, code: string) {
+  const letters = name.trim().split(/\s+/).filter((word) => /[A-Za-zÀ-ÿ]/.test(word[0] ?? "")).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+  return letters || code.replace(/\D/g, "").slice(-2) || "?";
+}
+
+function Avatar({ name, code, tone = "navy" }: { name: string; code: string; tone?: "navy" | "orange" | "emerald" | "violet" | "sky" }) {
+  const tones = { navy: "bg-[#e7ecf5] text-[#0b2a5b]", orange: "bg-orange-50 text-[#c2410c]", emerald: "bg-emerald-50 text-emerald-700", violet: "bg-violet-50 text-violet-700", sky: "bg-sky-50 text-sky-700" };
+  return <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full text-[13px] font-semibold", tones[tone])} aria-hidden="true">{initialsOf(name, code)}</span>;
+}
+
+function Card({ children, className }: { children: ReactNode; className?: string }) {
+  return <section className={cn("overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200/70", className)}>{children}</section>;
+}
+
+function CardHeader({ title, subtitle, right }: { title: string; subtitle?: string; right?: ReactNode }) {
+  return <div className="flex items-start justify-between gap-3 px-4 pb-2 pt-3.5"><div className="min-w-0"><h3 className="text-[15px] font-semibold text-slate-900">{title}</h3>{subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}</div>{right}</div>;
+}
+
+function CountPill({ value, tone = "slate" }: { value: number | string; tone?: "slate" | "orange" | "emerald" | "amber" }) {
+  const tones = { slate: "bg-slate-100 text-slate-600", orange: "bg-orange-50 text-[#c2410c]", emerald: "bg-emerald-50 text-emerald-700", amber: "bg-amber-50 text-amber-800" };
+  return <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums", tones[tone])}>{value}</span>;
+}
+
+/** Ligne de client : touchée, elle ouvre la page du client. */
+function CustomerRow({ code, name, meta, right, tone, open, onOpen, central = false }: { code: string; name: string; meta: ReactNode; right?: ReactNode; tone?: "navy" | "orange" | "emerald" | "violet" | "sky"; open: boolean; onOpen: () => void; central?: boolean }) {
+  return <button type="button" aria-expanded={open} onClick={() => { if (!open) onOpen(); }} disabled={open} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50 disabled:cursor-default disabled:hover:bg-white">
+    <Avatar name={central ? "STANDA" : name} code={code} tone={tone} />
+    <span className="min-w-0 flex-1">
+      <span className="block truncate text-[15px] font-semibold text-slate-900">{central ? "Compte central STANDA" : code}{!central && name && <span className="font-normal text-slate-500"> · {name}</span>}</span>
+      <span className="mt-0.5 block text-xs text-slate-500">{meta}</span>
+    </span>
+    {right}
+    {!open && <ChevronRight size={18} className="shrink-0 text-slate-300" />}
+  </button>;
+}
+
+function SearchBar({ value, onChange, onSubmit, hint }: { value: string; onChange: (value: string) => void; onSubmit: () => void; hint?: string | null }) {
+  return <form onSubmit={(event) => { event.preventDefault(); onSubmit(); }} className="space-y-1.5">
+    <div className="flex h-12 items-center gap-2 rounded-2xl bg-white pl-4 pr-1.5 ring-1 ring-slate-200 transition focus-within:ring-2 focus-within:ring-[#0b2a5b]">
+      <Search size={18} className="shrink-0 text-slate-400" />
+      <input value={value} onChange={(event) => onChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-slate-400" placeholder="Code client, suivi ou facture" aria-label="Rechercher un dossier client" autoCapitalize="characters" />
+      <button type="submit" disabled={!value.trim()} className="h-9 shrink-0 rounded-xl px-3.5 text-[13px] font-semibold text-white transition disabled:opacity-35" style={{ background: NAVY }}>Ouvrir</button>
+    </div>
+    {hint && <p className="px-1 text-xs text-slate-500">{hint}</p>}
+  </form>;
+}
+
+function PushBanner({ busy, onActivate, onDismiss }: { busy: boolean; onActivate: () => void; onDismiss: () => void }) {
+  return <Card className="flex items-center gap-3 px-4 py-3">
+    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#e7ecf5] text-[#0b2a5b]"><Bell size={16} /></span>
+    <p className="min-w-0 flex-1 text-[13px] text-slate-700">Recevoir une alerte pour chaque nouveau bon de remise ?</p>
+    <button type="button" onClick={onActivate} disabled={busy} className="h-9 shrink-0 rounded-xl px-3 text-[13px] font-semibold text-white disabled:opacity-60" style={{ background: NAVY }}>{busy ? "…" : "Activer"}</button>
+    <button type="button" onClick={onDismiss} aria-label="Fermer" className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-slate-100"><X size={16} /></button>
+  </Card>;
+}
+
 function SideNavigation({ tab, incoming, ready, dossiers, delivered, bons, balanceCount, onHome, onArrivals, onReady, onDossiers, onHistory, onBons, onReports, onSettings }: {
   tab: Tab; incoming: number; ready: number; dossiers: number; delivered: number; bons: number; balanceCount: number;
   onHome: () => void; onArrivals: () => void; onReady: () => void; onDossiers: () => void; onHistory: () => void; onBons: () => void; onReports: () => void; onSettings: () => void;
 }) {
-  const Item = ({ label, count, icon, active, onClick }: { label: string; count?: number; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} className={cn("flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 text-left text-sm font-bold transition", active ? "bg-[#0b3270] text-white shadow-md shadow-blue-900/15" : "text-slate-600 hover:bg-slate-100 hover:text-[#0b3270]")}><span className={cn("grid h-8 w-8 place-items-center rounded-xl", active ? "bg-white/15" : "bg-sky-50 text-[#0b4d9b]")}>{icon}</span><span className="min-w-0 flex-1">{label}</span>{typeof count === "number" && <span className={cn("rounded-full px-2 py-0.5 text-xs", active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500")}>{count}</span>}</button>;
-  return <aside className="sticky top-4 hidden h-fit rounded-2xl border border-white/80 bg-white/90 p-2 shadow-[0_14px_35px_rgba(25,74,145,0.08)] backdrop-blur md:block md:rounded-3xl md:p-3 md:top-5">
-    <p className="px-3 pb-2 pt-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Navigation</p>
-    <div className="space-y-1">
+  const Item = ({ label, count, icon, active, onClick }: { label: string; count?: number; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} className={cn("flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm transition", active ? "bg-[#e7ecf5] font-semibold text-[#0b2a5b]" : "text-slate-600 hover:bg-slate-50")}><span className={active ? "text-[#0b2a5b]" : "text-slate-400"}>{icon}</span><span className="min-w-0 flex-1">{label}</span>{typeof count === "number" && <span className="text-xs tabular-nums text-slate-400">{count}</span>}</button>;
+  return <aside className="sticky top-[4.5rem] hidden h-fit rounded-2xl bg-white p-2 ring-1 ring-slate-200/70 md:block">
+    <div className="space-y-0.5">
       <Item label="Accueil" icon={<Home size={18} />} active={tab === "home"} onClick={onHome} />
-      <Item label="Colis à venir" count={incoming} icon={<PackageCheck size={18} />} active={tab === "arrivals"} onClick={onArrivals} />
-      <Item label="Rapport" count={balanceCount} icon={<Banknote size={18} />} active={tab === "reports"} onClick={onReports} />
       <Item label="À remettre" count={ready} icon={<ClipboardCheck size={18} />} active={tab === "ready"} onClick={onReady} />
-      <Item label="Dossiers clients" count={dossiers} icon={<Search size={18} />} active={tab === "dossiers"} onClick={onDossiers} />
+      <Item label="Colis à venir" count={incoming} icon={<Truck size={18} />} active={tab === "arrivals"} onClick={onArrivals} />
+      <Item label="Dossiers clients" count={dossiers} icon={<Users size={18} />} active={tab === "dossiers"} onClick={onDossiers} />
+      <Item label="Rapport" count={balanceCount} icon={<Banknote size={18} />} active={tab === "reports"} onClick={onReports} />
       <Item label="Colis remis" count={delivered} icon={<CheckCircle2 size={18} />} active={tab === "history"} onClick={onHistory} />
     </div>
-    <div className="mt-3 border-t border-slate-100 pt-3 space-y-1"><Item label="Bons de remise" count={bons} icon={<FileText size={18} />} active={tab === "bons"} onClick={onBons} /><Item label="Paramètres" icon={<Settings size={18} />} active={tab === "settings"} onClick={onSettings} /></div>
+    <div className="mt-2 space-y-0.5 border-t border-slate-100 pt-2"><Item label="Bons de remise" count={bons} icon={<FileText size={18} />} active={tab === "bons"} onClick={onBons} /><Item label="Paramètres" icon={<Settings size={18} />} active={tab === "settings"} onClick={onSettings} /></div>
   </aside>;
 }
 
@@ -654,17 +710,26 @@ function MobileNavigation({ tab, moreOpen, onHome, onArrivals, onReports, onRead
   tab: Tab; moreOpen: boolean;
   onHome: () => void; onArrivals: () => void; onReports: () => void; onReady: () => void; onToggleMore: () => void; onDossiers: () => void; onHistory: () => void; onBons: () => void; onSettings: () => void;
 }) {
-  const NavButton = ({ label, icon, active, onClick }: { label: string; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} className={cn("flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl text-[9px] font-bold transition", active ? "bg-[#0b3270] text-white shadow-md shadow-blue-900/20" : "text-slate-500 hover:bg-slate-100")}><span>{icon}</span><span>{label}</span></button>;
-  return <nav className="fixed inset-x-2 bottom-2 z-40 mx-auto max-w-xl md:hidden" aria-label="Navigation de l’espace de remise">
-    {moreOpen && <div className="absolute bottom-[4.1rem] right-0 grid w-52 gap-1 rounded-2xl border border-slate-100 bg-white p-2 shadow-xl"><button type="button" onClick={onDossiers} className="rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Dossiers clients</button><button type="button" onClick={onHistory} className="rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Colis remis</button><button type="button" onClick={onBons} className="rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-sky-50">Bons de remise</button><button type="button" onClick={onSettings} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-700 hover:bg-sky-50"><Settings size={16} />Paramètres</button></div>}
-    <div className="flex items-center gap-1 rounded-2xl border border-white bg-white/95 p-1 shadow-xl shadow-blue-950/15 backdrop-blur">
-      <NavButton label="Accueil" icon={<Home size={17} />} active={tab === "home"} onClick={onHome} />
-      <NavButton label="À venir" icon={<PackageCheck size={17} />} active={tab === "arrivals"} onClick={onArrivals} />
-      <NavButton label="Rapport" icon={<Banknote size={17} />} active={tab === "reports"} onClick={onReports} />
-      <NavButton label="À remettre" icon={<ClipboardCheck size={17} />} active={tab === "ready"} onClick={onReady} />
-      <NavButton label="Plus" icon={<MoreHorizontal size={18} />} active={moreOpen || tab === "dossiers" || tab === "history" || tab === "bons" || tab === "settings"} onClick={onToggleMore} />
-    </div>
-  </nav>;
+  const NavButton = ({ label, icon, active, onClick }: { label: string; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cn("flex h-14 flex-1 flex-col items-center justify-center gap-1 text-[10px] font-medium transition", active ? "text-[#0b2a5b]" : "text-slate-400")}><span className={cn("grid h-7 w-12 place-items-center rounded-full transition", active && "bg-[#e7ecf5]")}>{icon}</span><span>{label}</span></button>;
+  const MoreItem = ({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) => <button type="button" onClick={onClick} className="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"><span className="text-slate-400">{icon}</span>{label}</button>;
+  return <>
+    {moreOpen && <button type="button" aria-label="Fermer le menu" onClick={onToggleMore} className="fixed inset-0 z-30 bg-slate-900/25 md:hidden" />}
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Navigation de l’espace de remise">
+      {moreOpen && <div className="absolute inset-x-3 bottom-[calc(100%+0.5rem)] rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-slate-200">
+        <MoreItem label="Dossiers clients" icon={<Users size={18} />} onClick={onDossiers} />
+        <MoreItem label="Colis remis" icon={<CheckCircle2 size={18} />} onClick={onHistory} />
+        <MoreItem label="Bons de remise" icon={<FileText size={18} />} onClick={onBons} />
+        <MoreItem label="Paramètres" icon={<Settings size={18} />} onClick={onSettings} />
+      </div>}
+      <div className="mx-auto flex max-w-xl px-1">
+        <NavButton label="Accueil" icon={<Home size={18} />} active={tab === "home"} onClick={onHome} />
+        <NavButton label="À remettre" icon={<ClipboardCheck size={18} />} active={tab === "ready"} onClick={onReady} />
+        <NavButton label="À venir" icon={<Truck size={18} />} active={tab === "arrivals"} onClick={onArrivals} />
+        <NavButton label="Rapport" icon={<Banknote size={18} />} active={tab === "reports"} onClick={onReports} />
+        <NavButton label="Plus" icon={<MoreHorizontal size={18} />} active={moreOpen || tab === "dossiers" || tab === "history" || tab === "bons" || tab === "settings"} onClick={onToggleMore} />
+      </div>
+    </nav>
+  </>;
 }
 
 /** Réglage permanent : la bannière d'accueil peut être fermée, pas ce bouton. */
@@ -672,74 +737,90 @@ function AgentSettingsView({ agentName, pushPermission, pushBusy, onActivate }: 
   agentName: string; pushPermission: PushPermission; pushBusy: boolean; onActivate: () => void;
 }) {
   const state = {
-    checking: {
-      title: "Vérification des notifications…",
-      description: "Nous vérifions les réglages de cet appareil.",
-      tone: "border-slate-200 bg-slate-50 text-slate-700"
-    },
-    granted: {
-      title: "Notifications activées",
-      description: "Cet appareil recevra les nouveaux bons de remise et les mises à jour de paiement de votre agence.",
-      tone: "border-emerald-200 bg-emerald-50 text-emerald-800"
-    },
-    default: {
-      title: "Notifications non activées",
-      description: "Activez-les pour être averti dès qu’un bon de remise ou un paiement vous concerne.",
-      tone: "border-amber-200 bg-amber-50 text-amber-900"
-    },
-    denied: {
-      title: "Notifications refusées",
-      description: "Autorisez-les dans les réglages du navigateur ou de l’application, puis revenez ici pour les activer.",
-      tone: "border-red-200 bg-red-50 text-red-800"
-    },
-    unsupported: {
-      title: "Notifications indisponibles sur cet appareil",
-      description: "Utilisez un navigateur récent ou l’application STANDA pour les activer.",
-      tone: "border-slate-200 bg-slate-50 text-slate-700"
-    }
+    checking: { title: "Vérification des notifications…", description: "Nous vérifions les réglages de cet appareil.", tone: "bg-slate-50 text-slate-700" },
+    granted: { title: "Notifications activées", description: "Cet appareil recevra les nouveaux bons de remise et les mises à jour de paiement de votre agence.", tone: "bg-emerald-50 text-emerald-800" },
+    default: { title: "Notifications non activées", description: "Activez-les pour être averti dès qu’un bon de remise ou un paiement vous concerne.", tone: "bg-amber-50 text-amber-900" },
+    denied: { title: "Notifications refusées", description: "Autorisez-les dans les réglages du navigateur ou de l’application, puis revenez ici pour les activer.", tone: "bg-red-50 text-red-800" },
+    unsupported: { title: "Notifications indisponibles sur cet appareil", description: "Utilisez un navigateur récent ou l’application STANDA pour les activer.", tone: "bg-slate-50 text-slate-700" }
   }[pushPermission];
 
-  return <div className="mx-auto max-w-2xl space-y-4 py-1 sm:py-3">
-    <div>
-      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-700">Paramètres</p>
-      <h2 className="mt-1 text-xl font-black tracking-tight text-[#0a2b61] sm:text-2xl">Préférences de {agentName}</h2>
-      <p className="mt-1 text-sm text-slate-500">Gérez les alertes de cet appareil pour votre point de retrait.</p>
-    </div>
-
-    <section className="overflow-hidden rounded-3xl border border-sky-100 bg-white shadow-[0_12px_30px_rgba(17,54,110,0.08)]">
-      <div className="bg-gradient-to-r from-[#0b3270] to-[#1b62b8] px-5 py-5 text-white sm:px-6">
-        <div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15"><BellRing size={22} /></span><div><h3 className="font-black">Notifications de l’agence</h3><p className="mt-0.5 text-xs leading-5 text-white/80">Bons de remise et paiements clients.</p></div></div>
+  return <div className="mx-auto max-w-2xl space-y-4">
+    <Card>
+      <div className="flex items-center gap-3 px-4 py-4">
+        <Avatar name={agentName} code="" />
+        <div className="min-w-0"><p className="truncate text-[15px] font-semibold text-slate-900">{agentName}</p><p className="text-xs text-slate-500">Agent du point de retrait</p></div>
       </div>
-      <div className="p-4 sm:p-6">
-        <div className={cn("rounded-2xl border p-4", state.tone)}>
-          <div className="flex gap-3"><span className="mt-0.5 shrink-0">{pushPermission === "granted" ? <CheckCircle2 size={20} /> : <Bell size={20} />}</span><div><p className="text-sm font-black">{state.title}</p><p className="mt-1 text-sm leading-5 opacity-90">{state.description}</p></div></div>
-        </div>
-        {pushPermission === "default" && <button type="button" onClick={onActivate} disabled={pushBusy} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#0b3270] px-5 text-sm font-black text-white shadow-sm transition hover:bg-[#0f448f] disabled:cursor-wait disabled:opacity-60 sm:w-auto"><BellRing size={18} />{pushBusy ? "Activation…" : "Activer les notifications"}</button>}
-        {pushPermission === "granted" && <div className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-2xl bg-emerald-50 px-4 text-sm font-bold text-emerald-700"><CheckCircle2 size={18} />Notifications actives</div>}
-        {pushPermission === "denied" && <p className="mt-4 text-xs leading-5 text-slate-500">Sur iPhone, ouvrez Réglages, puis les réglages du site ou de l’application STANDA. Sur Android ou ordinateur, ouvrez les autorisations de notifications du navigateur.</p>}
+    </Card>
+    <Card>
+      <CardHeader title="Notifications de l’agence" subtitle="Bons de remise et paiements clients." />
+      <div className="px-4 pb-4">
+        <div className={cn("flex gap-3 rounded-xl p-3", state.tone)}><span className="mt-0.5 shrink-0">{pushPermission === "granted" ? <CheckCircle2 size={18} /> : <Bell size={18} />}</span><div><p className="text-sm font-semibold">{state.title}</p><p className="mt-0.5 text-[13px] leading-5 opacity-90">{state.description}</p></div></div>
+        {pushPermission === "default" && <button type="button" onClick={onActivate} disabled={pushBusy} className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white transition disabled:cursor-wait disabled:opacity-60" style={{ background: NAVY }}><BellRing size={18} />{pushBusy ? "Activation…" : "Activer les notifications"}</button>}
+        {pushPermission === "denied" && <p className="mt-3 text-xs leading-5 text-slate-500">Sur iPhone, ouvrez Réglages, puis les réglages du site ou de l’application STANDA. Sur Android ou ordinateur, ouvrez les autorisations de notifications du navigateur.</p>}
       </div>
-    </section>
-
-    <section className="rounded-3xl border border-slate-100 bg-slate-50/80 p-4 sm:p-5"><p className="text-sm font-black text-[#0a2b61]">Ce que vous recevrez</p><p className="mt-1 text-sm leading-6 text-slate-600">Une alerte quand un bon de remise est créé pour votre zone, et quand un paiement est enregistré pour un client de votre agence. Les alertes restent liées seulement à ce compte et à cet appareil.</p></section>
+    </Card>
+    <Card className="px-4 py-3.5"><p className="text-sm font-semibold text-slate-900">Ce que vous recevrez</p><p className="mt-1 text-[13px] leading-6 text-slate-600">Une alerte quand un bon de remise est créé pour votre zone, et quand un paiement est enregistré pour un client de votre agence. Les alertes restent liées seulement à ce compte et à cet appareil.</p></Card>
   </div>;
 }
 
+/** Accueil : la caisse comme un solde de compte, les raccourcis, la recherche et les derniers paiements. */
 function HomeDashboard({
+  zoneName, cash, balanceCount, counts, payments, onGo, onOpenReceipt,
   search, onSearchChange, onOpenDossier, bons, selectedBonId, onSelectBon, bonBusy, bonConfirmedId, onConfirmBon
 }: {
+  zoneName: string; cash: { usd: number; htg: number }; balanceCount: number;
+  counts: { ready: number; incoming: number; dossiers: number; bons: number };
+  payments: AgentPayment[]; onGo: (tab: Tab) => void; onOpenReceipt: (paymentId: string) => void;
   search: string; onSearchChange: (value: string) => void; onOpenDossier: () => void;
   bons: ZoneBon[]; selectedBonId: string | null; onSelectBon: (id: string | null) => void;
   bonBusy: boolean; bonConfirmedId: string | null; onConfirmBon: (id: string) => void;
 }) {
-  return <>
-    <PendingBonsNotification bons={bons} selectedId={selectedBonId} onSelect={onSelectBon}
-      busy={bonBusy} confirmedId={bonConfirmedId} onConfirm={onConfirmBon} />
-    <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#0b3270] via-[#1a5bc0] to-sky-400 p-4 text-white shadow-[0_20px_40px_rgba(20,76,160,0.23)] sm:rounded-3xl sm:p-8"><div className="max-w-xl"><div className="flex items-center gap-3 sm:gap-4"><span className="sm:hidden"><Logo size={48} rounded="rounded-xl" tone="light" /></span><span className="hidden sm:inline"><Logo size={64} rounded="rounded-2xl" tone="light" /></span><div><p className="text-[10px] font-black uppercase tracking-[0.15em] text-sky-100 sm:text-xs sm:tracking-[0.18em]">STANDA COMMERCIAL</p><h2 className="mt-1 text-xl font-black tracking-tight sm:text-3xl">Rechercher un dossier client</h2></div></div><p className="mt-4 max-w-lg text-sm leading-6 text-white/85 sm:mt-5">Entrez le code du client OU un numéro de tracking / Guía pour ouvrir le dossier, vérifier le paiement et remettre les colis.</p><form onSubmit={(event) => { event.preventDefault(); onOpenDossier(); }} className="mt-5 flex flex-col gap-2 sm:mt-6 sm:flex-row"><label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl bg-white px-3 text-[#0b3270] shadow-sm sm:min-h-12 sm:rounded-2xl sm:px-4"><Search size={17} className="shrink-0 text-sky-600" /><input value={search} onChange={(event) => onSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none placeholder:font-medium placeholder:text-slate-400" placeholder="Code client ou tracking · ex. MC-3817 ou 481223" aria-label="Code client ou numéro de tracking" autoCapitalize="characters" /></label><button type="submit" disabled={!search.trim()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#ff6b1a] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#e85e19] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-12 sm:rounded-2xl sm:px-5"><Search size={17} />Ouvrir le dossier</button></form></div></section>
-  </>;
+  const shortcuts: Array<[Tab, string, ReactNode, number]> = [
+    ["ready", "À remettre", <ClipboardCheck key="r" size={20} />, counts.ready],
+    ["arrivals", "À venir", <Truck key="a" size={20} />, counts.incoming],
+    ["dossiers", "Dossiers", <Users key="d" size={20} />, counts.dossiers],
+    ["bons", "Bons", <FileText key="b" size={20} />, counts.bons]
+  ];
+  const recent = payments.slice(0, 5);
+  return <div className="space-y-4">
+    <section className="rounded-3xl p-5 text-white" style={{ background: NAVY }}>
+      <div className="flex items-center justify-between gap-3"><p className="text-[13px] text-white/70">Caisse à remettre</p><button type="button" onClick={() => onGo("reports")} className="inline-flex items-center gap-0.5 text-[12px] font-medium text-white/85 hover:text-white">Rapport<ChevronRight size={14} /></button></div>
+      <p className="mt-1 text-[34px] font-semibold leading-tight tracking-tight tabular-nums">{fmtUsd(cash.usd)}</p>
+      <p className="text-[15px] text-white/80 tabular-nums">{fmtHtg(cash.htg)}</p>
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/15 pt-3 text-[12px] text-white/65"><span className="truncate">{zoneName}</span><span className="shrink-0">{balanceCount} client{balanceCount > 1 ? "s" : ""} avec solde</span></div>
+    </section>
+
+    <div className="grid grid-cols-4 gap-1">
+      {shortcuts.map(([id, label, icon, count]) => <button key={id} type="button" onClick={() => onGo(id)} className="flex flex-col items-center gap-1.5 rounded-2xl py-2 transition hover:bg-white">
+        <span className="relative grid h-12 w-12 place-items-center rounded-full bg-white text-[#0b2a5b] ring-1 ring-slate-200">{icon}{count > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#e85e19] px-1 text-[10px] font-semibold text-white tabular-nums">{count > 99 ? "99+" : count}</span>}</span>
+        <span className="text-[12px] font-medium text-slate-700">{label}</span>
+      </button>)}
+    </div>
+
+    <PendingBonsNotification bons={bons} selectedId={selectedBonId} onSelect={onSelectBon} busy={bonBusy} confirmedId={bonConfirmedId} onConfirm={onConfirmBon} />
+
+    <Card className="px-4 py-3.5">
+      <p className="text-[15px] font-semibold text-slate-900">Ouvrir un dossier client</p>
+      <p className="mb-3 mt-0.5 text-xs text-slate-500">Code client (ex. MC-3817) ou les 6 derniers chiffres du suivi.</p>
+      <form onSubmit={(event) => { event.preventDefault(); onOpenDossier(); }} className="flex gap-2">
+        <label className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-50 px-3 ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-[#0b2a5b]"><Search size={18} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => onSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none placeholder:font-normal placeholder:text-slate-400" placeholder="MC-3817 ou 481223" aria-label="Code client ou numéro de tracking" autoCapitalize="characters" /></label>
+        <button type="submit" disabled={!search.trim()} className="h-12 shrink-0 rounded-xl bg-[#e85e19] px-4 text-sm font-semibold text-white transition hover:bg-[#d4530f] disabled:cursor-not-allowed disabled:opacity-40">Ouvrir</button>
+      </form>
+    </Card>
+
+    <Card>
+      <CardHeader title="Derniers paiements" right={payments.length > 0 ? <button type="button" onClick={() => onGo("reports")} className="text-[13px] font-medium text-[#0b2a5b]">Tout voir</button> : undefined} />
+      {recent.length ? <div className="divide-y divide-slate-100">{recent.map((payment) => <button key={payment.id} type="button" onClick={() => onOpenReceipt(payment.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50">
+        <Avatar name={payment.customer_name} code={payment.customer_code} tone="emerald" />
+        <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-slate-900">{payment.customer_name || payment.customer_code}</span><span className="block truncate text-xs text-slate-500">{payment.payment_method || "Paiement"} · {dateText(payment.created_at)}</span></span>
+        <span className="shrink-0 text-sm font-semibold text-emerald-700 tabular-nums">+{payment.currency === "HTG" ? fmtHtg(payment.amount) : fmtUsd(payment.amount)}</span>
+      </button>)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucun paiement depuis la dernière clôture de caisse.</p>}
+    </Card>
+  </div>;
 }
 
 /**
- * Notifikasyon Bon de remise sou Akèy — Rony wè imedyatman ki Bon k ap tann
+ * Notifikasyon Bon de remise sou Akèy — agent la wè imedyatman ki Bon k ap tann
  * konfimasyon (ki poko "reçu"). Yon sèl klik pou seleksyone, yon sèl bouton
  * pou konfime: TOUT koli ki te nan Bon sa a vin "Disponible" — otomatikman
  * sou admin, kliyan AK isit la, paske se menm kolòn `packages.status` la.
@@ -752,37 +833,29 @@ function PendingBonsNotification({
 }) {
   const pending = bons.filter((bon) => !bon.received_at);
   if (!pending.length) return null;
-  return <section className="mb-3 rounded-2xl border border-[#ffd9b8] bg-[#fff4ea] p-3 shadow-sm sm:mb-5 sm:rounded-3xl sm:p-5">
-    <div className="flex items-center gap-3">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#e85e19] text-white"><Truck size={21} /></span>
-      <div className="min-w-0">
-        <p className="text-sm font-black text-[#7a3410]">{pending.length} bon{pending.length > 1 ? "s" : ""} de remise en route vers vous</p>
-        <p className="text-xs text-[#a3652f]">Sélectionnez le bon que vous venez de recevoir, puis confirmez.</p>
-      </div>
+  return <Card className="ring-orange-200">
+    <div className="flex items-center gap-3 px-4 pb-2 pt-3.5">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-orange-50 text-[#e85e19]"><Truck size={19} /></span>
+      <div className="min-w-0"><p className="text-[15px] font-semibold text-slate-900">{pending.length} bon{pending.length > 1 ? "s" : ""} de remise en route</p><p className="text-xs text-slate-500">Touchez le bon reçu, puis confirmez.</p></div>
     </div>
-    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+    <div className="divide-y divide-slate-100">
       {pending.map((bon) => {
         const selected = selectedId === bon.id;
         const justConfirmed = confirmedId === bon.id;
-        return <button key={bon.id} type="button" onClick={() => onSelect(selected ? null : bon.id)} disabled={busy}
-          className={cn("rounded-2xl border-2 bg-white px-4 py-3 text-left transition-all duration-200 ease-out",
-            selected ? "scale-[1.02] border-[#e85e19] shadow-md" : "border-transparent hover:border-[#ffd9b8]")}>
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-mono text-sm font-black text-[#0a2b61]">{bon.bon_number}</span>
-            {justConfirmed
-              ? <CheckCircle2 className="text-emerald-500" size={20} />
-              : selected && <span className="grid h-5 w-5 place-items-center rounded-full bg-[#e85e19] text-white"><Check size={12} strokeWidth={3} /></span>}
-          </div>
-          <p className="mt-0.5 text-xs text-slate-500">{bon.package_count} colis · {dateText(bon.created_at)}{selected ? " · cliquez pour désélectionner" : ""}</p>
+        return <button key={bon.id} type="button" onClick={() => onSelect(selected ? null : bon.id)} disabled={busy} aria-pressed={selected}
+          className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition", selected ? "bg-orange-50/70" : "hover:bg-slate-50")}>
+          <span className={cn("grid h-5 w-5 shrink-0 place-items-center rounded-full border-2", selected ? "border-[#e85e19] bg-[#e85e19] text-white" : "border-slate-300")}>{selected && <Check size={12} strokeWidth={3} />}</span>
+          <span className="min-w-0 flex-1"><span className="block font-mono text-sm font-semibold text-slate-900">{bon.bon_number}</span><span className="block text-xs text-slate-500">{bon.package_count} colis · {dateText(bon.created_at)}</span></span>
+          {justConfirmed && <CheckCircle2 className="shrink-0 text-emerald-500" size={20} />}
         </button>;
       })}
     </div>
-    {selectedId && <button type="button" onClick={() => onConfirm(selectedId)} disabled={busy}
-      className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#e85e19] px-5 text-sm font-black text-white shadow-sm transition hover:bg-[#c94e13] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
+    {selectedId && <div className="px-4 pb-4 pt-2"><button type="button" onClick={() => onConfirm(selectedId)} disabled={busy}
+      className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-5 text-sm font-semibold text-white transition hover:bg-[#d4530f] disabled:cursor-not-allowed disabled:opacity-60">
       {busy ? <RefreshCw size={18} className="animate-spin" /> : <PackageCheck size={18} />}
       {busy ? "Mise à jour du système…" : "Rendre ces colis disponibles"}
-    </button>}
-  </section>;
+    </button></div>}
+  </Card>;
 }
 
 /**
@@ -790,41 +863,41 @@ function PendingBonsNotification({
  * l'écran (au-dessus de la navigation), jamais enfoui tout en bas de la liste.
  */
 function RemiseConfirmBar({ customerCode, count, busy, onConfirm, onClear }: { customerCode: string; count: number; busy: boolean; onConfirm: () => void; onClear: () => void }) {
-  return <div role="region" aria-label="Confirmer la remise" className="fixed inset-x-2 bottom-[4.9rem] z-50 mx-auto max-w-xl md:bottom-5">
-    <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-white p-2 shadow-[0_12px_40px_rgba(6,78,59,0.28)] sm:gap-3 sm:p-2.5">
+  return <div role="region" aria-label="Confirmer la remise" className="fixed inset-x-2 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-50 mx-auto max-w-xl md:bottom-5">
+    <div className="flex items-center gap-2 rounded-2xl bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,0.18)] ring-1 ring-slate-200">
       <button type="button" onClick={onClear} disabled={busy} aria-label="Annuler la sélection" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 disabled:opacity-50"><X size={18} /></button>
-      <div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-[#0a2b61]">{customerCode || "Client"}</p><p className="text-xs font-semibold text-emerald-700">{count} colis sélectionné{count > 1 ? "s" : ""}</p></div>
-      <button type="button" onClick={onConfirm} disabled={busy} className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-70">{busy ? <RefreshCw size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}{busy ? "Confirmation…" : "Confirmer la remise"}</button>
+      <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-900">{customerCode || "Client"}</p><p className="text-xs text-emerald-700">{count} colis sélectionné{count > 1 ? "s" : ""}</p></div>
+      <button type="button" onClick={onConfirm} disabled={busy} className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-70">{busy ? <RefreshCw size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}{busy ? "Confirmation…" : "Confirmer la remise"}</button>
     </div>
   </div>;
 }
 
-/** Grande coche verte animée, comme à la fin d'une commande : la remise est enregistrée. */
 /** Juste après un paiement : proposer la remise immédiate des colis devenus remettables, puis le ticket. */
 function RemiseOffer({ offer, busy, onRelease, onLater }: { offer: { customerCode: string; packageIds: string[]; paymentText: string }; busy: boolean; onRelease: () => void; onLater: () => void }) {
   const count = offer.packageIds.length;
   return <div role="dialog" aria-modal="true" aria-labelledby="remise-offer-title" className="fixed inset-0 z-[140] flex flex-col items-center justify-center overflow-y-auto bg-white px-6 py-8 text-center">
     <div className="w-full max-w-md">
-      <div className="sd-pop mx-auto grid h-32 w-32 place-items-center rounded-full bg-emerald-500 shadow-[0_18px_50px_rgba(16,185,129,0.45)]">
-        <svg viewBox="0 0 24 24" className="h-[4.5rem] w-[4.5rem]" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className="sd-check" d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+      <div className="sd-pop mx-auto grid h-24 w-24 place-items-center rounded-full bg-emerald-500">
+        <svg viewBox="0 0 24 24" className="h-14 w-14" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className="sd-check" d="M5 12.5l4.5 4.5L19 7.5" /></svg>
       </div>
-      <h2 id="remise-offer-title" className="mt-7 text-2xl font-black tracking-tight text-[#0a2b61]">Paiement enregistré — {offer.customerCode}</h2>
-      <p className="mx-auto mt-3 whitespace-pre-line text-base font-semibold leading-relaxed text-slate-600">{offer.paymentText}</p>
-      <p className="mx-auto mt-5 rounded-2xl bg-orange-50 px-4 py-3 text-sm font-bold text-[#bd450b]">{count} colis {count > 1 ? "sont prêts" : "est prêt"} à être remis au client.</p>
-      <button type="button" autoFocus disabled={busy} onClick={onRelease} className="mx-auto mt-6 flex min-h-12 w-full max-w-xs items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 text-base font-black text-white shadow-sm outline-none transition hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:opacity-60">{busy ? <Spinner size={18} /> : <Printer size={19} />}{busy ? "Remise en cours..." : "Remettre et voir le ticket"}</button>
-      <button type="button" disabled={busy} onClick={onLater} className="mx-auto mt-3 flex min-h-11 w-full max-w-xs items-center justify-center rounded-2xl border border-slate-200 px-6 text-sm font-bold text-slate-600 hover:bg-slate-50">Plus tard</button>
+      <h2 id="remise-offer-title" className="mt-6 text-xl font-semibold text-slate-900">Paiement enregistré — {offer.customerCode}</h2>
+      <p className="mx-auto mt-2 whitespace-pre-line text-[15px] leading-relaxed text-slate-600">{offer.paymentText}</p>
+      <p className="mx-auto mt-5 rounded-xl bg-orange-50 px-4 py-3 text-sm font-medium text-[#c2410c]">{count} colis {count > 1 ? "sont prêts" : "est prêt"} à être remis au client.</p>
+      <button type="button" autoFocus disabled={busy} onClick={onRelease} className="mx-auto mt-6 flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-[15px] font-semibold text-white outline-none transition hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:opacity-60">{busy ? <Spinner size={18} /> : <Printer size={19} />}{busy ? "Remise en cours..." : "Remettre et voir le ticket"}</button>
+      <button type="button" disabled={busy} onClick={onLater} className="mx-auto mt-3 flex h-11 w-full max-w-xs items-center justify-center rounded-xl text-sm font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">Plus tard</button>
     </div>
   </div>;
 }
 
+/** Grande coche verte animée : la remise est enregistrée. */
 function RemiseSuccessOverlay({ customerCode, count }: { customerCode: string; count: number }) {
-  return <div role="status" aria-live="polite" className="fixed inset-0 z-[60] grid place-items-center bg-white/85 px-6 backdrop-blur-sm">
+  return <div role="status" aria-live="polite" className="fixed inset-0 z-[60] grid place-items-center bg-white/90 px-6 backdrop-blur-sm">
     <div className="text-center">
-      <div className="sd-pop mx-auto grid h-28 w-28 place-items-center rounded-full bg-emerald-500 shadow-[0_18px_50px_rgba(16,185,129,0.45)]">
-        <svg viewBox="0 0 24 24" className="h-16 w-16" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className="sd-check" d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+      <div className="sd-pop mx-auto grid h-24 w-24 place-items-center rounded-full bg-emerald-500">
+        <svg viewBox="0 0 24 24" className="h-14 w-14" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className="sd-check" d="M5 12.5l4.5 4.5L19 7.5" /></svg>
       </div>
-      <p className="mt-5 text-xl font-black text-[#0a2b61]">Remise confirmée</p>
-      <p className="mt-1 text-sm font-semibold text-slate-600">{count} colis livré{count > 1 ? "s" : ""}{customerCode ? " · " + customerCode : ""}</p>
+      <p className="mt-5 text-xl font-semibold text-slate-900">Remise confirmée</p>
+      <p className="mt-1 text-sm text-slate-600">{count} colis livré{count > 1 ? "s" : ""}{customerCode ? " · " + customerCode : ""}</p>
     </div>
   </div>;
 }
@@ -842,33 +915,31 @@ function ReadyChecklist({ packages, selectedPackageIds, locked, onToggleSelectio
   const allSelected = eligible.length > 0 && eligible.every((item) => selectedPackageIds.includes(item.id));
   // Une seule action de paiement par facture impayée, pas une par colis.
   const unpaidInvoices = Array.from(new Map(packages.filter((item) => item.invoice_id && item.invoice_payment_status !== "Payé").map((item) => [item.invoice_id, item.invoice_number] as const)).entries());
-  return <section className="rounded-xl border border-orange-200 bg-orange-50/60 p-2.5 sm:p-3">
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <div><h4 className="text-[13px] font-black text-[#0a2b61] sm:text-sm">À remettre · {packages.length} colis</h4><p className="mt-0.5 text-[11px] text-slate-500 sm:text-xs">Touchez les colis que vous remettez, puis confirmez avec le bouton vert.</p></div>
-      {eligible.length > 1 && <button type="button" disabled={locked} onClick={() => onSelectAll(eligible.map((item) => item.id))} className="min-h-10 rounded-xl border border-emerald-300 bg-white px-3 text-xs font-black text-emerald-800 hover:bg-emerald-50 disabled:opacity-60">{allSelected ? "Tout désélectionner" : `Tout sélectionner (${eligible.length})`}</button>}
-    </div>
-    <div className="mt-2 space-y-1.5">{packages.map((item) => {
+  return <Card>
+    <CardHeader title={`À remettre · ${packages.length} colis`} subtitle="Touchez les colis remis, puis confirmez en bas de l’écran."
+      right={eligible.length > 1 ? <button type="button" disabled={locked} onClick={() => onSelectAll(eligible.map((item) => item.id))} className="h-9 shrink-0 rounded-xl px-3 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50 disabled:opacity-60">{allSelected ? "Aucun" : `Tout (${eligible.length})`}</button> : undefined} />
+    <div className="divide-y divide-slate-100">{packages.map((item) => {
       const selectable = canReleaseParcel(item);
       const selected = selectedPackageIds.includes(item.id);
       const reason = item.customer_balance_usd > 0.01 ? "Solde client à régler" : item.invoice_payment_status !== "Payé" ? "Paiement complet requis" : "";
-      return <div key={item.id} className={cn("overflow-hidden rounded-xl border bg-white", selected ? "border-emerald-500 ring-2 ring-emerald-100" : "border-slate-200")}>
-        <button type="button" role="checkbox" aria-checked={selected} disabled={!selectable || locked} onClick={() => onToggleSelection(item)} className="flex min-h-14 w-full items-center gap-3 p-2.5 text-left disabled:cursor-not-allowed sm:p-3">
-          <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-lg border-2", selected ? "border-emerald-600 bg-emerald-600 text-white" : selectable ? "border-slate-300 bg-white" : "border-slate-200 bg-slate-100")}>{selected && <Check size={16} strokeWidth={3} />}</span>
+      return <div key={item.id} className={cn(selected && "bg-emerald-50/60")}>
+        <button type="button" role="checkbox" aria-checked={selected} disabled={!selectable || locked} onClick={() => onToggleSelection(item)} className="flex w-full items-center gap-3 px-4 py-3 text-left disabled:cursor-not-allowed">
+          <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-md border-2 transition", selected ? "border-emerald-600 bg-emerald-600 text-white" : selectable ? "border-slate-300 bg-white" : "border-slate-200 bg-slate-100")}>{selected && <Check size={14} strokeWidth={3} />}</span>
           <span className="min-w-0 flex-1">
-            <span className={cn("block break-all text-[13px] font-extrabold sm:text-sm", selectable ? "text-[#0a2b61]" : "text-slate-500")}>{packageReference(item)}</span>
-            <span className="mt-0.5 block text-[11px] text-slate-500 sm:text-xs">Qté {item.quantity}{item.content ? " · " + item.content : ""}</span>
-            <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold"><span className="rounded-md bg-indigo-50 px-1.5 py-0.5 text-indigo-700">{item.invoice_number} · {item.invoice_payment_status}</span>{reason && <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-amber-800">{reason}</span>}</span>
+            <span className={cn("block break-all text-sm font-medium", selectable ? "text-slate-900" : "text-slate-500")}>{packageReference(item)}</span>
+            <span className="mt-0.5 block text-xs text-slate-500">Qté {item.quantity}{item.content ? " · " + item.content : ""} · {item.invoice_number} · {item.invoice_payment_status}</span>
+            {reason && <span className="mt-1 inline-block rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">{reason}</span>}
           </span>
           <StatusChip status={item.status} />
         </button>
-        {(item.is_special || item.invoice_payment_details) && <div className="border-t border-slate-100 bg-slate-50 px-3 py-1.5">{item.invoice_payment_details && <p className="text-[11px] font-bold text-emerald-700 sm:text-xs">{item.invoice_payment_details}</p>}<SpecialPackageNotice item={item} /></div>}
+        {(item.is_special || item.invoice_payment_details) && <div className="px-4 pb-3 pl-[3.25rem]">{item.invoice_payment_details && <p className="text-xs font-medium text-emerald-700">{item.invoice_payment_details}</p>}<SpecialPackageNotice item={item} /></div>}
       </div>;
     })}</div>
-    {unpaidInvoices.length > 0 && <div className="mt-2 space-y-2">
-      <button type="button" onClick={() => onStartPayment(packages[0]?.customer_code ?? "", unpaidInvoices.map(([invoiceId]) => invoiceId))} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-black text-white shadow-sm hover:bg-[#ce4e0d]"><Banknote size={18} />Encaisser le paiement{unpaidInvoices.length > 1 ? ` · ${unpaidInvoices.length} factures` : ""}</button>
-      <div className="flex flex-wrap gap-1.5">{unpaidInvoices.map(([invoiceId, invoiceNumber]) => <button key={invoiceId} type="button" onClick={() => onOpenInvoice(invoiceId)} className="min-h-9 rounded-lg border border-indigo-200 bg-white px-2.5 text-xs font-bold text-indigo-700 hover:bg-indigo-50">Voir {invoiceNumber}</button>)}</div>
+    {unpaidInvoices.length > 0 && <div className="space-y-2 border-t border-slate-100 p-4">
+      <button type="button" onClick={() => onStartPayment(packages[0]?.customer_code ?? "", unpaidInvoices.map(([invoiceId]) => invoiceId))} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-semibold text-white hover:bg-[#d4530f]"><Banknote size={18} />Encaisser le paiement{unpaidInvoices.length > 1 ? ` · ${unpaidInvoices.length} factures` : ""}</button>
+      <div className="flex flex-wrap gap-1.5">{unpaidInvoices.map(([invoiceId, invoiceNumber]) => <button key={invoiceId} type="button" onClick={() => onOpenInvoice(invoiceId)} className="h-9 rounded-lg px-2.5 text-xs font-medium text-[#0b2a5b] ring-1 ring-slate-200 hover:bg-slate-50">Voir {invoiceNumber}</button>)}</div>
     </div>}
-  </section>;
+  </Card>;
 }
 
 /** Onglet « À remettre » : colis prêts, un client ouvert à la fois. */
@@ -880,19 +951,24 @@ function ReadyView({ groups, expanded, onExpand, selectedPackageIds, confirmedPa
   renderPayment: (customerCode: string) => ReactNode; renderInvoice: (customerCode: string) => ReactNode;
 }) {
   if (!groups.length) return <Empty text="Aucun colis facturé n’est disponible à remettre." />;
-  return <div className="grid gap-3 lg:grid-cols-2">{groups.map((group) => {
-    const open = expanded === group.customerCode;
-    const hasBalance = group.balanceUsd > 0.01;
-    return <article id={"package-group-" + group.customerCode} key={group.customerCode} className={cn("scroll-mt-6 overflow-hidden rounded-xl border bg-white sm:rounded-2xl", hasBalance ? "border-amber-300" : group.isCentralAccount ? "border-indigo-200" : "border-slate-200")}>
-      <button type="button" aria-expanded={open} onClick={() => { if (!open) onExpand(group.customerCode); }} disabled={open} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 disabled:cursor-default disabled:hover:bg-white sm:p-4"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:text-[11px]">{group.isCentralAccount ? "Opérations centrales" : "Code client"}</p><p className="mt-0.5 text-lg font-black tracking-tight text-[#0a2b61] sm:text-xl">{group.isCentralAccount ? "Compte central STANDA" : <>{group.customerCode} {group.customerName && <span className="ml-1 text-xs font-semibold text-slate-500 sm:text-sm">· {group.customerName}</span>}</>}</p><p className="mt-1 text-xs font-semibold text-orange-700 sm:text-sm">{group.packages.length} colis à remettre · {quantityTotal(group.packages)} article{quantityTotal(group.packages) > 1 ? "s" : ""}</p></div>{!open && <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a] sm:h-10 sm:w-10"><ChevronRight size={18} /></span>}</button>
-      {open && <div className="space-y-2 border-t border-slate-100 bg-slate-50/70 p-2.5 sm:space-y-3 sm:p-3">
-        {hasBalance && <BalanceNotice balanceUsd={group.balanceUsd} balanceHtg={group.balanceHtg} invoiceNumber={group.balanceInvoiceNumber} onPay={group.balanceInvoiceId ? () => onStartPayment(group.customerCode) : undefined} />}
-        {renderPayment(group.customerCode)}
-        <ReadyChecklist packages={group.packages} selectedPackageIds={selectedPackageIds} locked={releasing || confirmedParcelIds.length > 0} onToggleSelection={onToggleSelection} onSelectAll={(ids) => onSelectCustomerPackages(group.customerCode, ids)} onStartPayment={onStartPayment} onOpenInvoice={onOpenInvoice} />
-        {renderInvoice(group.customerCode)}
-      </div>}
-    </article>;
-  })}</div>;
+  const openGroup = groups.find((group) => group.customerCode === expanded);
+  if (openGroup) {
+    const hasBalance = openGroup.balanceUsd > 0.01;
+    return <div id={"package-group-" + openGroup.customerCode} className="scroll-mt-20 space-y-3">
+      <Card><CustomerRow code={openGroup.customerCode} name={openGroup.customerName} central={openGroup.isCentralAccount} tone="orange" open onOpen={() => undefined} meta={`${openGroup.packages.length} colis à remettre · ${quantityTotal(openGroup.packages)} article${quantityTotal(openGroup.packages) > 1 ? "s" : ""}`} /></Card>
+      {hasBalance && <BalanceNotice balanceUsd={openGroup.balanceUsd} balanceHtg={openGroup.balanceHtg} invoiceNumber={openGroup.balanceInvoiceNumber} onPay={openGroup.balanceInvoiceId ? () => onStartPayment(openGroup.customerCode) : undefined} />}
+      {renderPayment(openGroup.customerCode)}
+      <ReadyChecklist packages={openGroup.packages} selectedPackageIds={selectedPackageIds} locked={releasing || confirmedParcelIds.length > 0} onToggleSelection={onToggleSelection} onSelectAll={(ids) => onSelectCustomerPackages(openGroup.customerCode, ids)} onStartPayment={onStartPayment} onOpenInvoice={onOpenInvoice} />
+      {renderInvoice(openGroup.customerCode)}
+    </div>;
+  }
+  return <Card>
+    <CardHeader title="Clients à servir" right={<CountPill value={groups.length} tone="orange" />} />
+    <div className="divide-y divide-slate-100">{groups.map((group) => <div id={"package-group-" + group.customerCode} key={group.customerCode} className="scroll-mt-20">
+      <CustomerRow code={group.customerCode} name={group.customerName} central={group.isCentralAccount} tone="orange" open={false} onOpen={() => onExpand(group.customerCode)}
+        meta={<>{group.packages.length} colis à remettre{group.balanceUsd > 0.01 && <span className="text-amber-700"> · solde {fmtUsd(group.balanceUsd)}</span>}</>} />
+    </div>)}</div>
+  </Card>;
 }
 
 /**
@@ -905,36 +981,37 @@ function ArrivalsView({ groups, expanded, section, onToggleCustomer, onSelectSec
   onToggleCustomer: (customerCode: string) => void; onSelectSection: (value: ArrivalSection) => void;
 }) {
   if (!groups.length) return <Empty text="Aucun colis à venir ne correspond à la recherche." />;
-  return <div className="grid gap-2 lg:grid-cols-2 lg:items-start">{groups.map((group) => {
-    const open = expanded === group.customerCode;
-    const haiti = group.packages.filter((item) => arrivalSectionOf(item) === "haiti");
-    const miami = group.packages.filter((item) => arrivalSectionOf(item) === "miami");
-    const options: Array<[ArrivalSection, string, ZonePackage[], string, string]> = [
-      ["haiti", "Arrivés en Haïti", haiti, "border-violet-200 bg-violet-50 text-violet-800", "border-violet-600 bg-violet-600 text-white"],
-      ["miami", "À Miami · en cours", miami, "border-sky-200 bg-sky-50 text-sky-800", "border-sky-600 bg-sky-600 text-white"]
+  const openGroup = groups.find((group) => group.customerCode === expanded);
+  if (openGroup) {
+    const haiti = openGroup.packages.filter((item) => arrivalSectionOf(item) === "haiti");
+    const miami = openGroup.packages.filter((item) => arrivalSectionOf(item) === "miami");
+    const options: Array<[ArrivalSection, string, string, ZonePackage[], "violet" | "sky"]> = [
+      ["haiti", "Arrivés en Haïti", "Pas encore disponibles au point de retrait", haiti, "violet"],
+      ["miami", "À Miami · en cours", "Encore à Miami ou en transit", miami, "sky"]
     ];
-    return <article id={"package-group-" + group.customerCode} key={group.customerCode} className="scroll-mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white sm:rounded-2xl">
-      <button type="button" aria-expanded={open} onClick={() => { if (!open) onToggleCustomer(group.customerCode); }} disabled={open} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 disabled:cursor-default disabled:hover:bg-white sm:p-4">
-        <div className="min-w-0"><p className="truncate text-lg font-black tracking-tight text-[#0a2b61] sm:text-xl">{group.isCentralAccount ? "Compte central STANDA" : group.customerCode}{!group.isCentralAccount && group.customerName && <span className="ml-1 text-xs font-semibold text-slate-500 sm:text-sm">· {group.customerName}</span>}</p></div>
-        <span className="flex shrink-0 items-center gap-2"><span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-800">{group.packages.length} en route</span>{!open && <span className="grid h-8 w-8 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a]"><ChevronRight size={17} /></span>}</span>
-      </button>
-      {open && <div className="space-y-2 border-t border-slate-100 bg-slate-50/70 p-2.5 sm:p-3">
-        {!section && options.map(([id, label, items, idle]) => <button key={id} type="button" onClick={() => onSelectSection(id)}
-          className={cn("flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left", idle)}>
-          <span className="text-sm font-black">{label}</span>
-          <span className="flex items-center gap-2 text-lg font-black">{items.length}<ChevronRight size={18} /></span>
-        </button>)}
-        {section && options.filter(([id]) => id === section).map(([id, label, items, idle]) => <section key={id} className="space-y-1.5">
-          <p className={cn("flex items-center justify-between rounded-xl border-2 px-3 py-2 text-sm font-black", idle)}><span>{label}</span><span>{items.length}</span></p>
-          {items.length ? items.map((item) => <ParcelRow key={item.id} item={item} />) : <p className="rounded-lg bg-white px-3 py-2 text-sm text-slate-500">Aucun colis à cette étape.</p>}
-        </section>)}
-      </div>}
-    </article>;
-  })}</div>;
+    return <div id={"package-group-" + openGroup.customerCode} className="scroll-mt-20 space-y-3">
+      <Card><CustomerRow code={openGroup.customerCode} name={openGroup.customerName} central={openGroup.isCentralAccount} tone="sky" open onOpen={() => undefined} meta={`${openGroup.packages.length} colis en route`} /></Card>
+      {!section && <Card><div className="divide-y divide-slate-100">{options.map(([id, label, hint, items, tone]) => <button key={id} type="button" onClick={() => onSelectSection(id)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-slate-50">
+        <span className={cn("h-9 w-1.5 shrink-0 rounded-full", tone === "violet" ? "bg-violet-500" : "bg-sky-500")} />
+        <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold text-slate-900">{label}</span><span className="block text-xs text-slate-500">{hint}</span></span>
+        <span className="text-lg font-semibold tabular-nums text-slate-900">{items.length}</span><ChevronRight size={18} className="text-slate-300" />
+      </button>)}</div></Card>}
+      {section && options.filter(([id]) => id === section).map(([id, label, hint, items]) => <Card key={id}>
+        <CardHeader title={label} subtitle={hint} right={<CountPill value={items.length} />} />
+        {items.length ? <div className="divide-y divide-slate-100">{items.map((item) => <ParcelRow key={item.id} item={item} />)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucun colis à cette étape.</p>}
+      </Card>)}
+    </div>;
+  }
+  return <Card>
+    <CardHeader title="Clients avec colis en route" right={<CountPill value={groups.length} />} />
+    <div className="divide-y divide-slate-100">{groups.map((group) => <div id={"package-group-" + group.customerCode} key={group.customerCode} className="scroll-mt-20">
+      <CustomerRow code={group.customerCode} name={group.customerName} central={group.isCentralAccount} tone="sky" open={false} onOpen={() => onToggleCustomer(group.customerCode)} meta={`${group.packages.length} colis en route`} />
+    </div>)}</div>
+  </Card>;
 }
 
 /**
- * Colis remis : une carte par CLIENT, sans liste de colis. Toucher la carte
+ * Colis remis : une ligne par CLIENT, sans liste de colis. Toucher la ligne
  * affiche ses tickets de remise — chaque ticket porte le numéro de la
  * facture des colis remis, comme le ticket imprimé.
  */
@@ -958,36 +1035,29 @@ function RemiseHistoryView({ packages, onOpenTicket, openCustomer, onOpenCustome
       .sort((left, right) => dateTimestamp(right.lastAt) - dateTimestamp(left.lastAt));
   }, [packages]);
   if (!clients.length) return <Empty text="Aucun colis remis ne correspond à la recherche." />;
-  return <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3 sm:p-4">
-    <div className="mb-3 flex items-center justify-between gap-3">
-      <h3 className="text-base font-black text-[#0a2b61]">Colis remis</h3>
-      <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-700">{clients.length} client{clients.length > 1 ? "s" : ""}</span>
-    </div>
-    <div className="space-y-2">{(openCustomer && clients.some((client) => client.customerCode === openCustomer) ? clients.filter((client) => client.customerCode === openCustomer) : clients.slice(0, visible)).map((client) => {
-      const open = openCustomer === client.customerCode;
-      return <article key={client.customerCode} className="rounded-2xl border border-emerald-100 bg-white shadow-sm">
-        <button type="button" aria-expanded={open} onClick={() => { if (!open) onOpenCustomer(client.customerCode); }} disabled={open} className="flex w-full items-center justify-between gap-3 p-3 text-left disabled:cursor-default sm:p-4">
-          <span className="min-w-0">
-            <span className="block text-lg font-black text-[#0a2b61]">{client.customerCode}</span>
-            {client.customerName && <span className="block truncate text-sm font-semibold text-slate-600">{client.customerName}</span>}
-            <span className="mt-0.5 block text-xs text-slate-500">{client.lastAt ? "Dernière remise le " + dateTimeText(client.lastAt) : "Date de remise non archivée"}</span>
-          </span>
-          <span className="flex shrink-0 items-center gap-2"><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">{client.tickets.length} ticket{client.tickets.length > 1 ? "s" : ""}</span>{!open && <ChevronRight size={18} className="text-slate-400" />}</span>
-        </button>
-        {open && <div className="space-y-2 border-t border-emerald-100 p-3 sm:p-4">{client.tickets.map((ticket) => {
+  const opened = openCustomer ? clients.find((client) => client.customerCode === openCustomer) : undefined;
+  if (opened) {
+    return <div className="space-y-3">
+      <Card><CustomerRow code={opened.customerCode} name={opened.customerName} tone="emerald" open onOpen={() => undefined} meta={opened.lastAt ? "Dernière remise le " + dateTimeText(opened.lastAt) : "Date de remise non archivée"} /></Card>
+      <Card>
+        <CardHeader title="Tickets de remise" right={<CountPill value={opened.tickets.length} tone="emerald" />} />
+        <div className="divide-y divide-slate-100">{opened.tickets.map((ticket) => {
           const numbers = Array.from(new Set(ticket.packages.map((item) => item.invoice_number).filter(Boolean)));
-          return <button key={ticket.key} type="button" onClick={() => onOpenTicket(ticket.packages[0].id)} className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-[#0a2b61] hover:bg-white">
-            <span className="min-w-0">
-              <span className="block break-all text-sm font-black text-[#0a2b61]">Ticket {numbers.length ? numbers.join(" / ") : "de remise"}</span>
-              <span className="block text-xs text-slate-500">{ticket.deliveredAt ? dateTimeText(ticket.deliveredAt) : "Date non archivée"} · {ticket.packages.length} colis</span>
-            </span>
-            <Printer size={18} className="shrink-0 text-[#0a2b61]" />
+          return <button key={ticket.key} type="button" onClick={() => onOpenTicket(ticket.packages[0].id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600"><Printer size={17} /></span>
+            <span className="min-w-0 flex-1"><span className="block break-all text-sm font-medium text-slate-900">Ticket {numbers.length ? numbers.join(" / ") : "de remise"}</span><span className="block text-xs text-slate-500">{ticket.deliveredAt ? dateTimeText(ticket.deliveredAt) : "Date non archivée"} · {ticket.packages.length} colis</span></span>
+            <ChevronRight size={18} className="shrink-0 text-slate-300" />
           </button>;
-        })}</div>}
-      </article>;
-    })}</div>
-    {!openCustomer && clients.length > visible && <button type="button" onClick={() => setVisible((count) => count + 40)} className="mt-3 min-h-11 w-full rounded-xl border border-emerald-300 bg-white px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50">Afficher plus de clients</button>}
-  </section>;
+        })}</div>
+      </Card>
+    </div>;
+  }
+  return <Card>
+    <CardHeader title="Colis remis" right={<CountPill value={`${clients.length} client${clients.length > 1 ? "s" : ""}`} tone="emerald" />} />
+    <div className="divide-y divide-slate-100">{clients.slice(0, visible).map((client) => <CustomerRow key={client.customerCode} code={client.customerCode} name={client.customerName} tone="emerald" open={false} onOpen={() => onOpenCustomer(client.customerCode)}
+      meta={<>{client.lastAt ? dateTimeText(client.lastAt) : "Date non archivée"} · {client.tickets.length} ticket{client.tickets.length > 1 ? "s" : ""}</>} />)}</div>
+    {clients.length > visible && <div className="border-t border-slate-100 p-3"><button type="button" onClick={() => setVisible((count) => count + 40)} className="h-11 w-full rounded-xl text-sm font-medium text-[#0b2a5b] hover:bg-slate-50">Afficher plus de clients</button></div>}
+  </Card>;
 }
 
 /**
@@ -1004,109 +1074,217 @@ function ClientDossiersView({ dossiers, focusedPackageId, expanded, onExpand, se
   renderPayment: (customerCode: string) => ReactNode; renderInvoice: (customerCode: string) => ReactNode;
 }) {
   if (!dossiers.length) return <Empty text="Aucun client n’a de colis en route ou disponible." />;
-  return <div className="grid gap-3 lg:grid-cols-2 lg:items-start">{dossiers.map((dossier) => {
-    const open = expanded === dossier.customerCode;
-    const scopedPackages = focusedPackageId ? dossier.packages.filter((item) => item.id === focusedPackageId) : dossier.packages;
-    const scopedDossier = focusedPackageId ? { ...dossier, packages: scopedPackages } : dossier;
+  const opened = dossiers.find((dossier) => dossier.customerCode === expanded);
+  if (opened) {
+    const scopedPackages = focusedPackageId ? opened.packages.filter((item) => item.id === focusedPackageId) : opened.packages;
+    const scopedDossier = focusedPackageId ? { ...opened, packages: scopedPackages } : opened;
     const counts = dossierCounts(scopedDossier);
     const available = sortPackagesAvailableFirst(counts.active.filter(isReadyForPickup));
     const waiting = counts.active.filter((item) => !isReadyForPickup(item));
     const haiti = sortPackagesAvailableFirst(waiting.filter((item) => arrivalSectionOf(item) === "haiti"));
     const miami = sortPackagesAvailableFirst(waiting.filter((item) => arrivalSectionOf(item) === "miami"));
-    const balanceSource = dossier.invoices[0] ?? dossier.packages[0];
+    const balanceSource = opened.invoices[0] ?? opened.packages[0];
     const balanceUsd = balanceSource?.customer_balance_usd ?? 0;
     const balanceHtg = balanceSource?.customer_balance_htg ?? 0;
-    const balanceInvoice = dossier.invoices.find((invoice) => invoice.payment_status !== "Payé");
+    const balanceInvoice = opened.invoices.find((invoice) => invoice.payment_status !== "Payé");
     // Une facture entièrement livrée et payée est dans l'historique, pas ici.
-    const openInvoices = (focusedPackageId ? dossier.invoices.filter((invoice) => scopedPackages.some((item) => item.invoice_id === invoice.id)) : dossier.invoices)
+    const openInvoices = (focusedPackageId ? opened.invoices.filter((invoice) => scopedPackages.some((item) => item.invoice_id === invoice.id)) : opened.invoices)
       .filter((invoice) => invoice.delivery_status !== "Livrée" || invoice.payment_status !== "Payé");
-    return <article id={"dossier-" + dossier.customerCode} key={dossier.customerCode} className={cn("scroll-mt-6 overflow-hidden rounded-xl border bg-white sm:rounded-2xl", balanceUsd > 0.01 ? "border-amber-300" : "border-slate-200")}>
-      <button type="button" aria-expanded={open} onClick={() => { if (!open) onExpand(dossier.customerCode); }} disabled={open} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50 disabled:cursor-default disabled:hover:bg-white sm:p-4"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:text-[11px]">Dossier client</p><h3 className="mt-0.5 truncate text-lg font-black text-[#0a2b61] sm:text-xl">{dossier.customerCode}{dossier.customerName && <span className="ml-1 text-xs font-semibold text-slate-500 sm:text-sm">· {dossier.customerName}</span>}</h3><div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-semibold sm:mt-3 sm:gap-2 sm:text-xs">{available.length > 0 && <span className="rounded-lg bg-orange-100 px-2 py-1 text-orange-800">À remettre : {available.length}</span>}{haiti.length > 0 && <span className="rounded-lg bg-violet-100 px-2 py-1 text-violet-800">Arrivés en Haïti : {haiti.length}</span>}{miami.length > 0 && <span className="rounded-lg bg-sky-100 px-2 py-1 text-sky-800">En cours : {miami.length}</span>}</div></div>{!open && <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf3ff] text-[#0c397a] sm:h-10 sm:w-10"><ChevronRight size={18} /></span>}</button>
-      {open && <div className="space-y-3 border-t border-slate-100 bg-slate-50/70 p-2.5 sm:p-3">
-        {focusedPackageId && <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900">Recherche précise : seul le colis correspondant aux 6 derniers chiffres est affiché.</p>}
-        {balanceUsd > 0.01 && <BalanceNotice balanceUsd={balanceUsd} balanceHtg={balanceHtg} invoiceNumber={balanceInvoice?.invoice_number ?? ""} onPay={balanceInvoice ? () => onStartPayment(dossier.customerCode) : undefined} />}
-        {renderPayment(dossier.customerCode)}
-        {available.length > 0 && <ReadyChecklist packages={available} selectedPackageIds={selectedPackageIds} locked={releasing || confirmedParcelIds.length > 0} onToggleSelection={onToggleSelection} onSelectAll={(ids) => onSelectCustomerPackages(dossier.customerCode, ids)} onStartPayment={onStartPayment} onOpenInvoice={onOpenInvoice} />}
-        {haiti.length > 0 && <DossierSection title="Arrivés en Haïti" subtitle="Pas encore disponibles au point de retrait." packages={haiti} tone="violet" />}
-        {miami.length > 0 && <DossierSection title="En cours" subtitle="Encore à Miami ou en transit." packages={miami} tone="sky" />}
-        {openInvoices.length > 0 && <DossierInvoices invoices={openInvoices} onOpenInvoice={onOpenInvoice} />}
-        {renderInvoice(dossier.customerCode)}
-      </div>}
-    </article>;
-  })}</div>;
+    return <div id={"dossier-" + opened.customerCode} className="scroll-mt-20 space-y-3">
+      <Card>
+        <CustomerRow code={opened.customerCode} name={opened.customerName} open onOpen={() => undefined} meta="Dossier client" />
+        <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 text-center">
+          <div className="py-2.5"><p className="text-lg font-semibold tabular-nums text-[#c2410c]">{available.length}</p><p className="text-[11px] text-slate-500">À remettre</p></div>
+          <div className="py-2.5"><p className="text-lg font-semibold tabular-nums text-violet-700">{haiti.length}</p><p className="text-[11px] text-slate-500">En Haïti</p></div>
+          <div className="py-2.5"><p className="text-lg font-semibold tabular-nums text-sky-700">{miami.length}</p><p className="text-[11px] text-slate-500">En cours</p></div>
+        </div>
+      </Card>
+      {focusedPackageId && <p className="rounded-xl bg-sky-50 px-3 py-2 text-[13px] text-sky-900">Recherche précise : seul le colis correspondant aux 6 derniers chiffres est affiché.</p>}
+      {balanceUsd > 0.01 && <BalanceNotice balanceUsd={balanceUsd} balanceHtg={balanceHtg} invoiceNumber={balanceInvoice?.invoice_number ?? ""} onPay={balanceInvoice ? () => onStartPayment(opened.customerCode) : undefined} />}
+      {renderPayment(opened.customerCode)}
+      {available.length > 0 && <ReadyChecklist packages={available} selectedPackageIds={selectedPackageIds} locked={releasing || confirmedParcelIds.length > 0} onToggleSelection={onToggleSelection} onSelectAll={(ids) => onSelectCustomerPackages(opened.customerCode, ids)} onStartPayment={onStartPayment} onOpenInvoice={onOpenInvoice} />}
+      {haiti.length > 0 && <DossierSection title="Arrivés en Haïti" subtitle="Pas encore disponibles au point de retrait." packages={haiti} tone="violet" />}
+      {miami.length > 0 && <DossierSection title="En cours" subtitle="Encore à Miami ou en transit." packages={miami} tone="sky" />}
+      {openInvoices.length > 0 && <DossierInvoices invoices={openInvoices} onOpenInvoice={onOpenInvoice} />}
+      {renderInvoice(opened.customerCode)}
+    </div>;
+  }
+  return <Card>
+    <CardHeader title="Dossiers clients" right={<CountPill value={dossiers.length} />} />
+    <div className="divide-y divide-slate-100">{dossiers.map((dossier) => {
+      const counts = dossierCounts(dossier);
+      const available = counts.active.filter(isReadyForPickup).length;
+      const waiting = counts.active.filter((item) => !isReadyForPickup(item));
+      const haiti = waiting.filter((item) => arrivalSectionOf(item) === "haiti").length;
+      const miami = waiting.length - haiti;
+      const balanceSource = dossier.invoices[0] ?? dossier.packages[0];
+      const owes = (balanceSource?.customer_balance_usd ?? 0) > 0.01;
+      const parts = [available ? `${available} à remettre` : "", haiti ? `${haiti} en Haïti` : "", miami ? `${miami} en cours` : ""].filter(Boolean).join(" · ");
+      return <div id={"dossier-" + dossier.customerCode} key={dossier.customerCode} className="scroll-mt-20">
+        <CustomerRow code={dossier.customerCode} name={dossier.customerName} tone={available ? "orange" : "navy"} open={false} onOpen={() => onExpand(dossier.customerCode)}
+          meta={<>{parts || "Aucun colis actif"}{owes && <span className="text-amber-700"> · solde</span>}</>} />
+      </div>;
+    })}</div>
+  </Card>;
 }
 
 function BalanceNotice({ balanceUsd, balanceHtg, invoiceNumber, onPay }: { balanceUsd: number; balanceHtg: number; invoiceNumber: string; onPay?: () => void }) {
-  return <section className="rounded-xl border border-amber-200 bg-amber-50 p-3"><p className="text-xs font-bold uppercase tracking-wide text-amber-800">Solde client à régler</p><p className="mt-1 text-sm font-semibold text-slate-800">Le solde précédent doit être réglé avant toute nouvelle remise.</p><p className="mt-2 text-sm font-black text-amber-900">{fmtUsd(balanceUsd)} · {fmtHtg(balanceHtg)}{invoiceNumber ? " · " + invoiceNumber : ""}</p>{onPay && <button type="button" onClick={onPay} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-3 text-sm font-bold text-[#bd450b] hover:bg-orange-100"><Banknote size={18} />Encaisser le paiement du solde</button>}</section>;
+  return <Card className="ring-amber-200">
+    <div className="px-4 py-3.5">
+      <p className="text-[13px] font-medium text-amber-800">Solde client à régler</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{fmtUsd(balanceUsd)}</p>
+      <p className="text-sm tabular-nums text-slate-500">{fmtHtg(balanceHtg)}{invoiceNumber ? " · " + invoiceNumber : ""}</p>
+      <p className="mt-2 text-xs text-slate-500">Le solde précédent doit être réglé avant toute nouvelle remise.</p>
+      {onPay && <button type="button" onClick={onPay} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-semibold text-white hover:bg-[#d4530f]"><Banknote size={18} />Encaisser le solde</button>}
+    </div>
+  </Card>;
 }
 
 function DossierSection({ title, subtitle, packages, tone = "blue", renderPackage }: { title: string; subtitle: string; packages: ZonePackage[]; tone?: "blue" | "orange" | "emerald" | "violet" | "sky"; renderPackage?: (item: ZonePackage) => ReactNode }) {
-  const tones = { blue: "border-blue-100 bg-blue-50/50", orange: "border-orange-100 bg-orange-50/50", emerald: "border-emerald-100 bg-emerald-50/50", violet: "border-violet-200 bg-violet-50/60", sky: "border-sky-200 bg-sky-50/60" };
-  return <section className={cn("rounded-xl border p-2.5 sm:p-3", tones[tone])}><div className="mb-2 flex items-start justify-between gap-3"><div><h4 className="text-[13px] font-black text-[#0a2b61] sm:text-sm">{title}</h4><p className="mt-0.5 text-[11px] text-slate-500 sm:text-xs">{subtitle}</p></div><span className="rounded-full bg-white px-2 py-1 text-[11px] font-bold text-slate-600 sm:text-xs">{packages.length}</span></div>{packages.length ? <div className="space-y-1.5 sm:space-y-2">{packages.map((item) => renderPackage ? <div key={item.id}>{renderPackage(item)}</div> : <ParcelRow key={item.id} item={item} />)}</div> : <p className="rounded-lg bg-white/80 px-3 py-2 text-sm text-slate-500">Aucun colis dans cette section.</p>}</section>;
+  const pill = tone === "orange" ? "orange" : tone === "emerald" ? "emerald" : "slate";
+  return <Card>
+    <CardHeader title={title} subtitle={subtitle} right={<CountPill value={packages.length} tone={pill} />} />
+    {packages.length ? <div className="divide-y divide-slate-100">{packages.map((item) => renderPackage ? <div key={item.id}>{renderPackage(item)}</div> : <ParcelRow key={item.id} item={item} />)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucun colis dans cette section.</p>}
+  </Card>;
 }
 
 function SpecialPackageNotice({ item, compact = false }: { item: ZonePackage; compact?: boolean }) {
   if (!item.is_special) return null;
-  return <div className={cn("rounded-lg border border-amber-200 bg-amber-50 text-amber-900", compact ? "mt-1 inline-flex items-center gap-1 px-2 py-1 text-[11px] font-bold" : "mt-2 p-2.5 text-xs") }>
-    <span className="inline-flex items-center gap-1 font-black"><AlertTriangle size={compact ? 13 : 15} />Colis spécial</span>
-    {!compact && item.special_reason && <p className="mt-1 leading-relaxed text-amber-800"><span className="font-bold">Note :</span> {item.special_reason}</p>}
+  return <div className={cn("rounded-lg bg-amber-50 text-amber-900", compact ? "mt-1 inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium" : "mt-2 p-2.5 text-xs")}>
+    <span className="inline-flex items-center gap-1 font-semibold"><AlertTriangle size={compact ? 13 : 15} />Colis spécial</span>
+    {!compact && item.special_reason && <p className="mt-1 leading-relaxed text-amber-800"><span className="font-semibold">Note :</span> {item.special_reason}</p>}
   </div>;
 }
 
 function ParcelRow({ item }: { item: ZonePackage }) {
-  return <div className={cn("flex flex-wrap items-center justify-between gap-2 rounded-lg border-l-4 bg-white px-2.5 py-2 sm:px-3", statusTone(item.status).border)}><div className="min-w-0"><p className="break-all text-[13px] font-bold text-[#0a2b61] sm:text-sm">{packageReference(item)}</p><p className="mt-0.5 text-[11px] text-slate-500 sm:text-xs">Qté : {item.quantity}{item.content ? " · " + item.content : ""}</p><SpecialPackageNotice item={item} compact /></div><StatusChip status={item.status} /></div>;
+  return <div className="flex items-center gap-3 px-4 py-3">
+    <span className={cn("h-8 w-1 shrink-0 rounded-full", statusTone(item.status).bar)} />
+    <div className="min-w-0 flex-1"><p className="break-all text-sm font-medium text-slate-900">{packageReference(item)}</p><p className="mt-0.5 text-xs text-slate-500">Qté {item.quantity}{item.content ? " · " + item.content : ""}</p><SpecialPackageNotice item={item} compact /></div>
+    <StatusChip status={item.status} />
+  </div>;
 }
 
 function DossierInvoices({ invoices, onOpenInvoice }: { invoices: ZoneInvoice[]; onOpenInvoice: (invoiceId: string) => void }) {
-  return <section className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3"><div className="mb-2 flex items-start justify-between gap-3"><div><h4 className="text-sm font-black text-[#0a2b61]">Factures du client</h4><p className="mt-0.5 text-xs text-slate-500">Cliquez sur un numéro pour voir le total et tous les colis de la facture.</p></div><span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-slate-600">{invoices.length}</span></div>{invoices.length ? <div className="space-y-2">{invoices.map((invoice) => <button key={invoice.id} type="button" onClick={() => onOpenInvoice(invoice.id)} className="flex w-full flex-wrap items-center justify-between gap-3 rounded-lg border border-indigo-100 bg-white px-3 py-2 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40"><span className="min-w-0"><span className="block text-sm font-bold text-indigo-700 hover:underline">{invoice.invoice_number}</span><span className="mt-0.5 block text-xs text-slate-500">{invoice.package_count} colis · Total {fmtUsd(invoice.grand_total_usd)} · {dateText(invoice.created_at)}</span></span><span className="flex flex-wrap items-center justify-end gap-2"><DeliveryChip status={invoice.delivery_status} /><PaymentChip status={invoice.payment_status} /></span></button>)}</div> : <p className="rounded-lg bg-white/80 px-3 py-3 text-sm text-slate-500">Aucune facture finalisée pour ce client.</p>}</section>;
+  return <Card>
+    <CardHeader title="Factures du client" subtitle="Touchez une facture pour voir son total et ses colis." right={<CountPill value={invoices.length} />} />
+    {invoices.length ? <div className="divide-y divide-slate-100">{invoices.map((invoice) => <button key={invoice.id} type="button" onClick={() => onOpenInvoice(invoice.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600"><FileText size={17} /></span>
+      <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-slate-900">{invoice.invoice_number}</span><span className="block text-xs text-slate-500">{invoice.package_count} colis · {dateText(invoice.created_at)}</span><span className="mt-1 flex flex-wrap gap-1"><PaymentChip status={invoice.payment_status} /><DeliveryChip status={invoice.delivery_status} /></span></span>
+      <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-900">{fmtUsd(invoice.grand_total_usd)}</span>
+    </button>)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucune facture finalisée pour ce client.</p>}
+  </Card>;
 }
 
 function InvoiceSummary({ invoice, packages }: { invoice: ZoneInvoice; packages: ZonePackage[] }) {
-  return <div className="border-t border-indigo-100 bg-white p-3"><div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-lg bg-blue-50 px-3 py-2"><p className="text-xs font-semibold text-slate-500">Total de la facture</p><p className="mt-0.5 font-black text-[#0a2b61]">{fmtUsd(invoice.grand_total_usd)}</p></div>{invoice.deposit_usd > 0 && <div className="rounded-lg bg-slate-50 px-3 py-2"><p className="text-xs font-semibold text-slate-500">Acompte</p><p className="mt-0.5 font-black text-slate-700">{fmtUsd(invoice.deposit_usd)}</p></div>}<div className="rounded-lg bg-orange-50 px-3 py-2"><p className="text-xs font-semibold text-slate-500">Solde à payer</p><p className="mt-0.5 font-black text-[#bd450b]">{fmtUsd(invoice.amount_due_usd)} · {fmtHtg(invoice.amount_due_htg)}</p></div><div className="rounded-lg bg-emerald-50 px-3 py-2"><p className="text-xs font-semibold text-slate-500">Montant reçu</p><p className="mt-0.5 font-black text-emerald-700">{fmtUsd(invoice.payment_paid_usd)} · {fmtHtg(invoice.payment_paid_htg)}</p></div></div><div className="mt-3"><p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Colis dans cette facture · {packages.length}</p>{packages.length ? <div className="space-y-2">{packages.map((item) => <ParcelRow key={item.id} item={item} />)}</div> : <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">Aucun colis associé à cette facture.</p>}</div></div>;
+  const Line = ({ label, value, tone }: { label: string; value: string; tone?: string }) => <div className="flex items-baseline justify-between gap-3 px-4 py-2.5"><span className="text-sm text-slate-500">{label}</span><span className={cn("text-right text-sm font-semibold tabular-nums", tone ?? "text-slate-900")}>{value}</span></div>;
+  return <>
+    <div className="divide-y divide-slate-100 border-t border-slate-100">
+      <Line label="Total de la facture" value={fmtUsd(invoice.grand_total_usd)} />
+      {invoice.deposit_usd > 0 && <Line label="Acompte" value={fmtUsd(invoice.deposit_usd)} />}
+      <Line label="Montant reçu" value={`${fmtUsd(invoice.payment_paid_usd)} · ${fmtHtg(invoice.payment_paid_htg)}`} tone="text-emerald-700" />
+      <Line label="Solde à payer" value={`${fmtUsd(invoice.amount_due_usd)} · ${fmtHtg(invoice.amount_due_htg)}`} tone="text-[#c2410c]" />
+    </div>
+    <div className="border-t border-slate-100">
+      <p className="px-4 pb-1 pt-3 text-xs font-medium text-slate-500">Colis dans cette facture · {packages.length}</p>
+      {packages.length ? <div className="divide-y divide-slate-100">{packages.map((item) => <ParcelRow key={item.id} item={item} />)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucun colis associé à cette facture.</p>}
+    </div>
+  </>;
 }
 
 function InvoiceDetails({ invoice, packages, onClose, onPay }: { invoice: ZoneInvoice | null; packages: ZonePackage[]; onClose: () => void; onPay?: () => void }) {
   if (!invoice) return null;
-  return <section className="overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-50/70 shadow-sm"><div className="flex items-start justify-between gap-3 p-4"><div><p className="text-xs font-bold uppercase tracking-wide text-indigo-600">Détail de la facture</p><h3 className="mt-1 text-lg font-black text-[#0a2b61]">{invoice.invoice_number}{invoice.is_central_account ? " · Compte central STANDA" : " · " + invoice.customer_code}</h3><p className="mt-1 text-sm font-semibold text-slate-600">{invoice.is_central_account ? "Opération centrale affectée à cette zone" : invoice.customer_name || "Client STANDA"}</p><div className="mt-1.5 flex flex-wrap gap-1.5"><PaymentChip status={invoice.payment_status} /><DeliveryChip status={invoice.delivery_status} /></div>{invoice.payment_details && <p className="mt-1.5 text-xs font-bold text-emerald-700">{invoice.payment_details}</p>}</div><button type="button" onClick={onClose} aria-label="Fermer le détail de la facture" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-white"><X size={18} /></button></div><InvoiceSummary invoice={invoice} packages={packages} />{onPay && <div className="border-t border-indigo-100 bg-white p-3"><button type="button" onClick={onPay} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-black text-white hover:bg-[#ce4e0d]"><Banknote size={18} />Encaisser le paiement de cette facture</button></div>}</section>;
+  return <Card>
+    <div className="flex items-start justify-between gap-3 px-4 py-4">
+      <div className="min-w-0">
+        <p className="text-xs text-slate-500">{invoice.is_central_account ? "Compte central STANDA" : `${invoice.customer_code}${invoice.customer_name ? " · " + invoice.customer_name : ""}`}</p>
+        <h3 className="mt-0.5 text-lg font-semibold text-slate-900">{invoice.invoice_number}</h3>
+        <div className="mt-1.5 flex flex-wrap gap-1.5"><PaymentChip status={invoice.payment_status} /><DeliveryChip status={invoice.delivery_status} /></div>
+        {invoice.payment_details && <p className="mt-1.5 text-xs font-medium text-emerald-700">{invoice.payment_details}</p>}
+      </div>
+      <button type="button" onClick={onClose} aria-label="Fermer le détail de la facture" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={18} /></button>
+    </div>
+    <InvoiceSummary invoice={invoice} packages={packages} />
+    {onPay && <div className="border-t border-slate-100 p-4"><button type="button" onClick={onPay} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-semibold text-white hover:bg-[#d4530f]"><Banknote size={18} />Encaisser le paiement de cette facture</button></div>}
+  </Card>;
 }
 
 function ReportsView({ agentName, payments, balances, onOpenInvoice, onStartPayment, onOpenReceipt }: { agentName: string; payments: AgentPayment[]; balances: CustomerBalanceReport[]; onOpenInvoice: (invoiceId: string) => void; onStartPayment: (customerCode: string) => void; onOpenReceipt: (paymentId: string) => void }) {
   // Zelle arrive directement sur le compte STANDA : il est listé, mais pas compté
   // dans l'argent que l'agent doit remettre à l'administration.
-  const sum = (rows: AgentPayment[]) => rows.reduce((value, payment) => ({
+  const totals = cashTotals(payments);
+  const zelle = payments.filter((payment) => payment.payment_method === "Zelle").reduce((value, payment) => ({
     usd: value.usd + (payment.currency === "USD" ? Number(payment.amount || 0) : 0),
     htg: value.htg + (payment.currency === "HTG" ? Number(payment.amount || 0) : 0)
   }), { usd: 0, htg: 0 });
-  const totals = sum(payments.filter((payment) => payment.payment_method !== "Zelle"));
-  const zelle = sum(payments.filter((payment) => payment.payment_method === "Zelle"));
   const hasZelle = zelle.usd > 0.009 || zelle.htg > 0.009;
   const paymentAmount = (payment: AgentPayment) => payment.currency === "HTG" ? fmtHtg(payment.amount) : fmtUsd(payment.amount);
   return <div className="space-y-4">
-    <section className="rounded-2xl bg-gradient-to-br from-[#0b3270] to-[#1a5bc0] p-5 text-white shadow-lg shadow-blue-900/15"><p className="text-xs font-black uppercase tracking-[0.16em] text-sky-100">Rapport du point de retrait</p><h2 className="mt-1 text-2xl font-black">Caisse de {agentName}</h2><p className="mt-2 max-w-2xl text-sm text-white/85">Seulement les paiements enregistrés par ce point de retrait sont comptés ici. Les paiements Zelle sont listés mais n’entrent pas dans l’argent à remettre : ils arrivent directement sur le compte STANDA. Quand vous avez remis l’argent à l’administration, elle clôture le rapport : la caisse repart à zéro et seuls les soldes clients restent.</p><div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-xl bg-white/12 p-3 ring-1 ring-white/15"><p className="text-xs font-semibold text-white/70">Reçu en dollars</p><p className="mt-1 text-xl font-black">{fmtUsd(totals.usd)}</p></div><div className="rounded-xl bg-white/12 p-3 ring-1 ring-white/15"><p className="text-xs font-semibold text-white/70">Reçu en gourdes</p><p className="mt-1 text-xl font-black">{fmtHtg(totals.htg)}</p></div><div className="rounded-xl bg-white/12 p-3 ring-1 ring-white/15"><p className="text-xs font-semibold text-white/70">Clients avec solde</p><p className="mt-1 text-xl font-black">{balances.length}</p></div></div>{hasZelle && <p className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-white/90 ring-1 ring-white/15">Reçu par Zelle : {fmtUsd(zelle.usd)}{zelle.htg > 0.009 ? " · " + fmtHtg(zelle.htg) : ""}</p>}</section>
-    <section className="rounded-2xl border border-emerald-100 bg-emerald-50/45 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="text-base font-black text-[#0a2b61]">Paiements reçus</h3><p className="mt-1 text-xs text-slate-600">Chaque ligne correspond à un paiement que vous avez confirmé au point de retrait.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-700">{payments.length}</span></div>{payments.length ? <div className="mt-3 space-y-2">{payments.map((payment) => <article key={payment.id} className="rounded-xl border border-emerald-100 bg-white p-3"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-sm font-black text-[#0a2b61]">{payment.customer_code}{payment.customer_name ? " · " + payment.customer_name : ""}</p><button type="button" onClick={() => onOpenInvoice(payment.invoice_id)} className="mt-1 text-xs font-bold text-indigo-700 hover:underline">{payment.invoice_number}</button></div><p className="rounded-lg bg-emerald-100 px-2.5 py-1 text-sm font-black text-emerald-800">{paymentAmount(payment)}</p></div><div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-slate-600">{payment.payment_method || "Méthode non précisée"} · {dateText(payment.created_at)}{payment.payment_reference ? " · Réf. " + payment.payment_reference : ""}</p><button type="button" onClick={() => onOpenReceipt(payment.id)} className="text-xs font-black text-[#0b3270] underline">Voir le reçu</button></div></article>)}</div> : <p className="mt-3 rounded-xl bg-white px-3 py-3 text-sm text-slate-500">Aucun paiement n’a encore été enregistré par ce point de retrait.</p>}</section>
-    <section className="rounded-2xl border border-amber-200 bg-amber-50/55 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="text-base font-black text-[#0a2b61]">Clients avec un solde à régler</h3><p className="mt-1 text-xs text-slate-600">Le solde doit être réglé avant une nouvelle remise. « Encaisser » ouvre le dossier du client avec toutes ses factures à régler.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-amber-700">{balances.length}</span></div>{balances.length ? <div className="mt-3 grid gap-2 md:grid-cols-2">{balances.map((balance) => <article key={balance.customer_code} className="rounded-xl border border-amber-100 bg-white p-3"><div className="flex items-start justify-between gap-2"><p className="text-sm font-black text-[#0a2b61]">{balance.customer_code}{balance.customer_name ? " · " + balance.customer_name : ""}</p><span className="rounded-lg bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">{balance.invoice_count} facture{balance.invoice_count > 1 ? "s" : ""}</span></div><p className="mt-2 text-sm font-black text-amber-900">{fmtUsd(balance.balance_usd)} · {fmtHtg(balance.balance_htg)}</p><div className="mt-2 flex flex-wrap items-center gap-2"><button type="button" onClick={() => onStartPayment(balance.customer_code)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-[#e85e19] px-3 text-xs font-black text-white hover:bg-[#ce4e0d]"><Banknote size={15} />Encaisser</button><button type="button" onClick={() => onOpenInvoice(balance.invoice_id)} className="text-xs font-bold text-indigo-700 hover:underline">Voir {balance.invoice_number}</button></div></article>)}</div> : <p className="mt-3 rounded-xl bg-white px-3 py-3 text-sm text-slate-500">Aucun client de cette zone n’a de solde en attente.</p>}</section>
+    <section className="rounded-3xl p-5 text-white" style={{ background: NAVY }}>
+      <p className="text-[13px] text-white/70">Caisse de {agentName}</p>
+      <p className="mt-1 text-[34px] font-semibold leading-tight tracking-tight tabular-nums">{fmtUsd(totals.usd)}</p>
+      <p className="text-[15px] text-white/80 tabular-nums">{fmtHtg(totals.htg)}</p>
+      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/15 pt-3 text-[12px]">
+        <div><p className="text-white/60">Clients avec solde</p><p className="mt-0.5 text-base font-semibold tabular-nums">{balances.length}</p></div>
+        <div><p className="text-white/60">Paiements</p><p className="mt-0.5 text-base font-semibold tabular-nums">{payments.length}</p></div>
+      </div>
+      {hasZelle && <p className="mt-3 text-[12px] text-white/75">Zelle (déjà sur le compte STANDA, hors caisse) : {fmtUsd(zelle.usd)}{zelle.htg > 0.009 ? " · " + fmtHtg(zelle.htg) : ""}</p>}
+    </section>
+    <p className="px-1 text-xs leading-5 text-slate-500">Seuls les paiements de ce point de retrait sont comptés. Quand l’argent est remis à l’administration, elle clôture le rapport : la caisse repart à zéro et seuls les soldes clients restent.</p>
+
+    <Card>
+      <CardHeader title="Paiements reçus" right={<CountPill value={payments.length} tone="emerald" />} />
+      {payments.length ? <div className="divide-y divide-slate-100">{payments.map((payment) => <div key={payment.id} className="flex items-center gap-3 px-4 py-3">
+        <Avatar name={payment.customer_name} code={payment.customer_code} tone="emerald" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-slate-900">{payment.customer_code}{payment.customer_name ? " · " + payment.customer_name : ""}</p>
+          <p className="truncate text-xs text-slate-500">{payment.payment_method || "Méthode non précisée"} · {dateText(payment.created_at)}{payment.payment_reference ? " · Réf. " + payment.payment_reference : ""}</p>
+          <div className="mt-1 flex gap-3 text-xs font-medium"><button type="button" onClick={() => onOpenInvoice(payment.invoice_id)} className="text-[#0b2a5b] hover:underline">{payment.invoice_number}</button><button type="button" onClick={() => onOpenReceipt(payment.id)} className="text-[#0b2a5b] hover:underline">Reçu</button></div>
+        </div>
+        <p className="shrink-0 text-sm font-semibold tabular-nums text-emerald-700">+{paymentAmount(payment)}</p>
+      </div>)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucun paiement n’a encore été enregistré par ce point de retrait.</p>}
+    </Card>
+
+    <Card>
+      <CardHeader title="Clients avec un solde" subtitle="Le solde doit être réglé avant une nouvelle remise." right={<CountPill value={balances.length} tone="amber" />} />
+      {balances.length ? <div className="divide-y divide-slate-100">{balances.map((balance) => <div key={balance.customer_code} className="flex items-center gap-3 px-4 py-3">
+        <Avatar name={balance.customer_name} code={balance.customer_code} tone="orange" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-slate-900">{balance.customer_code}{balance.customer_name ? " · " + balance.customer_name : ""}</p>
+          <p className="text-xs tabular-nums text-slate-500">{fmtUsd(balance.balance_usd)} · {fmtHtg(balance.balance_htg)} · {balance.invoice_count} facture{balance.invoice_count > 1 ? "s" : ""}</p>
+          <button type="button" onClick={() => onOpenInvoice(balance.invoice_id)} className="mt-1 text-xs font-medium text-[#0b2a5b] hover:underline">Voir {balance.invoice_number}</button>
+        </div>
+        <button type="button" onClick={() => onStartPayment(balance.customer_code)} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[#e85e19] px-3 text-xs font-semibold text-white hover:bg-[#d4530f]"><Banknote size={15} />Encaisser</button>
+      </div>)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucun client de cette zone n’a de solde en attente.</p>}
+    </Card>
   </div>;
 }
 
 function BonsView({ bons, onOpenPdf }: { bons: ZoneBon[]; onOpenPdf: (id: string) => void }) {
   if (!bons.length) return <Empty text="Aucun bon de remise ne correspond à cette recherche." />;
-  return <div className="grid gap-3 md:grid-cols-2">{bons.map((bon) => <article key={bon.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><div className="flex items-center gap-2"><p className="font-black text-[#0a2b61]">{bon.bon_number}</p>{bon.received_at ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700"><CheckCircle2 size={11} />Reçu</span> : <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">En route</span>}</div><p className="mt-1 text-sm text-slate-600">{bon.destination || "Destination non précisée"} · {bon.package_count} colis</p><p className="mt-1 text-xs text-slate-400">{dateText(bon.created_at)}{bon.received_by ? ` · reçu par ${bon.received_by}` : ""}</p></div><FileDown className="text-[#e85e19]" size={21} /></div><button type="button" onClick={() => onOpenPdf(bon.id)} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#0b3270] px-3 text-sm font-bold text-white"><FileDown size={16} />Ouvrir le PDF</button></article>)}</div>;
+  return <Card>
+    <CardHeader title="Bons de remise" right={<CountPill value={bons.length} />} />
+    <div className="divide-y divide-slate-100">{bons.map((bon) => <button key={bon.id} type="button" onClick={() => onOpenPdf(bon.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50">
+      <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full", bon.received_at ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-[#e85e19]")}>{bon.received_at ? <CheckCircle2 size={18} /> : <Truck size={18} />}</span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2"><span className="font-mono text-sm font-semibold text-slate-900">{bon.bon_number}</span><span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", bon.received_at ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>{bon.received_at ? "Reçu" : "En route"}</span></span>
+        <span className="block truncate text-xs text-slate-500">{bon.destination || "Destination non précisée"} · {bon.package_count} colis · {dateText(bon.created_at)}{bon.received_by ? ` · reçu par ${bon.received_by}` : ""}</span>
+      </span>
+      <FileDown size={18} className="shrink-0 text-slate-400" />
+    </button>)}</div>
+  </Card>;
 }
 
-function Stat({ icon, label, value, tint, onClick, active = false }: { icon: ReactNode; label: string; value: number; tint: string; onClick?: () => void; active?: boolean }) {
-  return <button type="button" onClick={onClick} className={cn("rounded-2xl border bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md", active ? "border-[#0b3270] ring-2 ring-[#0b3270]/15" : "border-white")}><div className={cn("mb-3 grid h-10 w-10 place-items-center rounded-xl", tint)}>{icon}</div><p className="text-xs font-semibold text-slate-500">{label}</p><p className="mt-0.5 text-2xl font-black text-[#09295e]">{value}</p></button>;
-}
-function Empty({ text }: { text: string }) { return <div className="py-12 text-center"><CheckCircle2 className="mx-auto mb-3 text-emerald-500" size={38} /><p className="font-bold text-[#0a2b61]">{text}</p></div>; }
+function Empty({ text }: { text: string }) { return <Card className="px-6 py-12 text-center"><CheckCircle2 className="mx-auto mb-3 text-emerald-500" size={32} /><p className="text-sm font-medium text-slate-700">{text}</p></Card>; }
 /**
  * Une couleur par étape, partout pareil : orange = disponible à remettre,
  * violet = arrivé en Haïti, bleu ciel = en cours (Miami / transit), vert = remis.
  */
 function statusTone(status: string) {
-  if (status === DONE) return { chip: "bg-emerald-100 text-emerald-700", border: "border-emerald-400" };
-  if (READY_STATUSES.has(status)) return { chip: "bg-orange-100 text-orange-700", border: "border-orange-400" };
-  if (HAITI_STATUSES.has(status)) return { chip: "bg-violet-100 text-violet-700", border: "border-violet-400" };
-  return { chip: "bg-sky-100 text-sky-700", border: "border-sky-400" };
+  if (status === DONE) return { chip: "bg-emerald-50 text-emerald-700", bar: "bg-emerald-400" };
+  if (READY_STATUSES.has(status)) return { chip: "bg-orange-50 text-[#c2410c]", bar: "bg-orange-400" };
+  if (HAITI_STATUSES.has(status)) return { chip: "bg-violet-50 text-violet-700", bar: "bg-violet-400" };
+  return { chip: "bg-sky-50 text-sky-700", bar: "bg-sky-400" };
 }
-function StatusChip({ status }: { status: string }) { return <span className={cn("rounded-lg px-2 py-1 text-[11px] font-bold sm:px-2.5 sm:text-xs", statusTone(status).chip)}>{status}</span>; }
-function PaymentChip({ status }: { status: string }) { const tone = status === "Payé" ? "bg-emerald-100 text-emerald-700" : status === "Payé partiel" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"; return <span className={cn("rounded-lg px-2.5 py-1 text-xs font-bold", tone)}>{status}</span>; }
-function DeliveryChip({ status }: { status: string }) { const delivered = status === "Livrée"; return <span className={cn("rounded-lg px-2.5 py-1 text-xs font-bold", delivered ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600")}>{delivered ? "Livrée" : "À remettre"}</span>; }
+function StatusChip({ status }: { status: string }) { return <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold", statusTone(status).chip)}>{status}</span>; }
+function PaymentChip({ status }: { status: string }) { const tone = status === "Payé" ? "bg-emerald-50 text-emerald-700" : status === "Payé partiel" ? "bg-amber-50 text-amber-800" : "bg-red-50 text-red-700"; return <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", tone)}>{status}</span>; }
+function DeliveryChip({ status }: { status: string }) { const delivered = status === "Livrée"; return <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", delivered ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600")}>{delivered ? "Livrée" : "À remettre"}</span>; }

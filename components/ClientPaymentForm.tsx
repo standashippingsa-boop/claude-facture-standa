@@ -31,10 +31,12 @@ const needsReference = (method: string) => method === "Zelle" || method === "Vir
  * ou en dollars). La répartition sur les factures (la plus ancienne d'abord)
  * est affichée avant confirmation et refaite à l'identique par le serveur.
  */
-export default function ClientPaymentForm({ customerCode, customerName, invoices, initialSelected, busy, onSubmit, onClose, title = "Enregistrer un paiement", className = "" }: {
+export default function ClientPaymentForm({ customerCode, customerName, invoices, initialSelected, busy, onSubmit, onClose, title = "Enregistrer un paiement", className = "", plain = false }: {
   customerCode: string; customerName?: string; invoices: PaymentInvoice[]; initialSelected?: string[];
   busy: boolean; error?: string | null; onSubmit: (payload: ClientPaymentSubmit) => void; onClose: () => void;
   title?: string; className?: string;
+  /** Style sobre (app point de retrait) : en-tête blanc, sans dégradé ni cadre. */
+  plain?: boolean;
 }) {
   const open = useMemo(() => invoices
     .map((invoice) => ({ invoice, remaining: outstandingOf([invoice]) }))
@@ -107,14 +109,22 @@ export default function ClientPaymentForm({ customerCode, customerName, invoices
     onSubmit({ invoiceIds: chosen.map((row) => row.invoice.id), lines: valid, summary });
   };
 
-  return <section className={cn("overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.10)]", className)}>
-    <header className="flex items-start justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-[#0b3270] to-[#1a5bc0] px-4 py-3 text-white">
+  return <section className={cn(plain ? "overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200/70" : "overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.10)]", className)}>
+    {plain
+      ? <header className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3.5">
+          <div className="min-w-0">
+            <p className="text-xs text-slate-500">{title}</p>
+            <h3 className="mt-0.5 truncate text-[17px] font-semibold text-slate-900">{customerCode}{customerName ? <span className="ml-1.5 text-sm font-normal text-slate-500">· {customerName}</span> : null}</h3>
+          </div>
+          <button type="button" onClick={onClose} disabled={busy} aria-label="Fermer le paiement" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 hover:bg-slate-100 disabled:opacity-40"><X size={18} /></button>
+        </header>
+      : <header className="flex items-start justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-[#0b3270] to-[#1a5bc0] px-4 py-3 text-white">
       <div className="min-w-0">
         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-sky-100">{title}</p>
         <h3 className="mt-0.5 truncate text-lg font-black">{customerCode}{customerName ? <span className="ml-1.5 text-sm font-semibold text-white/80">· {customerName}</span> : null}</h3>
       </div>
       <button type="button" onClick={onClose} disabled={busy} aria-label="Fermer le paiement" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white/80 hover:bg-white/15 disabled:opacity-40"><X size={18} /></button>
-    </header>
+    </header>}
 
     <div className="space-y-4 p-4">
       {!open.length ? <p className="rounded-xl bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-800">Ce client n’a aucune facture à régler.</p> : <>
