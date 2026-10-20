@@ -150,7 +150,12 @@ body { @apply bg-mist text-slate-700 antialiased; }
    scope volontairement limité à /espace-client, le reste de l'app garde la police système. */
 .client-app-font {
   font-family: var(--font-client), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Échelle de l'app client : textes et éléments 20 % plus petits (demande client). */
+  --client-zoom: .8;
+  zoom: var(--client-zoom);
 }
+/* Le zoom réduit aussi les hauteurs « plein écran » : on compense pour garder tout l'écran. */
+.client-app-font .min-h-screen { min-height: calc(100vh / var(--client-zoom)); }
 
 .client-app {
   background-color: #f8faff;
