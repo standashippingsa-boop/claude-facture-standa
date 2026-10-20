@@ -7,7 +7,7 @@ const lb = (value: number | undefined | null) => `${Number(value || 0).toLocaleS
 const day = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
 /**
- * Espace client → iPhone Challenge.
+ * Espace client → CHALLENGE DE NOËL.
  * Sépare « poids expédié » (ses colis livrés) et « poids crédité au challenge »
  * (le grand livre). Un filleul voit que ses livres vont à son parrain, sans
  * aucune donnée de ce parrain. Un affilié voit en plus son lien et ses filleuls.

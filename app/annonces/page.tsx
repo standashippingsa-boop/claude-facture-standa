@@ -125,7 +125,7 @@ export default function AnnoncesPage() {
 
       <section className="card space-y-4 p-5">
         <label className="block text-xs font-bold uppercase tracking-wide text-mute">Titre
-          <input className="input mt-1" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ex. Challenge de Noël STANDA" disabled={busy} />
+          <input className="input mt-1" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ex. CHALLENGE DE NOËL STANDA" disabled={busy} />
         </label>
         <label className="block text-xs font-bold uppercase tracking-wide text-mute">Message
           <textarea className="input mt-1 min-h-24" maxLength={2000} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Du 5 novembre au 5 janvier…" disabled={busy} />

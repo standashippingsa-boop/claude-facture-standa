@@ -153,7 +153,7 @@ export default function EspaceClientPage() {
   // Annons administrasyon an (flyer + mesaj) — yon fenèt parèt pou chak nouvo annons.
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [openAnnouncement, setOpenAnnouncement] = useState<Announcement | null>(null);
-  // iPhone Challenge : visible seulement quand une campagne est active.
+  // CHALLENGE DE NOËL : visible seulement quand une campagne est active.
   const [challenge, setChallenge] = useState<ChallengeMe | null>(null);
   const loadChallenge = () => { getChallengeMe().then(setChallenge).catch(() => undefined); };
   // Détail des paiements (montant, devise, moyen) — lu par /api/client-payments.

@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 
 /**
- * iPhone Challenge — accès client et admin.
+ * CHALLENGE DE NOËL — accès client et admin.
  * Toutes les règles (bénéficiaire, idempotence, réservation atomique, droits)
  * sont dans la base : fonctions SECURITY DEFINER (supabase/20261020_challenge.sql).
  * Ce fichier ne fait qu'appeler ces fonctions.

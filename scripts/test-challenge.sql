@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- TESTS iPhone Challenge — scénarios du cahier des charges (§10)
+-- TESTS CHALLENGE DE NOËL — scénarios du cahier des charges (§10)
 -- À coller dans Supabase → SQL Editor → Run.
 -- TOUT est annulé à la fin (ROLLBACK) : aucune donnée de test ne reste.
 -- Le résultat s'affiche dans le message d'erreur « RESULTS: … » (c'est voulu).

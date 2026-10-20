@@ -33,7 +33,7 @@ const groups: { title: string; items: { href: string; label: string; icon: typeo
       { href: "/rapports-financiers", label: "Rapports financiers", icon: ChartNoAxesCombined },
       { href: "/affiliates", label: "Affiliation", icon: HandCoins },
       { href: "/annonces", label: "Annonces", icon: Megaphone },
-      { href: "/challenge", label: "iPhone Challenge", icon: Trophy }
+      { href: "/challenge", label: "CHALLENGE DE NOËL", icon: Trophy }
     ]
   },
   {

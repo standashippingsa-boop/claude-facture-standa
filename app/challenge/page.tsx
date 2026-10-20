@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA — iPhone Challenge (console administrateur)
+ * STANDA — CHALLENGE DE NOËL (console administrateur)
  * Campagne et barème, participants, demandes de récompense, promotions
  * client → affilié. Les règles (crédits, réservations, droits) sont dans la
  * base ; cet écran ne fait qu'appeler les fonctions sécurisées.
@@ -78,7 +78,7 @@ export default function ChallengeAdminPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="h-page flex items-center gap-2"><Trophy size={22} /> iPhone Challenge</h1>
+        <h1 className="h-page flex items-center gap-2"><Trophy size={22} /> CHALLENGE DE NOËL</h1>
         <RefreshButton onRefresh={load} />
       </div>
 
