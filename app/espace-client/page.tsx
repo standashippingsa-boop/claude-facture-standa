@@ -55,7 +55,7 @@ import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import { openSecureDocument } from "@/lib/secure-document";
 import ClientInstallCard from "@/components/ClientInstallCard";
 import { announcementImageUrl, announcementMedia, getActiveAnnouncements, type Announcement } from "@/lib/announcements";
-import AnnouncementCarousel from "@/components/AnnouncementCarousel";
+import AnnouncementCarousel, { AnnouncementMediaSlider } from "@/components/AnnouncementCarousel";
 import ChallengeView from "@/components/ChallengeView";
 import { getChallengeMe, type ChallengeMe } from "@/lib/challenge";
 import AddressGuide from "@/components/site/AddressGuide";
@@ -207,13 +207,8 @@ export default function EspaceClientPage() {
       ]);
       setPkgs(p); setInvs(i); setRetraits(rs);
       loadChallenge();
-      getActiveAnnouncements().then((list) => {
-        setAnnouncements(list);
-        let seen: string[] = [];
-        try { seen = JSON.parse(localStorage.getItem("standa:announcements-seen") || "[]"); } catch { /* noop */ }
-        const fresh = list.find((item) => !seen.includes(item.id));
-        if (fresh) setOpenAnnouncement(fresh);
-      }).catch(() => undefined);
+      // Les annonces s'affichent en diaporama sur l'accueil (pas de fenêtre automatique).
+      getActiveAnnouncements().then(setAnnouncements).catch(() => undefined);
       // Canal à part : si le détail des paiements échoue, le reste de l'espace s'affiche quand même.
       supabase.auth.getSession().then(({ data: sessionData }) => {
         const token = sessionData.session?.access_token;
@@ -875,10 +870,7 @@ export default function EspaceClientPage() {
       {openAnnouncement && (
         <div className="fixed inset-0 z-[85] flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={openAnnouncement.title} onClick={closeAnnouncement}>
           <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-[28px] bg-white sm:rounded-[28px]" onClick={(e) => e.stopPropagation()}>
-            {announcementMedia(openAnnouncement).map((media, index) => media.kind === "video"
-              ? <video key={media.path} src={announcementImageUrl(media.path)} controls playsInline className={`w-full bg-black ${index === 0 ? "rounded-t-[28px]" : ""}`} />
-              // eslint-disable-next-line @next/next/no-img-element
-              : <img key={media.path} src={announcementImageUrl(media.path)} alt={openAnnouncement.title} className={`w-full object-contain ${index === 0 ? "rounded-t-[28px]" : ""}`} />)}
+            <AnnouncementMediaSlider media={announcementMedia(openAnnouncement)} title={openAnnouncement.title} />
             <div className="p-5">
               <p className="text-lg font-extrabold text-navy">{openAnnouncement.title}</p>
               {openAnnouncement.body && <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-ink">{openAnnouncement.body}</p>}

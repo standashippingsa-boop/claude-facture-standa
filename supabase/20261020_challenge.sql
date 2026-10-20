@@ -469,7 +469,7 @@ alter table public.invoices disable trigger trg_affiliate_commission;
 
 -- ── 12. Campagne de départ (BROUILLON : rien n'est public) ────────────────
 insert into public.challenge_campaigns (name, start_at, end_at, status)
-select 'CHALLENGE DE NOËL', '2026-11-05 00:00:00-05', '2027-01-05 23:59:59-05', 'draft'
+select 'CHALLENGE DE NOËL', '2026-11-05 00:00:00-05', '2027-01-30 23:59:59-05', 'draft'
 where not exists (select 1 from public.challenge_campaigns);
 insert into public.challenge_rewards (campaign_id, model, target_lbs, max_budget_usd, sort_order)
 select c.id, r.model, r.lbs, r.budget, r.ord from public.challenge_campaigns c

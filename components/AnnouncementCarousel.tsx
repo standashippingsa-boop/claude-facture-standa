@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Megaphone } from "lucide-react";
-import { announcementImageUrl, announcementMedia, type Announcement } from "@/lib/announcements";
+import { announcementImageUrl, announcementMedia, type Announcement, type AnnouncementMedia } from "@/lib/announcements";
 
 type Slide = { key: string; announcement: Announcement; kind: "image" | "video" | "text"; url?: string };
 
@@ -100,5 +100,45 @@ export default function AnnouncementCarousel({ announcements, onOpen }: { announ
         </div>
       )}
     </section>
+  );
+}
+
+/** Photos / vidéos d'une annonce ouverte : diaporama à glisser, avec points. */
+export function AnnouncementMediaSlider({ media, title }: { media: AnnouncementMedia[]; title: string }) {
+  const [index, setIndex] = useState(0);
+  const track = useRef<HTMLDivElement>(null);
+  if (!media.length) return null;
+  const goTo = (target: number) => {
+    const el = track.current;
+    if (el) el.scrollTo({ left: target * el.clientWidth, behavior: "smooth" });
+    setIndex(target);
+  };
+  const onScroll = () => {
+    const el = track.current;
+    if (!el || !el.clientWidth) return;
+    const visible = Math.round(el.scrollLeft / el.clientWidth);
+    if (visible !== index) setIndex(visible);
+  };
+  return (
+    <div className="overflow-hidden rounded-t-[28px] bg-navy">
+      <div ref={track} onScroll={onScroll} className="flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {media.map((entry) => (
+          <div key={entry.path} className="w-full shrink-0 snap-center">
+            {entry.kind === "video"
+              ? <video src={announcementImageUrl(entry.path)} controls playsInline className="max-h-[60vh] w-full bg-black object-contain" />
+              // eslint-disable-next-line @next/next/no-img-element
+              : <img src={announcementImageUrl(entry.path)} alt={title} className="max-h-[60vh] w-full object-contain" />}
+          </div>
+        ))}
+      </div>
+      {media.length > 1 && (
+        <div className="flex justify-center gap-1.5 py-2.5">
+          {media.map((entry, i) => (
+            <button key={entry.path} type="button" aria-label={`Photo ${i + 1}`} onClick={() => goTo(i)}
+              className={`h-1.5 rounded-full transition-all ${i === index ? "w-6 bg-white" : "w-1.5 bg-white/40"}`} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
