@@ -56,11 +56,13 @@ import { openSecureDocument } from "@/lib/secure-document";
 import ClientInstallCard from "@/components/ClientInstallCard";
 import { announcementImageUrl, announcementMedia, getActiveAnnouncements, type Announcement } from "@/lib/announcements";
 import AnnouncementCarousel from "@/components/AnnouncementCarousel";
+import ChallengeView from "@/components/ChallengeView";
+import { getChallengeMe, type ChallengeMe } from "@/lib/challenge";
 import AddressGuide from "@/components/site/AddressGuide";
 import { ClientLogisticsDashboard, ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
 
 import { useNoticeToast } from "@/lib/notify";
-type View = "home" | "disponibles" | "colisFactures" | "receptions" | "factures" | "historique" | "retraits" | "notifications" | "adresse" | "calc" | "infos" | "guideAdresse";
+type View = "home" | "disponibles" | "colisFactures" | "receptions" | "factures" | "historique" | "retraits" | "notifications" | "adresse" | "calc" | "infos" | "guideAdresse" | "challenge";
 type NoticeKind = "available" | "invoice" | "pickup" | "shipment" | "announce";
 type ClientNotice = {
   id: string;
@@ -151,6 +153,9 @@ export default function EspaceClientPage() {
   // Annons administrasyon an (flyer + mesaj) — yon fenèt parèt pou chak nouvo annons.
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [openAnnouncement, setOpenAnnouncement] = useState<Announcement | null>(null);
+  // iPhone Challenge : visible seulement quand une campagne est active.
+  const [challenge, setChallenge] = useState<ChallengeMe | null>(null);
+  const loadChallenge = () => { getChallengeMe().then(setChallenge).catch(() => undefined); };
   // Détail des paiements (montant, devise, moyen) — lu par /api/client-payments.
   const [payments, setPayments] = useState<Array<{ id: string; invoice_id: string; amount: number; currency: "USD" | "HTG"; method: string; created_at: string }>>([]);
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -201,6 +206,7 @@ export default function EspaceClientPage() {
         getClientRetraits(c.customer_code)
       ]);
       setPkgs(p); setInvs(i); setRetraits(rs);
+      loadChallenge();
       getActiveAnnouncements().then((list) => {
         setAnnouncements(list);
         let seen: string[] = [];
@@ -926,6 +932,15 @@ export default function EspaceClientPage() {
         {view === "home" && (
           <>
             {announcements.length > 0 && <AnnouncementCarousel announcements={announcements} onOpen={setOpenAnnouncement} />}
+            {challenge?.campaign && (
+              <button type="button" onClick={() => setView("challenge")} className="flex w-full items-center justify-between gap-3 rounded-2xl bg-accent px-4 py-3.5 text-left text-white">
+                <span className="min-w-0">
+                  <span className="block text-[15px] font-extrabold">{challenge.campaign.name}</span>
+                  <span className="block text-[12px] text-white/85">{challenge.sponsored ? "Vos livres comptent pour votre parrain" : `${Number(challenge.balances?.available ?? 0).toLocaleString("fr-FR")} lb disponibles`}</span>
+                </span>
+                <ChevronRight size={18} className="shrink-0" />
+              </button>
+            )}
             <div className="relative z-20 client-enter">
               <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -1411,6 +1426,8 @@ export default function EspaceClientPage() {
         )}
 
         {/* ═══════════ MON ADRESSE ═══════════ */}
+        {view === "challenge" && challenge?.campaign && <ChallengeView data={challenge} onChanged={loadChallenge} />}
+
         {view === "guideAdresse" && (
           <AddressGuide code={client.customer_code || undefined} fullName={non || undefined} />
         )}

@@ -475,3 +475,11 @@ insert into public.challenge_rewards (campaign_id, model, target_lbs, max_budget
 select c.id, r.model, r.lbs, r.budget, r.ord from public.challenge_campaigns c
 cross join (values ('iPhone 14 Pro Max', 1900, 550, 1), ('iPhone 15 Pro Max', 2000, 650, 2), ('iPhone 16 Pro Max', 2300, 855, 3), ('iPhone 17 Pro Max', 3000, 1349, 4)) as r(model, lbs, budget, ord)
 where not exists (select 1 from public.challenge_rewards);
+
+-- ── 13. L'administrateur configure la campagne et le barème depuis /challenge ──
+create policy challenge_campaigns_admin_write on public.challenge_campaigns for update to authenticated
+  using (coalesce(public.is_admin(), false)) with check (coalesce(public.is_admin(), false));
+create policy challenge_rewards_admin_insert on public.challenge_rewards for insert to authenticated
+  with check (coalesce(public.is_admin(), false));
+create policy challenge_rewards_admin_update on public.challenge_rewards for update to authenticated
+  using (coalesce(public.is_admin(), false)) with check (coalesce(public.is_admin(), false));

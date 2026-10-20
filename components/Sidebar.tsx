@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {  Inbox, LayoutDashboard, LogOut, Users, Package, FileText, History,
   RefreshCw, Settings, ClipboardList, Truck, FileDown, MessageSquareText, MapPinned, ChartNoAxesCombined,
-  HandCoins, Megaphone
+  HandCoins, Megaphone, Trophy
 } from "lucide-react";
 import Logo from "./Logo";
 import { supabase } from "@/lib/supabase";
@@ -32,7 +32,8 @@ const groups: { title: string; items: { href: string; label: string; icon: typeo
       { href: "/retraits", label: "Retraits", icon: Inbox },
       { href: "/rapports-financiers", label: "Rapports financiers", icon: ChartNoAxesCombined },
       { href: "/affiliates", label: "Affiliation", icon: HandCoins },
-      { href: "/annonces", label: "Annonces", icon: Megaphone }
+      { href: "/annonces", label: "Annonces", icon: Megaphone },
+      { href: "/challenge", label: "iPhone Challenge", icon: Trophy }
     ]
   },
   {

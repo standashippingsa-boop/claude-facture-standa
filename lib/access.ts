@@ -68,7 +68,7 @@ export const RECEPTION_AGENT_PREFIXES = ["/reception"];
  * Paj ADMIN sèlman (Employé bloke). Tout lòt paj staff yo louvri pou
  * admin + employé (koli, kliyan, fakti, sync, historique, journal, retraits).
  */
-export const ADMIN_ONLY_PREFIXES = ["/annonces", "/settings", "/reviews", "/points-retrait", "/rapports-financiers", "/recu-paiement", "/affiliates"];
+export const ADMIN_ONLY_PREFIXES = ["/annonces", "/challenge", "/settings", "/reviews", "/points-retrait", "/rapports-financiers", "/recu-paiement", "/affiliates"];
 
 /**
  * Match yon prefiks ak yon fwontyè segman: "/login" matche "/login" ak
