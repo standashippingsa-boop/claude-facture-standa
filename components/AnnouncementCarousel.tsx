@@ -68,13 +68,13 @@ export default function AnnouncementCarousel({ announcements, onOpen }: { announ
             className="relative aspect-[4/5] w-full shrink-0 snap-center overflow-hidden text-left sm:aspect-[16/10]" aria-label={slide.announcement.title}>
             {slide.kind === "image" && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={slide.url} alt={slide.announcement.title} className="h-full w-full object-cover" loading="lazy" />
+              <img src={slide.url} alt={slide.announcement.title} className="h-full w-full object-contain" loading="lazy" />
             )}
             {slide.kind === "video" && (
               <video ref={(el) => { videos.current[slide.key] = el; }} src={slide.url} muted playsInline preload="metadata"
                 autoPlay={count === 1} loop={count === 1}
                 onEnded={() => { if (slide.key === current?.key) goTo(index + 1); }}
-                className="h-full w-full object-cover" />
+                className="h-full w-full object-contain" />
             )}
             {slide.kind === "text" && (
               <div className="flex h-full w-full flex-col justify-center gap-3 p-6 text-white">
