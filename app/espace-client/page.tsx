@@ -54,7 +54,8 @@ import { StatusTimeline } from "@/components/StatusFlow";
 import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import { openSecureDocument } from "@/lib/secure-document";
 import ClientInstallCard from "@/components/ClientInstallCard";
-import { announcementImageUrl, getActiveAnnouncements, type Announcement } from "@/lib/announcements";
+import { announcementImageUrl, announcementMedia, getActiveAnnouncements, type Announcement } from "@/lib/announcements";
+import AnnouncementCarousel from "@/components/AnnouncementCarousel";
 import AddressGuide from "@/components/site/AddressGuide";
 import { ClientLogisticsDashboard, ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
 
@@ -868,10 +869,10 @@ export default function EspaceClientPage() {
       {openAnnouncement && (
         <div className="fixed inset-0 z-[85] flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={openAnnouncement.title} onClick={closeAnnouncement}>
           <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-[28px] bg-white sm:rounded-[28px]" onClick={(e) => e.stopPropagation()}>
-            {openAnnouncement.image_path && (
+            {announcementMedia(openAnnouncement).map((media, index) => media.kind === "video"
+              ? <video key={media.path} src={announcementImageUrl(media.path)} controls playsInline className={`w-full bg-black ${index === 0 ? "rounded-t-[28px]" : ""}`} />
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={announcementImageUrl(openAnnouncement.image_path)} alt={openAnnouncement.title} className="w-full rounded-t-[28px] object-contain" />
-            )}
+              : <img key={media.path} src={announcementImageUrl(media.path)} alt={openAnnouncement.title} className={`w-full object-contain ${index === 0 ? "rounded-t-[28px]" : ""}`} />)}
             <div className="p-5">
               <p className="text-lg font-extrabold text-navy">{openAnnouncement.title}</p>
               {openAnnouncement.body && <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-ink">{openAnnouncement.body}</p>}
@@ -924,6 +925,7 @@ export default function EspaceClientPage() {
         {/* ═══════════ ACCUEIL ═══════════ */}
         {view === "home" && (
           <>
+            {announcements.length > 0 && <AnnouncementCarousel announcements={announcements} onOpen={setOpenAnnouncement} />}
             <div className="relative z-20 client-enter">
               <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input

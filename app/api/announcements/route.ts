@@ -4,19 +4,29 @@ import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
 import { sendPushToCustomer } from "@/lib/push-server";
 import { sendFcmToCustomer } from "@/lib/push-fcm-server";
+import { normalizeMcCode } from "@/lib/utils";
 
 /**
- * ANNONS POU TOUT KLIYAN — ADMIN SÈLMAN.
+ * ANNONS POU KLIYAN — ADMIN SÈLMAN.
  * ═══════════════════════════════════════════════════════════════════
- * POST multipart (FormData): token, title, body, image (jpg/png/webp ≤ 4 Mo)
- *   → foto a monte nan bucket piblik "announcements", annons lan anrejistre,
- *     epi chak kliyan ki gen yon telefòn anrejistre resevwa yon push.
- * POST JSON { token, action: "deactivate", id } → annons lan pa parèt ankò.
+ * Tout demann se JSON ak `token` + `action`:
+ *  • "upload_urls" { files: [{ type, size }] } → lyen siyen pou navigatè a
+ *     monte foto/videyo yo DIRÈK nan Storage (pa gen limit 4,5 Mo Vercel).
+ *  • "publish" { title, body, media: [{ path, kind }], audience_type, audience_values }
+ *     → anons lan anrejistre, epi kliyan ki nan piblik la resevwa yon push.
+ *  • "deactivate" { id } → anons lan pa parèt ankò.
  * GET (Authorization: Bearer) → lis annons yo pou paj admin lan.
  */
 const UUID = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
-const IMAGE_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
-const MAX_IMAGE = 4 * 1024 * 1024;
+const MEDIA_TYPES: Record<string, { ext: string; kind: "image" | "video" }> = {
+  "image/jpeg": { ext: "jpg", kind: "image" }, "image/png": { ext: "png", kind: "image" }, "image/webp": { ext: "webp", kind: "image" },
+  "video/mp4": { ext: "mp4", kind: "video" }, "video/quicktime": { ext: "mov", kind: "video" }, "video/webm": { ext: "webm", kind: "video" }
+};
+const MAX_FILE = 50 * 1024 * 1024;
+const MAX_FILES = 10;
+const ACCOUNT_TYPES = new Set(["Personnel", "Business", "VIP"]);
+const AUDIENCES = new Set(["all", "villes", "account_types", "clients"]);
+const MEDIA_PATH = /^uploads\/\d{4}-\d{2}-\d{2}\/[0-9a-f-]{36}\.(jpg|png|webp|mp4|mov|webm)$/i;
 
 async function requireAdmin(token: string) {
   const config = getSupabaseAdminConfig();
@@ -32,82 +42,116 @@ async function requireAdmin(token: string) {
 }
 
 const bearer = (req: Request) => (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+const fail = (reason: string, status = 400) => NextResponse.json({ ok: false, reason }, { status });
 
 export async function GET(req: Request) {
   const gate = await requireAdmin(bearer(req));
-  if (!gate.ok) return NextResponse.json({ ok: false, reason: gate.reason }, { status: gate.status });
+  if (!gate.ok) return fail(gate.reason, gate.status);
   const { data, error } = await gate.db.from("announcements").select("*").order("created_at", { ascending: false }).limit(50);
-  if (error) return NextResponse.json({ ok: false, reason: "Liste indisponible." }, { status: 500 });
+  if (error) return fail("Liste indisponible.", 500);
   return NextResponse.json({ ok: true, announcements: data ?? [] });
 }
 
+/** Kòd kliyan ki nan piblik la (null = tout moun). */
+async function audienceCodes(db: any, type: string, values: string[]): Promise<string[] | null> {
+  if (type === "all") return null;
+  if (type === "clients") return values;
+  const query = db.from("clients").select("customer_code").neq("customer_code", "").limit(20000);
+  const { data } = type === "villes" ? await query.in("ville_id", values) : await query.in("account_type", values);
+  return ((data ?? []) as { customer_code: string }[]).map((row) => row.customer_code);
+}
+
 export async function POST(req: Request) {
-  const rl = rateLimit(`announcements:${clientIp(req)}`, 10, 60 * 60_000);
+  const rl = rateLimit(`announcements:${clientIp(req)}`, 30, 60 * 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
   try {
-    const contentType = req.headers.get("content-type") ?? "";
+    const body = await req.json().catch(() => null);
+    if (!body) return fail("Demande invalide.");
+    const gate = await requireAdmin(String(body.token ?? "") || bearer(req));
+    if (!gate.ok) return fail(gate.reason, gate.status);
+    const { db, config, name } = gate;
 
-    // ── Retire yon annons ──
-    if (contentType.includes("application/json")) {
-      const body = await req.json().catch(() => null);
-      const gate = await requireAdmin(String(body?.token ?? "") || bearer(req));
-      if (!gate.ok) return NextResponse.json({ ok: false, reason: gate.reason }, { status: gate.status });
-      const id = String(body?.id ?? "");
-      if (body?.action !== "deactivate" || !UUID.test(id)) return NextResponse.json({ ok: false, reason: "Demande invalide." }, { status: 400 });
-      const { error } = await gate.db.from("announcements").update({ active: false }).eq("id", id);
-      if (error) return NextResponse.json({ ok: false, reason: "Impossible de retirer l'annonce." }, { status: 500 });
+    // ── Lyen siyen pou monte fichye yo ──
+    if (body.action === "upload_urls") {
+      const files = Array.isArray(body.files) ? body.files : [];
+      if (!files.length || files.length > MAX_FILES) return fail(`Entre 1 et ${MAX_FILES} fichiers.`);
+      const day = new Date().toISOString().slice(0, 10);
+      const uploads = [];
+      for (const file of files) {
+        const meta = MEDIA_TYPES[String(file?.type ?? "")];
+        if (!meta) return fail("Formats acceptés : JPG, PNG, WEBP, MP4, MOV, WEBM.");
+        if (!(Number(file?.size) > 0) || Number(file.size) > MAX_FILE) return fail("Chaque fichier doit faire moins de 50 Mo.");
+        const path = `uploads/${day}/${crypto.randomUUID()}.${meta.ext}`;
+        const signed = await db.storage.from("announcements").createSignedUploadUrl(path);
+        if (signed.error || !signed.data) return fail("Préparation de l'envoi impossible.", 500);
+        uploads.push({ path, token: signed.data.token, kind: meta.kind });
+      }
+      return NextResponse.json({ ok: true, uploads });
+    }
+
+    // ── Retire yon anons ──
+    if (body.action === "deactivate") {
+      const id = String(body.id ?? "");
+      if (!UUID.test(id)) return fail("Demande invalide.");
+      const { error } = await db.from("announcements").update({ active: false }).eq("id", id);
+      if (error) return fail("Impossible de retirer l'annonce.", 500);
       return NextResponse.json({ ok: true });
     }
 
-    // ── Nouvo annons ──
-    const form = await req.formData().catch(() => null);
-    if (!form) return NextResponse.json({ ok: false, reason: "Formulaire invalide." }, { status: 400 });
-    const gate = await requireAdmin(String(form.get("token") ?? "") || bearer(req));
-    if (!gate.ok) return NextResponse.json({ ok: false, reason: gate.reason }, { status: gate.status });
+    if (body.action !== "publish") return fail("Action inconnue.");
 
-    const title = String(form.get("title") ?? "").trim().slice(0, 120);
-    const text = String(form.get("body") ?? "").trim().slice(0, 2000);
-    if (!title) return NextResponse.json({ ok: false, reason: "Écrivez un titre." }, { status: 400 });
+    // ── Nouvo anons ──
+    const title = String(body.title ?? "").trim().slice(0, 120);
+    const text = String(body.body ?? "").trim().slice(0, 2000);
+    if (!title) return fail("Écrivez un titre.");
 
-    let imagePath: string | null = null;
-    const image = form.get("image");
-    if (image && typeof image !== "string" && image.size > 0) {
-      const ext = IMAGE_TYPES[image.type];
-      if (!ext) return NextResponse.json({ ok: false, reason: "Image JPG, PNG ou WEBP uniquement." }, { status: 400 });
-      if (image.size > MAX_IMAGE) return NextResponse.json({ ok: false, reason: "Image trop lourde (4 Mo maximum)." }, { status: 400 });
-      imagePath = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
-      const upload = await gate.db.storage.from("announcements").upload(imagePath, Buffer.from(await image.arrayBuffer()), { contentType: image.type, upsert: false });
-      if (upload.error) return NextResponse.json({ ok: false, reason: "L'image n'a pas pu être envoyée." }, { status: 500 });
-    }
+    const media = (Array.isArray(body.media) ? body.media : []).slice(0, MAX_FILES)
+      .map((item: { path?: unknown; kind?: unknown }) => ({ path: String(item?.path ?? ""), kind: item?.kind === "video" ? "video" : "image" }))
+      .filter((item: { path: string }) => MEDIA_PATH.test(item.path));
 
-    const inserted = await gate.db.from("announcements")
-      .insert({ title, body: text, image_path: imagePath, created_by: gate.name }).select("*").single();
-    if (inserted.error) return NextResponse.json({ ok: false, reason: "Annonce non enregistrée." }, { status: 500 });
+    const audienceType = String(body.audience_type ?? "all");
+    if (!AUDIENCES.has(audienceType)) return fail("Public invalide.");
+    let values: string[] = Array.from(new Set((Array.isArray(body.audience_values) ? body.audience_values : []).map((value: unknown) => String(value ?? "").trim()).filter(Boolean))) as string[];
+    if (audienceType === "villes") values = values.filter((value) => UUID.test(value));
+    if (audienceType === "account_types") values = values.filter((value) => ACCOUNT_TYPES.has(value));
+    if (audienceType === "clients") values = Array.from(new Set(values.map((value) => normalizeMcCode(value)).filter(Boolean)));
+    if (audienceType !== "all" && !values.length) return fail("Choisissez au moins un élément pour le public.");
+    if (values.length > 2000) return fail("Liste de public trop longue.");
 
-    // Push pou chak kliyan ki gen omwen yon telefòn anrejistre (navigatè oswa app Android).
+    const inserted = await db.from("announcements").insert({
+      title, body: text, media, image_path: media.find((item: { kind: string }) => item.kind === "image")?.path ?? null,
+      audience_type: audienceType, audience_values: audienceType === "all" ? [] : values, created_by: name
+    }).select("*").single();
+    if (inserted.error) return fail("Annonce non enregistrée.", 500);
+
+    // Push: kliyan ki gen yon telefòn anrejistre ET ki nan piblik la.
     const [web, fcm] = await Promise.all([
-      gate.db.from("push_subscriptions").select("customer_code").limit(20000),
-      gate.db.from("fcm_device_tokens").select("customer_code").limit(20000)
+      db.from("push_subscriptions").select("customer_code").limit(20000),
+      db.from("fcm_device_tokens").select("customer_code").limit(20000)
     ]);
+    const target = await audienceCodes(db, audienceType, values);
+    const targetSet = target ? new Set(target) : null;
     const codes = Array.from(new Set([...(web.data ?? []), ...(fcm.data ?? [])]
-      .map((row: { customer_code: string | null }) => String(row.customer_code ?? "").trim()).filter(Boolean)));
+      .map((row: { customer_code: string | null }) => String(row.customer_code ?? "").trim()).filter(Boolean)))
+      .filter((code) => !targetSet || targetSet.has(code));
     const copy = { title, text: text ? text.slice(0, 140) : "Nouvelle annonce STANDA COMMERCIAL", url: "/espace-client" };
     let devices = 0;
     for (let start = 0; start < codes.length; start += 10) {
       const results = await Promise.allSettled(codes.slice(start, start + 10).flatMap((code) => [
-        sendPushToCustomer(gate.config, code, copy), sendFcmToCustomer(gate.config, code, copy)
+        sendPushToCustomer(config, code, copy), sendFcmToCustomer(config, code, copy)
       ]));
       for (const result of results) if (result.status === "fulfilled") devices += result.value;
     }
 
-    await gate.db.from("journal").insert({
-      user_name: gate.name, action: "Annonce publiée",
-      details: `${title} · ${codes.length} client(s) avec notifications · ${devices} appareil(s) atteint(s)`,
+    const audienceLabel = audienceType === "all" ? "tous les clients" : `${audienceType} (${values.length})`;
+    await db.from("journal").insert({
+      user_name: name, action: "Annonce publiée",
+      details: `${title} · ${media.length} média(s) · public : ${audienceLabel} · ${codes.length} client(s) notifiable(s) · ${devices} appareil(s)`,
       package_ref: "", customer_code: ""
     });
-    return NextResponse.json({ ok: true, announcement: inserted.data, clients: codes.length, devices });
+    return NextResponse.json({ ok: true, announcement: inserted.data, clients: codes.length, devices, audienceSize: target ? target.length : null });
   } catch (error) {
     console.error("[announcements]", error);
-    return NextResponse.json({ ok: false, reason: "Publication impossible. Réessayez." }, { status: 500 });
+    return fail("Publication impossible. Réessayez.", 500);
   }
 }
