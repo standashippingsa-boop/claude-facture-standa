@@ -515,6 +515,13 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
   const [photo, setPhoto] = useState<File | null>(null);
   const [resetting, setResetting] = useState<Staff | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  // Modifier un compte existant (infos, zone, nom d'utilisateur, nouveau mot de passe).
+  const [editing, setEditing] = useState<Staff | null>(null);
+  const [ef, setEf] = useState({ nom: "", prenom: "", email: "", phone: "", id_number: "", username: "", password: "", pickup_ville_id: "" });
+  // Identifiants affichés à l'admin juste après une création / un nouveau mot de passe.
+  // Les mots de passe existants ne sont jamais lisibles (Supabase ne garde qu'une empreinte).
+  const [credentials, setCredentials] = useState<{ name: string; username: string; password: string; loginPath: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const load = () => supabase.from("staff").select("*").order("created_at", { ascending: false })
     .then(({ data }: { data: Staff[] | null }) => setList((data ?? []) as Staff[]));
@@ -547,6 +554,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
       const loginPath = ROLE_LOGIN_PATH[f.role] ?? "/employe";
       const roleLabel = ROLE_LABEL[f.role] ?? "Employé";
       onNotice(`${roleLabel} "${f.username}" kreye — li ka konekte sou ${loginPath}.`);
+      setCredentials({ name: `${f.prenom} ${f.nom}`.trim(), username: f.username.trim(), password: f.password, loginPath });
       setShow(false);
       setF({ nom: "", prenom: "", email: "", phone: "", id_number: "", username: "", password: "", role: "employe", pickup_ville_id: "" });
       setPhoto(null);
@@ -572,8 +580,47 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
       if (!j.ok) { onNotice("Erè: " + j.reason); return; }
       const loginPath = ROLE_LOGIN_PATH[resetting.role] ?? "/employe";
       onNotice(`Modpas pou "${resetting.username}" reinitialize. Li ka konekte sou ${loginPath}.`);
+      setCredentials({ name: `${resetting.prenom} ${resetting.nom}`.trim(), username: resetting.username, password: newPassword, loginPath });
       setResetting(null); setNewPassword("");
     } finally { setBusy(false); }
+  };
+
+  const startEdit = (member: Staff) => {
+    setResetting(null); setShow(false); setCredentials(null);
+    setEditing(member);
+    setEf({ nom: member.nom ?? "", prenom: member.prenom ?? "", email: member.email ?? "", phone: member.phone ?? "", id_number: member.id_number ?? "",
+      username: member.username ?? "", password: "", pickup_ville_id: member.pickup_ville_id ?? "" });
+  };
+  const setE = (k: keyof typeof ef) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setEf({ ...ef, [k]: e.target.value });
+  const saveEdit = async () => {
+    if (!editing) return;
+    if (!ef.username.trim()) { onNotice("Nom d'utilisateur obligatoire."); return; }
+    if (ef.password && ef.password.length < 6) { onNotice("Mot de passe a dwe gen omwen 6 karaktè."); return; }
+    if (editing.role === "agent_retrait" && !ef.pickup_ville_id) { onNotice("Chwazi zòn/pwen rekiperasyon ajan an."); return; }
+    setBusy(true);
+    try {
+      const j = await adminApi("update_staff", { staff_id: editing.id, ...ef });
+      if (!j.ok) { onNotice("Erè: " + j.reason); return; }
+      const loginPath = ROLE_LOGIN_PATH[editing.role] ?? "/employe";
+      onNotice(`Compte "${ef.username.trim()}" mis à jour.`);
+      if (ef.password || ef.username.trim() !== editing.username) {
+        setCredentials({ name: `${ef.prenom} ${ef.nom}`.trim(), username: ef.username.trim(), password: ef.password, loginPath });
+      }
+      setEditing(null);
+      load();
+    } finally { setBusy(false); }
+  };
+  /** Mot de passe facile à dicter : lettres et chiffres sans caractères qui se confondent. */
+  const generatePassword = () => {
+    const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    const buf = new Uint32Array(10);
+    crypto.getRandomValues(buf);
+    return Array.from(buf, (n) => chars[n % chars.length]).join("");
+  };
+  const copyCredentials = async () => {
+    if (!credentials) return;
+    const text = `Nom d'utilisateur : ${credentials.username}${credentials.password ? `\nMot de passe : ${credentials.password}` : ""}\nConnexion : ${window.location.origin}${credentials.loginPath}`;
+    try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* noop */ }
   };
 
   return (
@@ -602,7 +649,8 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
             <label className="block"><span className="text-xs font-medium text-slate-500">Nom d&apos;utilisateur *</span>
               <input className="input mt-1" value={f.username} onChange={set("username")} placeholder="Ex. jean.baptiste" autoCapitalize="none" /></label>
             <label className="block"><span className="text-xs font-medium text-slate-500">Mot de passe * (6+)</span>
-              <input type="password" className="input mt-1" value={f.password} onChange={set("password")} /></label>
+              <span className="mt-1 flex gap-2"><input type="text" className="input min-w-0 flex-1 font-mono" value={f.password} onChange={set("password")} autoComplete="new-password" autoCapitalize="none" />
+                <button type="button" className="btn btn-ghost shrink-0" onClick={() => setF({ ...f, password: generatePassword() })}>Générer</button></span></label>
             <label className="block"><span className="text-xs font-medium text-slate-500">Rôle</span>
               <select className="input mt-1" value={f.role} onChange={set("role")}>
                 <option value="employe">Employé</option>
@@ -625,6 +673,59 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
         </div>
       )}
 
+      {credentials && (
+        <div className="card p-4 border border-emerald-200 bg-emerald-50/60 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-navy">Identifiants de connexion{credentials.name ? ` — ${credentials.name}` : ""}</p>
+              <p className="text-xs text-mute mt-0.5">Notez-les ou copiez-les maintenant : pour des raisons de sécurité, le mot de passe ne pourra plus être affiché ensuite (il pourra seulement être changé).</p>
+            </div>
+            <button className="text-slate-400 hover:text-slate-600 text-xs" onClick={() => setCredentials(null)} aria-label="Fermer">✕</button>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div className="rounded-lg bg-white px-3 py-2"><p className="text-[11px] text-mute">Nom d&apos;utilisateur</p><p className="font-mono text-base font-bold text-navy break-all">{credentials.username}</p></div>
+            <div className="rounded-lg bg-white px-3 py-2"><p className="text-[11px] text-mute">Mot de passe</p><p className="font-mono text-base font-bold text-navy break-all">{credentials.password || "inchangé"}</p></div>
+            <div className="rounded-lg bg-white px-3 py-2"><p className="text-[11px] text-mute">Page de connexion</p><p className="font-mono text-sm font-semibold text-navy break-all">{credentials.loginPath}</p></div>
+          </div>
+          <button className="btn" onClick={() => void copyCredentials()}>{copied ? "Copié ✓" : "Copier les identifiants"}</button>
+        </div>
+      )}
+
+      {editing && (
+        <div className="card p-5 space-y-4 border border-blue-200">
+          <div>
+            <p className="text-sm font-bold text-navy">Modifier le compte « {editing.username} »</p>
+            <p className="text-xs text-mute mt-0.5">{ROLE_LABEL[editing.role] ?? "Employé"} · laissez le mot de passe vide pour le garder.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <label className="block"><span className="text-xs font-medium text-slate-500">Nom</span>
+              <input className="input mt-1" value={ef.nom} onChange={setE("nom")} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Prénom</span>
+              <input className="input mt-1" value={ef.prenom} onChange={setE("prenom")} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Email</span>
+              <input className="input mt-1" value={ef.email} onChange={setE("email")} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Téléphone</span>
+              <input className="input mt-1" value={ef.phone} onChange={setE("phone")} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">No Passeport / Carte d&apos;identité</span>
+              <input className="input mt-1" value={ef.id_number} onChange={setE("id_number")} /></label>
+            {editing.role === "agent_retrait" && <label className="block"><span className="text-xs font-medium text-slate-500">Zone / point de retrait *</span>
+              <select className="input mt-1" value={ef.pickup_ville_id} onChange={setE("pickup_ville_id")}>
+                <option value="">Choisir une zone</option>
+                {zones.filter((v) => v.active || v.id === ef.pickup_ville_id).map((v) => <option key={v.id} value={v.id ?? ""}>{v.name}</option>)}
+              </select></label>}
+            <label className="block"><span className="text-xs font-medium text-slate-500">Nom d&apos;utilisateur (connexion) *</span>
+              <input className="input mt-1 font-mono" value={ef.username} onChange={setE("username")} autoCapitalize="none" /></label>
+            <label className="block md:col-span-2"><span className="text-xs font-medium text-slate-500">Nouveau mot de passe (optionnel, 6+)</span>
+              <span className="mt-1 flex gap-2"><input type="text" className="input min-w-0 flex-1 font-mono" value={ef.password} onChange={setE("password")} autoComplete="new-password" autoCapitalize="none" placeholder="Laisser vide pour ne pas changer" />
+                <button type="button" className="btn btn-ghost shrink-0" onClick={() => setEf({ ...ef, password: generatePassword() })}>Générer</button></span></label>
+          </div>
+          <div className="flex gap-3">
+            <BusyButton className="btn" onClick={saveEdit} busy={busy} busyLabel="Enregistrement…">Enregistrer les modifications</BusyButton>
+            <button className="btn btn-ghost" onClick={() => setEditing(null)} disabled={busy}>Annuler</button>
+          </div>
+        </div>
+      )}
+
       {resetting && (
         <div className="card p-4 border border-amber-200 bg-amber-50/50 space-y-3">
           <div>
@@ -632,8 +733,9 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
             <p className="text-xs text-mute mt-0.5">Nouveau mot de passe pour <b>{resetting.prenom} {resetting.nom}</b> ({resetting.username}).</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
-            <input type="password" className="input flex-1" value={newPassword} autoComplete="new-password"
+            <input type="text" className="input flex-1 font-mono" value={newPassword} autoComplete="new-password" autoCapitalize="none"
               placeholder="Nouveau mot de passe" onChange={(event) => setNewPassword(event.target.value)} />
+            <button type="button" className="btn btn-ghost" onClick={() => setNewPassword(generatePassword())} disabled={busy}>Générer</button>
             <BusyButton className="btn" onClick={resetPassword} busy={busy} disabled={newPassword.length < 6}
               busyLabel="Mise à jour…">
               Enregistrer le mot de passe
@@ -659,7 +761,10 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
                 <td className="td">{s.phone}</td>
                 <td className="td text-xs">{s.id_number}{s.id_photo_url && <> · <a className="text-navy underline" href={s.id_photo_url} target="_blank">foto</a></>}</td>
                 <td className="td text-right space-x-2">
-                  <button className="text-navy hover:text-accent text-xs font-semibold" onClick={() => { setResetting(s); setNewPassword(""); }}>
+                  <button className="text-navy hover:text-accent text-xs font-semibold" onClick={() => startEdit(s)}>
+                    Modifier
+                  </button>
+                  <button className="text-navy hover:text-accent text-xs font-semibold" onClick={() => { setEditing(null); setCredentials(null); setResetting(s); setNewPassword(""); }}>
                     Réinitialiser
                   </button>
                   <button className="text-slate-400 hover:text-red-600 text-xs" onClick={() => remove(s)}>✕</button>

@@ -192,6 +192,51 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    // ---------- update_staff (admin sèlman) ----------
+    // Modifye enfòmasyon yon kont (non, telefòn, zòn, non itilizatè) epi,
+    // si admin nan bay youn, yon nouvo modpas. Non itilizatè a se idantifyan
+    // koneksyon an (imèl entèn) : li chanje nan Supabase Auth tou.
+    if (action === "update_staff") {
+      if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
+      const staffId = String(body.staff_id ?? "");
+      const { data: member } = await svc.from("staff").select("id, auth_user_id, username, role").eq("id", staffId).maybeSingle();
+      if (!member?.auth_user_id) return NextResponse.json({ ok: false, reason: "Compte employé introuvable." });
+      const oldUsername = String(member.username ?? "");
+      const username = String(body.username ?? oldUsername).trim();
+      const usernameChanged = username.toLowerCase() !== oldUsername.toLowerCase();
+      if (!username) return NextResponse.json({ ok: false, reason: "Nom d'utilisateur obligatoire." });
+      if (usernameChanged && !/^[a-z0-9._-]{3,40}$/i.test(username)) {
+        return NextResponse.json({ ok: false, reason: "Nom d'utilisateur : 3 à 40 caractères, lettres, chiffres, point, tiret." });
+      }
+      const password = String(body.password ?? "");
+      if (password && password.length < 6) return NextResponse.json({ ok: false, reason: "Mot de passe : 6 caractères minimum." });
+      const pickupVilleId = String(body.pickup_ville_id ?? "").trim();
+      if (member.role === "agent_retrait" && !pickupVilleId) return NextResponse.json({ ok: false, reason: "Chwazi zòn/pwen rekiperasyon ajan an." });
+      if (usernameChanged) {
+        const { data: taken } = await svc.from("staff").select("id").ilike("username", username).neq("id", staffId).limit(1);
+        if (taken?.length) return NextResponse.json({ ok: false, reason: "Ce nom d'utilisateur est déjà pris." });
+      }
+      const authPatch: { email?: string; password?: string; email_confirm?: boolean } = {};
+      if (usernameChanged) { authPatch.email = staffEmail(username); authPatch.email_confirm = true; }
+      if (password) authPatch.password = password;
+      if (Object.keys(authPatch).length) {
+        const { error } = await svc.auth.admin.updateUserById(member.auth_user_id, authPatch);
+        if (error) return NextResponse.json({ ok: false, reason: error.message.includes("already") ? "Ce nom d'utilisateur est déjà pris." : error.message });
+      }
+      const { error: e2 } = await svc.from("staff").update({
+        username, nom: String(body.nom ?? ""), prenom: String(body.prenom ?? ""),
+        email: String(body.email ?? ""), phone: String(body.phone ?? ""), id_number: String(body.id_number ?? ""),
+        ...(member.role === "agent_retrait" ? { pickup_ville_id: pickupVilleId } : {})
+      }).eq("id", staffId);
+      if (e2) {
+        // Remet l'identifiant de connexion d'origine : le compte reste utilisable.
+        if (usernameChanged) await svc.auth.admin.updateUserById(member.auth_user_id, { email: staffEmail(oldUsername), email_confirm: true }).catch(() => null);
+        return NextResponse.json({ ok: false, reason: e2.message });
+      }
+      await auditCaller(req, "Compte employé modifié", `${oldUsername}${usernameChanged ? " → " + username : ""}${password ? " · nouveau mot de passe" : ""}`);
+      return NextResponse.json({ ok: true, username });
+    }
+
     // ---------- delete_staff (admin sèlman) ----------
     if (action === "delete_staff") {
       if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
