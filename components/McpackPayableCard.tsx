@@ -71,6 +71,8 @@ export default function McpackPayableCard() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+  // Historique replié par défaut : il s'ouvre avec son bouton.
+  const [showHistory, setShowHistory] = useState(false);
   const [openHistory, setOpenHistory] = useState<string | null>(null);
   const [historyCount, setHistoryCount] = useState(6);
   const [editPeriod, setEditPeriod] = useState<{ start: string; end: string } | null>(null);
@@ -318,8 +320,13 @@ ${rows.map((line) => `<tr><td>${esc(line.conduce.conduce_number)}</td><td>${esc(
 
     {/* Historique des paiements MCPACK */}
     {view && view.history.length > 0 && <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200/70">
-      <p className="flex items-center gap-2 px-4 pb-2 pt-3.5 text-sm font-semibold text-slate-900"><History size={16} className="text-slate-400" />Historique des paiements MCPACK</p>
-      <div className="divide-y divide-slate-100">{view.history.slice(0, historyCount).map((entry) => {
+      <button type="button" onClick={() => setShowHistory((open) => !open)} aria-expanded={showHistory} className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-slate-50">
+        <History size={16} className="shrink-0 text-slate-400" />
+        <span className="min-w-0 flex-1 text-sm font-semibold text-slate-900">Historique des paiements MCPACK · {view.history.length}</span>
+        <ChevronDown size={18} className={`shrink-0 text-slate-400 transition ${showHistory ? "rotate-180" : ""}`} />
+      </button>
+      {showHistory && <>
+      <div className="divide-y divide-slate-100 border-t border-slate-100">{view.history.slice(0, historyCount).map((entry) => {
         const lbs = totalOf(entry.lbs);
         const open = openHistory === entry.key;
         return <div key={entry.key}>
@@ -335,6 +342,7 @@ ${rows.map((line) => `<tr><td>${esc(line.conduce.conduce_number)}</td><td>${esc(
         </div>;
       })}</div>
       {view.history.length > historyCount && <button type="button" onClick={() => setHistoryCount((count) => count + 6)} className="w-full border-t border-slate-100 py-2.5 text-xs font-semibold text-navy hover:bg-slate-50">Voir plus</button>}
+      </>}
     </div>}
   </section>;
 }
