@@ -315,9 +315,10 @@ export async function getPackagesByConduceIds(conduceIds: string[]): Promise<Pkg
   const out: Pkg[] = [];
   for (let i = 0; i < ids.length; i += 50) {
     const chunk = ids.slice(i, i + 50);
-    const { data, error } = await supabase.from("packages").select("*").in("conduce_id", chunk);
-    if (error) throw error;
-    out.push(...(data ?? []).filter((p: Record<string, unknown>) => !p.archived).map((p) =>
+    // Page par page : Supabase plafonne chaque lecture à 1000 lignes, et 50 Conduces dépassent souvent ce nombre.
+    const data = await fetchAllRows<any>(() =>
+      supabase.from("packages").select("*").in("conduce_id", chunk).order("id", { ascending: true }));
+    out.push(...data.filter((p) => !p.archived).map((p) =>
       asNum(p, ["weight", "fob", "price_usd", "tax_usd", "total_usd", "price_htg", "tax_htg", "total_htg"])) as Pkg[]);
   }
   return out;

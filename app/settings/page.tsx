@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { adminApi, useRole } from "@/lib/authx";
 
 import { useNoticeToast } from "@/lib/notify";
+import { loadMcpackSettings, parseCodeList, saveMcpackConfig } from "@/lib/mcpack-payable";
 const schema = z.object({
   name: z.string().min(1, "Non vil la obligatwa"),
   price_personal: z.coerce.number().min(0, "Dwe >= 0"),
@@ -440,6 +441,8 @@ export default function SettingsPage() {
 
       {role === "admin" && <ApiTokensSection onNotice={setNotice} />}
 
+      {role === "admin" && <McpackErgensSection onNotice={setNotice} />}
+
       <EmployesSection onNotice={setNotice} />
 
     </div>
@@ -496,6 +499,49 @@ function PlatformLinksSection() {
       })}
     </div>
   </section>;
+}
+
+// ================= MCPACK & ERGENS (admin) =================
+// Tarif MCPACK par livre et comptes Ergens (Dokasav, Blic Express) utilisés par
+// le graphique « À payer à MCPACK » du Dashboard. Sans code, Ergens est reconnu par le nom.
+function McpackErgensSection({ onNotice }: { onNotice: (s: string) => void }) {
+  const [rate, setRate] = useState("3");
+  const [dokasav, setDokasav] = useState("");
+  const [blic, setBlic] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    loadMcpackSettings().then((settings) => {
+      setRate(String(settings.rate)); setDokasav(settings.codes.dokasav.join(", ")); setBlic(settings.codes.blic.join(", ")); setReady(true);
+    }).catch(() => setReady(true));
+  }, []);
+  const save = async () => {
+    setBusy(true);
+    try {
+      const codes = { dokasav: parseCodeList(dokasav), blic: parseCodeList(blic) };
+      await saveMcpackConfig(Number(rate.replace(",", ".")), codes);
+      setDokasav(codes.dokasav.join(", ")); setBlic(codes.blic.join(", "));
+      onNotice("Réglages MCPACK & Ergens enregistrés.");
+    } catch (error) { onNotice("Erè: " + (error instanceof Error ? error.message : "enregistrement impossible")); }
+    finally { setBusy(false); }
+  };
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">MCPACK & Ergens</h2>
+      <div className="card p-5 space-y-4">
+        <p className="text-xs text-mute">Utilisé par le graphique « À payer à MCPACK » du Dashboard. Laissez un champ de codes vide pour reconnaître le compte par son nom.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <label className="block"><span className="text-xs font-medium text-slate-500">Tarif MCPACK (USD par livre)</span>
+            <input className="input mt-1" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} disabled={!ready} /></label>
+          <label className="block"><span className="text-xs font-medium text-slate-500">Codes Dokasav</span>
+            <input className="input mt-1 font-mono" value={dokasav} onChange={(e) => setDokasav(e.target.value)} placeholder="Ex. MC-40000" disabled={!ready} /></label>
+          <label className="block"><span className="text-xs font-medium text-slate-500">Codes Blic Express</span>
+            <input className="input mt-1 font-mono" value={blic} onChange={(e) => setBlic(e.target.value)} placeholder="Ex. MC-45273" disabled={!ready} /></label>
+        </div>
+        <BusyButton className="btn" onClick={save} busy={busy} busyLabel="Enregistrement…">Enregistrer</BusyButton>
+      </div>
+    </section>
+  );
 }
 
 // ================= EMPLOYÉS (v9 — admin sèlman) =================
