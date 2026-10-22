@@ -19,6 +19,7 @@ import RefreshButton from "@/components/RefreshButton";
 import StaffNotifications from "@/components/StaffNotifications";
 import TimeSeriesBarChart from "@/components/TimeSeriesBarChart";
 import StatusStackedBar from "@/components/StatusStackedBar";
+import McpackPayableCard from "@/components/McpackPayableCard";
 import { bucketByDay, bucketByMonth, peakIndex, splitClientActivity } from "@/lib/dashboard-charts";
 import { dateFr, usd } from "@/lib/utils";
 
@@ -99,6 +100,9 @@ export default function Dashboard() {
         ))}
         {!stats && !err && <Loader inline size={56} />}
       </div>
+
+      {/* ===== À payer à MCPACK (admin seulement) ===== */}
+      <McpackPayableCard />
 
       {/* ===== Notifications ===== */}
       {(nouvo.length > 0 || retraits.length > 0) && (
