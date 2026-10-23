@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Check, Copy, Gift, Smartphone, Users } from "lucide-react";
-import { CLAIM_STATUS_LABEL, claimChallengeReward, type ChallengeMe } from "@/lib/challenge";
+import { CLAIM_STATUS_LABEL, claimChallengeReward, requestChallengeEnrollment, type ChallengeMe } from "@/lib/challenge";
 
 const lb = (value: number | undefined | null) => `${Number(value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} lb`;
 const day = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "—";
@@ -34,6 +34,19 @@ export default function ChallengeView({ data, onChanged }: { data: ChallengeMe; 
     } finally { setBusy(null); }
   };
 
+  /** Affilié pas encore validé : il demande à participer comme affilié. */
+  const requestEnrollment = async () => {
+    if (busy) return;
+    setBusy("enroll"); setMessage(null);
+    try {
+      await requestChallengeEnrollment();
+      setMessage({ ok: true, text: "Demande envoyée. STANDA va la valider." });
+      onChanged();
+    } catch (error) {
+      setMessage({ ok: false, text: error instanceof Error ? error.message : "Demande impossible." });
+    } finally { setBusy(null); }
+  };
+
   const copyLink = async () => {
     if (!data.affiliate) return;
     try { await navigator.clipboard.writeText(data.affiliate.referral_link); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* noop */ }
@@ -52,6 +65,21 @@ export default function ChallengeView({ data, onChanged }: { data: ChallengeMe; 
           <p className="mt-3 rounded-xl bg-white/15 px-3 py-2 text-[13px] leading-relaxed">Vos livres sont attribués à votre parrain. Vos colis restent visibles dans votre espace.</p>
         )}
       </section>
+
+      {data.is_affiliate && data.enrollment && data.enrollment !== "approved" && (
+        <section className="rounded-2xl border border-line bg-white p-4">
+          <p className="flex items-center gap-2 text-sm font-extrabold text-navy"><Users size={16} /> Participer comme affilié</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-mute">
+            {data.enrollment === "pending"
+              ? "Votre demande est en attente de validation par STANDA."
+              : data.enrollment === "rejected"
+                ? "Votre demande n’a pas été retenue. Vous pouvez refaire une demande."
+                : "Comme affilié, vous pouvez cumuler vos livres et celles de vos filleuls. La participation doit être validée par STANDA."}
+            {" "}En attendant, vos propres colis comptent pour vous.
+          </p>
+          {data.enrollment !== "pending" && <button type="button" disabled={!!busy} onClick={() => void requestEnrollment()} className="mt-3 min-h-10 rounded-xl bg-navy px-4 text-sm font-bold text-white disabled:opacity-50">{busy === "enroll" ? "…" : "Demander à participer"}</button>}
+        </section>
+      )}
 
       {!data.sponsored && balances && (
         <section className="rounded-2xl border border-line bg-white p-4">

@@ -12,8 +12,8 @@ import RefreshButton from "@/components/RefreshButton";
 import { supabase } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
 import {
-  CLAIM_STATUS_LABEL, decideClaim, getAdminChallenge, linkAffiliateToClient, promoteClientToAffiliate, saveCampaign, saveReward,
-  type AdminClaim, type AdminParticipant, type AdminReward, type ChallengeCampaign
+  CLAIM_STATUS_LABEL, ENROLLMENT_LABEL, decideClaim, decideEnrollment, getAdminChallenge, linkAffiliateToClient, promoteClientToAffiliate, saveCampaign, saveReward,
+  type AdminAffiliate, type AdminClaim, type AdminParticipant, type AdminReward, type ChallengeCampaign
 } from "@/lib/challenge";
 
 const lb = (value: number | null | undefined) => `${Number(value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} lb`;
@@ -28,6 +28,7 @@ export default function ChallengeAdminPage() {
   const [participants, setParticipants] = useState<AdminParticipant[]>([]);
   const [claims, setClaims] = useState<AdminClaim[]>([]);
   const [affiliates, setAffiliates] = useState<Array<{ id: string; fullname: string; code: string; client_id: string | null }>>([]);
+  const [enrollments, setEnrollments] = useState<AdminAffiliate[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [promoteCode, setPromoteCode] = useState("");
   const [linkCodes, setLinkCodes] = useState<Record<string, string>>({});
@@ -35,7 +36,7 @@ export default function ChallengeAdminPage() {
   const load = async () => {
     try {
       const data = await getAdminChallenge();
-      setCampaign(data.campaign); setRewards(data.rewards); setParticipants(data.participants); setClaims(data.claims);
+      setCampaign(data.campaign); setRewards(data.rewards); setParticipants(data.participants); setClaims(data.claims); setEnrollments(data.affiliates);
       const { data: affs } = await supabase.from("affiliates").select("id, fullname, code, client_id").order("created_at");
       setAffiliates((affs ?? []) as typeof affiliates);
     } catch (error) {
@@ -158,6 +159,24 @@ export default function ChallengeAdminPage() {
             </tr>)}</tbody>
           </table>
         )}
+      </section>
+
+      {/* Participation des affiliés : seuls les affiliés validés cumulent les livres de leurs filleuls */}
+      <section className="card space-y-3 p-5">
+        <div><h2 className="h-sec">Participation des affiliés{enrollments ? ` · ${enrollments.filter((a) => a.enrollment === "approved").length} validé(s)` : ""}</h2>
+          <p className="text-[11px] text-slate-500">Un affilié non validé participe comme un client : ses propres livres comptent pour lui, celles de ses filleuls restent à chaque filleul. La validation compte pour les colis livrés à partir de maintenant.</p></div>
+        {enrollments === null
+          ? <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Migration à exécuter dans Supabase : supabase/20261022_challenge_affiliate_enrollment.sql</p>
+          : enrollments.length === 0 ? <p className="text-sm text-mute">Aucun affilié actif.</p>
+          : <div className="divide-y divide-line">{enrollments.map((a) => (
+            <div key={a.id} className="flex flex-wrap items-center gap-2 py-2.5 text-sm">
+              <span className="min-w-[200px] flex-1"><b className="text-navy">{a.name}</b> <span className="text-xs text-mute">· {a.code}{a.client_code ? ` · ${a.client_code}` : " · pas de compte client"} · {a.referrals} filleul{a.referrals > 1 ? "s" : ""}</span></span>
+              <span className={`badge ${a.enrollment === "approved" ? "bg-emerald-100 text-emerald-700" : a.enrollment === "pending" ? "bg-amber-100 text-amber-800" : a.enrollment === "rejected" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>{ENROLLMENT_LABEL[a.enrollment]}</span>
+              {a.enrollment !== "approved" && <button type="button" className="btn !py-1 text-xs" disabled={busy} onClick={() => void run(() => decideEnrollment(a.id, "approve"), `${a.name} participe au challenge.`)}>{a.enrollment === "pending" ? "Valider" : "Inscrire"}</button>}
+              {a.enrollment === "pending" && <button type="button" className="btn btn-ghost border border-line !py-1 text-xs" disabled={busy} onClick={() => void run(() => decideEnrollment(a.id, "reject"), "Demande refusée.")}>Refuser</button>}
+              {a.enrollment === "approved" && <button type="button" className="btn btn-ghost border border-line !py-1 text-xs" disabled={busy || a.has_lbs} title={a.has_lbs ? "Déjà des livres dans le challenge" : ""} onClick={() => { if (confirm(`Retirer ${a.name} du challenge ?`)) void run(() => decideEnrollment(a.id, "remove"), "Affilié retiré du challenge."); }}>Retirer</button>}
+            </div>
+          ))}</div>}
       </section>
 
       {/* Affiliés */}
