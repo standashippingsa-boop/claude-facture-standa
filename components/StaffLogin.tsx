@@ -89,7 +89,7 @@ export default function StaffLogin({
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#081226] p-5">
+    <div className="login-compact relative min-h-screen flex items-center justify-center overflow-hidden bg-[#081226] p-5">
       {backgroundImage && (
         <>
           <Image src={backgroundImage} alt="" fill priority sizes="100vw" unoptimized

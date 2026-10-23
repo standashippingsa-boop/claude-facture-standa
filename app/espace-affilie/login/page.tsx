@@ -36,7 +36,7 @@ export default function AffiliateLoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#061937] text-white">
+    <div className="login-compact relative min-h-screen overflow-hidden bg-[#061937] text-white">
       <div className="mx-auto max-w-md px-5 py-10 sm:px-8">
         <Link href="/accueil" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-white/75 transition hover:text-white">
           <ArrowLeft size={15} /> Retour au site

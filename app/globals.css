@@ -163,6 +163,15 @@ body { @apply bg-mist text-slate-700 antialiased; }
 .agent-app.min-h-screen { min-height: calc(100vh / var(--agent-zoom)); }
 @media print { .agent-app { zoom: 1; } }
 
+/* Pages de connexion (personnel, client, affilié) : tout 30 % plus petit.
+   La connexion client est déjà dans .client-app-font (0,8) : 0,875 × 0,8 = 0,7. */
+.login-compact { --login-zoom: .7; zoom: var(--login-zoom); }
+.login-compact.min-h-screen { min-height: calc(100vh / .7); }
+.client-app-font .login-compact { --login-zoom: .875; }
+.client-app-font .login-compact.min-h-screen { min-height: calc(100vh / .7); }
+/* iPhone agrandit la page si le texte d'un champ fait moins de 16 px : on garde 16 px réels. */
+.login-compact input, .login-compact select, .login-compact textarea { font-size: calc(16px / .7) !important; }
+
 .client-app {
   background-color: #f8faff;
   background-image:
