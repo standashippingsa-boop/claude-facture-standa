@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
-import { sendFcmToStaff } from "@/lib/push-fcm-server";
-import { sendPushToStaff } from "@/lib/push-server";
+import { notifyPickupAgents } from "@/lib/bon-remise-push";
 
 /**
  * Notifikasyon PUSH pou AJAN RETRAIT — lè yon nouvo Bon de Remise kreye pou
@@ -39,28 +38,9 @@ export async function POST(req: Request) {
   const packageCount = Math.max(0, Math.trunc(Number(body.package_count) || 0));
   if (!destination) return NextResponse.json({ ok: true, notified: 0 });
 
-  // Destination se non vil la (tèks lib) — jwenn vil ki matche a (san sansib ka).
-  const { data: ville } = await svc.from("villes").select("id").ilike("name", destination).maybeSingle();
-  if (!ville) return NextResponse.json({ ok: true, notified: 0 });
 
-  const { data: agents } = await svc.from("staff")
-    .select("id").eq("role", "agent_retrait").eq("pickup_ville_id", ville.id);
-  if (!agents?.length) return NextResponse.json({ ok: true, notified: 0 });
-
-  const title = "Nouveau Bon de Remise";
-  const text = packageCount > 1
-    ? `${packageCount} colis vous attendent — ${bonNumber || "un nouveau lot"} pour ${destination}.`
-    : `Un colis vous attend — ${bonNumber || "un nouveau lot"} pour ${destination}.`;
-
-  let notified = 0;
-  await Promise.all((agents as { id: string }[]).map(async (a) => {
-    const [native, web] = await Promise.allSettled([
-      sendFcmToStaff(config, a.id, { title, text, url: "/espace-remise" }),
-      sendPushToStaff(config, a.id, { title, text, url: "/espace-remise" })
-    ]);
-    if (native.status === "fulfilled") notified += native.value;
-    if (web.status === "fulfilled") notified += web.value;
-  }));
-
+  // Bon an make « voye » : filè sekirite /api/bons-push pa re-voye l.
+  if (bonNumber) await svc.from("bons_remise").update({ push_sent_at: new Date().toISOString() }).eq("bon_number", bonNumber).is("push_sent_at", null);
+  const notified = await notifyPickupAgents(config, svc, destination, bonNumber, packageCount);
   return NextResponse.json({ ok: true, notified });
 }
