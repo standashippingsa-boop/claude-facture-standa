@@ -17,7 +17,7 @@ import { useRememberListContext, withReturnTo } from "@/lib/list-context";
 
 import { useNoticeToast } from "@/lib/notify";
 import { getAgences, type Agence } from "@/lib/agences";
-import { pickupLocationForCity } from "@/lib/pickup-location";
+import { pickupLabel, pickupLocationForCity } from "@/lib/pickup-location";
 import { clientZoneFix, type ZoneFix } from "@/lib/client-zone";
 import { supabase } from "@/lib/supabase";
 const schema = z.object({
@@ -287,7 +287,7 @@ export default function ClientsPage() {
               return <div className="block">
                 <span className="text-xs font-medium text-slate-500">Lieu de récupération (automatique)</span>
                 <p className={`input mt-1 flex items-center ${agency ? "bg-slate-50 text-navy font-semibold" : "bg-amber-50 text-amber-800"}`}>
-                  {!ville ? "Choisissez la ville" : agency ? agency.nom : `Aucune agence active pour ${ville.name}`}
+                  {!ville ? "Choisissez la ville" : agency ? pickupLabel(agency) : `Aucune agence active pour ${ville.name}`}
                 </p>
               </div>;
             })()}

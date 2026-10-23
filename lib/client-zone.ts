@@ -1,4 +1,4 @@
-import { pickupLocationForCity, type ActivePickupAgency } from "./pickup-location";
+import { pickupLabel, pickupLocationForCity, type ActivePickupAgency } from "./pickup-location";
 import type { Client, Ville } from "./types";
 
 /**
@@ -35,7 +35,7 @@ export function clientZoneFix(client: Client, villes: Ville[], agencies: ActiveP
   const ville = resolveClientVille(client as Client & { city?: string | null }, villes);
   if (!ville?.id) return { client, ville: null, pickup: "", patch: {}, problem: "Ville inconnue : à choisir dans la fiche du client." };
   const agency = pickupLocationForCity(ville.name, agencies);
-  const pickup = agency ? agency.nom.trim() : "";
+  const pickup = agency ? pickupLabel(agency) : "";
   const patch: ZoneFix["patch"] = {};
   if (client.ville_id !== ville.id) patch.ville_id = ville.id;
   if (String((client as Client & { city?: string | null }).city ?? "").trim() !== ville.name) patch.city = ville.name;

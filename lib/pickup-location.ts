@@ -6,7 +6,14 @@
  * (accents, espaces et « Agence Gonaïves ») afin que le même choix soit fait
  * dans le formulaire public et par l'API serveur.
  */
-export type ActivePickupAgency = { nom: string; ordre?: number | null };
+export type ActivePickupAgency = { nom: string; ordre?: number | null; adresse?: string | null };
+
+/** Texte du lieu de récupération enregistré sur le client : nom de l'agence + adresse. */
+export function pickupLabel(agency: ActivePickupAgency): string {
+  const nom = String(agency.nom ?? "").trim();
+  const adresse = String(agency.adresse ?? "").trim();
+  return adresse ? `${nom} — ${adresse}` : nom;
+}
 
 function key(value: string) {
   return String(value ?? "")

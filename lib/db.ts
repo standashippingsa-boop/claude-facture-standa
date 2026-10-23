@@ -7,7 +7,7 @@ import {
 , Retrait, RetraitStatus, CONDUCE_ARRIVAL_STATUS, shouldPromoteOnConduce
 , Affiliate, AffiliateApplication, AffiliateCommission } from "./types";
 import { McpackRow } from "./xlsx";
-import { pickupLocationForCity } from "./pickup-location";
+import { pickupLabel, pickupLocationForCity } from "./pickup-location";
 import { specialPackageInfo, withManualSpecialPackageMetadata, withSpecialPackageMetadata, ManualSpecialPackageKind, SPECIAL_PACKAGE_FLAG, SPECIAL_PACKAGE_REASON, SPECIAL_PACKAGE_SOURCE } from "./special-package";
 import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS, villeForClient } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
@@ -66,13 +66,13 @@ export async function upsertClient(c: Client): Promise<void> {
   if (c.ville_id) {
     const [villeResult, agenciesResult] = await Promise.all([
       supabase.from("villes").select("name").eq("id", c.ville_id).maybeSingle(),
-      supabase.from("agences").select("nom, ordre").eq("active", true)
+      supabase.from("agences").select("nom, ordre, adresse").eq("active", true)
     ]);
     const villeName = String((villeResult.data as { name?: string } | null)?.name ?? "").trim();
     if (villeName) {
       cityName = villeName;
-      const agency = pickupLocationForCity(villeName, (agenciesResult.data ?? []) as Array<{ nom: string; ordre?: number | null }>);
-      if (agency) pickupLocation = agency.nom.trim();
+      const agency = pickupLocationForCity(villeName, (agenciesResult.data ?? []) as Array<{ nom: string; ordre?: number | null; adresse?: string | null }>);
+      if (agency) pickupLocation = pickupLabel(agency);
     }
   }
   const row = {

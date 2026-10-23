@@ -4,7 +4,7 @@ import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 import { encryptPII } from "@/lib/pii-crypto";
 import { clientShippingSchema } from "@/lib/validation/shipping";
-import { pickupLocationForCity } from "@/lib/pickup-location";
+import { pickupLabel, pickupLocationForCity } from "@/lib/pickup-location";
 
 /** Valè cookie ?ref= mete pa middleware.ts (parse manyèl — evite soud Next.js sou cookies() async). */
 function refCookie(req: Request): string {
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
     // à la ville sélectionnée est enregistrée sur le dossier client.
     const { data: agencies, error: agenciesError } = await svc
       .from("agences")
-      .select("nom,ordre")
+      .select("nom,ordre,adresse")
       .eq("active", true)
       .order("ordre", { ascending: true });
     if (agenciesError) {
@@ -148,7 +148,7 @@ export async function POST(req: Request) {
     profile.id_number = idNumber;
     profile.ville_id = ville.id;
     profile.city = ville.name;
-    profile.pickup_location = pickup.nom.trim();
+    profile.pickup_location = pickupLabel(pickup);
     if (email) profile.email = email;
     // account_type: valè otorize sèlman — anpeche yon moun chwazi tarif "Business"
     // pou tèt li nan navigatè a. Admin nan ka chanje l apre nan paj Clients la.
@@ -271,7 +271,7 @@ export async function POST(req: Request) {
       ...profile,
       auth_user_id: authUserId,   // null si enskripsyon piblik (nòmal)
       customer_code: null,
-      pickup_location: pickup.nom.trim(),
+      pickup_location: pickupLabel(pickup),
       account_status: "En attente d'activation",
       referred_by_affiliate_id: referredByAffiliateId,
     });
