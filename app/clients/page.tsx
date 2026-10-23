@@ -16,6 +16,10 @@ import { openDepotWhatsApp } from "@/lib/whatsapp";
 import { useRememberListContext, withReturnTo } from "@/lib/list-context";
 
 import { useNoticeToast } from "@/lib/notify";
+import { getAgences, type Agence } from "@/lib/agences";
+import { pickupLocationForCity } from "@/lib/pickup-location";
+import { clientZoneFix, type ZoneFix } from "@/lib/client-zone";
+import { supabase } from "@/lib/supabase";
 const schema = z.object({
   customer_code: z.string().min(1, "Kòd obligatwa"),
   fullname: z.string().min(1, "Non obligatwa"),
@@ -38,6 +42,10 @@ export default function ClientsPage() {
   const pathname = usePathname() ?? "/clients";
   const [clients, setClients] = useState<Client[]>([]);
   const [villes, setVilles] = useState<Ville[]>([]);
+  const [agences, setAgences] = useState<Agence[]>([]);
+  // Contrôle des zones : clients dont la ville, la zone ou l'agence ne correspondent pas.
+  const [zoneFixes, setZoneFixes] = useState<ZoneFix[] | null>(null);
+  const [zoneBusy, setZoneBusy] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
@@ -93,8 +101,8 @@ export default function ClientsPage() {
   const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } =
     useForm<Form>({ resolver: zodResolver(schema) });
 
-  const load = () => Promise.all([getClients(), getVilles()])
-    .then(([c, v]) => { setClients(c); setVilles(v); })
+  const load = () => Promise.all([getClients(), getVilles(), getAgences().catch(() => [] as Agence[])])
+    .then(([c, v, a]) => { setClients(c); setVilles(v); setAgences(a); })
     .catch((e) => setNotice("Erè: " + e.message));
   useEffect(() => { load(); }, []);
 
@@ -139,6 +147,29 @@ export default function ClientsPage() {
     setCreds({ client: c, username: j.username, password: j.password });
   };
 
+  /** Compare chaque client à sa ville et à l'agence de cette ville. */
+  const checkZones = () => {
+    const fixes = clients.filter((c) => c.customer_code || c.ville_id || c.city).map((c) => clientZoneFix(c, villes, agences));
+    setZoneFixes(fixes.filter((fix) => fix.problem || Object.keys(fix.patch).length));
+  };
+  const applyZoneFixes = async () => {
+    if (!zoneFixes) return;
+    const todo = zoneFixes.filter((fix) => Object.keys(fix.patch).length && fix.client.id);
+    if (!todo.length || !confirm(`Corriger ${todo.length} client(s) : ville, zone de récupération et agence ?`)) return;
+    setZoneBusy(true);
+    let done = 0; const failed: string[] = [];
+    try {
+      for (const fix of todo) {
+        const { error } = await supabase.from("clients").update(fix.patch).eq("id", fix.client.id!);
+        if (error) failed.push(fix.client.customer_code || fix.client.fullname); else done++;
+      }
+      await logAction("Zones clients corrigées", `${done} client(s) mis en correspondance ville → zone → agence${failed.length ? ` · échecs : ${failed.join(", ")}` : ""}`, "", "");
+      setNotice(failed.length ? `${done} corrigé(s), ${failed.length} échec(s) : ${failed.join(", ")}` : `${done} client(s) corrigé(s).`);
+      await load();
+      setZoneFixes(null);
+    } finally { setZoneBusy(false); }
+  };
+
   const remove = async (c: Client) => {
     if (!confirm(`Efase client ${c.customer_code} — ${c.fullname}?`)) return;
     await deleteClient(c.id!); load();
@@ -171,10 +202,42 @@ export default function ClientsPage() {
           <button className="btn btn-ghost border border-line" onClick={scanDups} title="Detekte kliyan ki egziste 2 fwa">
           🔗 Fusionner les comptes
         </button>
+        <button className="btn btn-ghost border border-line" onClick={checkZones} title="Ville, zone de récupération et agence de chaque client">📍 Vérifier les zones</button>
         <RefreshButton onRefresh={load} />
         <button className="btn" onClick={openNew}><Plus size={15} /> Nouveau client</button>
         </div>
       </div>
+
+      {zoneFixes && (
+        <section className="card space-y-3 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-navy">Zones de récupération</h2>
+              <p className="text-xs text-mute mt-0.5">La ville choisie décide de la zone (agent de remise) et de l&apos;agence. {zoneFixes.length === 0 ? "Tous les clients sont corrects." : ""}</p>
+            </div>
+            <div className="flex gap-2">
+              {zoneFixes.some((fix) => Object.keys(fix.patch).length) && <button className="btn" disabled={zoneBusy} onClick={() => void applyZoneFixes()}>{zoneBusy ? "Correction…" : `Corriger ${zoneFixes.filter((fix) => Object.keys(fix.patch).length).length} client(s)`}</button>}
+              <button className="btn btn-ghost border border-line" onClick={() => setZoneFixes(null)} disabled={zoneBusy}>Fermer</button>
+            </div>
+          </div>
+          {zoneFixes.length > 0 && <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr>{["Client", "Ville actuelle", "Agence actuelle", "Correction"].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
+              <tbody>{zoneFixes.map((fix) => (
+                <tr key={fix.client.id ?? fix.client.customer_code}>
+                  <td className="td"><b className="text-navy">{fix.client.customer_code || "—"}</b> <span className="text-xs text-mute">{fix.client.fullname}</span></td>
+                  <td className="td text-xs">{fix.client.ville?.name ?? fix.client.city ?? "—"}</td>
+                  <td className="td text-xs">{fix.client.pickup_location || "—"}</td>
+                  <td className="td text-xs">{Object.keys(fix.patch).length
+                    ? <span className="text-emerald-700 font-semibold">→ {fix.ville?.name}{fix.pickup ? ` · ${fix.pickup}` : ""}</span>
+                    : null}
+                    {fix.problem && <span className="block text-amber-700">{fix.problem}</span>}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>}
+        </section>
+      )}
 
       <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Code, nom, téléphone, WhatsApp, email…"
         resultCount={filtered.length} onClear={clearFilters}
@@ -195,7 +258,6 @@ export default function ClientsPage() {
             {([["customer_code", "Code client *", "Ex: 36191"],
                ["fullname", "Nom complet *", "Ex: Jean Baptiste"],
                ["whatsapp", "WhatsApp", "Ex: +509 3712 3456"],
-               ["pickup_location", "Lieu de récupération", "Ex: Biwo Delmas 33"],
                ["email", "Email", "ex@mail.com"]] as const).map(([k, label, ph]) => (
               <label key={k} className="block">
                 <span className="text-xs font-medium text-slate-500">{label}</span>
@@ -218,6 +280,17 @@ export default function ClientsPage() {
                 <span className="text-xs text-amber-600">Poko gen vil — ajoute yo nan Paramètres &gt; Tarification.</span>
               )}
             </label>
+            {(() => {
+              // Agence déduite de la ville (pas de saisie libre) : enregistrée automatiquement.
+              const ville = villes.find((v) => v.id === watch("ville_id"));
+              const agency = ville ? pickupLocationForCity(ville.name, agences) : null;
+              return <div className="block">
+                <span className="text-xs font-medium text-slate-500">Lieu de récupération (automatique)</span>
+                <p className={`input mt-1 flex items-center ${agency ? "bg-slate-50 text-navy font-semibold" : "bg-amber-50 text-amber-800"}`}>
+                  {!ville ? "Choisissez la ville" : agency ? agency.nom : `Aucune agence active pour ${ville.name}`}
+                </p>
+              </div>;
+            })()}
             <label className="block">
               <span className="text-xs font-medium text-slate-500">Type de compte *</span>
               <select className="input mt-1" {...register("account_type")}>

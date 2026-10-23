@@ -7,6 +7,7 @@ import {
 , Retrait, RetraitStatus, CONDUCE_ARRIVAL_STATUS, shouldPromoteOnConduce
 , Affiliate, AffiliateApplication, AffiliateCommission } from "./types";
 import { McpackRow } from "./xlsx";
+import { pickupLocationForCity } from "./pickup-location";
 import { specialPackageInfo, withManualSpecialPackageMetadata, withSpecialPackageMetadata, ManualSpecialPackageKind, SPECIAL_PACKAGE_FLAG, SPECIAL_PACKAGE_REASON, SPECIAL_PACKAGE_SOURCE } from "./special-package";
 import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS, villeForClient } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
@@ -59,11 +60,27 @@ export async function getClientTarifMap(): Promise<Map<string, ClientTarifInfo>>
   }]));
 }
 export async function upsertClient(c: Client): Promise<void> {
+  // La ville choisie décide de l'agence : même règle que l'inscription en ligne.
+  let pickupLocation = c.pickup_location.trim();
+  let cityName: string | null = null;
+  if (c.ville_id) {
+    const [villeResult, agenciesResult] = await Promise.all([
+      supabase.from("villes").select("name").eq("id", c.ville_id).maybeSingle(),
+      supabase.from("agences").select("nom, ordre").eq("active", true)
+    ]);
+    const villeName = String((villeResult.data as { name?: string } | null)?.name ?? "").trim();
+    if (villeName) {
+      cityName = villeName;
+      const agency = pickupLocationForCity(villeName, (agenciesResult.data ?? []) as Array<{ nom: string; ordre?: number | null }>);
+      if (agency) pickupLocation = agency.nom.trim();
+    }
+  }
   const row = {
     customer_code: normalizeMcCode(c.customer_code),
     fullname: c.fullname.trim(),
     whatsapp: c.whatsapp.trim(),
-    pickup_location: c.pickup_location.trim(),
+    pickup_location: pickupLocation,
+    ...(cityName ? { city: cityName } : {}),
     email: c.email?.trim() || null,
     ville_id: c.ville_id || null,
     account_type: c.account_type || "Personnel",
