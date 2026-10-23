@@ -1159,6 +1159,22 @@ export async function importConduceExcelRows(
            office: string; weight: number; content: string; quantity: number; is_special?: boolean; special_reason?: string }[],
   who = ""
 ): Promise<{ created: number; updated: number; linked: number; special: number; totalWeight: number; bons: { destination: string; package_count: number }[] }> {
+  // UN SEUL appel : la base importe TOUTES les lignes dans une seule transaction
+  // (supabase/20261023_import_conduce_rows.sql). Avant, chaque colis partait
+  // séparément depuis le navigateur ; une coupure arrêtait l'import à mi-chemin
+  // (Conduce 15640 : 22 colis sur 58).
+  const rpc = await supabase.rpc("import_conduce_rows", { p_conduce_id: conduceId, p_rows: rows, p_who: who });
+  if (!rpc.error) {
+    const r = rpc.data as { created: number; updated: number; linked: number; special: number; total_weight: number; rows: number };
+    // Contrôle : la base doit avoir traité autant de lignes que le fichier.
+    if (Number(r.rows) !== rows.length) throw new Error(`Import incomplet : ${r.rows} lignes traitées sur ${rows.length}.`);
+    const bons = await createBonsForConduce(conduceId).catch((error) => { console.error("[bons conduce]", error); return []; });
+    return { created: r.created, updated: r.updated, linked: r.linked, special: r.special, totalWeight: Number(r.total_weight) || 0, bons };
+  }
+  // Fonction absente (ancienne base) : on garde l'ancien chemin. Toute autre erreur est remontée,
+  // rien n'a été modifié (transaction annulée).
+  if (!/import_conduce_rows|function|schema cache/i.test(rpc.error.message ?? "")) throw new Error(rpc.error.message);
+
   let created = 0, updated = 0, linked = 0;
   const special = rows.filter((row) => row.is_special).length;
   let officeSeen = "";
