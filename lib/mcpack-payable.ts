@@ -6,11 +6,15 @@ import { supabase } from "./supabase";
  *
  *  mcpack_rate_usd            tarif MCPACK par livre (défaut 3)
  *  mcpack_ergens_codes        {"dokasav":["MC-…"],"blic":["MC-…"]} — vide = reconnaissance par le nom
- *  mcpack_period_start / _end période suivie (dates AAAA-MM-JJ de la Conduce)
+ *  mcpack_period_start         début du lot suivi (date AAAA-MM-JJ de la Conduce). Le lot reste OUVERT :
+ *                             toute Conduce non payée depuis ce jour est comptée, même ajoutée plus tard.
+ *  mcpack_period_end           (ancien réglage, ignoré)
  *  mcpack_ergens_paid:<clé>   part Ergens reçue pour une période : {"amount":…, "at":…, "by":…}
  */
 export const MCPACK_DEFAULT_RATE = 3;
-export const MCPACK_DEFAULT_PERIOD = { start: "2026-10-10", end: "2026-10-19" };
+export const MCPACK_DEFAULT_START = "2026-10-10";
+/** Fin ouverte : aucune Conduce récente n'est laissée de côté. */
+export const OPEN_END = "9999-12-31";
 
 export type ErgensKey = "dokasav" | "blic";
 export type ErgensCodes = Record<ErgensKey, string[]>;
@@ -29,7 +33,7 @@ export const normalizeCode = (value: string) => {
   return clean.startsWith("MC-") ? clean : "MC-" + clean.replace(/^MC/, "").replace(/^-+/, "");
 };
 export const parseCodeList = (text: string) => Array.from(new Set(text.split(/[\s,;]+/).map(normalizeCode).filter((code) => /^MC-\d{3,}$/.test(code))));
-export const periodKey = (period: { start: string; end: string }) => `${period.start}_${period.end}`;
+export const periodKey = (period: { start: string; end: string }) => period.start;
 
 export async function loadMcpackSettings(): Promise<McpackSettings> {
   // Table de réglages courte : on lit tout et on filtre ici (pas de filtre PostgREST fragile).
@@ -43,7 +47,6 @@ export async function loadMcpackSettings(): Promise<McpackSettings> {
     codes = { dokasav: Array.isArray(parsed.dokasav) ? parsed.dokasav.map(normalizeCode).filter(Boolean) : [], blic: Array.isArray(parsed.blic) ? parsed.blic.map(normalizeCode).filter(Boolean) : [] };
   } catch { /* réglage absent ou illisible : reconnaissance par le nom */ }
   const start = map.get("mcpack_period_start") ?? "";
-  const end = map.get("mcpack_period_end") ?? "";
   const receipts: Record<string, ErgensReceipt> = {};
   map.forEach((value, key) => {
     if (!key.startsWith("mcpack_ergens_paid:")) return;
@@ -52,7 +55,7 @@ export async function loadMcpackSettings(): Promise<McpackSettings> {
   return {
     rate: Number.isFinite(rate) && rate > 0 ? rate : MCPACK_DEFAULT_RATE,
     codes,
-    period: isDay(start) && isDay(end) && start <= end ? { start, end } : MCPACK_DEFAULT_PERIOD,
+    period: { start: isDay(start) ? start : MCPACK_DEFAULT_START, end: OPEN_END },
     receipts
   };
 }
@@ -62,10 +65,9 @@ async function writeSetting(key: string, value: string) {
   if (error) throw new Error(error.message);
 }
 
-export async function saveMcpackPeriod(start: string, end: string) {
-  if (!isDay(start) || !isDay(end) || start > end) throw new Error("Période invalide : la date de début doit précéder la date de fin.");
+export async function saveMcpackPeriod(start: string) {
+  if (!isDay(start)) throw new Error("Date de début invalide.");
   await writeSetting("mcpack_period_start", start);
-  await writeSetting("mcpack_period_end", end);
 }
 
 export async function saveMcpackConfig(rate: number, codes: ErgensCodes) {

@@ -15,8 +15,8 @@ import { notify } from "@/lib/notify";
  *
  * Règles :
  *  - Seuls les colis rattachés à une Conduce comptent (un colis hors Conduce est ignoré).
- *  - La période (dates de Conduce, réglée par l'admin) délimite le lot à payer.
- *    « À payer » = Conduces de la période dont le paiement MCPACK n'est pas validé.
+ *  - Le lot commence à une date (réglée par l'admin) et reste ouvert : toute Conduce
+ *    ajoutée ensuite est comptée tout de suite. « À payer » = Conduces du lot non payées.
  *    Dès qu'une Conduce (ou sa facture MCPACK) est marquée payée, ses livres passent
  *    dans l'historique. Les Conduces après la période attendent le prochain lot.
  *  - Comptes Ergens : codes réglés dans Paramètres ; sans réglage, reconnaissance par le nom
@@ -75,7 +75,7 @@ export default function McpackPayableCard() {
   const [showHistory, setShowHistory] = useState(false);
   const [openHistory, setOpenHistory] = useState<string | null>(null);
   const [historyCount, setHistoryCount] = useState(6);
-  const [editPeriod, setEditPeriod] = useState<{ start: string; end: string } | null>(null);
+  const [editPeriod, setEditPeriod] = useState<{ start: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || staff.username : "";
 
@@ -169,9 +169,9 @@ export default function McpackPayableCard() {
 
   if (role !== "admin") return null;
 
-  const savePeriod = async (start: string, end: string) => {
+  const savePeriod = async (start: string) => {
     setBusy(true);
-    try { await saveMcpackPeriod(start, end); setEditPeriod(null); await load(); }
+    try { await saveMcpackPeriod(start); setEditPeriod(null); await load(); }
     catch (e) { notify.error(e instanceof Error ? e.message : "Période non enregistrée.", { title: "Période MCPACK" }); }
     finally { setBusy(false); }
   };
@@ -194,10 +194,10 @@ export default function McpackPayableCard() {
     const win = window.open("", "_blank");
     if (!win) { notify.error("Autorisez les fenêtres pour ce site afin d’ouvrir le relevé.", { title: "Relevé Ergens" }); return; }
     const total = view.periodLbs.dokasav + view.periodLbs.blic;
-    win.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Relevé Ergens ${esc(view.period.start)} au ${esc(view.period.end)}</title>
+    win.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Relevé Ergens depuis le ${esc(view.period.start)}</title>
 <style>body{font-family:Arial,sans-serif;color:#0f172a;margin:32px}h1{font-size:20px;margin:0}p{margin:4px 0;color:#475569;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:18px;font-size:13px}th,td{padding:8px;border-bottom:1px solid #e2e8f0;text-align:right}th:first-child,td:first-child{text-align:left}th{background:#0b2a5b;color:#fff}tfoot td{font-weight:bold;border-top:2px solid #0b2a5b}.box{margin-top:18px;padding:12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px}</style></head><body>
 <h1>STANDA COMMERCIAL — Relevé MCPACK · Part Ergens</h1>
-<p>Période : ${esc(fmtDate(view.period.start))} au ${esc(fmtDate(view.period.end))} · Tarif MCPACK : ${fmtUsd(view.rate)} / lb</p>
+<p>Période : du ${esc(fmtDate(view.period.start))} au ${esc(fmtDate(localDay(new Date().toISOString())))} · Tarif MCPACK : ${fmtUsd(view.rate)} / lb</p>
 <table><thead><tr><th>Conduce</th><th>Date</th><th>Dokasav</th><th>Blic Express</th><th>Montant</th></tr></thead><tbody>
 ${rows.map((line) => `<tr><td>${esc(line.conduce.conduce_number)}</td><td>${esc(fmtDate(line.day))}</td><td>${fmtLb(line.lbs.dokasav)}</td><td>${fmtLb(line.lbs.blic)}</td><td>${fmtUsd((line.lbs.dokasav + line.lbs.blic) * view.rate)}</td></tr>`).join("")}
 </tbody><tfoot><tr><td>Total</td><td></td><td>${fmtLb(view.periodLbs.dokasav)}</td><td>${fmtLb(view.periodLbs.blic)}</td><td>${fmtUsd(total * view.rate)}</td></tr></tfoot></table>
@@ -228,16 +228,15 @@ ${rows.map((line) => `<tr><td>${esc(line.conduce.conduce_number)}</td><td>${esc(
       <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/70">
         <CalendarRange size={17} className="shrink-0 text-slate-400" />
         {editPeriod
-          ? <form className="flex flex-1 flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); void savePeriod(editPeriod.start, editPeriod.end); }}>
+          ? <form className="flex flex-1 flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); void savePeriod(editPeriod.start); }}>
               <input type="date" className="input !h-9 !w-auto" value={editPeriod.start} onChange={(e) => setEditPeriod({ ...editPeriod, start: e.target.value })} aria-label="Début de la période" />
-              <span className="text-xs text-slate-500">au</span>
-              <input type="date" className="input !h-9 !w-auto" value={editPeriod.end} onChange={(e) => setEditPeriod({ ...editPeriod, end: e.target.value })} aria-label="Fin de la période" />
+              <span className="text-xs text-slate-500">→ aujourd’hui</span>
               <button type="submit" disabled={busy} className="btn !h-9 !py-0 text-xs">Enregistrer</button>
               <button type="button" onClick={() => setEditPeriod(null)} className="btn btn-ghost !h-9 !py-0 text-xs">Annuler</button>
             </form>
           : <>
-              <p className="min-w-0 flex-1 text-sm text-slate-700">Conduces du <b className="text-slate-900">{fmtDate(view.period.start)}</b> au <b className="text-slate-900">{fmtDate(view.period.end)}</b></p>
-              <button type="button" onClick={() => setEditPeriod({ ...view.period })} className="text-xs font-semibold text-navy hover:underline">Modifier la période</button>
+              <p className="min-w-0 flex-1 text-sm text-slate-700">Conduces depuis le <b className="text-slate-900">{fmtDate(view.period.start)}</b> · chaque nouvelle conduce est comptée automatiquement</p>
+              <button type="button" onClick={() => setEditPeriod({ start: view.period.start })} className="text-xs font-semibold text-navy hover:underline">Modifier la période</button>
             </>}
       </div>
 
@@ -263,7 +262,7 @@ ${rows.map((line) => `<tr><td>${esc(line.conduce.conduce_number)}</td><td>${esc(
           </>}
           {total === 0 && <div className="mt-4 rounded-xl bg-white/10 px-3 py-2.5 text-sm text-white/90">
             {periodDone ? "Toutes les conduces de la période sont payées." : "Aucune conduce non payée dans cette période."}
-            {periodDone && <button type="button" disabled={busy} onClick={() => { const start = nextDay(view.period.end); void savePeriod(start, [start, view.after.lastDay, localDay(new Date().toISOString())].filter(Boolean).sort().pop() ?? start); }}
+            {periodDone && <button type="button" disabled={busy} onClick={() => { const lastPaid = view.paidInPeriod.reduce((max, line) => line.day > max ? line.day : max, view.period.start); void savePeriod(nextDay(lastPaid)); }}
               className="mt-2 block rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#0b2a5b] disabled:opacity-60">Passer à la période suivante</button>}
           </div>}
           {view.after.count > 0 && <p className="mt-4 border-t border-white/15 pt-3 text-[12px] text-white/65">Après le {fmtDate(view.period.end, false)} : {view.after.count} conduce{view.after.count > 1 ? "s" : ""} · {fmtLb(view.after.lbs)} · {fmtUsd(view.after.lbs * view.rate)} (prochaine période)</p>}
