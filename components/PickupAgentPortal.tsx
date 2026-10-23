@@ -1208,6 +1208,34 @@ function InvoiceDetails({ invoice, packages, onClose, onPay }: { invoice: ZoneIn
   </Card>;
 }
 
+/** Détail de la caisse par moyen de paiement : Espèces, MonCash, NatCash, Zelle (+ autres s'il y en a). */
+const METHOD_ORDER = ["Espèces", "MonCash", "NatCash", "Zelle"];
+function methodLabel(method: string) {
+  const value = (method || "").trim();
+  if (/^(esp[eè]ces?|cash)$/i.test(value)) return "Espèces";
+  if (/^mon\s*cash$/i.test(value)) return "MonCash";
+  if (/^nat\s*cash$/i.test(value)) return "NatCash";
+  if (/^zelle$/i.test(value)) return "Zelle";
+  return value || "Non précisé";
+}
+function MethodBreakdown({ payments }: { payments: AgentPayment[] }) {
+  const rows = new Map<string, { usd: number; htg: number; count: number }>(METHOD_ORDER.map((label) => [label, { usd: 0, htg: 0, count: 0 }]));
+  for (const payment of payments) {
+    const label = methodLabel(payment.payment_method);
+    const row = rows.get(label) ?? { usd: 0, htg: 0, count: 0 };
+    if (payment.currency === "HTG") row.htg += Number(payment.amount || 0); else row.usd += Number(payment.amount || 0);
+    row.count += 1;
+    rows.set(label, row);
+  }
+  return <Card>
+    <CardHeader title="Détail par moyen de paiement" subtitle="Zelle arrive directement sur le compte STANDA : il n’est pas dans la caisse à remettre." />
+    <div className="divide-y divide-slate-100">{Array.from(rows, ([label, row]) => <div key={label} className="flex items-center gap-3 px-4 py-3">
+      <div className="min-w-0 flex-1"><p className="text-sm font-medium text-slate-900">{label}{label === "Zelle" && <span className="ml-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">hors caisse</span>}</p><p className="text-xs text-slate-500">{row.count} paiement{row.count > 1 ? "s" : ""}</p></div>
+      <div className="shrink-0 text-right tabular-nums"><p className={cn("text-sm font-semibold", row.count ? "text-slate-900" : "text-slate-400")}>{fmtUsd(row.usd)}</p><p className="text-xs text-slate-500">{fmtHtg(row.htg)}</p></div>
+    </div>)}</div>
+  </Card>;
+}
+
 function ReportsView({ agentName, payments, balances, onOpenInvoice, onStartPayment, onOpenReceipt }: { agentName: string; payments: AgentPayment[]; balances: CustomerBalanceReport[]; onOpenInvoice: (invoiceId: string) => void; onStartPayment: (customerCode: string) => void; onOpenReceipt: (paymentId: string) => void }) {
   // Zelle arrive directement sur le compte STANDA : il est listé, mais pas compté
   // dans l'argent que l'agent doit remettre à l'administration.
@@ -1229,6 +1257,7 @@ function ReportsView({ agentName, payments, balances, onOpenInvoice, onStartPaym
       </div>
       {hasZelle && <p className="mt-3 text-[12px] text-white/75">Zelle (déjà sur le compte STANDA, hors caisse) : {fmtUsd(zelle.usd)}{zelle.htg > 0.009 ? " · " + fmtHtg(zelle.htg) : ""}</p>}
     </section>
+    <MethodBreakdown payments={payments} />
     <p className="px-1 text-xs leading-5 text-slate-500">Seuls les paiements de ce point de retrait sont comptés. Quand l’argent est remis à l’administration, elle clôture le rapport : la caisse repart à zéro et seuls les soldes clients restent.</p>
 
     <Card>
