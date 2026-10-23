@@ -51,7 +51,7 @@ export default function McpackInvoiceWorkspace({
   };
   useEffect(() => { void load(); }, []);
 
-  const analyzeAllConduces = async (trackings: { value: string }[], fileName: string) => {
+  const analyzeAllConduces = async (trackings: { value: string; weight?: number }[], fileName: string) => {
     const result = await analyzeMcpackInvoiceTrackings(trackings);
     setAnalysis({ ...result, fileName });
     setNotice(result.conduces.length
@@ -169,6 +169,23 @@ export default function McpackInvoiceWorkspace({
                 ))}
               </div>
             )}
+
+            {analysis.reconciliation.invoiceLbs > 0 && (() => {
+              const rec = analysis.reconciliation;
+              const gap = rec.systemLbs - rec.invoiceLbs;
+              const ok = Math.abs(gap) < 0.01;
+              return <div className={`rounded-xl border px-3 py-2.5 text-[11px] ${ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+                <p className="font-extrabold flex items-center gap-1.5">{ok ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />} Livres : facture MCPACK {rec.invoiceLbs.toFixed(2)} lb · STANDA {rec.systemLbs.toFixed(2)} lb{ok ? " — identiques" : ` — écart ${gap > 0 ? "+" : ""}${gap.toFixed(2)} lb`}</p>
+                {rec.weightDiffs.length > 0 && <>
+                  <p className="mt-1.5 font-bold">Poids différent ({rec.weightDiffs.length}) :</p>
+                  <ul className="mt-0.5 space-y-0.5 font-mono">{rec.weightDiffs.map((d) => <li key={d.tracking}>{d.tracking} · Conduce {d.conduceNumber} · {d.customerCode} : MCPACK {d.invoiceLbs} lb / STANDA {d.systemLbs} lb</li>)}</ul>
+                </>}
+                {rec.missingFromInvoice.length > 0 && <>
+                  <p className="mt-1.5 font-bold">Dans nos Conduces mais absent de la facture ({rec.missingFromInvoice.length}) :</p>
+                  <ul className="mt-0.5 space-y-0.5 font-mono">{rec.missingFromInvoice.map((d) => <li key={d.tracking + d.conduceNumber}>{d.tracking} · Conduce {d.conduceNumber} · {d.customerCode} : {d.systemLbs} lb</li>)}</ul>
+                </>}
+              </div>;
+            })()}
 
             {analysis.alreadyRecordedConduces.length > 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-900">

@@ -737,6 +737,15 @@ export interface McpackInvoiceAnalysis {
   /** Eskli nan nouvo fakti a pou pa gen yon menm Conduce nan de fakti. */
   alreadyRecordedConduces: McpackInvoiceAlreadyRecordedConduce[];
   conduces: McpackInvoiceConduceCandidate[];
+  /** Rapprochement : livres de la facture MCPACK vs livres STANDA des mêmes Conduces. */
+  reconciliation: {
+    invoiceLbs: number;
+    systemLbs: number;
+    weightDiffs: { tracking: string; invoiceLbs: number; systemLbs: number; conduceNumber: string; customerCode: string }[];
+    missingFromInvoice: { tracking: string; systemLbs: number; conduceNumber: string; customerCode: string }[];
+    /** Poids facturé par MCPACK pour chaque colis des Conduces (0 = absent de la facture). */
+    billed: { id: string; lbs: number }[];
+  };
 }
 
 /**
@@ -747,11 +756,16 @@ export interface McpackInvoiceAnalysis {
  * Nou konpare ak Tracking Number AK Guía paske kèk fakti MCPACK sèvi ak youn,
  * lòt yo sèvi ak lòt la. Yon koli konte yon sèl fwa menm si PDF la repete li.
  */
+/** Clé de comparaison : lettres et chiffres seulement (le PDF entoure parfois le numéro de points). */
+const trackingKey = (value: unknown) => String(value ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+
 export async function analyzeMcpackInvoiceTrackings(
-  items: { value: string }[], options: { maximumTrackings?: number } = {}
+  items: { value: string; weight?: number }[], options: { maximumTrackings?: number } = {}
 ): Promise<McpackInvoiceAnalysis> {
+  const weightByTracking = new Map<string, number>();
+  for (const item of items) { const key = trackingKey(item.value); if (key && Number(item.weight) > 0 && !weightByTracking.has(key)) weightByTracking.set(key, Number(item.weight)); }
   const allTrackings = Array.from(new Set(items
-    .map((item) => cleanTracking(item.value))
+    .map((item) => trackingKey(item.value))
     .filter(Boolean)));
   const maximum = Math.max(1, Number(options.maximumTrackings) || allTrackings.length);
   const trackings = allTrackings.slice(0, maximum);
@@ -760,19 +774,32 @@ export async function analyzeMcpackInvoiceTrackings(
       extractedTrackingCount: 0, checkedTrackingCount: 0, skippedTrackingCount: 0,
       matchedPackageCount: 0, unmatchedTrackingCount: 0, unlinkedPackageCount: 0,
       duplicateTrackings: [], alreadyRecordedConduces: [], conduces: [],
+      reconciliation: { invoiceLbs: 0, systemLbs: 0, weightDiffs: [], missingFromInvoice: [], billed: [] },
     };
   }
 
-  const { data: rows, error } = await supabase.from("packages")
-    .select("id, tracking_number, tracking_manual, conduce_id, archived");
-  if (error) throw error;
+  // TOUS les colis, page par page : une seule lecture s'arrête à 1000 lignes
+  // (avant : 109 tracking « introuvables » et des Conduces oubliées).
+  const rows = await fetchAllRows<any>(() => supabase.from("packages")
+    .select("id, tracking_number, tracking_manual, conduce_id, archived, weight, customer_code").order("id", { ascending: true }));
 
   const byTracking = new Map<string, any[]>();
+  // Numéros USPS / FedEx longs : MCPACK ajoute parfois un préfixe (code postal) ; les 20 derniers chiffres suffisent.
+  const bySuffix = new Map<string, any[]>();
+  for (const pkg of rows ?? []) {
+    for (const raw of [pkg.tracking_number, pkg.tracking_manual]) {
+      const key = trackingKey(raw);
+      if (key.length < 20) continue;
+      const list = bySuffix.get(key.slice(-20)) ?? [];
+      if (!list.some((row) => row.id === pkg.id)) list.push(pkg);
+      bySuffix.set(key.slice(-20), list);
+    }
+  }
   for (const pkg of rows ?? []) {
     // Yon colis livré oswa archive kenbe `conduce_id` li. Li rete yon bon
     // prèv pou idantifye ki Conduce yon fakti MCPACK fè referans a.
     for (const raw of [pkg.tracking_number, pkg.tracking_manual]) {
-      const key = cleanTracking(raw);
+      const key = trackingKey(raw);
       if (!key) continue;
       const existing = byTracking.get(key) ?? [];
       // Yon package ka gen menm valè nan tracking_number ak tracking_manual.
@@ -783,6 +810,7 @@ export async function analyzeMcpackInvoiceTrackings(
   }
 
   const matchedPackages = new Set<string>();
+  const invoiceWeightByPackage = new Map<string, { tracking: string; lbs: number | undefined }>();
   const byConduce = new Map<string, number>();
   const duplicateConduceIds = new Map<string, string[]>();
   let unmatchedTrackingCount = 0;
@@ -791,9 +819,11 @@ export async function analyzeMcpackInvoiceTrackings(
 
   for (const tracking of trackings) {
     checkedTrackingCount++;
-    const packages = byTracking.get(tracking) ?? [];
+    const exact = byTracking.get(tracking) ?? [];
+    const suffix = !exact.length && tracking.length >= 20 ? (bySuffix.get(tracking.slice(-20)) ?? []) : [];
+    const packages = exact.length ? exact : suffix.length === 1 ? suffix : [];
     if (!packages.length) { unmatchedTrackingCount++; continue; }
-    packages.forEach((pkg) => matchedPackages.add(pkg.id));
+    packages.forEach((pkg) => { matchedPackages.add(pkg.id); invoiceWeightByPackage.set(pkg.id, { tracking, lbs: weightByTracking.get(tracking) }); });
 
     const conduceIdsForTracking = Array.from(new Set(packages
       .map((pkg) => String(pkg.conduce_id ?? "").trim())
@@ -865,7 +895,30 @@ export async function analyzeMcpackInvoiceTrackings(
     });
   }
 
+  // Rapprochement des poids sur les Conduces de cette facture : un écart de
+  // livres (pesée différente, colis absent de la facture) se voit tout de suite.
+  const eligibleIds = new Set(eligibleConduces.map((line) => line.conduce.id));
+  const numberOf = (conduceId: string) => conduceById.get(conduceId)?.conduce_number ?? "";
+  const weightDiffs: McpackInvoiceAnalysis["reconciliation"]["weightDiffs"] = [];
+  const missingFromInvoice: McpackInvoiceAnalysis["reconciliation"]["missingFromInvoice"] = [];
+  let systemLbs = 0;
+  const billed: { id: string; lbs: number }[] = [];
+  for (const pkg of rows ?? []) {
+    if (!eligibleIds.has(String(pkg.conduce_id ?? "")) || pkg.archived) continue;
+    const lbs = Number(pkg.weight) || 0;
+    systemLbs += lbs;
+    const tracking = trackingKey(pkg.tracking_manual) || trackingKey(pkg.tracking_number);
+    billed.push({ id: pkg.id, lbs: invoiceWeightByPackage.get(pkg.id)?.lbs ?? (invoiceWeightByPackage.has(pkg.id) ? lbs : 0) });
+    const billedLine = invoiceWeightByPackage.get(pkg.id);
+    if (!billedLine) { missingFromInvoice.push({ tracking, systemLbs: lbs, conduceNumber: numberOf(pkg.conduce_id), customerCode: String(pkg.customer_code ?? "") }); continue; }
+    if (billedLine.lbs !== undefined && Math.abs(billedLine.lbs - lbs) > 0.004) {
+      weightDiffs.push({ tracking: billedLine.tracking, invoiceLbs: billedLine.lbs, systemLbs: lbs, conduceNumber: numberOf(pkg.conduce_id), customerCode: String(pkg.customer_code ?? "") });
+    }
+  }
+  const invoiceLbs = Array.from(weightByTracking.values()).reduce((sum, value) => sum + value, 0);
+
   return {
+    reconciliation: { invoiceLbs, systemLbs, weightDiffs, missingFromInvoice, billed },
     extractedTrackingCount: allTrackings.length,
     checkedTrackingCount,
     skippedTrackingCount: Math.max(0, allTrackings.length - checkedTrackingCount),
@@ -945,13 +998,19 @@ export async function createMcpackInvoice(
   }).select("*").single();
   if (error) throw error;
 
-  const { error: linksError } = await supabase.from("mcpack_invoice_conduces").insert(
+  const linksResult = await supabase.from("mcpack_invoice_conduces").insert(
     input.conduces.map((line) => ({
       invoice_id: invoice.id,
       conduce_id: line.conduce.id,
       package_count: line.packageCount,
     }))
   );
+  const linksError = linksResult.error;
+  if (!linksError && input.reconciliation?.billed.length) {
+    // Le tableau de bord paie MCPACK au poids de SA facture (pas à notre pesée).
+    const { error: billedError } = await supabase.rpc("set_mcpack_billed_lbs", { p_items: input.reconciliation.billed });
+    if (billedError) console.error("[mcpack billed lbs]", billedError);
+  }
   if (linksError) {
     // Rollback konpansatwa. Policy staff la pèmèt netwaye dosye ki fèk kreye a.
     await supabase.from("mcpack_invoices").delete().eq("id", invoice.id);
@@ -1099,8 +1158,8 @@ export async function matchConduceCodes(rawCodes: string[]): Promise<ConduceMatc
   const codes = Array.from(new Set(rawCodes.map((c) => cleanTracking(c)).filter(Boolean)));
   if (!codes.length) return [];
 
-  const { data } = await supabase.from("packages")
-    .select("id, tracking_number, tracking_manual, customer_code, customer_name, status, archived, conduce_id");
+  const data = await fetchAllRows<any>(() => supabase.from("packages")
+    .select("id, tracking_number, tracking_manual, customer_code, customer_name, status, archived, conduce_id").order("id", { ascending: true }));
   const byGuia = new Map<string, any>(), byManual = new Map<string, any>();
   for (const p of (data ?? [])) {
     if (p.archived) continue;
@@ -1270,8 +1329,8 @@ export interface FactureMatch {
 export async function matchFactureTrackings(
   items: { value: string; weight?: number; source: "pdf" | "image" | "text" }[]
 ): Promise<FactureMatch[]> {
-  const { data } = await supabase.from("packages")
-    .select("id, tracking_number, tracking_manual, customer_code, customer_name, status, archived, weight, content");
+  const data = await fetchAllRows<any>(() => supabase.from("packages")
+    .select("id, tracking_number, tracking_manual, customer_code, customer_name, status, archived, weight, content").order("id", { ascending: true }));
   const index = new Map<string, any>();
   for (const p of (data ?? [])) {
     if (p.archived) continue;
@@ -2796,9 +2855,8 @@ export async function analyzePhotoScans(scans: {
   filename: string; previewUrl: string; guia: string; guiaSource: string;
   tracking_number: string; customer_code: string; confidence: number; step: string;
 }[]): Promise<PhotoMatch[]> {
-  const { data } = await supabase.from("packages")
-    .select("id, tracking_number, tracking_manual, customer_code, status");
-  const pkgs = (data ?? []) as any[];
+  const pkgs = await fetchAllRows<any>(() => supabase.from("packages")
+    .select("id, tracking_number, tracking_manual, customer_code, status").order("id", { ascending: true }));
 
   const byGuia = new Map<string, any>();
   const byManual = new Map<string, any>();

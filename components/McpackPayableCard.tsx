@@ -21,7 +21,8 @@ import { notify } from "@/lib/notify";
  *    dans l'historique. Les Conduces après la période attendent le prochain lot.
  *  - Comptes Ergens : codes réglés dans Paramètres ; sans réglage, reconnaissance par le nom
  *    (fiche client ou nom MCPACK du colis). Tous les autres clients sont à STANDA.
- *  - Montant = livres × tarif (Paramètres, 3 $ par défaut).
+ *  - Montant = livres × tarif (Paramètres, 3 $ par défaut). Livres = poids de la facture
+ *    MCPACK (packages.mcpack_billed_lbs) dès qu'elle est enregistrée, sinon notre pesée.
  */
 type ShareKey = "standa" | "dokasav" | "blic";
 const SHARES: Array<{ key: ShareKey; label: string; color: string; onNavy: string; match?: RegExp }> = [
@@ -30,7 +31,7 @@ const SHARES: Array<{ key: ShareKey; label: string; color: string; onNavy: strin
   { key: "blic", label: "Blic Express", color: "#0f9f8f", onNavy: "#0f9f8f", match: /\bblic\b/i }
 ];
 type Lbs = Record<ShareKey, number>;
-type ParcelRow = { conduce_id: string; customer_code: string | null; customer_name: string | null; weight: number | string | null; archived?: boolean | null };
+type ParcelRow = { conduce_id: string; customer_code: string | null; customer_name: string | null; weight: number | string | null; mcpack_billed_lbs?: number | string | null; archived?: boolean | null };
 type ConduceLine = { conduce: Conduce; day: string; lbs: Lbs; total: number; invoiced: boolean; invoiceId: string | null };
 type HistoryEntry = { key: string; label: string; paidAt: string; lines: ConduceLine[]; lbs: Lbs };
 
@@ -55,7 +56,7 @@ async function loadConduceParcels(conduceIds: string[]): Promise<ParcelRow[]> {
     const chunk = conduceIds.slice(i, i + 100);
     for (let from = 0; ; from += 1000) {
       const { data, error } = await supabase.from("packages")
-        .select("id, conduce_id, customer_code, customer_name, weight, archived")
+        .select("id, conduce_id, customer_code, customer_name, weight, mcpack_billed_lbs, archived")
         .in("conduce_id", chunk).order("id", { ascending: true }).range(from, from + 999);
       if (error) throw error;
       out.push(...((data ?? []) as ParcelRow[]));
@@ -120,7 +121,10 @@ export default function McpackPayableCard() {
     for (const parcel of state.parcels) {
       if (parcel.archived) continue;
       const lbs = byConduce.get(parcel.conduce_id) ?? zero();
-      lbs[accountOf.get(String(parcel.customer_code ?? "").trim().toUpperCase()) ?? "standa"] += Number(parcel.weight) || 0;
+      // Poids facturé par MCPACK quand sa facture est enregistrée ; sinon notre pesée.
+      const billed = parcel.mcpack_billed_lbs;
+      const weight = billed !== null && billed !== undefined && billed !== "" ? Number(billed) : Number(parcel.weight);
+      lbs[accountOf.get(String(parcel.customer_code ?? "").trim().toUpperCase()) ?? "standa"] += weight || 0;
       byConduce.set(parcel.conduce_id, lbs);
     }
     const invoiceOf = new Map<string, McpackInvoice>();
