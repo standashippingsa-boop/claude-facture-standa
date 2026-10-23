@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { notifyPickupAgents } from "@/lib/bon-remise-push";
 
@@ -22,8 +21,7 @@ async function requireStaff(svc: any, token: string): Promise<boolean> {
 }
 
 export async function POST(req: Request) {
-  const rl = rateLimit("notify-agent:" + clientIp(req), 60, 3600000);
-  if (!rl.ok) return tooMany(rl.retryAfter);
+  // Pa gen limit: sesyon pèsonèl obligatwa (requireStaff) — chak bon gen notifikasyon pa l.
 
   const body = await req.json().catch(() => ({} as Record<string, unknown>));
   const config = getSupabaseAdminConfig();

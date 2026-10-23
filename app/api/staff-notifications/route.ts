@@ -33,7 +33,7 @@ async function contextFor(req: Request): Promise<
 }
 
 export async function GET(req: Request) {
-  const limiter = rateLimit(`staff-notifications:${clientIp(req)}`, 180, 60_000);
+  const limiter = rateLimit(`staff-notifications:${clientIp(req)}`, 5000, 60_000);
   if (!limiter.ok) return tooMany(limiter.retryAfter);
   try {
     const context = await contextFor(req);
@@ -54,7 +54,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const limiter = rateLimit(`staff-notifications:${clientIp(req)}`, 90, 60_000);
+  const limiter = rateLimit(`staff-notifications:${clientIp(req)}`, 5000, 60_000);
   if (!limiter.ok) return tooMany(limiter.retryAfter);
   try {
     const context = await contextFor(req);

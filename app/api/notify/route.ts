@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { sendPushToCustomer } from "@/lib/push-server";
@@ -283,14 +282,25 @@ async function sendViaResend(
   key: string, to: string, subject: string, html: string
 ): Promise<{ ok: true; id: string } | { ok: false; status: number; code: string; message: string }> {
   let res: Response;
-  try {
-    res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ from: fromValue(), to: [to], subject, html }),
-    });
-  } catch (e) {
-    return { ok: false, status: 0, code: "network", message: "Rezo : " + String(e) };
+  // Resend refize plis pase kèk imèl pa segonn (429): nou tann epi re-eseye,
+  // olye pèdi imèl la lè anpil notifikasyon pati an menm tan.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify({ from: fromValue(), to: [to], subject, html }),
+      });
+    } catch (e) {
+      if (attempt < 3) { await new Promise((r) => setTimeout(r, 800 * (attempt + 1))); continue; }
+      return { ok: false, status: 0, code: "network", message: "Rezo : " + String(e) };
+    }
+    if ((res.status === 429 || res.status >= 500) && attempt < 5) {
+      const wait = Number(res.headers.get("retry-after")) * 1000 || 700 * (attempt + 1);
+      await new Promise((r) => setTimeout(r, Math.min(wait, 5000)));
+      continue;
+    }
+    break;
   }
   const text = await res.text();
   if (!res.ok) {
@@ -336,9 +346,9 @@ function pushCopy(body: NotifyBody): { title: string; text: string } {
 interface ProbeBody { probe?: "diag" | "test" | "sample"; token?: string; to?: string; sample?: "recu_miami" | "disponible" }
 
 export async function POST(req: Request) {
-  // Rate limiting — imèl: 60 / èdtan pa IP (anti-spam kliyan)
-  const rl = rateLimit("notify:" + clientIp(req), 60, 3600000);
-  if (!rl.ok) return tooMany(rl.retryAfter);
+  // PA GEN LIMIT: chak voye mande yon sesyon pèsonèl STANDA (requireStaff),
+  // kidonk okenn kliyan ni moun deyò pa ka itilize wout sa a pou spam.
+  // Yon kliyan ka resevwa otan notifikasyon + imèl ke operasyon yo mande.
 
   let body: (NotifyBody & ProbeBody) | null = null;
   try { body = (await req.json()) as NotifyBody & ProbeBody; } catch { /* body rete null */ }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
-import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
 import { sendPushToCustomer } from "@/lib/push-server";
 import { sendFcmToCustomer } from "@/lib/push-fcm-server";
 import { normalizeMcCode } from "@/lib/utils";
@@ -62,8 +61,7 @@ async function audienceCodes(db: any, type: string, values: string[]): Promise<s
 }
 
 export async function POST(req: Request) {
-  const rl = rateLimit(`announcements:${clientIp(req)}`, 30, 60 * 60_000);
-  if (!rl.ok) return tooMany(rl.retryAfter);
+  // Pas de limite : action réservée à l'administrateur (vérifiée plus bas).
   try {
     const body = await req.json().catch(() => null);
     if (!body) return fail("Demande invalide.");
