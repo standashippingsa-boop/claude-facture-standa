@@ -10,7 +10,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, MapPin } from "lucide-react";
 import { BusyButton } from "@/components/Loader";
-import { registerClientProfile } from "@/lib/db";
+import { registerClientProfile, RegistrationError } from "@/lib/db";
 import { safeMessage } from "@/lib/safeerror";
 
 import { useNoticeToast } from "@/lib/notify";
@@ -20,12 +20,12 @@ const schema = z.object({
   fullname: z.string().min(1, "Le prénom est obligatoire"),
   surname: z.string().min(1, "Le nom est obligatoire"),
   email: z.string().email("L'adresse électronique n'est pas valide"),
-  phone: z.string().min(6, "Le téléphone est obligatoire"),
-  whatsapp: z.string().min(6, "Le numéro WhatsApp est obligatoire"),
+  phone: z.string().trim().regex(/^[\d\s+().-]{7,30}$/, "Numéro de téléphone invalide : chiffres uniquement, par exemple +509 3700 0000"),
+  whatsapp: z.string().trim().regex(/^[\d\s+().-]{7,30}$/, "Numéro WhatsApp invalide : chiffres uniquement, par exemple +509 3700 0000"),
   city: z.string().min(1, "Sélectionnez votre ville dans la liste"),
-  address: z.string().min(1, "L'adresse est obligatoire"),
+  address: z.string().trim().min(3, "L'adresse est trop courte"),
   id_type: z.enum(["Carte d'identité nationale", "Passeport"], { errorMap: () => ({ message: "Sélectionnez votre pièce d'identité" }) }),
-  id_number: z.string().min(1, "Le numéro de pièce d'identité est obligatoire")
+  id_number: z.string().trim().min(2, "Le numéro de pièce d'identité est obligatoire")
 });
 
 type Form = z.infer<typeof schema>;
@@ -100,9 +100,12 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
       });
       setDone(true);
     } catch (e: any) {
-      setErr(e.message?.includes("already registered")
-        ? "Cette adresse électronique est déjà associée à un compte. Veuillez vous connecter."
-        : safeMessage(e));
+      // Les motifs de notre serveur sont clairs (compte existant, ville, téléphone…) :
+      // on les montre en entier au lieu de « problème technique ».
+      setErr(e instanceof RegistrationError ? e.message
+        : e?.message?.includes("already registered")
+          ? "Cette adresse électronique est déjà associée à un compte. Veuillez vous connecter."
+          : safeMessage(e));
     }
   };
 

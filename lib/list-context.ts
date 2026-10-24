@@ -68,7 +68,9 @@ export function useRememberListContext(
 
 /** Retounen sèlman nan yon chemen entèn ki san danje. */
 export function returnToOr(value: string | null | undefined, fallback: string) {
-  if (value && value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")) return value;
+  // Les navigateurs suppriment tabulations et retours à la ligne : "/\t/site.com"
+  // deviendrait "//site.com" (redirection vers un site externe). On les refuse.
+  if (value && value.startsWith("/") && !/[\u0000-\u001f\\]/.test(value) && !value.startsWith("//")) return value;
   return fallback;
 }
 

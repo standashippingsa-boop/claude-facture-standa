@@ -2483,6 +2483,9 @@ export async function getImports(): Promise<ImportLog[]> {
 // ================= ENSKRIPSYON KLIYAN (v6) =================
 
 /** Kliyan an fin kreye kont Auth li — nou anrejistre pwofil li (En attente d'activation) */
+/** Motif rédigé par notre propre serveur : sûr à montrer tel quel au client. */
+export class RegistrationError extends Error {}
+
 export async function registerClientProfile(p: {
   auth_user_id?: string | null; fullname: string; surname: string; email: string;
   phone: string; whatsapp: string; country: string; city: string;
@@ -2496,12 +2499,17 @@ export async function registerClientProfile(p: {
   // ki t ap ekspoze done tout kliyan yo. Kounye a sèvè a fè travay la.
   const { data: sess } = await supabase.auth.getSession();
   const token = sess?.session?.access_token ?? "";
-  const res = await fetch("/api/register-client", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, profile: p })
-  });
-  const j = await res.json().catch(() => ({ ok: false, reason: "Erreur réseau." }));
-  if (!j.ok) throw new Error(j.reason ?? "Enregistrement impossible.");
+  let res: Response;
+  try {
+    res = await fetch("/api/register-client", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, profile: p })
+    });
+  } catch {
+    throw new RegistrationError("Connexion Internet interrompue. Vérifiez votre réseau puis réessayez.");
+  }
+  const j = await res.json().catch(() => ({ ok: false, reason: "" }));
+  if (!j.ok) throw new RegistrationError(j.reason || "Enregistrement impossible pour le moment. Réessayez dans quelques minutes.");
 }
 
 export async function getClientByAuthId(uid: string): Promise<Client | null> {

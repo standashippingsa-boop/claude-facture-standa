@@ -31,8 +31,10 @@ const clean = (v: unknown, max = 120) => String(v ?? "").trim().slice(0, max);
 const ID_TYPES = new Set(["Carte d'identité nationale", "Passeport"]);
 
 export async function POST(req: Request) {
-  // Rate limiting — enskripsyon: 5 / èdtan pa IP (anti-spam kont)
-  const rl = rateLimit("register:" + clientIp(req), 5, 3600000);
+  // Limite anti-spam. Digicel et Natcom placent beaucoup de clients derrière
+  // la même adresse IP : 5 par heure bloquait des inscriptions honnêtes.
+  // 30 par heure et par IP, plus 5 par heure et par adresse électronique (plus bas).
+  const rl = rateLimit("register:" + clientIp(req), 30, 3600000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {
@@ -86,6 +88,8 @@ export async function POST(req: Request) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
       return NextResponse.json({ ok: false, reason: "Adresse électronique invalide." }, { status: 400 });
     }
+    const rlMail = rateLimit("register-mail:" + email, 5, 3600000);
+    if (!rlMail.ok) return tooMany(rlMail.retryAfter);
     // Validation shipping (adresse, téléphone, ville) centralisée dans
     // lib/validation/shipping.ts — même schéma que /api/ingest, au lieu
     // d'un regex réinventé par route.
@@ -196,8 +200,21 @@ export async function POST(req: Request) {
     // ═══════════════════════════════════════════════════════════════════
     const tail = digits(phone).slice(-8);
 
-    const { data: all } = await svc.from("clients")
-      .select("id, auth_user_id, email, phone, customer_code, account_status");
+    // Lecture paginée : PostgREST renvoie au maximum 1000 lignes par requête.
+    // Sans cela, au delà de 1000 clients, un doublon passerait inaperçu.
+    type Row = { id: string; auth_user_id: string | null; email: string | null; phone: string | null; customer_code: string | null; account_status: string | null };
+    const all: Row[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data: page, error: pageError } = await svc.from("clients")
+        .select("id, auth_user_id, email, phone, customer_code, account_status")
+        .order("id").range(from, from + 999);
+      if (pageError) {
+        console.error("[register-client] lecture clients :", pageError.message);
+        return NextResponse.json({ ok: false, reason: "Service temporairement indisponible. Réessayez dans quelques minutes." }, { status: 503 });
+      }
+      all.push(...((page ?? []) as Row[]));
+      if (!page || page.length < 1000) break;
+    }
 
     const memMail = email
       ? (all ?? []).find((c: { email?: string | null }) =>
@@ -275,7 +292,10 @@ export async function POST(req: Request) {
       account_status: "En attente d'activation",
       referred_by_affiliate_id: referredByAffiliateId,
     });
-    if (error) return NextResponse.json({ ok: false, reason: "Enregistrement impossible." }, { status: 500 });
+    if (error) {
+      console.error("[register-client] insertion :", error.code, error.message);
+      return NextResponse.json({ ok: false, reason: "Enregistrement impossible pour le moment. Réessayez dans quelques minutes ou contactez STANDA COMMERCIAL." }, { status: 500 });
+    }
 
     await svc.from("journal").insert({
       user_name: fullname, action: "Inscription Client",
@@ -284,8 +304,9 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ ok: true, created: true });
-  } catch {
+  } catch (e) {
     // Mesaj jenerik — pa gen stack trace ni detay bazdone ki soti
-    return NextResponse.json({ ok: false, reason: "Erreur serveur." }, { status: 500 });
+    console.error("[register-client] erreur :", e instanceof Error ? e.message : e);
+    return NextResponse.json({ ok: false, reason: "Erreur serveur. Réessayez dans quelques minutes." }, { status: 500 });
   }
 }
