@@ -98,20 +98,13 @@ export function generateInvoicePdf(
   // ===== Tablo =====
   autoTable(doc, {
     startY: 80,
-    head: [["#", "Tracking ID", "Tracking Number", "Poids (lb)", "Prix/LB", "Montant (USD)"]],
+    head: [["#", "Tracking ID", "Tracking Number", "Poids (lb)", "Taxe (USD)", "Montant (USD)"]],
     body: items.map((k, i) => {
       const w = Number(k.weight) || 0;
       const tax = Number(k.tax) || 0;
-      // Si koli a sèvi ak tarif Petit Colis -> montre sa olye Prix/LB
-      // Fòfè (atik a pri fiks): per_lb = 0 epi non atik la nan fixed_label
-      const prixLbCell = k.fixed_label
-        ? `Forfait — ${k.fixed_label}`
-        : k.is_small
-          ? "Tarif Petit Colis"
-          : (k.per_lb && k.per_lb > 0 ? Number(k.per_lb).toFixed(2)
-             : (w > 0 ? (Number(k.price) / w).toFixed(2) : "—"));
-      // Colis spécial « au poids + taxe » : on montre les deux parts, puis le total.
-      const prixCell = tax > 0 ? `${prixLbCell} + taxe ${tax.toFixed(2)}` : prixLbCell;
+      // Colonne « Taxe » : la taxe ajoutée sur ce colis (sinon « — »). Le montant
+      // de la ligne = prix shipping + taxe.
+      const prixCell = tax > 0 ? tax.toFixed(2) : "—";
       const montant = tax > 0 ? Number(k.total ?? Number(k.price) + tax) : Number(k.price);
       return [
         String(i + 1),

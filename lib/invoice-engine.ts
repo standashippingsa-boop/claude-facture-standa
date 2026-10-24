@@ -62,6 +62,12 @@ export interface InvoiceInput {
    * sou liy li. De pati yo rete apa (price / tax) sou fakti a.
    */
   specialSurcharges?: Record<string, number>;
+  /**
+   * TAXE PAR COLIS (n'importe quel colis) : { [pkg.id]: taxe USD }. Le prix
+   * shipping du colis ne change pas (poids, petit colis, forfait) ; la taxe
+   * s'ajoute sur sa ligne et apparaît dans la colonne « Taxe » de la facture.
+   */
+  packageTaxes?: Record<string, number>;
   fraisDga: number;                          // 0 si dezaktive
   discount: number;                          // 0 si dezaktive
 
@@ -97,7 +103,10 @@ export interface InvoiceLine {
  */
 export function invoiceLineContent(line: InvoiceLine): string {
   const content = String(line.pkg.content ?? "").trim();
-  if (line.surcharge > 0) return [content, `Colis spécial — taxe ${line.surcharge.toFixed(2)} USD`].filter(Boolean).join(" — ");
+  if (line.surcharge > 0) {
+    const label = line.isFixed && line.fixedLabel.startsWith("Colis spécial") ? line.fixedLabel : "";
+    return [content, label, `Taxe ${line.surcharge.toFixed(2)} USD`].filter(Boolean).join(" — ");
+  }
   if (!line.isFixed || !line.fixedLabel.startsWith("Colis spécial")) return content;
   return [content, line.fixedLabel].filter(Boolean).join(" — ");
 }
@@ -153,6 +162,7 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   const { client, pkgs, rate, smallCfg, mode, taxeFixe, fraisDga, discount } = input;
   const fixedPrices: FixedPriceMap = input.fixedPrices ?? {};
   const surcharges: Record<string, number> = input.specialSurcharges ?? {};
+  const packageTaxes: Record<string, number> = input.packageTaxes ?? {};
   const errors: string[] = [];
 
   // ---- DOUBLE VALIDATION (§3) ----
@@ -188,6 +198,11 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
       const sc = Number(surcharges[p.id]);
       if (!Number.isFinite(sc) || sc < 0) errors.push(`Taxe invalide pour le colis spécial ${p.tracking_number || p.id}.`);
     }
+  }
+  for (const p of pkgs) {
+    if (!(p.id in packageTaxes)) continue;
+    const tx = Number(packageTaxes[p.id]);
+    if (!Number.isFinite(tx) || tx < 0) errors.push(`Taxe invalide pour le colis ${p.tracking_number || p.id}.`);
   }
   // Frè yo dwe valab (pa negatif, se nonm)
   const taxe = round2(Math.max(0, Number(taxeFixe) || 0));
@@ -241,7 +256,8 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
 
   // Koli a FÒFÈ (atik a pri fiks) vs koli ki fakti PA LIV
   const isFix = (p: Pkg) => !!fixedPrices[p.id];
-  const surchargeOf = (p: Pkg) => !isFix(p) && p.id in surcharges ? round2(Math.max(0, Number(surcharges[p.id]) || 0)) : 0;
+  const extraTaxOf = (p: Pkg) => p.id in packageTaxes ? round2(Math.max(0, Number(packageTaxes[p.id]) || 0)) : 0;
+  const surchargeOf = (p: Pkg) => round2((!isFix(p) && p.id in surcharges ? round2(Math.max(0, Number(surcharges[p.id]) || 0)) : 0) + extraTaxOf(p));
   const totalSurcharges = round2(pkgs.reduce((s, p) => s + surchargeOf(p), 0));
   const auPoids = pkgs.filter((p) => !isFix(p));
   const forfaits = round2(pkgs.filter(isFix).reduce((s, p) => s + round2(fixedPrices[p.id].price), 0));
@@ -263,8 +279,9 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
     lines = pkgs.map((p) => {
       if (isFix(p)) {
         const f = fixedPrices[p.id];
+        const tax = surchargeOf(p);
         return { pkg: p, weight: w(p), perLb: 0, isSmall: false,
-                 isFixed: true, fixedLabel: f.label, surcharge: 0, amount: round2(f.price) };
+                 isFixed: true, fixedLabel: f.label, surcharge: tax, amount: round2(f.price + tax) };
       }
       vus++;
       const last = vus === auPoids.length;
@@ -278,8 +295,9 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
     lines = pkgs.map((p) => {
       if (isFix(p)) {
         const f = fixedPrices[p.id];
+        const tax = surchargeOf(p);
         return { pkg: p, weight: w(p), perLb: 0, isSmall: false,
-                 isFixed: true, fixedLabel: f.label, surcharge: 0, amount: round2(f.price) };
+                 isFixed: true, fixedLabel: f.label, surcharge: tax, amount: round2(f.price + tax) };
       }
       const surcharge = surchargeOf(p);
       // Yon colis spécial « au poids + taxe » pa janm pran tarif ti koli.

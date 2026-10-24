@@ -98,6 +98,9 @@ export default function InvoiceDialog({
   /** Mòd tarif chak colis spécial: "manual" (pri fiks) oswa "weight" (pa liv + taks). */
   const [specialModes, setSpecialModes] = useState<Record<string, "manual" | "weight">>({});
   const [specialTaxes, setSpecialTaxes] = useState<Record<string, string>>({});
+  // Taxe ajoutée sur n'importe quel colis (colonne « Taxe » de la facture).
+  const [packageTaxInputs, setPackageTaxInputs] = useState<Record<string, string>>({});
+  const [showPackageTaxes, setShowPackageTaxes] = useState(false);
   /** Kont santral: lis vil yo + vil ki chwazi pou fakti sa a. */
   const [centralCode, setCentralCode] = useState("");
   const [villes, setVilles] = useState<Ville[]>([]);
@@ -206,6 +209,13 @@ export default function InvoiceDialog({
       price: specialPriceValue(pkg.id)
     };
   }
+  const packageTaxes: Record<string, number> = {};
+  for (const [pkgId, raw] of Object.entries(packageTaxInputs)) {
+    const clean = String(raw ?? "").trim().replace(",", ".");
+    if (clean === "") continue;
+    packageTaxes[pkgId] = Number.isFinite(Number(clean)) ? Number(clean) : -1;
+  }
+  const packageTaxKey = JSON.stringify(packageTaxes);
   const fixedKey = JSON.stringify(fixedSel);
   const specialPriceKey = JSON.stringify([specialPrices, specialModes, specialTaxes]);
 
@@ -213,7 +223,7 @@ export default function InvoiceDialog({
   useEffect(() => {
     if (!ready || !pkgs.length) { setComp(null); return; }
     setComp(computeInvoice({
-      client: effClient, pkgs, rate, smallCfg, mode: calcMode, fixedPrices, specialSurcharges,
+      client: effClient, pkgs, rate, smallCfg, mode: calcMode, fixedPrices, specialSurcharges, packageTaxes,
       taxeFixe: useTaxe ? Number(taxeVal) || 0 : 0,
       fraisDga: useDga ? Number(fraisDga) || 0 : 0,
       discount: useDisc ? Number(discount) || 0 : 0,
@@ -224,7 +234,7 @@ export default function InvoiceDialog({
       orderFeeTiers: feeTiers
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, rate, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount, fixedKey, specialPriceKey, articles, villeId, centralCode,
+  }, [ready, rate, calcMode, useTaxe, taxeVal, useDga, fraisDga, useDisc, discount, fixedKey, specialPriceKey, packageTaxKey, articles, villeId, centralCode,
       kind, orderPurchase, orderDeposit, orderCur, feeTiers]);
 
   /**
@@ -600,6 +610,34 @@ export default function InvoiceDialog({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* TAXE PAR COLIS — s'ajoute au prix shipping, colonne « Taxe » de la facture */}
+        {pkgs.length > 0 && (
+          <div className="border border-line rounded-lg p-3 mb-3">
+            <button type="button" onClick={() => setShowPackageTaxes((open) => !open)} className="flex w-full items-center justify-between gap-2 text-left">
+              <span className="text-xs font-bold text-navy uppercase">Taxe sur un colis</span>
+              <span className="text-[11px] font-semibold text-navy">{Object.keys(packageTaxes).length ? `${Object.keys(packageTaxes).length} colis taxé${Object.keys(packageTaxes).length > 1 ? "s" : ""}` : showPackageTaxes ? "Fermer" : "Ajouter"}</span>
+            </button>
+            {showPackageTaxes && <>
+              <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">Le prix shipping du colis ne change pas : la taxe s&apos;ajoute sur sa ligne et apparaît dans la colonne « Taxe » de la facture.</p>
+              <div className="mt-2 max-h-52 overflow-y-auto divide-y divide-line">
+                {pkgs.map((p) => (
+                  <label key={p.id} className="flex items-center gap-2 py-1.5">
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-mono text-[11px] font-semibold text-ink truncate">{p.tracking_number}</span>
+                      <span className="block text-[10px] text-slate-400 truncate">{p.content || "—"} · {Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : "—"}</span>
+                    </span>
+                    <input type="number" inputMode="decimal" step="0.01" min="0" placeholder="0.00"
+                      aria-label={`Taxe pour ${p.tracking_number}`}
+                      className="input !w-24 !py-1 text-right text-[12px] font-bold shrink-0"
+                      value={packageTaxInputs[p.id] ?? ""}
+                      onChange={(event) => setPackageTaxInputs((previous) => ({ ...previous, [p.id]: event.target.value }))} />
+                  </label>
+                ))}
+              </div>
+            </>}
           </div>
         )}
 
