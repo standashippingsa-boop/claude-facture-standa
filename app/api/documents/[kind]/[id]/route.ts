@@ -58,7 +58,7 @@ async function agentCanReadBon(db: any, staff: Staff, bon: { id: string; destina
  * de rôle et, pour les clients/agents, de propriété de la zone.
  */
 export async function GET(req: Request, context: RouteContext) {
-  const rl = rateLimit(`secure-document:${clientIp(req)}`, 80, 60_000);
+  const rl = rateLimit(`secure-document:${clientIp(req)}`, 1000, 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   const { kind, id } = await context.params;

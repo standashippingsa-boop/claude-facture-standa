@@ -56,7 +56,7 @@ function agentName(agent: Agent) {
 const EN_ROUTE_DEPUIS_MIAMI = ["Reçu à Miami", "En préparation", "En transit"];
 
 export async function POST(req: Request) {
-  const rl = rateLimit("reception:" + clientIp(req), 60, 60000);
+  const rl = rateLimit("reception:" + clientIp(req), 600, 60000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   const ctx = await contextFor(req);

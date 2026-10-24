@@ -91,7 +91,7 @@ function buildBalanceAnswer(lang: Lang, balanceLines: string[], totalRemainingUs
 
 export async function POST(req: Request) {
   const ip = clientIp(req);
-  const rlIp = rateLimit(`daha-chat:ip:${ip}`, 30, 10 * 60_000);
+  const rlIp = rateLimit(`daha-chat:ip:${ip}`, 600, 10 * 60_000);
   if (!rlIp.ok) return tooMany(rlIp.retryAfter);
 
   try {

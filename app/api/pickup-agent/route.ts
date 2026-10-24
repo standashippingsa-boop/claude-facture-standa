@@ -238,7 +238,7 @@ async function writeAudit(db: any, req: Request, agent: Agent, action: string, d
 }
 
 export async function GET(req: Request) {
-  const rl = rateLimit("pickup-agent:read:" + clientIp(req), 120, 60_000);
+  const rl = rateLimit("pickup-agent:read:" + clientIp(req), 600, 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
   try {
     const context = await contextFor(req);
@@ -476,7 +476,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const rl = rateLimit("pickup-agent:write:" + clientIp(req), 30, 60_000);
+  const rl = rateLimit("pickup-agent:write:" + clientIp(req), 300, 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
   try {
     const context = await contextFor(req);

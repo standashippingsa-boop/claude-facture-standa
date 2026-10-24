@@ -181,8 +181,28 @@ export default function EspaceClientPage() {
   const [pushState, setPushState] = useState<"on" | "off" | "denied" | "unsupported">("off");
   const [retraitConfirmedCount, setRetraitConfirmedCount] = useState<number | null>(null);
 
-  const load = async () => {
-    const { data } = await supabase.auth.getUser();
+  // Un seul chargement à la fois : sur un réseau lent, les rechargements
+  // automatiques ne s'empilent plus (c'était la cause des écrans figés).
+  const loadingRef = useRef(false);
+  const lastLoadRef = useRef(0);
+  const pendingLoadRef = useRef(false);
+  const load = async (): Promise<void> => {
+    // Déjà en cours : on note qu'un nouveau chargement est demandé (après une
+    // action du client) et on le lance dès que le premier est fini.
+    if (loadingRef.current) { pendingLoadRef.current = true; return; }
+    loadingRef.current = true;
+    lastLoadRef.current = Date.now();
+    try { await loadNow(); } finally {
+      loadingRef.current = false;
+      if (pendingLoadRef.current) { pendingLoadRef.current = false; void load(); }
+    }
+  };
+  const loadNow = async () => {
+    // Session lue sur l'appareil (aucune requête) ; le serveur d'auth n'est
+    // appelé que s'il n'y a pas de session locale. Avec 1000 clients, cela
+    // évite 1000 appels par minute au service de connexion.
+    const local = (await supabase.auth.getSession()).data.session?.user ?? null;
+    const data = local ? { user: local } : (await supabase.auth.getUser()).data;
     if (!data.user) { router.replace("/espace-client/connexion"); return; }
     const userId = data.user.id;
     const metadata = (data.user.user_metadata ?? {}) as Record<string, unknown>;
@@ -275,7 +295,8 @@ export default function EspaceClientPage() {
    * 60 segond pandan app la louvri. Silansye: pa gen spinner, pa gen toast.
    */
   useEffect(() => {
-    const silent = () => { if (document.visibilityState === "visible") load(); };
+    // Retour sur l'app : rechargement seulement si le dernier date de plus de 15 s.
+    const silent = () => { if (document.visibilityState === "visible" && Date.now() - lastLoadRef.current > 15000) void load(); };
     document.addEventListener("visibilitychange", silent);
     window.addEventListener("focus", silent);
     const timer = setInterval(silent, 60000);

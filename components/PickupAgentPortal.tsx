@@ -151,11 +151,21 @@ export default function PickupAgentPortal() {
   }, [router]);
 
   useEffect(() => { void load(); }, [load]);
+  // Mise à jour automatique : toutes les 20 s quand l'app est à l'écran, jamais
+  // deux chargements en même temps (sur un réseau lent, ils s'empilaient et
+  // l'écran se figeait).
+  const refreshingRef = useRef(false);
   useEffect(() => {
-    const refresh = () => void load(true);
-    const timer = window.setInterval(refresh, 5_000);
-    window.addEventListener("focus", refresh);
-    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+    const refresh = async () => {
+      if (refreshingRef.current || document.visibilityState !== "visible") return;
+      refreshingRef.current = true;
+      try { await load(true); } finally { refreshingRef.current = false; }
+    };
+    const timer = window.setInterval(() => void refresh(), 20_000);
+    const onVisible = () => void refresh();
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", onVisible); document.removeEventListener("visibilitychange", onVisible); };
   }, [load]);
 
   /** Bannière d'accueil + état affiché dans Paramètres. */

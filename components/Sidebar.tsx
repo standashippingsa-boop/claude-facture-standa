@@ -63,7 +63,7 @@ export default function Sidebar({ staff }: { staff?: Staff | null }) {
     const check = () => getPendingRetraitsCount().then((n) => { if (!cancelled) setPendingRetraits(n); }).catch(() => undefined);
     const onVisible = () => { if (document.visibilityState === "visible") check(); };
     check();
-    const timer = setInterval(check, 30000);
+    const timer = setInterval(() => { if (document.visibilityState === "visible") check(); }, 30000);
     document.addEventListener("visibilitychange", onVisible);
     return () => { cancelled = true; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, []);

@@ -65,7 +65,7 @@ async function selectParcels(build: (columns: string) => any): Promise<{ data: P
 }
 
 export async function GET(req: Request) {
-  const rl = rateLimit(`remise-ticket:${clientIp(req)}`, 60, 60_000);
+  const rl = rateLimit(`remise-ticket:${clientIp(req)}`, 600, 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {

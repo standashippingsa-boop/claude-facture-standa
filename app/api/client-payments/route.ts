@@ -16,7 +16,7 @@ import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
  * ne renvoie que les champs utiles (ni caissier, ni référence de transaction).
  */
 export async function POST(req: Request) {
-  const rl = rateLimit(`client-payments:${clientIp(req)}`, 40, 60_000);
+  const rl = rateLimit(`client-payments:${clientIp(req)}`, 1500, 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {

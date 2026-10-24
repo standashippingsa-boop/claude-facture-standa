@@ -57,7 +57,7 @@ export default function AffiliatePortalPage() {
       setError(null);
     }).catch(() => { if (active) setError("Impossible de charger votre espace."); });
     void load();
-    const refresh = window.setInterval(() => void load(), 30000);
+    const refresh = window.setInterval(() => { if (document.visibilityState === "visible") void load(); }, 30000);
     return () => { active = false; window.clearInterval(refresh); };
   }, [router]);
 

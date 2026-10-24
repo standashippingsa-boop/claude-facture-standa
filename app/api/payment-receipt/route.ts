@@ -18,7 +18,7 @@ function receiptNumber(paymentId: string, createdAt: string) {
 
 /** Reçu consultable et imprimable, protégé pour l'admin et l'agent concerné. */
 export async function GET(req: Request) {
-  const rl = rateLimit(`payment-receipt:${clientIp(req)}`, 60, 60_000);
+  const rl = rateLimit(`payment-receipt:${clientIp(req)}`, 600, 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {
