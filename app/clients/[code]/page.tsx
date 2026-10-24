@@ -211,6 +211,16 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     }
     const targets = selected.filter((p) => p.status !== "Facturé" || bulkStatus === "Livré");
     if (!targets.length) { setNotice("Chwazi koli."); return; }
+    // Garde-fou : remettre un colis jamais facturé le fait sortir de la liste
+    // à facturer. On demande une confirmation explicite.
+    if (bulkStatus === "Livré") {
+      const nonFactures = targets.filter((p) => !p.invoice_id);
+      if (nonFactures.length && !confirm(
+        `Attention : ${nonFactures.length} colis sélectionné(s) ne sont PAS encore facturés.\n\n` +
+        `Si vous continuez, ils passeront en « Livré » et ne seront plus proposés à la facturation.\n\n` +
+        `Confirmer la remise sans facture ?`
+      )) return;
+    }
     setBusy(true);
     try {
       await setPackagesStatus(targets.map((p) => p.id), bulkStatus);
