@@ -30,10 +30,10 @@ const MEDIA_PATH = /^uploads\/\d{4}-\d{2}-\d{2}\/[0-9a-f-]{36}\.(jpg|png|webp|mp
 async function requireAdmin(token: string) {
   const config = getSupabaseAdminConfig();
   if (!config) return { ok: false as const, status: 503, reason: "Service indisponible." };
-  if (!token) return { ok: false as const, status: 401, reason: "Session expirée. Reconnectez-vous." };
+  if (!token) return { ok: false as const, status: 401, reason: "Session expirée. Veuillez vous reconnecter." };
   const db: any = createClient(config.url, config.key, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: auth } = await db.auth.getUser(token);
-  if (!auth.user) return { ok: false as const, status: 401, reason: "Session expirée. Reconnectez-vous." };
+  if (!auth.user) return { ok: false as const, status: 401, reason: "Session expirée. Veuillez vous reconnecter." };
   const { data: staff } = await db.from("staff").select("username, prenom, nom, role").eq("auth_user_id", auth.user.id).maybeSingle();
   if (!staff || staff.role !== "admin") return { ok: false as const, status: 403, reason: "Accès administrateur requis." };
   const name = [staff.prenom, staff.nom].filter(Boolean).join(" ") || staff.username || "Administrateur";

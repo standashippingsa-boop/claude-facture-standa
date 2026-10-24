@@ -15,7 +15,7 @@ export async function openSecureDocument(kind: SecureDocumentKind, id: string): 
   const token = data.session?.access_token;
   if (!token) {
     preview?.close();
-    throw new Error("Session expirée. Reconnectez-vous puis réessayez.");
+    throw new Error("Session expirée. Veuillez vous reconnecter puis réessayez.");
   }
 
   const response = await fetch(`/api/documents/${kind}/${encodeURIComponent(id)}`, {

@@ -54,7 +54,7 @@ export default function WhatsAppQueue({ pkgs, onClose }: { pkgs: Pkg[]; onClose:
         </div>
 
         <p className="text-xs text-mute px-5 pt-3">
-          {codes.length} client(s) — cliquez « Ouvrir » pour chaque client : WhatsApp s&apos;ouvre avec
+          {codes.length} client(s), cliquez « Ouvrir » pour chaque client : WhatsApp s&apos;ouvre avec
           un message prêt, il ne reste qu&apos;à appuyer sur Envoyer.
         </p>
 
@@ -69,7 +69,7 @@ export default function WhatsAppQueue({ pkgs, onClose }: { pkgs: Pkg[]; onClose:
                 isSent ? "border-emerald-200 bg-emerald-50/50" : "border-line"}`}>
                 <div className="min-w-0">
                   <p className="font-semibold text-ink truncate">{c?.fullname ?? code}</p>
-                  <p className="text-[11px] text-mute">{code} · {list.length} colis · {c?.whatsapp || c?.phone || "— pas de numéro —"}</p>
+                  <p className="text-[11px] text-mute">{code} · {list.length} colis · {c?.whatsapp || c?.phone || "pas de numéro"}</p>
                 </div>
                 <button
                   className={`btn !py-1.5 !px-3 text-xs shrink-0 ${isSent ? "btn-ghost" : "!bg-emerald-600 hover:!bg-emerald-700"}`}

@@ -109,7 +109,7 @@ export default function ReviewSection() {
           <h2 className="mt-3 text-[30px] font-extrabold leading-tight tracking-tight sm:text-[40px]">Partagez votre expérience avec STANDA.</h2>
           <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/70">Vos commentaires nous aident à mieux accompagner chaque client.</p>
           <div className="mt-7 rounded-lg border border-white/10 bg-white/[.07] p-4 text-[13px] leading-relaxed text-white/75">
-            <span className="font-bold text-white">Aucun compte nécessaire.</span> Utilisez simplement votre prénom ou un pseudonyme ; votre adresse e-mail n&apos;est pas demandée.
+            <span className="font-bold text-white">Aucun compte nécessaire.</span> Utilisez simplement votre prénom ou un pseudonyme ; votre adresse électronique n&apos;est pas demandée.
           </div>
         </div>
 

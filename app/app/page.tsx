@@ -5,7 +5,7 @@ import SiteFooter from "@/components/site/SiteFooter";
 import StoreBadges from "@/components/site/StoreBadges";
 
 export const metadata: Metadata = {
-  title: "Application mobile — STANDA COMMERCIAL",
+  title: "Application mobile : STANDA COMMERCIAL",
   description: "Téléchargez l'application Standa pour suivre vos colis, vos factures et vos retraits directement depuis votre téléphone Android.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/app" }
@@ -20,8 +20,8 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  "Téléchargez le fichier ci-dessus depuis votre téléphone.",
-  "Ouvrez-le — Android demande d'autoriser l'installation. Appuyez sur « Paramètres » puis activez « Autoriser cette source ».",
+  "Téléchargez le fichier plus haut depuis votre téléphone.",
+  "Ouvrez le fichier : Android demande d'autoriser l'installation. Appuyez sur « Paramètres » puis activez « Autoriser cette source ».",
   "Revenez en arrière et appuyez sur « Installer »."
 ];
 
@@ -50,7 +50,7 @@ export default function AppPage() {
     <section className="mx-auto max-w-5xl px-5 py-14 sm:px-8 sm:py-16 lg:px-10 xl:px-6">
       <p className="text-[11px] font-bold uppercase tracking-[.19em] text-accent">Première installation</p>
       <h2 className="mt-4 text-balance text-[30px] font-black leading-[1.05] tracking-[-.04em] text-navy sm:text-[38px]">
-        Android demande une autorisation — c&apos;est normal.
+        Android demande une autorisation, c&apos;est normal.
       </h2>
       <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-mute">
         L&apos;application n&apos;est pas encore sur le Play Store : Android affiche un avertissement la première fois.
@@ -66,7 +66,7 @@ export default function AppPage() {
       </ol>
       <div className="mt-6 flex items-center gap-2 rounded-xl bg-mist px-4 py-3 text-[13px] text-mute">
         <Settings size={15} className="shrink-0 text-accent-dark" />
-        Un problème d&apos;installation ? Écrivez-nous sur <a href="/contact" className="font-bold text-accent-dark hover:underline">Contact</a>.
+        Un problème d&apos;installation ? Écrivez à STANDA sur <a href="/contact" className="font-bold text-accent-dark hover:underline">Contact</a>.
       </div>
     </section>
 

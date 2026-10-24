@@ -4,7 +4,7 @@ import { Check, Copy, Gift, Smartphone, Users } from "lucide-react";
 import { CLAIM_STATUS_LABEL, claimChallengeReward, requestChallengeEnrollment, type ChallengeMe } from "@/lib/challenge";
 
 const lb = (value: number | undefined | null) => `${Number(value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} lb`;
-const day = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "—";
+const day = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "";
 
 /**
  * Espace client → CHALLENGE DE NOËL.
@@ -59,7 +59,7 @@ export default function ChallengeView({ data, onChanged }: { data: ChallengeMe; 
         <p className="mt-1 text-xs text-white/70">Du {day(data.campaign.start_at)}{data.campaign.end_at ? ` au ${day(data.campaign.end_at)}` : ""}</p>
         <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/20 pt-3">
           <div><p className="text-[12px] text-white/75">Poids expédié</p><p className="text-xl font-extrabold">{lb(data.shipped_lbs)}</p></div>
-          <div><p className="text-[12px] text-white/75">Crédité au challenge</p><p className="text-xl font-extrabold">{data.sponsored ? "—" : lb(balances?.validated)}</p></div>
+          <div><p className="text-[12px] text-white/75">Crédité au challenge</p><p className="text-xl font-extrabold">{data.sponsored ? "" : lb(balances?.validated)}</p></div>
         </div>
         {data.sponsored && (
           <p className="mt-3 rounded-xl bg-white/15 px-3 py-2 text-[13px] leading-relaxed">Vos livres sont attribuées à votre parrain. Vos colis restent visibles dans votre espace.</p>
@@ -109,7 +109,7 @@ export default function ChallengeView({ data, onChanged }: { data: ChallengeMe; 
                 <div className="min-w-0"><p className="font-bold text-ink">{reward.model}</p><p className="text-xs text-mute">{lb(reward.target_lbs)}{reward.condition ? ` · ${reward.condition}` : ""}</p></div>
                 {reached
                   ? <button type="button" disabled={!!busy} onClick={() => void claim(reward.id, reward.model, reward.target_lbs)} className="min-h-10 shrink-0 rounded-xl bg-accent px-3.5 text-sm font-bold text-white disabled:opacity-50">{busy === reward.id ? "…" : "Demander"}</button>
-                  : <span className="shrink-0 text-xs font-semibold text-mute">{data.sponsored ? "—" : `encore ${lb(reward.target_lbs - (balances?.available ?? 0))}`}</span>}
+                  : <span className="shrink-0 text-xs font-semibold text-mute">{data.sponsored ? "" : `encore ${lb(reward.target_lbs - (balances?.available ?? 0))}`}</span>}
               </div>
             );
           })}

@@ -22,16 +22,16 @@ export default function PublicTarifs() {
       .catch(() => setError(true));
   }, []);
 
-  if (error) return <p className="text-[14px] text-slate-500">Les tarifs sont momentanément indisponibles. Contactez-nous sur WhatsApp.</p>;
+  if (error) return <p className="text-[14px] text-slate-500">Les tarifs sont momentanément indisponibles. Contactez STANDA sur WhatsApp.</p>;
   if (!state) return <div className="h-40 animate-pulse rounded-2xl bg-slate-100" />;
 
   return (
     <div className="space-y-3">
       <ul className="space-y-2 text-[14px] leading-relaxed text-slate-600">
-        <li>• Le prix correspond au <b>poids du colis × tarif de votre ville</b> (tableau ci-dessous).</li>
+        <li>• Le prix correspond au <b>poids du colis × tarif de votre ville</b> (tableau plus bas).</li>
         {state.petitColis && <li>• Petit colis entre <b>{state.petitColis.min} et {state.petitColis.max} lb</b> : prix fixe de <b>{usd(state.petitColis.price)}</b>.</li>}
         <li>• À partir de <b>{TAX_THRESHOLD_LB} lb</b> au total, une taxe fixe de <b>{usd(TAX_FIXED_USD)}</b> s&apos;applique.</li>
-        <li>• Certains articles comme les téléphones, ordinateurs portables et appareils photo ont un <b>prix forfaitaire</b> — le poids ne s&apos;applique pas.</li>
+        <li>• Certains articles comme les téléphones, ordinateurs portables et appareils photo ont un <b>prix forfaitaire</b> : le poids ne s&apos;applique pas.</li>
         <li>• Le prix affiché dans l&apos;application est une <b>estimation</b>. Le prix final est fixé après la pesée du colis à l&apos;entrepôt.</li>
       </ul>
       <div className="overflow-hidden rounded-2xl border border-line">
@@ -47,7 +47,7 @@ export default function PublicTarifs() {
         </table>
       </div>
       <p className="text-[13px] leading-relaxed text-slate-500">
-        Tarifs du <b>compte Personnel</b>. Le prix d&apos;un colis = son poids × le prix par livre de votre ville. Les comptes Business ont des conditions séparées : contactez-nous.
+        Tarifs du <b>compte Personnel</b>. Le prix d&apos;un colis = son poids × le prix par livre de votre ville. Les comptes Business ont des conditions séparées : contactez STANDA.
         Certains articles (téléphones, ordinateurs…) ou colis spéciaux peuvent avoir un prix fixe ou une taxe, toujours indiqués sur votre facture.
       </p>
     </div>

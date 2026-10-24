@@ -23,14 +23,14 @@ export async function POST(req: Request) {
     const token = text(body?.token) || (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
     const invoiceIds = readInvoiceIds(body, UUID);
     const parsed = readPaymentLines(body);
-    if (!token) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
+    if (!token) return NextResponse.json({ ok: false, reason: "Session expirée. Veuillez vous reconnecter." }, { status: 401 });
     if (!invoiceIds) return NextResponse.json({ ok: false, reason: "Choisissez au moins une facture." }, { status: 400 });
     if (!parsed.ok) return NextResponse.json({ ok: false, reason: parsed.reason }, { status: 400 });
     const lines = parsed.lines;
 
     const db: any = createClient(config.url, config.key, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: auth } = await db.auth.getUser(token);
-    if (!auth.user) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
+    if (!auth.user) return NextResponse.json({ ok: false, reason: "Session expirée. Veuillez vous reconnecter." }, { status: 401 });
     const { data: staff } = await db.from("staff").select("id, username, prenom, nom, role")
       .eq("auth_user_id", auth.user.id).maybeSingle();
     if (!staff || staff.role !== "admin") return NextResponse.json({ ok: false, reason: "Accès administrateur requis." }, { status: 403 });

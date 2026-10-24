@@ -72,7 +72,7 @@ export default function AffiliationPage() {
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email.trim())) {
-      setError("Adresse e-mail invalide. Vérifiez-la.");
+      setError("Adresse électronique invalide. Merci de la vérifier.");
       return;
     }
     if (f.phone.replace(/\D/g, "").length < 7) {
@@ -155,7 +155,7 @@ export default function AffiliationPage() {
             <div className="flex flex-col items-center gap-3 px-3 py-10 text-center">
               <span className="grid h-14 w-14 place-items-center rounded-2xl bg-emerald-100 text-emerald-600"><CheckCircle2 size={31} /></span>
               <h2 className="text-xl font-bold tracking-[-.01em] text-[#09295e]">Candidature envoyée</h2>
-              <p className="max-w-sm text-sm leading-[1.7] text-[#5c7192]">Merci. Notre équipe examinera votre candidature et vous répondra par e-mail.</p>
+              <p className="max-w-sm text-sm leading-[1.7] text-[#5c7192]">Merci. Notre équipe examinera votre candidature et vous répondra par courriel.</p>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
@@ -172,7 +172,7 @@ export default function AffiliationPage() {
 
               <div className="grid gap-3.5 sm:grid-cols-2 sm:gap-4">
                 <FormField label="Nom complet" required><Input icon={UserRound} value={f.fullname} onChange={set("fullname")} placeholder="Votre nom complet" autoComplete="name" required /></FormField>
-                <FormField label="Adresse e-mail" required><Input icon={Mail} type="email" value={f.email} onChange={set("email")} placeholder="exemple@courriel.com" autoComplete="email" required /></FormField>
+                <FormField label="Adresse électronique" required><Input icon={Mail} type="email" value={f.email} onChange={set("email")} placeholder="exemple@courriel.com" autoComplete="email" required /></FormField>
                 <FormField label="Téléphone" required><Input icon={Phone} type="tel" value={f.phone} onChange={set("phone")} placeholder="(509) 0000-0000" autoComplete="tel" required /></FormField>
                 <FormField label="WhatsApp"><Input icon={MessageCircle} type="tel" value={f.whatsapp} onChange={set("whatsapp")} placeholder="Numéro WhatsApp" autoComplete="tel" /></FormField>
                 <FormField label="Ville ou zone" required>
@@ -198,7 +198,7 @@ export default function AffiliationPage() {
                   />
                 </FormField>
                 <FormField label="Numéro de pièce" required><Input icon={CreditCard} value={f.id_number} onChange={set("id_number")} placeholder="Numéro de pièce d’identité" required /></FormField>
-                <div className="sm:col-span-2"><FormField label="Pourquoi souhaitez-vous devenir affilié ?"><textarea value={f.motivation} onChange={set("motivation")} rows={3} placeholder="Parlez-nous brièvement de votre réseau ou de votre expérience." className="w-full resize-y rounded-xl border border-[#d4dfed] bg-white px-3.5 py-3 text-sm font-normal leading-relaxed text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100" /></FormField></div>
+                <div className="sm:col-span-2"><FormField label="Pourquoi voulez vous devenir affilié ?"><textarea value={f.motivation} onChange={set("motivation")} rows={3} placeholder="Décrivez brièvement votre réseau ou votre expérience." className="w-full resize-y rounded-xl border border-[#d4dfed] bg-white px-3.5 py-3 text-sm font-normal leading-relaxed text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100" /></FormField></div>
               </div>
 
 
@@ -228,14 +228,14 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
       </div>
 
       <section className="mt-4 rounded-2xl bg-[#0b3675] p-4 text-white">
-        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-sky-200">Qu’est-ce que Standa Commercial ?</p>
+        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-sky-200">Qui est Standa Commercial ?</p>
         <p className="mt-2 text-[14px] leading-[1.7] text-white/90">
-          Standa Commercial est un service d’expédition de colis des États-Unis vers Haïti. Le client reçoit une adresse de dépôt à Miami et un code personnel, suit ses colis, puis les récupère dans son agence en Haïti.
+          Standa Commercial est un service d’expédition de colis des USA vers Haïti. Le client reçoit une adresse de dépôt à Miami et un code personnel, suit ses colis, puis les récupère dans son agence en Haïti.
         </p>
       </section>
 
       <section className="mt-4">
-        <h3 className="text-[17px] font-bold text-[#12386f]">Pourquoi ce programme existe-t-il ?</h3>
+        <h3 className="text-[17px] font-bold text-[#12386f]">Pourquoi ce programme ?</h3>
         <p className="mt-1.5 text-[14px] leading-[1.7] text-[#516b90]">
           Standa Commercial veut développer son réseau par la recommandation de personnes de confiance. Le programme permet à un affilié de faire connaître le service dans son entourage, tout en recevant une commission lorsque les personnes qu’il a référées utilisent réellement le service.
         </p>
@@ -257,7 +257,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
           <li className="flex gap-2"><Link2 size={16} className="mt-0.5 shrink-0 text-[#2563eb]" /><span><b className="text-[#0b3778]">Lien d’inscription :</b> il amène votre contact directement sur la page où il crée son compte client. C’est le plus simple quand la personne est prête.</span></li>
           <li className="flex gap-2"><Link2 size={16} className="mt-0.5 shrink-0 text-[#2563eb]" /><span><b className="text-[#0b3778]">Lien du site :</b> si la personne veut d’abord plus d’informations sur le service, ce lien l’amène sur le site www.standacommercialsa.com, où elle trouve tout. Si elle crée son compte ensuite depuis le site, sur le même téléphone et dans les 30 jours, elle reste rattachée à vous.</span></li>
         </ul>
-        <p className="mt-2.5 rounded-xl bg-orange-50 px-3 py-2 text-[12.5px] leading-[1.55] text-[#9a3a0e]">Partagez toujours l’un de vos deux liens : une personne qui tape elle-même l’adresse du site, sans votre lien, ne peut pas vous être rattachée.</p>
+        <p className="mt-2.5 rounded-xl bg-orange-50 px-3 py-2 text-[12.5px] leading-[1.55] text-[#9a3a0e]">Partagez toujours l’un de vos deux liens : une personne qui tape directement l’adresse du site, sans votre lien, ne peut pas vous être rattachée.</p>
       </section>
 
       <section className="mt-4 rounded-2xl border border-[#d7e7fb] bg-[#f7fbff] p-4">
@@ -287,7 +287,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
           Le client reçoit son adresse de dépôt à Miami et son code personnel. Lorsqu’il envoie un premier colis à cette adresse et que le colis est pris en charge dans le système, un signe « Service commencé » apparaît dans votre dossier. Vous savez alors qu’il utilise réellement Standa Commercial.
         </ProgramStep>
         <ProgramStep number="3" title="Une utilisation confirmée ajoute votre commission">
-          Lorsqu’une utilisation du service est confirmée par les opérations de Standa Commercial — par exemple, lors d’une expédition prise en charge ou d’un règlement confirmé — la commission prévue au contrat est ajoutée automatiquement à votre compte. Exemple : si la commission est de 10 USD, vous voyez 10 USD à recevoir.
+          Lorsqu’une utilisation du service est confirmée par les opérations de Standa Commercial, par exemple, lors d’une expédition prise en charge ou d’un règlement confirmé, la commission prévue au contrat est ajoutée automatiquement à votre compte. Exemple : si la commission est de 10 USD, vous voyez 10 USD à recevoir.
         </ProgramStep>
         <ProgramStep number="4" title="Vous suivez les paiements">
           Dans votre espace affilié, vous voyez le nom et le code du client, son étape actuelle, les commissions à recevoir et les commissions déjà payées. La liste se met à jour automatiquement : vous n’avez pas besoin de créer ces suivis à la main.
@@ -295,7 +295,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
       </ol>
 
       <section className="mt-5 rounded-2xl border border-orange-100 bg-orange-50/70 p-4">
-        <h3 className="text-[15px] font-semibold text-[#9a3a0e]">Comment la commission est-elle calculée ?</h3>
+        <h3 className="text-[15px] font-semibold text-[#9a3a0e]">Comment se calcule la commission ?</h3>
         <p className="mt-1.5 text-[13px] leading-[1.65] text-[#8a542f]">
           La commission ne se calcule pas pour chaque colis pris séparément. Elle correspond à une utilisation confirmée du service par un client que vous avez référé. Si plusieurs colis font partie de la même utilisation, ils ne créent pas plusieurs commissions. Si ce client utilise Standa Commercial de nouveau dans une autre utilisation confirmée, une nouvelle commission peut être ajoutée selon les conditions de votre contrat.
         </p>

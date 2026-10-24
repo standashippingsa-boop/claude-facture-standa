@@ -91,7 +91,7 @@ export default function ClientsPage() {
     setMerging(true);
     try {
       for (const sec of others) await mergeClients(primary, sec);
-      setNotice(`✅ Fusion fèt — ${others.length} kont doub efase, tout done yo sou ${primary.customer_code || primary.fullname}.`);
+      setNotice(`✅ Fusion fèt : ${others.length} kont doub efase, tout done yo sou ${primary.customer_code || primary.fullname}.`);
       setDups((prev) => (prev ?? []).filter((x) => x.key !== gr.key));
       load();
     } catch (e: any) { setNotice("Erè fusion: " + e.message); }
@@ -171,7 +171,7 @@ export default function ClientsPage() {
   };
 
   const remove = async (c: Client) => {
-    if (!confirm(`Efase client ${c.customer_code} — ${c.fullname}?`)) return;
+    if (!confirm(`Efase client ${c.customer_code} : ${c.fullname}?`)) return;
     await deleteClient(c.id!); load();
   };
 
@@ -196,7 +196,7 @@ export default function ClientsPage() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="h-page">Clients</h1>
-          <p className="text-sm text-mute mt-0.5">Gestion des clients — codes, villes et comptes</p>
+          <p className="text-sm text-mute mt-0.5">Gestion des clients, codes, villes et comptes</p>
         </div>
         <div className="flex gap-3">
           <button className="btn btn-ghost border border-line" onClick={scanDups} title="Detekte kliyan ki egziste 2 fwa">
@@ -225,9 +225,9 @@ export default function ClientsPage() {
               <thead><tr>{["Client", "Ville actuelle", "Agence actuelle", "Correction"].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
               <tbody>{zoneFixes.map((fix) => (
                 <tr key={fix.client.id ?? fix.client.customer_code}>
-                  <td className="td"><b className="text-navy">{fix.client.customer_code || "—"}</b> <span className="text-xs text-mute">{fix.client.fullname}</span></td>
-                  <td className="td text-xs">{fix.client.ville?.name ?? fix.client.city ?? "—"}</td>
-                  <td className="td text-xs">{fix.client.pickup_location || "—"}</td>
+                  <td className="td"><b className="text-navy">{fix.client.customer_code || ""}</b> <span className="text-xs text-mute">{fix.client.fullname}</span></td>
+                  <td className="td text-xs">{fix.client.ville?.name ?? fix.client.city ?? ""}</td>
+                  <td className="td text-xs">{fix.client.pickup_location || ""}</td>
                   <td className="td text-xs">{Object.keys(fix.patch).length
                     ? <span className="text-emerald-700 font-semibold">→ {fix.ville?.name}{fix.pickup ? ` · ${fix.pickup}` : ""}</span>
                     : null}
@@ -239,7 +239,7 @@ export default function ClientsPage() {
         </section>
       )}
 
-      <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Code, nom, téléphone, WhatsApp, e-mail…"
+      <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Code, nom, téléphone, WhatsApp, courriel…"
         resultCount={filtered.length} onClear={clearFilters}
         fields={[
           { key: "city", label: "Ville", type: "select", value: cityF, onChange: setCityF, options: villes.flatMap((ville) => ville.id ? [{ value: ville.id, label: ville.name }] : []) },
@@ -268,7 +268,7 @@ export default function ClientsPage() {
             <label className="block">
               <span className="text-xs font-medium text-slate-500">Ville *</span>
               <select className="input mt-1" {...register("ville_id")}>
-                <option value="">— Chwazi vil la —</option>
+                <option value="">Chwazi vil la</option>
                 {villes.filter((v) => v.active || v.id === editing?.ville_id).map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.name}{!v.active ? " · inactif" : ""}
@@ -277,7 +277,7 @@ export default function ClientsPage() {
               </select>
               {errors.ville_id && <span className="text-xs text-red-600">{errors.ville_id.message}</span>}
               {villes.length === 0 && (
-                <span className="text-xs text-amber-600">Poko gen vil — ajoute yo nan Paramètres &gt; Tarification.</span>
+                <span className="text-xs text-amber-600">Poko gen vil, ajoute yo nan Paramètres &gt; Tarification.</span>
               )}
             </label>
             {(() => {
@@ -336,7 +336,7 @@ export default function ClientsPage() {
                     <Link className="hover:underline" href={withReturnTo(`/clients/${encodeURIComponent(c.customer_code)}`, pathname)}>
                       {c.customer_code}
                     </Link>
-                  ) : <span className="text-slate-400 font-normal text-xs">— pa gen kòd —</span>}
+                  ) : <span className="text-slate-400 font-normal text-xs">pa gen kòd</span>}
                 </td>
                 <td className="tdc max-w-[130px] truncate" title={[c.fullname, c.surname].filter(Boolean).join(" ")}>
                   {[c.fullname, c.surname].filter(Boolean).join(" ")}</td>
@@ -403,15 +403,15 @@ export default function ClientsPage() {
               <button className="text-slate-400 hover:text-navy" onClick={() => setDups(null)}><X size={18} /></button>
             </div>
             {dups.length === 0 ? (
-              <p className="text-sm text-slate-500 py-6 text-center">✅ Pa gen okenn kliyan an doub — tout kont yo pwòp.</p>
+              <p className="text-sm text-slate-500 py-6 text-center">✅ Pa gen okenn kliyan an doub, tout kont yo pwòp.</p>
             ) : dups.map((gr) => (
               <div key={gr.key} className="border border-line rounded-lg p-4 space-y-2">
-                <p className="text-xs font-semibold text-amber-700">Menm {gr.reason} — chwazi kont pou KENBE a:</p>
+                <p className="text-xs font-semibold text-amber-700">Menm {gr.reason} : chwazi kont pou KENBE a:</p>
                 {gr.clients.map((c) => (
                   <label key={c.id} className="flex items-center gap-3 text-sm py-1 cursor-pointer">
                     <input type="radio" name={`g-${gr.key}`} checked={primaryPick[gr.key] === c.id}
                       onChange={() => setPrimaryPick((p) => ({ ...p, [gr.key]: c.id! }))} />
-                    <span className="font-bold text-navy w-28">{c.customer_code || "— san kòd —"}</span>
+                    <span className="font-bold text-navy w-28">{c.customer_code || "san kòd"}</span>
                     <span className="flex-1 truncate">{[c.fullname, c.surname].filter(Boolean).join(" ")}</span>
                     <span className="text-xs text-slate-400 truncate max-w-[140px]">{c.email || c.whatsapp || c.phone}</span>
                     <span className={`badge ${c.account_status === "Actif" || !c.account_status
@@ -474,7 +474,7 @@ export default function ClientsPage() {
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide">
-                Créer un compte MCPACK — {[mcClient.fullname, mcClient.surname].filter(Boolean).join(" ")}
+                Créer un compte MCPACK{[mcClient.fullname, mcClient.surname].filter(Boolean).join(" ")}
               </h2>
               <button className="text-slate-400 hover:text-navy" onClick={() => setMcClient(null)}><X size={18} /></button>
             </div>
@@ -496,7 +496,7 @@ export default function ClientsPage() {
                 .map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4 px-3 py-2">
                   <span className="text-slate-500 text-xs">{k}</span>
-                  <span className="font-semibold text-right select-all">{v || "—"}</span>
+                  <span className="font-semibold text-right select-all">{v || ""}</span>
                 </div>
               ))}
             </div>

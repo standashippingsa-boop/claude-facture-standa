@@ -107,7 +107,7 @@ export default function InvoicesPage() {
       `Colis : ${inv.package_count}
 
 ` +
-      `➜ Les colis redeviendront « Disponible » et pourront être re-facturés.
+      `➜ Les colis redeviendront « Disponible » et pourront être refacturés.
 ` +
       `➜ La facture sera supprimée définitivement.
 ` +
@@ -117,7 +117,7 @@ export default function InvoicesPage() {
     try {
       const r = await cancelInvoice(inv.id);
       if (r.ok) {
-        setNotice(`✅ Facture ${inv.invoice_number} annulée — ${r.restored} colis remis en « Disponible ».`);
+        setNotice(`✅ Facture ${inv.invoice_number} annulée : ${r.restored} colis remis en « Disponible ».`);
         setInvoices((prev) => prev.filter((x) => x.id !== inv.id));
       } else {
         setNotice("Erè anilasyon: " + (r.reason ?? "inconnue"));
@@ -148,7 +148,7 @@ export default function InvoicesPage() {
       });
       const result = await response.json().catch(() => ({ ok: false, reason: "Réponse du serveur illisible. Actualisez avant de réessayer." }));
       if (!response.ok || !result.ok) throw new Error(result.reason || "Paiement impossible.");
-      setNotice(`✅ Paiement enregistré — ${payload.summary}\n${invoiceStatusLines(result.payments ?? [])}`);
+      setNotice(`✅ Paiement enregistré : ${payload.summary}\n${invoiceStatusLines(result.payments ?? [])}`);
       setPaymentTarget(null);
       await load();
     } catch (e: unknown) {
@@ -221,7 +221,7 @@ export default function InvoicesPage() {
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr>{["Date", "No Facture", "Code client", "Nom du client", "Sous-total", "Tax", "Total USD", "Taux", "Total HTG", "Paiement", "Actions"]
+          <thead><tr>{["Date", "No Facture", "Code client", "Nom du client", "Total partiel", "Tax", "Total USD", "Taux", "Total HTG", "Paiement", "Actions"]
             .map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody>
             {filtered.length === 0 ? (
@@ -247,7 +247,7 @@ export default function InvoicesPage() {
                 <td className="td whitespace-nowrap">
                   <button title="Voir" className="text-navy hover:text-navy-light mr-3" onClick={() => voir(f)}><Eye size={16} /></button>
                   <button title="Télécharger" className="text-navy hover:text-navy-light mr-3" onClick={() => telecharger(f)}><Download size={16} /></button>
-                  <button title="Ré-imprimer" className="text-navy hover:text-navy-light mr-3" onClick={() => imprimer(f)}><Printer size={16} /></button>
+                  <button title="Réimprimer" className="text-navy hover:text-navy-light mr-3" onClick={() => imprimer(f)}><Printer size={16} /></button>
                   <button title="Envoyer sur WhatsApp" className="text-[#128C4B] hover:text-[#25D366]" onClick={() => envoyer(f)}><Send size={16} /></button>
                   {role === "admin" && remaining > 0.01 && (
                     <button title="Enregistrer un paiement"

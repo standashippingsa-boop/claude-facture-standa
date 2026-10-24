@@ -88,7 +88,7 @@ export default function SettingsPage() {
       let extra = "";
       if (editing) {
         const n = await reapplyTarifDisponible();
-        extra = n > 0 ? ` — ${n} colis Disponible re-tarifés automatiquement.` : "";
+        extra = n > 0 ? ` : ${n} colis Disponible recalculés automatiquement.` : "";
       }
       setShowForm(false);
       setNotice(`✅ Ville "${f.name}" ${editing ? "modifiée" : "ajoutée"} avec succès.${extra}`);
@@ -176,11 +176,10 @@ export default function SettingsPage() {
         </div>
         <p className="text-xs text-slate-500">
           Tout tarif yo an <b>USD</b>. Pri = Pwa × Prix/lb + Frais fixe.
-          Tax = Pwa × Tax/lb. Chak kliyan lye ak yon vil ak yon tip kont —
-          lè w chanje tarif yon vil, tout <b>nouvo</b> fakti itilize nouvo tarif la otomatikman.
+          Tax = Pwa × Tax/lb. Chak kliyan lye ak yon vil ak yon tip kont, lè w chanje tarif yon vil, tout <b>nouvo</b> fakti itilize nouvo tarif la otomatikman.
         </p>
         <p className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2">
-          <b>Petits colis 0,10–0,99 lb :</b> yo kalkile <b>Pwa × Prix/lb</b> vil la,
+          <b>Petits colis 0,10 à 0,99 lb :</b> yo kalkile <b>Pwa × Prix/lb</b> vil la,
           menm jan ak tout lòt koli. Ex: 3.99 USD/lb × 0.60 lb = 2.39 USD.
         </p>
 
@@ -190,7 +189,7 @@ export default function SettingsPage() {
               {editing ? `Modifier ${editing.name}` : "Nouvelle ville"}
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {([["name", "Ville *", "Ex: Port-au-Prince"],
+              {([["name", "Ville *", "Ex. : Gonaïves"],
                  ["price_personal", "Prix Personnel / lb (USD) *", "1.90"],
                  ["price_business", "Prix Business / lb (USD) *", "1.60"],
                  ["tax_personal", "Taxe Personnel / lb (USD)", "0.20"],
@@ -229,7 +228,7 @@ export default function SettingsPage() {
                   <td className="td">{usd(v.price_business)}</td>
                   <td className="td">{usd(v.tax_personal)}</td>
                   <td className="td">{usd(v.tax_business)}</td>
-                  <td className="td">{Number(v.fixed_fee) ? usd(v.fixed_fee) : "—"}</td>
+                  <td className="td">{Number(v.fixed_fee) ? usd(v.fixed_fee) : ""}</td>
                   <td className="td">
                     <button onClick={() => toggle(v)}
                       className={`badge cursor-pointer ${v.active
@@ -253,8 +252,7 @@ export default function SettingsPage() {
       <section className="card p-5 space-y-3">
         <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Taux de change</h2>
         <p className="text-xs text-slate-500">
-          Tout <b>nouvo</b> fakti itilize taux sa a. Ansyen fakti yo pa chanje —
-          taux ki te itilize lè yo te kreye a rete anrejistre nan bazdone a.
+          Tout <b>nouvo</b> fakti itilize taux sa a. Ansyen fakti yo pa chanje, taux ki te itilize lè yo te kreye a rete anrejistre nan bazdone a.
         </p>
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-navy">1 USD =</span>
@@ -276,7 +274,7 @@ export default function SettingsPage() {
         <p className="text-xs text-slate-500 bg-mist rounded-lg px-3 py-2 leading-relaxed">
           ℹ️ Kliyan biznis ki <b>poko gen pwòp kont yo</b> pase sou kont sa a. Li pa mare ak yon
           sèl vil: li parèt nan <b>nenpòt Bon de Remise</b>, epi lè w ap fakti, ou chwazi vil
-          destinasyon an — se tarif vil sa a ki aplike.
+          destinasyon an, se tarif vil sa a ki aplike.
         </p>
         <label className="block">
           <span className="text-xs font-medium text-slate-500">Code du compte central</span>
@@ -300,7 +298,7 @@ export default function SettingsPage() {
       <section className="card p-5 space-y-3">
         <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Articles à prix fixe</h2>
         <p className="text-xs text-slate-500 bg-mist rounded-lg px-3 py-2 leading-relaxed">
-          ℹ️ Kèk koli pa fakti pa liv — yon laptòp 4 lb pa gen menm valè ak 4 lb rad.
+          ℹ️ Kèk koli pa fakti pa liv, yon laptòp 4 lb pa gen menm valè ak 4 lb rad.
           Atik ki nan lis sa a parèt nan fenèt fakti a: admin chwazi atik la pou yon koli,
           epi se <b>pri fòfè</b> a ki aplike.
         </p>
@@ -326,7 +324,7 @@ export default function SettingsPage() {
             </div>
           ))}
           {articles.length === 0 && (
-            <p className="py-4 text-center text-xs text-slate-400">Aucun article. Ajoutez-en un ci-dessous.</p>
+            <p className="py-4 text-center text-xs text-slate-400">Aucun article. Ajoutez le premier plus bas.</p>
           )}
         </div>
 
@@ -359,7 +357,7 @@ export default function SettingsPage() {
       <section className="card p-5 space-y-4">
         <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Général</h2>
         <p className="text-xs text-slate-500 bg-mist rounded-lg px-3 py-2">
-          ℹ️ Petits colis 0,10–0,99 lb : depi v8, yo kalkile <b>Pwa × Prix/lb vil la</b> menm
+          ℹ️ Petits colis 0,10 à 0,99 lb : depi v8, yo kalkile <b>Pwa × Prix/lb vil la</b> menm
           jan ak tout lòt koli. Pa gen pri fiks ankò.
         </p>
         <label className="block">
@@ -488,7 +486,7 @@ function PlatformLinksSection() {
   };
 
   return <section className="card p-5">
-    <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand"><Link2 size={19} /></span><div><h2 className="text-sm font-bold text-navy">Liens des plateformes</h2><p className="mt-1 text-xs leading-relaxed text-slate-500">Copiez un lien et partagez-le. Chaque personne arrive directement sur l’espace qui correspond à son rôle.</p></div></div>
+    <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand"><Link2 size={19} /></span><div><h2 className="text-sm font-bold text-navy">Liens des plateformes</h2><p className="mt-1 text-xs leading-relaxed text-slate-500">Copiez un lien et partagez le. Chaque personne arrive directement sur l’espace qui correspond à son rôle.</p></div></div>
     <div className="mt-4 grid gap-2 lg:grid-cols-2">
       {platforms.map((platform) => {
         const url = PLATFORM_ORIGIN + platform.path;
@@ -600,7 +598,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
       if (!j.ok) { onNotice("Erè: " + j.reason); return; }
       const loginPath = ROLE_LOGIN_PATH[f.role] ?? "/employe";
       const roleLabel = ROLE_LABEL[f.role] ?? "Employé";
-      onNotice(`${roleLabel} "${f.username}" kreye — li ka konekte sou ${loginPath}.`);
+      onNotice(`${roleLabel} "${f.username}" kreye, li ka konekte sou ${loginPath}.`);
       setCredentials({ name: `${f.prenom} ${f.nom}`.trim(), username: f.username.trim(), password: f.password, loginPath });
       setShow(false);
       setF({ nom: "", prenom: "", email: "", phone: "", id_number: "", username: "", password: "", role: "employe", pickup_ville_id: "" });
@@ -724,8 +722,8 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
         <div className="card p-4 border border-emerald-200 bg-emerald-50/60 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-bold text-navy">Identifiants de connexion{credentials.name ? ` — ${credentials.name}` : ""}</p>
-              <p className="text-xs text-mute mt-0.5">Notez-les ou copiez-les maintenant : pour des raisons de sécurité, le mot de passe ne pourra plus être affiché ensuite (il pourra seulement être changé).</p>
+              <p className="text-sm font-bold text-navy">Identifiants de connexion{credentials.name ? ` : ${credentials.name}` : ""}</p>
+              <p className="text-xs text-mute mt-0.5">Notez ou copiez ces identifiants maintenant : pour des raisons de sécurité, le mot de passe ne pourra plus être affiché ensuite (il pourra seulement être changé).</p>
             </div>
             <button className="text-slate-400 hover:text-slate-600 text-xs" onClick={() => setCredentials(null)} aria-label="Fermer">✕</button>
           </div>
@@ -804,7 +802,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
                 <td className="td">{s.prenom} {s.nom}</td>
                 <td className="td"><span className={`badge ${s.role === "admin" ? "bg-blue-100 text-blue-700" : s.role === "agent_retrait" ? "bg-orange-100 text-orange-700" : s.role === "agent_reception" ? "bg-purple-100 text-purple-700" : "bg-emerald-100 text-emerald-700"}`}>
                   {ROLE_LABEL[s.role] ?? "Employé"}</span></td>
-                <td className="td text-xs">{s.role === "agent_retrait" ? (zones.find((v) => v.id === s.pickup_ville_id)?.name ?? "À configurer") : "—"}</td>
+                <td className="td text-xs">{s.role === "agent_retrait" ? (zones.find((v) => v.id === s.pickup_ville_id)?.name ?? "À configurer") : ""}</td>
                 <td className="td">{s.phone}</td>
                 <td className="td text-xs">{s.id_number}{s.id_photo_url && <> · <a className="text-navy underline" href={s.id_photo_url} target="_blank">foto</a></>}</td>
                 <td className="td text-right space-x-2">
@@ -877,8 +875,8 @@ function AffiliateSettingsSection({ onNotice }: { onNotice: (s: string) => void 
       <h2 className="text-sm font-bold text-navy uppercase tracking-wide">🤝 Programme d’affiliation</h2>
       <p className="text-xs text-slate-500">
         Montant versé à un affilié pour chaque facture générée par un client qu&apos;il a
-        parrainé, pendant la durée de son contrat — et le contrat PDF joint
-        automatiquement à l&apos;e-mail d&apos;approbation.
+        parrainé, pendant la durée de son contrat, et le contrat PDF joint
+        automatiquement à le courriel d&apos;approbation.
       </p>
       <label className="block max-w-xs">
         <span className="text-xs text-slate-600">Commission par facture qualifiée (USD)</span>
@@ -921,7 +919,7 @@ function EmailNotificationsSection() {
     try {
       const j = await callProbe("sample", testTo.trim(), sample);
       setResult(j?.ok
-        ? { ok: true, msg: `Exemple envoyé à ${j.to}. Ouvrez-le sur votre téléphone (vérifiez aussi le dossier des courriers indésirables).` }
+        ? { ok: true, msg: `Exemple envoyé à ${j.to}. Ouvrez ce message sur votre téléphone (vérifiez aussi le dossier des courriers indésirables).` }
         : { ok: false, msg: j?.error || j?.reason || "Échec inconnu." });
     } catch (e) {
       setResult({ ok: false, msg: "Erreur réseau : " + (e instanceof Error ? e.message : String(e)) });
@@ -949,10 +947,10 @@ function EmailNotificationsSection() {
 
   return (
     <section className="card p-6 space-y-3">
-      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">📧 Notifications e-mail</h2>
+      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">📧 Notifications courriel</h2>
       <p className="text-xs text-slate-500">
         Lè yon koli pase <b>« Reçu à Miami »</b> oswa <b>« Disponible »</b>, kliyan an resevwa yon imèl
-        otomatik. Sèvi ak tès sa a pou verifye ke sa mache <b>vre</b> — non sèlman sou papye.
+        otomatik. Sèvi ak tès sa a pou verifye ke sa mache <b>vre</b> : non sèlman sou papye.
       </p>
 
       {diag && (
@@ -961,13 +959,13 @@ function EmailNotificationsSection() {
             <b>Clé Resend :</b>{" "}
             {diag.resend_key_present
               ? <span className="text-emerald-700">✓ configurée</span>
-              : <span className="text-red-600 font-semibold">✗ absente — aucun e-mail ne part</span>}
+              : <span className="text-red-600 font-semibold">✗ absente, aucun courriel ne part</span>}
           </div>
           <div><b>Expéditeur :</b> <code className="text-[11px]">{diag.email_from}</code>{diag.from_is_default && <span className="text-slate-400"> · valeur par défaut</span>}</div>
           <div>
             <b>Domaine :</b> <code className="text-[11px]">{diag.from_domain}</code>{" "}
             {!diag.domain_matches_expected && (
-              <span className="text-amber-700">⚠ différent du domaine attendu — il doit être vérifié sur Resend</span>
+              <span className="text-amber-700">⚠ différent du domaine attendu, il doit être vérifié sur Resend</span>
             )}
           </div>
         </div>
@@ -975,7 +973,7 @@ function EmailNotificationsSection() {
 
       <div className="flex gap-2 items-end flex-wrap">
         <label className="block">
-          <span className="text-xs text-slate-600">Envoyer un e-mail de test à</span>
+          <span className="text-xs text-slate-600">Envoyer un courriel de test à</span>
           <input className="input mt-1" type="email" placeholder="votre@email.com"
             value={testTo} onChange={(e) => setTestTo(e.target.value)} />
         </label>
@@ -984,8 +982,8 @@ function EmailNotificationsSection() {
         </BusyButton>
       </div>
       <div className="rounded-lg border border-line p-3">
-        <p className="text-xs font-semibold text-navy">Voir l&apos;e-mail que reçoivent les clients</p>
-        <p className="mt-0.5 text-[11px] text-slate-500">Envoie le vrai modèle (exemple « MC-XXXXX », 2 colis) à l&apos;adresse ci-dessus.</p>
+        <p className="text-xs font-semibold text-navy">Voir le courriel que reçoivent les clients</p>
+        <p className="mt-0.5 text-[11px] text-slate-500">Envoie le vrai modèle (exemple « MC-XXXXX », 2 colis) à l&apos;adresse plus haut.</p>
         <div className="mt-2 flex flex-wrap gap-2">
           <button type="button" className="btn btn-ghost border border-line" disabled={busy || !testTo.trim()} onClick={() => void sendSample("recu_miami")}>Exemple « Reçu à Miami »</button>
           <button type="button" className="btn btn-ghost border border-line" disabled={busy || !testTo.trim()} onClick={() => void sendSample("disponible")}>Exemple « Disponible »</button>
@@ -998,8 +996,8 @@ function EmailNotificationsSection() {
         <ol className="list-decimal ml-5 mt-2 space-y-1.5">
           <li><b>Clé absente</b> : Vercel → Settings → Environment Variables → ajouter <code>RESEND_API_KEY</code> et si besoin <code>EMAIL_FROM</code>, puis <b>Redeploy</b>.</li>
           <li><b>« mode test » / « domaine non vérifié »</b> : sur <code>resend.com/domains</code>, ajouter le domaine <code>{diag?.from_domain || "standacommercialsa.com"}</code> et publier les enregistrements DNS SPF + DKIM chez le registrar. Tant que ce n&apos;est pas fait, Resend n&apos;envoie qu&apos;à l&apos;adresse du compte Resend.</li>
-          <li><b>Reçu, mais dans les courriers indésirables</b> : le domaine est vérifié mais DKIM/DMARC incomplets — complétez les enregistrements DNS.</li>
-          <li><b>« kliyan san imèl »</b> : la fiche client n&apos;a pas d&apos;adresse e-mail.</li>
+          <li><b>Reçu, mais dans les courriers indésirables</b> : le domaine est vérifié mais DKIM/DMARC incomplets, complétez les enregistrements DNS.</li>
+          <li><b>« kliyan san imèl »</b> : la fiche client n&apos;a pas d&apos;adresse électronique.</li>
         </ol>
       </details>
     </section>
@@ -1060,7 +1058,7 @@ function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
 
   return (
     <section className="card p-6 space-y-3">
-      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">🔌 API — Extension Chrome</h2>
+      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">🔌 API : Extension Chrome</h2>
       <p className="text-xs text-slate-500">
         Kreye yon token pou konekte ekstansyon Chrome MCPACK la. Kopye token an yon sèl fwa
         epi kole l nan konfigirasyon ekstansyon an. Chak koli ki soti nan ekstansyon an
@@ -1081,7 +1079,7 @@ function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
 
       {newToken && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-          <p className="text-xs font-bold text-emerald-800 mb-1">✅ Nouvo token — kopye l KOUNYE A, li p ap parèt ankò:</p>
+          <p className="text-xs font-bold text-emerald-800 mb-1">✅ Nouvo token, kopye l KOUNYE A, li p ap parèt ankò:</p>
           <code className="block bg-white border border-emerald-200 rounded px-2 py-1.5 text-xs break-all select-all">{newToken}</code>
           <button className="text-xs text-emerald-700 underline mt-1"
             onClick={() => { navigator.clipboard?.writeText(newToken); onNotice("Token kopye."); }}>
@@ -1105,7 +1103,7 @@ function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
                     {t.active ? "● Actif" : "○ Inactif"}
                   </button>
                 </td>
-                <td className="td text-slate-500 text-xs">{t.last_used_at ? new Date(t.last_used_at).toLocaleString() : "—"}</td>
+                <td className="td text-slate-500 text-xs">{t.last_used_at ? new Date(t.last_used_at).toLocaleString() : ""}</td>
                 <td className="td text-right">
                   <button className="text-slate-400 hover:text-red-600 text-xs" onClick={() => remove(t.id)}>✕</button>
                 </td>

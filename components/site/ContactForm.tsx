@@ -47,8 +47,8 @@ export default function ContactForm() {
   // Résultat de l'envoi : page plein écran (✓ vert / ✕ rouge).
   useEffect(() => {
     if (status === "sent") notify.success("Merci, nous vous répondrons rapidement.", { title: "Message envoyé" });
-    else if (status === "skipped") notify.warning("L'envoi par e-mail n'est pas disponible pour le moment. Utilisez WhatsApp — c'est le moyen le plus rapide de nous joindre.", { title: "E-mail indisponible" });
-    else if (status === "error") notify.error("Le message n'est pas parti. Réessayez ou écrivez-nous sur WhatsApp.", { title: "Envoi impossible" });
+    else if (status === "skipped") notify.warning("L'envoi par courriel n'est pas disponible pour le moment. Utilisez WhatsApp, c'est le moyen le plus rapide de nous joindre.", { title: "Courriel indisponible" });
+    else if (status === "error") notify.error("Le message n'est pas parti. Réessayez ou écrivez à STANDA sur WhatsApp.", { title: "Envoi impossible" });
   }, [status]);
 
   function validate(): boolean {
@@ -57,7 +57,7 @@ export default function ContactForm() {
       return false;
     }
     if (!email.trim() && !phone.trim()) {
-      setValidationMsg("Veuillez indiquer une adresse e-mail ou un numéro de téléphone.");
+      setValidationMsg("Veuillez indiquer une adresse électronique ou un numéro de téléphone.");
       return false;
     }
     setValidationMsg("");
@@ -89,7 +89,7 @@ export default function ContactForm() {
 
       if (res.status === 429) {
         setStatus("error");
-        setValidationMsg("Trop de messages envoyés. Réessayez dans quelques minutes, ou utilisez WhatsApp ci-dessous.");
+        setValidationMsg("Trop de messages envoyés. Réessayez dans quelques minutes, ou utilisez WhatsApp plus bas.");
         return;
       }
 
@@ -165,7 +165,7 @@ export default function ContactForm() {
                 <span className="inline-block h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
                 Envoi...
               </>
-            ) : "Envoyer par e-mail"}
+            ) : "Envoyer par courriel"}
           </button>
 
           <button type="button" onClick={sendByWhatsApp} className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-[#25D366] hover:bg-[#1fb857] text-white font-bold text-[15px] transition">

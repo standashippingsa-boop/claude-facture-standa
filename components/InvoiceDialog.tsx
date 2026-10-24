@@ -205,7 +205,7 @@ export default function InvoiceDialog({
   for (const { pkg, info } of specialPackages) {
     if (specialModeOf(pkg.id) === "weight") continue;
     fixedPrices[pkg.id] = {
-      label: `Colis spécial${info.reason ? ` — ${info.reason}` : ""}`,
+      label: `Colis spécial${info.reason ? ` : ${info.reason}` : ""}`,
       price: specialPriceValue(pkg.id)
     };
   }
@@ -323,9 +323,9 @@ export default function InvoiceDialog({
         packages: items.map((it) => ({ tracking_number: it.tracking_number, tracking_manual: it.tracking_manual }))
       }).catch(() => undefined);
       onDone(
-        `Facture ${inv.invoice_number} créée — ${items.length} colis → Facturé, taux ${rate.toFixed(2)}. ` +
+        `Facture ${inv.invoice_number} créée : ${items.length} colis → Facturé, taux ${rate.toFixed(2)}. ` +
         (how === "file" ? "PDF pataje sou WhatsApp."
-          : how === "manual" ? "WhatsApp ouvri — telechaje PDF la epi atache li." : "Fakti a nan Invoices.") + centralInfo
+          : how === "manual" ? "WhatsApp ouvri, telechaje PDF la epi atache li." : "Fakti a nan Invoices.") + centralInfo
       );
       onClose();
     } catch (e: unknown) {
@@ -336,12 +336,12 @@ export default function InvoiceDialog({
   /** Annule une facture PAS ENCORE imprimée — colis remis "Disponible". */
   const annulerFacture = async () => {
     if (!pending) return;
-    if (!confirm(`Annuler la facture ${pending.inv.invoice_number} ?\n\nLes colis redeviendront « Disponible » et pourront être re-facturés.`)) return;
+    if (!confirm(`Annuler la facture ${pending.inv.invoice_number} ?\n\nLes colis redeviendront « Disponible » et pourront être refacturés.`)) return;
     setBusy(true); setErr(null);
     try {
       const r = await cancelInvoice(pending.inv.id);
       if (!r.ok) { setErr(r.reason ?? "Annulation impossible."); return; }
-      onDone(`Facture ${pending.inv.invoice_number} annulée — ${r.restored} colis remis en « Disponible ».`);
+      onDone(`Facture ${pending.inv.invoice_number} annulée : ${r.restored} colis remis en « Disponible ».`);
       onClose();
     } catch (e: unknown) {
       setErr((e as Error)?.message ?? "Erreur");
@@ -368,18 +368,18 @@ export default function InvoiceDialog({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-extrabold text-navy">{pending ? "Facture créée — Livraison" : "Générer la facture — options"}</h2>
+          <h2 className="text-lg font-extrabold text-navy">{pending ? "Facture créée : Livraison" : "Générer la facture, options"}</h2>
           <button className="text-slate-400 hover:text-slate-600" onClick={requestClose} disabled={busy}><X size={18} /></button>
         </div>
         <p className="text-sm text-slate-600 mb-3">
-          <b className="text-navy">{client.customer_code}</b> — {clientName} · {pkgs.length} colis
+          <b className="text-navy">{client.customer_code}</b>  {clientName} · {pkgs.length} colis
         </p>
 
         {pending && (
           <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900">
-            <p><b>Facture {pending.inv.invoice_number} créée</b> — {pending.items.length} colis, {usd(pending.inv.total_usd)}.</p>
+            <p><b>Facture {pending.inv.invoice_number} créée</b>  {pending.items.length} colis, {usd(pending.inv.total_usd)}.</p>
             <p className="mt-1 text-[12px] leading-relaxed text-emerald-800">
-              Imprimez ou téléchargez-la pour l&apos;envoyer au client. Les colis restent
+              Imprimez ou téléchargez la facture pour l&apos;envoyer au client. Les colis restent
               <b> Facturé</b> : ils passeront « Livré » seulement quand ils seront remis.
               Vous pouvez encore annuler cette facture tant que le PDF n&apos;est pas généré.
             </p>
@@ -395,12 +395,12 @@ export default function InvoiceDialog({
           <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">
             <input type="radio" name="ikind" className="mt-1" checked={kind === "shipping"}
               onChange={() => setKind("shipping")} />
-            <span><b>Expédition seulement</b> — transport des colis</span>
+            <span><b>Expédition seulement</b> : transport des colis</span>
           </label>
           <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">
             <input type="radio" name="ikind" className="mt-1" checked={kind === "service_order"}
               onChange={() => setKind("service_order")} />
-            <span><b>Service Order</b> — commande achetée par STANDA + frais de service,
+            <span><b>Service Order</b> : commande achetée par STANDA + frais de service,
               <span className="text-slate-500"> en plus du transport</span></span>
           </label>
 
@@ -446,7 +446,7 @@ export default function InvoiceDialog({
                 <p className="text-[11px] text-brand-dark bg-brand/5 border border-brand/30 rounded-lg px-2.5 py-1.5">
                   Frais de service calculé automatiquement :{" "}
                   <b className="font-mono">{usd(comp.orderServiceFee)}</b>
-                  {comp.orderFeeLabel && <> — tranche <b>{comp.orderFeeLabel}</b></>}
+                  {comp.orderFeeLabel && <> : tranche <b>{comp.orderFeeLabel}</b></>}
                 </p>
               ) : (
                 <p className="text-[11px] text-slate-500 bg-mist rounded-lg px-2.5 py-1.5">
@@ -462,7 +462,7 @@ export default function InvoiceDialog({
         {isCentral && (
           <div className="border border-brand/40 bg-brand/5 rounded-lg p-3 mb-3">
             <p className="text-xs font-bold text-brand-dark uppercase mb-1 flex items-center gap-1.5">
-              <MapPin size={13} /> Compte central — {client.customer_code}
+              <MapPin size={13} /> Compte central{client.customer_code}
             </p>
             <p className="text-[11px] text-slate-600 mb-2 leading-relaxed">
               Ce compte n&apos;est lié à aucune ville. Choisissez la <b>ville de destination</b> :
@@ -473,7 +473,7 @@ export default function InvoiceDialog({
               {villes.length === 0 && <option value="">Aucune ville active</option>}
               {villes.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.name} — {usd(client.account_type === "Business" ? v.price_business : v.price_personal)}/lb
+                  {v.name}  {usd(client.account_type === "Business" ? v.price_business : v.price_personal)}/lb
                 </option>
               ))}
             </select>
@@ -508,12 +508,12 @@ export default function InvoiceDialog({
           <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">
             <input type="radio" name="im" className="mt-1" checked={calcMode === "addition"}
               onChange={() => setCalcMode("addition")} />
-            <span><b>Additionner tous les poids</b> — chaque colis = poids × Prix/LB</span>
+            <span><b>Additionner tous les poids</b> : chaque colis = poids × Prix/LB</span>
           </label>
           <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">
             <input type="radio" name="im" className="mt-1" checked={calcMode === "small_control"}
               onChange={() => setCalcMode("small_control")} />
-            <span><b>Contrôle des petits colis</b> — {smallCfg.min}–{smallCfg.max} lb = tarif fixe {usd(smallCfg.price)} ; les autres = poids × Prix/LB</span>
+            <span><b>Contrôle des petits colis</b>  {smallCfg.min}{smallCfg.max} lb = tarif fixe {usd(smallCfg.price)} ; les autres = poids × Prix/LB</span>
           </label>
         </div>
         )}
@@ -591,7 +591,7 @@ export default function InvoiceDialog({
                   <div className="min-w-0 flex-1">
                     <p className="font-mono text-[11px] font-semibold text-ink truncate">{p.tracking_number}</p>
                     <p className="text-[10px] text-slate-400 truncate">
-                      {p.content || "—"} · {Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : "—"}
+                      {p.content || ""} · {Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : ""}
                     </p>
                   </div>
                   <select
@@ -604,7 +604,7 @@ export default function InvoiceDialog({
                     })}>
                     <option value="">Au poids</option>
                     {articles.map((a) => (
-                      <option key={a.id} value={a.id}>{a.label} — {usd(a.price)}</option>
+                      <option key={a.id} value={a.id}>{a.label}  {usd(a.price)}</option>
                     ))}
                   </select>
                 </div>
@@ -627,7 +627,7 @@ export default function InvoiceDialog({
                   <label key={p.id} className="flex items-center gap-2 py-1.5">
                     <span className="min-w-0 flex-1">
                       <span className="block font-mono text-[11px] font-semibold text-ink truncate">{p.tracking_number}</span>
-                      <span className="block text-[10px] text-slate-400 truncate">{p.content || "—"} · {Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : "—"}</span>
+                      <span className="block text-[10px] text-slate-400 truncate">{p.content || ""} · {Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : ""}</span>
                     </span>
                     <input type="number" inputMode="decimal" step="0.01" min="0" placeholder="0.00"
                       aria-label={`Taxe pour ${p.tracking_number}`}
@@ -653,7 +653,7 @@ export default function InvoiceDialog({
           </label>
           {comp?.ok && comp.taxThresholdReached && (
             <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-              Poids total ≥ {TAX_THRESHOLD_LB} LB — taxe fixe proposée automatiquement.
+              Poids total ≥ {TAX_THRESHOLD_LB} LB, taxe fixe proposée automatiquement.
               Vous pouvez modifier le montant ou décocher.
             </p>
           )}
@@ -674,14 +674,14 @@ export default function InvoiceDialog({
         {/* PRIX/LB — lecture seule (Paramètres) */}
         <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-2">
           <span className="text-xs text-slate-600">Prix/LB utilisé</span>
-          <b className="text-navy font-mono">{comp && comp.ok ? usd(comp.perLb) : "—"}
+          <b className="text-navy font-mono">{comp && comp.ok ? usd(comp.perLb) : ""}
             {comp && comp.ok && <span className="text-slate-400 font-normal"> / {comp.ville}</span>}</b>
         </div>
 
         {/* ERÈ validasyon — bloke */}
         {comp && !comp.ok && (
           <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2 space-y-1">
-            <p className="text-xs font-bold text-red-700">❌ Facture bloquée — corrigez avant de continuer :</p>
+            <p className="text-xs font-bold text-red-700">❌ Facture bloquée, corrigez avant de continuer :</p>
             {comp.errors.map((e, i) => <p key={i} className="text-[11px] text-red-600">• {e}</p>)}
           </div>
         )}
@@ -700,7 +700,7 @@ export default function InvoiceDialog({
           {comp?.ok && comp.orderServiceFee > 0 && (
             <div className="flex justify-between"><span className="text-slate-500">Frais de service</span><b>{usd(comp.orderServiceFee)}</b></div>
           )}
-          <div className="flex justify-between"><span className="text-slate-500">Sous-total colis</span><b>{usd(comp?.subtotal ?? 0)}</b></div>
+          <div className="flex justify-between"><span className="text-slate-500">Total partiel colis</span><b>{usd(comp?.subtotal ?? 0)}</b></div>
           {useTaxe && Number(taxeVal) > 0 && <div className="flex justify-between"><span className="text-slate-500">Taxe fixe</span><b>{usd(Number(taxeVal))}</b></div>}
           {useDga && Number(fraisDga) > 0 && <div className="flex justify-between"><span className="text-slate-500">Frais DGA</span><b>{usd(Number(fraisDga))}</b></div>}
           {useDisc && Number(discount) > 0 && <div className="flex justify-between"><span className="text-slate-500">Discount</span><b>−{usd(Number(discount))}</b></div>}

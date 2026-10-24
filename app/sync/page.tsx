@@ -50,7 +50,7 @@ export default function SyncPage() {
     try {
       const r = await undoLastImport();
       setApplyDone(r.ok
-        ? `↩️ Importation ${r.batchId} annulée — ${r.restored} colis restaurés.`
+        ? `↩️ Importation ${r.batchId} annulée : ${r.restored} colis restaurés.`
         : `⚠️ ${r.reason}`);
       setLastBatch(null);
     } catch (e: any) { setErr("Erè: " + e.message); }
@@ -94,7 +94,7 @@ export default function SyncPage() {
     try {
       setScanProg(`Analyse de ${arr.length} photo(s)…`);
       const raw = await scanPhotos(arr, (idx, total, p) =>
-        setScanProg(`Photo ${idx + 1}/${total} — ${Math.round(p * 100)}%`));
+        setScanProg(`Photo ${idx + 1}/${total} : ${Math.round(p * 100)}%`));
       const analyzed = await analyzePhotoScans(raw.map((r) => ({
         filename: r.filename, previewUrl: r.previewUrl, guia: r.guia, guiaSource: r.guiaSource,
         tracking_number: r.tracking_number, customer_code: r.customer_code,
@@ -133,9 +133,9 @@ export default function SyncPage() {
       const arr = okF;
       const all: { value: string; weight?: number; source: "pdf" | "image" | "text" }[] = [];
       for (let i = 0; i < arr.length; i++) {
-        setFactProg(`Fichier ${i + 1}/${arr.length} — ${arr[i].name}...`);
+        setFactProg(`Fichier ${i + 1}/${arr.length} : ${arr[i].name}...`);
         const items = await extractFacture(arr[i], (p) =>
-          setFactProg(`Fichier ${i + 1}/${arr.length} — ${Math.round(p * 100)}%`));
+          setFactProg(`Fichier ${i + 1}/${arr.length} : ${Math.round(p * 100)}%`));
         all.push(...items);
       }
       // dedoublonnen sou tracking
@@ -185,7 +185,7 @@ export default function SyncPage() {
       setFactures([...stillMatched, ...rematched]);
       setCorrections({});
     } catch (e: any) {
-      setErr("Erè re-vérification: " + (e.message ?? String(e)));
+      setErr("Erè nouvelle vérification: " + (e.message ?? String(e)));
     } finally { setBusy(false); }
   };
   const validerFactures = async () => {
@@ -207,9 +207,9 @@ export default function SyncPage() {
 
     if (!confirm(
       `Marquer ${cibles.length} colis « Disponible » ?\n\n` +
-      `📧 ${withEmail} e-mail(s) seront envoyé(s) à ${withEmail} client(s)` +
-      `${noEmail ? ` (${noEmail} client(s) sans e-mail — pas d'envoi)` : ""}.\n\n` +
-      `Les colis déjà « Disponible » ne reçoivent PAS de nouvel e-mail.`
+      `📧 ${withEmail} courriel(s) seront envoyé(s) à ${withEmail} client(s)` +
+      `${noEmail ? ` (${noEmail} client(s) sans courriel, pas d'envoi)` : ""}.\n\n` +
+      `Les colis déjà « Disponible » ne reçoivent PAS de nouvel courriel.`
     )) return;
 
     setBusy(true); setErr(null);
@@ -237,13 +237,13 @@ export default function SyncPage() {
       }
       // Tras dirab: si imèl echwe, kite yon antre nan Journal (toast la disparèt)
       if (problems.length) {
-        await logAction("Notification e-mail échouée",
-          `Import Facture — ${sent} envoyé(s), ${problems.length} échec(s) : ${problems.join(" | ").slice(0, 400)}`,
+        await logAction("Notification courriel échouée",
+          `Import Facture : ${sent} envoyé(s), ${problems.length} échec(s) : ${problems.join(" | ").slice(0, 400)}`,
           "", "");
       }
       setApplyDone(
-        `✅ Import de facture ${r.batchId} : ${r.updated} colis « Disponible » • ${sent} e-mail(s) envoyé(s)` +
-        `${noEmail ? `, ${noEmail} sans e-mail` : ""} • ${pushed} notification(s) téléphone.` +
+        `✅ Import de facture ${r.batchId} : ${r.updated} colis « Disponible » • ${sent} courriel(s) envoyé(s)` +
+        `${noEmail ? `, ${noEmail} sans courriel` : ""} • ${pushed} notification(s) téléphone.` +
         (problems.length ? ` ⚠️ ${problems.slice(0, 2).join(" | ").slice(0, 200)}` : ""));
       setLastBatch(r.batchId);
       setFactures(null); setFactureText(""); setCorrections({});
@@ -313,8 +313,8 @@ export default function SyncPage() {
         </p>
         <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-line rounded-xl py-10 cursor-pointer hover:border-navy-light transition-colors">
           <Upload className="text-navy-light" />
-          <span className="text-sm font-semibold text-navy">Synchroniser MCPACK — chwazi fichye Excel la</span>
-          <span className="text-xs text-slate-400">.xls / .xlsx {filename && `— ${filename}`}</span>
+          <span className="text-sm font-semibold text-navy">Synchroniser MCPACK, chwazi fichye Excel la</span>
+          <span className="text-xs text-slate-400">.xls / .xlsx {filename && ` : ${filename}`}</span>
           <input ref={fileRef} type="file" accept=".xls,.xlsx" className="hidden"
             onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
         </label>
@@ -368,7 +368,7 @@ export default function SyncPage() {
             <div className="mt-4 space-y-3">
               {/* Rezime */}
               <div className="bg-navy/5 border border-line rounded-lg p-4 space-y-3">
-                <p className="text-sm font-bold text-navy">🔍 Simulation d&apos;importation — rien n&apos;est encore enregistré</p>
+                <p className="text-sm font-bold text-navy">🔍 Simulation d&apos;importation, rien n&apos;est encore enregistré</p>
                 <div className="flex gap-4 text-sm flex-wrap items-center">
                   <span className="text-emerald-700 font-semibold">🟢 {ok.length} validées (≥98%)</span>
                   <span className="text-amber-700 font-semibold">🟡 {rev.length} à vérifier</span>
@@ -420,15 +420,15 @@ export default function SyncPage() {
                           <img src={s.previewUrl} alt={s.filename} className="w-12 h-12 object-cover rounded border border-line" />
                         </td>
                         <td className="tdc font-mono text-[11px]">
-                          {s.guia || <span className="text-slate-300">—</span>}
+                          {s.guia || <span className="text-slate-300"></span>}
                           {s.guiaSource === "barcode" && <span className="ml-1 badge bg-blue-100 text-blue-700">code-barres</span>}
                         </td>
                         <td className="tdc font-mono text-[11px]">
                           {s.proposedTracking
                             ? <span className="text-emerald-700 font-semibold">+ {s.proposedTracking}</span>
-                            : s.matchedManual || s.tracking_number || <span className="text-slate-300">—</span>}
+                            : s.matchedManual || s.tracking_number || <span className="text-slate-300"></span>}
                         </td>
-                        <td className="tdc font-bold text-navy">{s.matchedCode || s.customer_code || "—"}</td>
+                        <td className="tdc font-bold text-navy">{s.matchedCode || s.customer_code || ""}</td>
                         <td className="tdc">
                           <span className={`badge ${s.confidence >= 90 ? "bg-emerald-100 text-emerald-700"
                             : s.confidence >= 70 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
@@ -467,7 +467,7 @@ export default function SyncPage() {
       {/* ===== Modal: chwazi kliyan pou koli PDF yo ===== */}
       {preview && (
         <div className="card p-6">
-          <h2 className="text-sm font-bold text-navy uppercase tracking-wide mb-4">Résultat de l'analyse — {filename}</h2>
+          <h2 className="text-sm font-bold text-navy uppercase tracking-wide mb-4">Résultat de l'analyse{filename}</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
             {[["Lignes analysées", preview.totalRows],
               ["Nouveaux colis", preview.newRows.length],
@@ -487,7 +487,7 @@ export default function SyncPage() {
                   <th key={h} className="th !py-2">{h}</th>)}</tr></thead>
                 <tbody>{preview.newRows.map((r, i) => (
                   <tr key={r.tracking_number} className={i % 2 ? "bg-mist" : ""}>
-                    <td className="td">{r.customer_code} — {r.customer_name}</td>
+                    <td className="td">{r.customer_code}  {r.customer_name}</td>
                     <td className="td font-mono">{r.tracking_number}</td>
                     <td className="td">{r.weight}</td>
                     <td className="td">{r.quantity}</td>
@@ -532,7 +532,7 @@ export default function SyncPage() {
         </div>
         <p className="text-xs text-mute">
           Chwazi fakti MCPACK yo. Sistèm nan ap ekstrè Tracking Number yo epi
-          montre ki koli yo koresponn — <b>san chanje anyen</b>. Ou verifye anvan.
+          montre ki koli yo koresponn<b>san chanje anyen</b>. Ou verifye anvan.
         </p>
         <input ref={factureRef} type="file" accept=".pdf,image/*" multiple className="hidden"
           onChange={(e) => e.target.files && e.target.files.length && handleFactures(e.target.files)} />
@@ -545,7 +545,7 @@ export default function SyncPage() {
             Ou <span className="text-brand-dark">coller le texte</span> de la facture :
           </p>
           <textarea className="input !h-24 font-mono text-[11px]"
-            placeholder="Kopye tèks fakti a epi kole l isit — sistèm nan ap pran Tracking Number yo otomatikman..."
+            placeholder="Kopye tèks fakti a epi kole l isit, sistèm nan ap pran Tracking Number yo otomatikman..."
             value={factureText} onChange={(e) => setFactureText(e.target.value)} />
           <BusyButton className="btn btn-brand mt-2" onClick={handleFactureText} busy={busy} disabled={!factureText.trim()}>
             <CheckCircle2 size={15} /> Analyser le texte collé
@@ -580,7 +580,7 @@ export default function SyncPage() {
                           <tr key={i} className={aRendre ? "bg-red-50 border-l-4 border-red-700" : (i % 2 ? "bg-mist" : "")}>
                             <td className="tdc font-mono text-red-800 font-bold">{f.tracking}</td>
                             <td className="tdc font-mono text-[11px]">{f.guia}</td>
-                            <td className="tdc"><span className="font-bold text-navy">{f.customerCode}</span> — {f.customerName}</td>
+                            <td className="tdc"><span className="font-bold text-navy">{f.customerCode}</span>  {f.customerName}</td>
                             <td className="tdc">{f.status}</td>
                             <td className="tdc text-mute">{f.source === "pdf" ? "PDF" : f.source === "text" ? "Texte" : "Image"}</td>
                           </tr>
@@ -594,7 +594,7 @@ export default function SyncPage() {
               {unmatched.length > 0 && (
                 <div className="card p-3 bg-red-50/40 border border-red-200">
                   <p className="text-xs font-bold text-red-700 mb-2">
-                    Colis non identifiés ({unmatched.length}) — corrigez le Tracking Number puis re-vérifiez :
+                    Colis non identifiés ({unmatched.length}), corrigez le Tracking Number puis vérifiez à nouveau :
                   </p>
                   <div className="space-y-1.5">
                     {unmatched.map((f, i) => (
@@ -614,7 +614,7 @@ export default function SyncPage() {
                     ))}
                   </div>
                   <BusyButton className="btn btn-ghost mt-2.5" onClick={reverifierCorriges} busy={busy}>
-                    <RefreshCw size={14} /> Re-vérifier les corrigés
+                    <RefreshCw size={14} /> Vérifier à nouveau les corrigés
                   </BusyButton>
                   <p className="text-[10px] text-mute mt-1.5">
                     Astuce : vérifiez qu&apos;il n&apos;y a pas d&apos;espace, de 0/O ou 1/l confondus. Après correction, les colis trouvés rejoignent la liste à valider.
@@ -627,7 +627,7 @@ export default function SyncPage() {
                   <BusyButton className="btn btn-brand" onClick={validerFactures} busy={busy}>
                     <CheckCircle2 size={15} /> Valider → Disponible + Email ({dispo.length})
                   </BusyButton>
-                  <span className="text-xs text-mute">Un e-mail est envoyé à chaque client. Les colis déjà « Disponible » ou « Facturé » sont ignorés.</span>
+                  <span className="text-xs text-mute">Un courriel est envoyé à chaque client. Les colis déjà « Disponible » ou « Facturé » sont ignorés.</span>
                 </div>
               )}
             </div>

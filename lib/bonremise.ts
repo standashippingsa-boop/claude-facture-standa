@@ -81,7 +81,7 @@ export async function generateBonRemise(
    * a été corrigé entre deux synchronisations.
    */
   const clients = Array.from(pkgs.reduce((byCode, p) => {
-    const code = String(p.customer_code || "—").trim() || "—";
+    const code = String(p.customer_code || "").trim() || "";
     const current = byCode.get(code) ?? {
       code,
       name: String(p.customer_name || "Client non renseigné").trim() || "Client non renseigné",
@@ -124,7 +124,7 @@ export async function generateBonRemise(
   doc.setTextColor(40, 40, 40);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text(`Ville(s) destination: ${villes.length ? villes.join(", ") : "—"}`, 20, 48);
+  doc.text(`Ville(s) destination: ${villes.length ? villes.join(", ") : ""}`, 20, 48);
   doc.setFont("helvetica", "normal");
   doc.text(`Nombre de colis : ${pkgs.length}`, 20, 54);
   doc.text(`Poids total : ${totalWeight.toFixed(2)} LB`, W / 2 + 4, 54);
@@ -134,7 +134,7 @@ export async function generateBonRemise(
     doc.text(label, 20, 60);
     doc.setFont("helvetica", "normal");
     const txt = doc.splitTextToSize(conduces.join(", "), W - 28 - 30) as string[];
-    doc.text(txt[0] ?? "—", 20 + doc.getTextWidth(label), 60);
+    doc.text(txt[0] ?? "", 20 + doc.getTextWidth(label), 60);
   }
 
   // ===== Résumé des destinataires =====
@@ -170,11 +170,11 @@ export async function generateBonRemise(
         p.tracking_number + (p.tracking_manual ? "\n" + p.tracking_manual : ""),
         p.customer_code,
         p.customer_name,
-        villeOf(p) || "—",
+        villeOf(p) || "",
         (Number(p.weight) || 0).toFixed(2)
       ];
       return showConduce
-        ? [String(i + 1), conduceOf[p.id] || "—", ...base]
+        ? [String(i + 1), conduceOf[p.id] || "", ...base]
         : [String(i + 1), ...base];
     }),
     foot: [showConduce
@@ -209,7 +209,7 @@ export async function generateBonRemise(
 
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
-  doc.text("STANDA COMMERCIAL — Bon de remise " + numero, 14, pageH - 8);
+  doc.text("STANDA COMMERCIAL : Bon de remise " + numero, 14, pageH - 8);
 
   const suffix = dest ? `_${dest.replace(/\s+/g, "")}` : "";
   const filename = `BonRemise_${numero}${suffix}.pdf`;

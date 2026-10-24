@@ -18,7 +18,7 @@ export function buildDepotMessage(c: Client, password?: string): string {
   const code = c.customer_code || c.username || "MC-_____";
   let msg =
     `Bonjour ${non},\n\n` +
-    `Votre adresse de dépôt aux États-Unis est maintenant disponible.\n\n` +
+    `Votre adresse de dépôt aux USA est maintenant disponible.\n\n` +
     `Nom :\n${non}\n\n` +
     `Adresse 1 :\n${DEPOT.address1}\n\n` +
     `Adresse 2 :\n${code}\n\n` +

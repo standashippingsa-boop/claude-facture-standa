@@ -78,7 +78,7 @@ export async function POST(req: Request) {
         const { data: successor } = await svc.from("affiliates").select("id")
           .eq("renewed_from_affiliate_id", aff.id).eq("status", "active").limit(1).maybeSingle();
         if (successor) {
-          return NextResponse.json({ ok: false, reason: "Ce code a été remplacé lors du renouvellement de votre contrat. Connectez-vous avec votre NOUVEAU code affilié et son mot de passe, reçus par e-mail." });
+          return NextResponse.json({ ok: false, reason: "Ce code a été remplacé lors du renouvellement de votre contrat. Veuillez vous connecter avec votre NOUVEAU code affilié et son mot de passe, reçus par courriel." });
         }
         return NextResponse.json({ ok: false, reason: "Votre contrat d'affiliation est terminé. Contactez Standa Commercial (+509 4673 8117) pour le renouveler." });
       }
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
 
   if (action === "me") {
     const aff = await affiliateFromSession(svc, cookieValue(req));
-    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
+    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Veuillez vous reconnecter." }, { status: 401 });
 
     const overview = await buildAffiliateOverview(svc, aff);
     if (!overview.ok) return NextResponse.json({ ok: false, reason: overview.reason }, { status: 500 });
@@ -112,7 +112,7 @@ export async function POST(req: Request) {
   // ── Mòd peman: SÈLMAN goud, MonCash oswa NatCash (kontra atik 6) ──
   if (action === "set_payout") {
     const aff = await affiliateFromSession(svc, cookieValue(req));
-    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
+    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Veuillez vous reconnecter." }, { status: 401 });
     const method = String(body.method ?? "");
     const phone = String(body.phone ?? "").replace(/[^\d+\s-]/g, "").trim().slice(0, 30);
     if (!(AFFILIATE_PAYOUT_METHODS as readonly string[]).includes(method)) {
@@ -142,7 +142,7 @@ export async function POST(req: Request) {
   //    eskane telefòn). Chemen an toujou anba dosye afilye a li menm. ──
   if (action === "contract_upload_url") {
     const aff = await affiliateFromSession(svc, cookieValue(req));
-    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
+    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Veuillez vous reconnecter." }, { status: 401 });
     const ext = resolveSignedContractExt(String(body.content_type ?? ""), String(body.filename ?? ""));
     const size = Number(body.size ?? 0);
     if (!ext) return NextResponse.json({ ok: false, reason: "Format non accepté. Envoyez un PDF, JPG ou PNG." }, { status: 400 });
@@ -160,7 +160,7 @@ export async function POST(req: Request) {
 
   if (action === "contract_confirm") {
     const aff = await affiliateFromSession(svc, cookieValue(req));
-    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
+    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Veuillez vous reconnecter." }, { status: 401 });
     const path = String(body.path ?? "");
     const prefix = `${aff.id}/`;
     const fileName = path.slice(prefix.length);
@@ -179,14 +179,14 @@ export async function POST(req: Request) {
     if (error) return NextResponse.json({ ok: false, reason: "Enregistrement impossible. Réessayez." }, { status: 500 });
     if (previous && previous !== path) await svc.storage.from(CONTRACT_BUCKET).remove([previous]);
     await notifyAdminsOfAffiliateChange(svc, aff, previous
-      ? { title: "Affilié : contrat signé remplacé", message: "Un nouveau contrat signé a été envoyé — à vérifier." }
-      : { title: "Affilié : contrat signé reçu", message: "Contrat signé envoyé — à vérifier." });
+      ? { title: "Affilié : contrat signé remplacé", message: "Un nouveau contrat signé a été envoyé, à vérifier." }
+      : { title: "Affilié : contrat signé reçu", message: "Contrat signé envoyé, à vérifier." });
     return NextResponse.json({ ok: true, signed_contract_uploaded_at: uploadedAt });
   }
 
   if (action === "contract_view") {
     const aff = await affiliateFromSession(svc, cookieValue(req));
-    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Reconnectez-vous." }, { status: 401 });
+    if (!aff) return NextResponse.json({ ok: false, reason: "Session expirée. Veuillez vous reconnecter." }, { status: 401 });
     if (!aff.signed_contract_path) return NextResponse.json({ ok: false, reason: "Aucun contrat envoyé." }, { status: 404 });
     const { data, error } = await svc.storage.from(CONTRACT_BUCKET).createSignedUrl(aff.signed_contract_path as string, 300);
     if (error || !data?.signedUrl) return NextResponse.json({ ok: false, reason: "Contrat indisponible." }, { status: 500 });

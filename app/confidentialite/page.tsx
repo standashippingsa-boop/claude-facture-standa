@@ -46,7 +46,7 @@ export default function ConfidentialitePage() {
 
         <div className="card p-5 sm:p-6 bg-navy text-white">
           <p className="text-[13px] leading-relaxed">
-            STANDA COMMERCIAL, Standa Shipping SA, transporte vos colis entre les États-Unis
+            STANDA COMMERCIAL, Standa Shipping SA, transporte vos colis entre les USA
             et Haïti. Pour cela, nous devons collecter certaines informations vous concernant.
             Cette page explique <b>lesquelles</b>, <b>pourquoi</b>, <b>qui peut les voir</b> et
             <b> quels sont vos droits</b>. Nous ne vendons vos données à personne.
@@ -56,12 +56,12 @@ export default function ConfidentialitePage() {
         <S n="1" t="Informations que nous collectons">
           <p>À votre inscription et pendant l&apos;utilisation du service :</p>
           <ul className="space-y-1.5">
-            <Li><b>Identité</b> — nom, prénom, type et numéro de pièce d&apos;identité : carte d&apos;identité nationale ou passeport.</Li>
-            <Li><b>Contact</b> — adresse e-mail, téléphone, numéro WhatsApp.</Li>
-            <Li><b>Localisation de livraison</b> — pays, ville, deuxième ville, adresse.</Li>
-            <Li><b>Compte</b> — votre code client MC-XXXXX et un mot de passe chiffré. <b>Nous ne voyons jamais votre mot de passe.</b></Li>
-            <Li><b>Colis</b> — numéros de suivi, contenu déclaré, poids, statut, dates de réception.</Li>
-            <Li><b>Facturation</b> — montants, taxes, remises, factures PDF, demandes de retrait.</Li>
+            <Li><b>Identité</b> : nom, prénom, type et numéro de pièce d&apos;identité : carte d&apos;identité nationale ou passeport.</Li>
+            <Li><b>Contact</b> : adresse électronique, téléphone, numéro WhatsApp.</Li>
+            <Li><b>Localisation de livraison</b> : pays, ville, deuxième ville, adresse.</Li>
+            <Li><b>Compte</b> : votre code client MC-XXXXX et un mot de passe chiffré. <b>Nous ne voyons jamais votre mot de passe.</b></Li>
+            <Li><b>Colis</b> : numéros de suivi, contenu déclaré, poids, statut, dates de réception.</Li>
+            <Li><b>Facturation</b> : montants, taxes, remises, factures PDF, demandes de retrait.</Li>
           </ul>
           <p className="text-[12px] text-mute">
             Nous ne collectons ni votre position GPS, ni vos contacts, ni vos photos.
@@ -70,11 +70,11 @@ export default function ConfidentialitePage() {
 
         <S n="2" t="Pourquoi nous les utilisons">
           <ul className="space-y-1.5">
-            <Li><b>Identifier vos colis</b> — votre code MC est l&apos;adresse 2 utilisée par nos entrepôts. Sans lui, un colis ne peut pas vous être attribué.</Li>
-            <Li><b>Transporter et livrer</b> — préparer les manifestes de transport et les bons de remise.</Li>
-            <Li><b>Vous facturer</b> — calculer le prix selon le poids et le tarif de votre ville.</Li>
-            <Li><b>Vous informer</b> — e-mail et WhatsApp quand un colis arrive à Miami ou devient disponible.</Li>
-            <Li><b>Sécurité et obligations légales</b> — vérifier votre identité, prévenir la fraude, respecter les règles douanières.</Li>
+            <Li><b>Identifier vos colis</b> : votre code MC est l&apos;adresse 2 utilisée par nos entrepôts. Sans lui, un colis ne peut pas vous être attribué.</Li>
+            <Li><b>Transporter et livrer</b> : préparer les manifestes de transport et les bons de remise.</Li>
+            <Li><b>Vous facturer</b> : calculer le prix selon le poids et le tarif de votre ville.</Li>
+            <Li><b>Vous informer</b> : courriel et WhatsApp quand un colis arrive à Miami ou devient disponible.</Li>
+            <Li><b>Sécurité et obligations légales</b> : vérifier votre identité, prévenir la fraude, respecter les règles douanières.</Li>
           </ul>
           <p className="font-semibold text-ink">
             Nous n&apos;utilisons pas vos données à des fins publicitaires et nous ne les vendons pas.
@@ -83,16 +83,16 @@ export default function ConfidentialitePage() {
 
         <S n="3" t="Qui peut voir vos informations">
           <ul className="space-y-1.5">
-            <Li><b>Vous</b> — dans votre espace client, à tout moment.</Li>
-            <Li><b>Le personnel autorisé de STANDA COMMERCIAL</b> — uniquement pour traiter vos colis et vos factures.</Li>
+            <Li><b>Vous</b> : dans votre espace client, à tout moment.</Li>
+            <Li><b>Le personnel autorisé de STANDA COMMERCIAL</b> : uniquement pour traiter vos colis et vos factures.</Li>
             <Li><b>Nos prestataires techniques</b>, strictement pour faire fonctionner le service :
-              hébergement et base de données, envoi d&apos;e-mails, plateforme logistique MCPACK,
+              hébergement et base de données, envoi d&apos;courriels, plateforme logistique MCPACK,
               et transporteur pour l&apos;acheminement en Haïti.</Li>
-            <Li><b>Les autorités</b> — douanes ou justice, uniquement si la loi l&apos;exige.</Li>
+            <Li><b>Les autorités</b> : douanes ou justice, uniquement si la loi l&apos;exige.</Li>
           </ul>
           <p>
             Chaque client ne voit que <b>ses propres</b> colis et factures. L&apos;accès aux données
-            est contrôlé au niveau de la base de données elle-même, pas seulement dans l&apos;application.
+            est contrôlé directement au niveau de la base de données, pas seulement dans l&apos;application.
           </p>
         </S>
 
@@ -106,25 +106,25 @@ export default function ConfidentialitePage() {
 
         <S n="5" t="Retrait, entreposage et responsabilité relative aux colis">
           <ul className="space-y-1.5">
-            <Li><b>Délai de retrait</b> — dès qu&apos;un colis est disponible, vous disposez de <b>15 jours</b> pour venir le récupérer à votre point de retrait.</Li>
-            <Li><b>Frais d&apos;entreposage</b> — à compter du <b>16e jour</b>, des frais d&apos;entreposage de <b>5 $ US par jour</b> s&apos;appliquent jusqu&apos;au retrait du colis. Ces frais doivent être réglés avant la remise.</Li>
-            <Li><b>Colis non réclamé</b> — après <b>60 jours</b> sans retrait, le colis peut être remis aux autorités compétentes, conformément aux règles applicables. Le client perd alors tout droit de réclamation sur ce colis.</Li>
-            <Li><b>Adresse et code client</b> — vous êtes responsable d&apos;encoder correctement l&apos;adresse de dépôt et votre code MC lors de vos achats. Si l&apos;adresse est erronée, incomplète ou si le code MC est absent, STANDA COMMERCIAL ne peut garantir l&apos;identification, le suivi ou la récupération du colis. Le client assume la perte qui en résulte.</Li>
+            <Li><b>Délai de retrait</b> : dès qu&apos;un colis est disponible, vous disposez de <b>15 jours</b> pour venir le récupérer à votre point de retrait.</Li>
+            <Li><b>Frais d&apos;entreposage</b> : à compter du <b>16e jour</b>, des frais d&apos;entreposage de <b>5 $ US par jour</b> s&apos;appliquent jusqu&apos;au retrait du colis. Ces frais doivent être réglés avant la remise.</Li>
+            <Li><b>Colis non réclamé</b> : après <b>60 jours</b> sans retrait, le colis peut être remis aux autorités compétentes, conformément aux règles applicables. Le client perd alors tout droit de réclamation sur ce colis.</Li>
+            <Li><b>Adresse et code client</b> : vous êtes responsable d&apos;encoder correctement l&apos;adresse de dépôt et votre code MC lors de vos achats. Si l&apos;adresse est erronée, incomplète ou si le code MC est absent, STANDA COMMERCIAL ne peut garantir l&apos;identification, le suivi ou la récupération du colis. Le client assume la perte qui en résulte.</Li>
           </ul>
         </S>
 
         <S n="6" t="Durée de conservation">
           <ul className="space-y-1.5">
-            <Li><b>Compte et identité</b> — tant que votre compte est actif.</Li>
-            <Li><b>Colis, factures et bons de remise</b> — conservés pour nos obligations comptables et douanières, même après la clôture du compte.</Li>
-            <Li><b>Compte supprimé</b> — votre identité et vos coordonnées sont effacées, voir section 8.</Li>
+            <Li><b>Compte et identité</b> : tant que votre compte est actif.</Li>
+            <Li><b>Colis, factures et bons de remise</b> : conservés pour nos obligations comptables et douanières, même après la clôture du compte.</Li>
+            <Li><b>Compte supprimé</b> : votre identité et vos coordonnées sont effacées, voir section 8.</Li>
           </ul>
         </S>
 
         <S n="7" t="Sécurité">
           <ul className="space-y-1.5">
             <Li>Les échanges avec l&apos;application sont chiffrés en HTTPS.</Li>
-            <Li>Les mots de passe sont stockés sous forme chiffrée irréversible — personne chez nous ne peut les lire.</Li>
+            <Li>Les mots de passe sont stockés sous forme chiffrée irréversible, personne chez nous ne peut les lire.</Li>
             <Li>L&apos;accès aux données est restreint par des règles appliquées directement dans la base de données.</Li>
           </ul>
           <p className="font-semibold text-ink">
@@ -138,16 +138,16 @@ export default function ConfidentialitePage() {
           <ul className="space-y-1.5">
             <Li><b>Consulter</b> les informations que nous détenons sur vous.</Li>
             <Li><b>Corriger</b> une information inexacte : nom, téléphone, adresse, ville.</Li>
-            <Li><b>Supprimer votre compte</b> — sous réserve des documents que la loi nous oblige à conserver.</Li>
-            <Li><b>Refuser les notifications</b> e-mail ou WhatsApp non essentielles.</Li>
+            <Li><b>Supprimer votre compte</b> : sous réserve des documents que la loi nous oblige à conserver.</Li>
+            <Li><b>Refuser les notifications</b> courriel ou WhatsApp non essentielles.</Li>
           </ul>
           <p className="font-semibold text-ink">Comment supprimer votre compte</p>
           <ul className="space-y-1.5">
-            <Li><b>Dans l&apos;application ou sur le site</b> : connectez-vous, ouvrez le menu en haut à droite, choisissez <b>« Supprimer mon compte »</b>, puis tapez SUPPRIMER pour confirmer.</Li>
-            <Li><b>Si vous ne pouvez plus vous connecter</b> : écrivez-nous sur WhatsApp, voir section 10, en indiquant votre code client ou l&apos;e-mail du compte. Nous répondons sous 30 jours.</Li>
+            <Li><b>Dans l&apos;application ou sur le site</b> : veuillez vous connecter, ouvrez le menu en haut à droite, choisissez <b>« Supprimer mon compte »</b>, puis tapez SUPPRIMER pour confirmer.</Li>
+            <Li><b>Si vous ne pouvez plus vous connecter</b> : écrivez à STANDA sur WhatsApp, voir section 10, en indiquant votre code client ou le courriel du compte. Nous répondons sous 30 jours.</Li>
           </ul>
           <p>
-            <b>Ce qui est effacé</b> : votre nom, vos coordonnées téléphone, WhatsApp, e-mail et adresse, votre pièce
+            <b>Ce qui est effacé</b> : votre nom, vos coordonnées téléphone, WhatsApp, courriel et adresse, votre pièce
             d&apos;identité, vos notifications et votre accès. <b>Ce qui est conservé</b> : vos colis, factures et reçus,
             rattachés uniquement à votre code client et sans votre identité, pour nos obligations comptables et douanières.
           </p>
@@ -170,11 +170,11 @@ export default function ConfidentialitePage() {
         </S>
 
         <S n="10" t="Nous contacter">
-          <p><b>STANDA COMMERCIAL</b> — Standa Shipping SA</p>
+          <p><b>STANDA COMMERCIAL</b> : Standa Shipping SA</p>
           <ul className="space-y-1.5">
             <Li>Téléphone / WhatsApp : <b>{SUPPORT_PHONE}</b></Li>
             <Li>Site : {SITE_URL.replace("https://", "")}</Li>
-            <Li>Entrepôt États-Unis : {DEPOT.address1}, {DEPOT.city}, {DEPOT.state} {DEPOT.zip}</Li>
+            <Li>Entrepôt USA : {DEPOT.address1}, {DEPOT.city}, {DEPOT.state} {DEPOT.zip}</Li>
           </ul>
           <a href={WA} target="_blank" rel="noreferrer" className="btn btn-wa justify-center w-full mt-3">
             <MessageCircle size={15} /> Nous écrire sur WhatsApp
@@ -190,7 +190,7 @@ export default function ConfidentialitePage() {
         </S>
 
         <p className="text-center text-[11px] text-mute py-4">
-          © {new Date().getFullYear()} STANDA COMMERCIAL — Standa Shipping SA
+          © {new Date().getFullYear()} STANDA COMMERCIAL : Standa Shipping SA
         </p>
       </div>
     </div>

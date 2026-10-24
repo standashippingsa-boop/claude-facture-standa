@@ -35,7 +35,7 @@ export async function sendAgentReport(
   const summary = String(input.summary ?? "").slice(0, 1500);
   const inserted = await db.from("journal").insert({
     user_name: `${input.agentName} · agent_retrait`, action: AGENT_REPORT_ACTION,
-    details: `${input.zone} — ${summary}`, package_ref: path, customer_code: ""
+    details: `${input.zone} : ${summary}`, package_ref: path, customer_code: ""
   }).select("id").single();
   if (inserted.error || !inserted.data) return { ok: false, reason: "Rapport non enregistré." };
   const reportId = String(inserted.data.id);
@@ -65,7 +65,7 @@ export async function sendAgentReport(
         body: JSON.stringify({
           from: process.env.EMAIL_FROM || "STANDA COMMERCIAL <notifications@standacommercialsa.com>",
           to: recipients,
-          subject: `Rapport point de retrait — ${input.zone} — ${day}`,
+          subject: `Rapport point de retrait : ${input.zone} : ${day}`,
           html: `<p>Bonjour,</p><p><b>${escapeHtml(input.agentName)}</b> (point de retrait <b>${escapeHtml(input.zone)}</b>) a envoyé son rapport.</p><p>${escapeHtml(summary)}</p><p>Le rapport complet est en pièce jointe (PDF). Il est aussi disponible dans STANDA → Points de retrait → Rapports des agences.</p>`,
           attachments: [{ filename: `Rapport-${zoneSlug}-${day}.pdf`, content: base64 }]
         })

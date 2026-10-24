@@ -32,7 +32,7 @@ import { specialPackageInfo } from "@/lib/special-package";
 import { openSecureDocument } from "@/lib/secure-document";
 
 /** Vil "flexib" pou kont santral la — pa gen vil fiks. */
-const CENTRAL_VILLE = "— Compte central —";
+const CENTRAL_VILLE = "Compte central";
 
 export default function BonRemisePage() {
   const { staff } = useRole();
@@ -222,11 +222,11 @@ export default function BonRemisePage() {
       // Un Bon créé ne doit jamais être annulé après que le PDF a été produit.
       let archiveWarning = "";
       try { await saveBonRemisePdf(record.id, pdf.blob, pdf.filename); }
-      catch { archiveWarning = " — PDF téléchargé, mais l'archive sécurisée a échoué."; }
+      catch { archiveWarning = " : PDF téléchargé, mais l'archive sécurisée a échoué."; }
       setRecordedConduces((previous) => new Set([...previous, ...conduceIds]));
       setSel(new Set()); setSelCond(new Set()); setVille(""); setQ("");
       await load();
-      setToast(`Bon de remise ${bonNumber} créé — ${chosen.length} colis${ville ? ` · ${ville}` : ""}${archiveWarning}`);
+      setToast(`Bon de remise ${bonNumber} créé : ${chosen.length} colis${ville ? ` · ${ville}` : ""}${archiveWarning}`);
     } catch (error) {
       // Si PDF la pa rive kreye, retire mak la pou Conduce yo pa rete bloke.
       if (recordId) await deleteBonRemiseRecord(recordId).catch(() => undefined);
@@ -285,7 +285,7 @@ export default function BonRemisePage() {
                   {!on && alreadyRecorded && <span className="ml-auto text-[10px] font-bold text-emerald-300 inline-flex items-center gap-1"><CheckCircle2 size={12} />Colis déjà remis</span>}
                 </div>
                 <p className={`text-[11px] mt-0.5 truncate ${on ? "text-white/80" : "text-white/45"}`}>
-                  {c.office || "—"} · {c.conduce_date ? dateFr(c.conduce_date) : dateFr(c.created_at)}
+                  {c.office || ""} · {c.conduce_date ? dateFr(c.conduce_date) : dateFr(c.created_at)}
                 </p>
               </button>
             );
@@ -314,8 +314,7 @@ export default function BonRemisePage() {
             ]} />
           {ville && central && (
             <p className="text-[11px] text-navy bg-blue-50 border border-navy/15 rounded-lg px-3 py-2 mt-3">
-              Les colis du <b>compte central {central}</b> restent visibles quelle que soit la ville —
-              ils prendront <b>{ville}</b> comme destination sur ce bon.
+              Les colis du <b>compte central {central}</b> restent visibles quelle que soit la ville, ils prendront <b>{ville}</b> comme destination sur ce bon.
             </p>
           )}
         </section>
@@ -367,20 +366,20 @@ export default function BonRemisePage() {
                         <td className="tdc" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" checked={on} onChange={() => toggle(p.id)} />
                         </td>
-                        <td className="tdc font-mono text-navy font-semibold">{conduceOf[p.id] || "—"}</td>
+                        <td className="tdc font-mono text-navy font-semibold">{conduceOf[p.id] || ""}</td>
                         <td className="tdc font-mono">
                           <div className="flex flex-col gap-0.5">
                             <span>{p.tracking_number}</span>
                             {special.isSpecial && <span className="w-fit rounded-full bg-amber-100 px-1.5 py-0.5 font-sans text-[9px] font-bold text-amber-800" title={`Raison : ${special.reason}`}>* Spécial</span>}
                           </div>
                         </td>
-                        <td className="tdc font-mono text-mute">{p.tracking_manual || "—"}</td>
+                        <td className="tdc font-mono text-mute">{p.tracking_manual || ""}</td>
                         <td className="tdc font-semibold">{p.customer_code}</td>
                         <td className="tdc truncate max-w-[160px]">{p.customer_name}</td>
                         <td className="tdc">
                           {cen
                             ? <span className="pill pill-blue"><span className="pill-dot" />{ville || "Flexible"}</span>
-                            : (villeOf(p) || "—")}
+                            : (villeOf(p) || "")}
                         </td>
                         <td className="tdc text-right whitespace-nowrap">{(Number(p.weight) || 0).toFixed(2)} lb</td>
                       </tr>

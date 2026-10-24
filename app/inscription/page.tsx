@@ -49,7 +49,7 @@ export default function InscriptionPage() {
             {REASSURANCES.map(({ icon: Icon, label }) => <div key={label} className="flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-navy/35 px-3 py-3 text-[12px] font-semibold text-white/80 backdrop-blur-md"><Icon size={16} className="text-orange-300" />{label}</div>)}
           </div>
 
-          <p className="mt-6 text-center text-[12px] leading-relaxed text-white/65">Une question ? <a href={`https://wa.me/${SITE.whatsapp}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-bold text-white underline underline-offset-2"><WhatsAppIcon size={15} />Écrivez-nous sur WhatsApp</a>.</p>
+          <p className="mt-6 text-center text-[12px] leading-relaxed text-white/65">Une question ? <a href={`https://wa.me/${SITE.whatsapp}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-bold text-white underline underline-offset-2"><WhatsAppIcon size={15} />Écrivez à STANDA sur WhatsApp</a>.</p>
           <p className="mt-4 text-center text-[11px] text-white/45"><Link href="/confidentialite" className="transition hover:text-white/80">Politique de confidentialité</Link></p>
         </main>
       </div>

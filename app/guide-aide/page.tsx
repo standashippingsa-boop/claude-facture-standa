@@ -17,7 +17,7 @@ import { SUPPORT_PHONE } from "@/lib/branding";
  * Données : agences (module public autorisé) et /api/public/tarifs (liste blanche).
  */
 export const metadata: Metadata = {
-  title: "Guide et aide — STANDA COMMERCIAL",
+  title: "Guide et aide : STANDA COMMERCIAL",
   description: "Adresse SHEIN et Amazon, fonctionnement de l'expédition Miami → Haïti, délais, prix par ville, agences et questions fréquentes.",
   robots: { index: false, follow: false }
 };
@@ -38,7 +38,7 @@ const SECTIONS = [
 
 const STEPS = [
   ["Achetez en ligne", `Sur Amazon, SHEIN, eBay… utilisez l'adresse de notre dépôt à Miami et ajoutez votre code client (${CODE}) dans le champ « Address 2 ».`],
-  ["Réception à Miami", "Notre entrepôt enregistre et pèse votre colis. Vous recevez ensuite une notification par e-mail ou WhatsApp."],
+  ["Réception à Miami", "Notre entrepôt enregistre et pèse votre colis. Vous recevez ensuite une notification par courriel ou WhatsApp."],
   ["Acheminement du colis", "Votre colis part de Miami vers Haïti, passe les formalités puis rejoint votre agence."],
   ["Retrait en agence", "Lorsque le statut devient « Disponible », cliquez sur « Préparer mon retrait » afin que votre colis soit prêt à votre arrivée."]
 ] as const;
@@ -50,17 +50,17 @@ const INTERDITS = ["Armes et munitions", "Produits inflammables", "Explosifs", "
 const FAQ = [
   ["Combien de temps prend mon colis ?",
    "Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement entre 3 et 7 jours ouvrables pour qu'il arrive à votre agence en Haïti. Ce délai peut varier seulement selon la douane, ou si votre code client ne figure pas dans l'adresse du colis : une réclamation doit alors être faite avant que le colis puisse être envoyé en Haïti, ce qui prend du temps. Ouvrez le colis dans l'application pour voir son étape : Reçu à Miami, En préparation, En transit, Arrivé en Haïti, En route vers agence, puis Disponible."],
-  ["Pourquoi mon colis n'apparaît-il pas encore ?",
-   "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. Si le transporteur indique « livré », comptez quelques heures pour l'enregistrement. Si votre colis n'apparaît pas, c'est souvent que l'adresse a été mal encodée lors de l'achat ou que votre code client MC-… n'a pas été mis sur la ligne « Address 2 » : sans ce code, nous ne pouvons pas relier le colis à votre compte. Recopiez toujours exactement l'adresse de votre espace client. Dans ce cas, écrivez-nous sur WhatsApp avec votre numéro de suivi pour faire une réclamation."],
-  ["Venez-vous chercher les colis à domicile ?",
-   "Non. Nous ne récupérons pas les colis chez les clients. Si le colis est déjà entre vos mains et que vous voulez l'envoyer en Haïti, expédiez-le vous-même à notre adresse de Miami, Floride, avec un transporteur comme FedEx, UPS ou USPS, en écrivant l'adresse avec votre code MC."],
-  ["Puis-je envoyer plusieurs colis ensemble ?",
+  ["Mon colis n'apparaît pas encore : pourquoi ?",
+   "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. Si le transporteur indique « livré », comptez quelques heures pour l'enregistrement. Si votre colis n'apparaît pas, c'est souvent que l'adresse a été mal encodée lors de l'achat ou que votre code client MC-… n'a pas été mis sur la ligne « Address 2 » : sans ce code, nous ne pouvons pas relier le colis à votre compte. Recopiez toujours exactement l'adresse de votre espace client. Dans ce cas, écrivez à STANDA sur WhatsApp avec votre numéro de suivi pour faire une réclamation."],
+  ["Ramassage des colis à domicile, c'est possible ?",
+   "Non. Nous ne récupérons pas les colis chez les clients. Si le colis est déjà entre vos mains et que vous voulez l'envoyer en Haïti, envoyez le par vos propres moyens à notre adresse de Miami, Floride, avec un transporteur comme FedEx, UPS ou USPS, en écrivant l'adresse avec votre code MC."],
+  ["Envoyer plusieurs colis ensemble, c'est possible ?",
    "Oui. Vous pouvez commander dans plusieurs boutiques : chaque colis est reçu et pesé séparément à Miami, et tous ceux qui portent votre code client sont regroupés dans votre compte. Les colis disponibles en même temps peuvent être réunis sur une seule facture."],
   ["Que signifie « Préparer mon retrait » ?",
    "Quand un colis passe au statut « Disponible », ouvrez « Disponibles », cochez les colis que vous viendrez chercher et touchez « Préparer mon retrait ». L'agence prépare alors vos colis avant votre arrivée : votre demande passe de « En attente » à « Préparé », puis à « Remis » quand vous les avez récupérés. Les factures impayées doivent être réglées à l'agence avant la remise. Vous disposez de 15 jours pour retirer un colis disponible ; à partir du 16e jour, des frais d'entreposage de 5 $ US par jour s'appliquent."],
   ["J'ai oublié mon mot de passe.",
-   "Écrivez-nous sur WhatsApp : nous vous envoyons un nouveau mot de passe. Connectez-vous avec votre code client MC-XXXXX et ce mot de passe. Vous pouvez ensuite le changer : touchez votre nom en haut de l'écran, puis « Changer mon mot de passe »."],
-  ["Le prix peut-il changer ?",
+   "Écrivez à STANDA sur WhatsApp : nous vous envoyons un nouveau mot de passe. Veuillez vous connecter avec votre code client MC-XXXXX et ce mot de passe. Vous pouvez ensuite le changer : touchez votre nom en haut de l'écran, puis « Changer mon mot de passe »."],
+  ["Le prix final peut varier ?",
    "Oui : le calculateur donne une estimation. Le prix final est celui de votre facture, calculé sur le poids réel pesé à notre entrepôt de Miami, selon le tarif de votre ville. Il peut différer de l'estimation si le poids réel n'est pas celui que vous avez encodé, si le colis contient un article à tarif spécial comme un téléphone, un ordinateur portable, une tablette, une caméra ou un téléviseur, ou si des frais d'entreposage s'ajoutent pour un retrait après 15 jours. Le montant en gourdes est calculé au taux du jour de la facture."]
 ] as const;
 
@@ -111,12 +111,12 @@ export default async function GuideAidePage() {
         <section className="rounded-2xl border-2 border-accent bg-accent-light p-5 text-[14px] leading-relaxed text-navy sm:p-6">
           <p className="flex items-center gap-2 text-[16px] font-extrabold"><PackageX size={18} /> Nous ne récupérons pas les colis à domicile</p>
           <p className="mt-2">STANDA COMMERCIAL ne passe pas prendre de colis chez vous. Nous recevons uniquement les colis livrés à notre dépôt de Miami.</p>
-          <p className="mt-2"><b>Le colis est déjà entre vos mains et vous voulez l&apos;envoyer en Haïti ?</b> Expédiez-le vous-même à notre adresse de Miami, Floride, avec un transporteur comme <b>FedEx</b>, <b>UPS</b> ou <b>USPS</b>. Écrivez l&apos;adresse exactement comme ci-dessous, <b>avec votre code MC</b> : à son arrivée au dépôt, le colis est enregistré sur votre compte puis envoyé vers votre agence.</p>
+          <p className="mt-2"><b>Le colis est déjà entre vos mains et vous voulez l&apos;envoyer en Haïti ?</b> Envoyez le par vos propres moyens à notre adresse de Miami, Floride, avec un transporteur comme <b>FedEx</b>, <b>UPS</b> ou <b>USPS</b>. Écrivez l&apos;adresse exactement comme plus bas, <b>avec votre code MC</b> : à son arrivée au dépôt, le colis est enregistré sur votre compte puis envoyé vers votre agence.</p>
         </section>
 
         <Card title="Délai de livraison" icon={<Clock size={16} />}>
           <p>Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement <b>entre 3 et 7 jours ouvrables</b> pour qu&apos;il arrive à votre agence en Haïti.</p>
-          <p className="mt-2">Un <b>jour ouvrable</b> va du lundi au vendredi — les samedis et dimanches ne comptent pas dans ce délai. Un colis reçu un vendredi peut donc arriver le mardi ou mercredi suivant sans retard de notre part.</p>
+          <p className="mt-2">Un <b>jour ouvrable</b> va du lundi au vendredi, les samedis et dimanches ne comptent pas dans ce délai. Un colis reçu un vendredi peut donc arriver le mardi ou mercredi suivant sans retard de notre part.</p>
           <p className="mt-2 text-[13px]">Ce délai peut varier seulement selon la douane, ou si votre code client ne figure pas dans l&apos;adresse du colis : une réclamation doit alors être faite avant que le colis puisse être envoyé en Haïti, ce qui prend du temps. Suivez chaque étape directement dans l&apos;application, sans avoir à nous contacter.</p>
         </Card>
 
@@ -139,7 +139,7 @@ export default async function GuideAidePage() {
         <Card id="agences" title="Nos agences" icon={<Store size={16} />}>
           <p>Retirez votre colis dans le point de retrait le plus proche de vous.</p>
           {agences.length === 0
-            ? <p className="mt-3">Contactez-nous sur WhatsApp pour connaître l&apos;agence la plus proche de vous.</p>
+            ? <p className="mt-3">Contactez STANDA sur WhatsApp pour connaître l&apos;agence la plus proche de vous.</p>
             : <div className="mt-3 divide-y divide-line">{agences.map((agence) => (
                 <div key={agence.id ?? agence.nom} className="py-2.5">
                   <p className="font-bold text-ink">{agence.nom}</p>
@@ -151,10 +151,10 @@ export default async function GuideAidePage() {
 
         <Card title="Nos principes" icon={<ShieldCheck size={16} />}>
           <ul className="space-y-2">
-            <li><b>Transparence</b> — le prix final correspond toujours au poids réel pesé à l&apos;entrepôt, jamais à une estimation imposée.</li>
-            <li><b>Sécurité</b> — chaque colis est suivi de sa réception à Miami jusqu&apos;à sa remise à votre agence.</li>
-            <li><b>Rapidité</b> — vos colis sont acheminés régulièrement vers Haïti, sans attendre un plein chargement.</li>
-            <li><b>Proximité</b> — une équipe joignable par téléphone et WhatsApp pour répondre à vos questions.</li>
+            <li><b>Transparence</b> : le prix final correspond toujours au poids réel pesé à l&apos;entrepôt, jamais à une estimation imposée.</li>
+            <li><b>Sécurité</b> : chaque colis est suivi de sa réception à Miami jusqu&apos;à sa remise à votre agence.</li>
+            <li><b>Rapidité</b> : vos colis sont acheminés régulièrement vers Haïti, sans attendre un plein chargement.</li>
+            <li><b>Proximité</b> : une équipe joignable par téléphone et WhatsApp pour répondre à vos questions.</li>
           </ul>
           <a href={`tel:${WA_NUM}`} className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-line px-3 py-2.5 text-[14px] font-bold text-navy"><Phone size={15} /> {SUPPORT_PHONE}</a>
         </Card>
@@ -166,7 +166,7 @@ export default async function GuideAidePage() {
           </div>
           <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-700">
             <AlertTriangle size={13} className="mr-1 inline" />
-            Vous êtes responsable du contenu de votre colis. Un article interdit peut être saisi par la douane sans recours. En cas de doute, contactez-nous sur WhatsApp avant votre achat.
+            Vous êtes responsable du contenu de votre colis. Un article interdit peut être saisi par la douane sans recours. En cas de doute, contactez STANDA sur WhatsApp avant votre achat.
           </p>
         </Card>
 
@@ -184,7 +184,7 @@ export default async function GuideAidePage() {
         </Card>
 
         <a href={WA_LINK} target="_blank" rel="noreferrer" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 text-[15px] font-bold text-white">
-          <WhatsAppIcon size={16} /> Une question ? Écrivez-nous sur WhatsApp
+          <WhatsAppIcon size={16} /> Une question ? Écrivez à STANDA sur WhatsApp
         </a>
       </main>
     </div>

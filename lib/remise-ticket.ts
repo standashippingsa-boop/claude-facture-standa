@@ -85,14 +85,14 @@ const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet"
 /** « 29 septembre 2026 14:31 » — lè lokal aparèy ki enprime a (Ayiti). */
 export function ticketDateTime(value: string): string {
   const date = value ? new Date(value) : null;
-  if (!date || Number.isNaN(date.getTime())) return "—";
+  if (!date || Number.isNaN(date.getTime())) return "";
   return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
 /** « 29/09/2026 14:31 » — pou liy peman yo ki bezwen rete kout. */
 export function ticketShortDateTime(value: string): string {
   const date = value ? new Date(value) : null;
-  if (!date || Number.isNaN(date.getTime())) return "—";
+  if (!date || Number.isNaN(date.getTime())) return "";
   return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
@@ -215,7 +215,7 @@ function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: strin
   left(`COLIS REMIS (${t.packages.length})`, "bold");
   y += 0.5;
   t.packages.forEach((item, index) => {
-    left(`${index + 1}. ${item.guia || item.tracking || "—"}`, "bold");
+    left(`${index + 1}. ${item.guia || item.tracking || ""}`, "bold");
     if (item.tracking && item.tracking !== item.guia) left(`Trk : ${item.tracking}`, "normal", 3);
     const details = [item.content, `Qté ${item.quantity}`, `${item.weight.toFixed(2)} lb`].filter(Boolean).join(" · ");
     left(details, "normal", 3);
@@ -239,7 +239,7 @@ function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: strin
     row("  Équivalent HTG", ticketHtg(invoice.payable_htg));
     row("  Payé", ticketUsd(invoice.paid_usd));
     row("  Reste", ticketUsd(invoice.remaining_usd));
-    row("  Statut", invoice.payment_status || "—");
+    row("  Statut", invoice.payment_status || "");
     for (const payment of invoice.payments) {
       y += 0.4;
       row(`  ${payment.method || "Espèces"}`, ticketAmount(payment.amount, payment.currency));
@@ -257,8 +257,8 @@ function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: strin
   y += 1;
   stars("REMISE CONFIRMÉE");
   y += 0.5;
-  left(`Remis par : ${t.delivered_by || "—"}`);
-  left(`Imprimé par : ${t.printed_by || "—"}`);
+  left(`Remis par : ${t.delivered_by || ""}`);
+  left(`Imprimé par : ${t.printed_by || ""}`);
   left(`Le : ${ticketDateTime(t.printed_at)}`);
   dashed();
 
@@ -282,7 +282,7 @@ function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: strin
   doc.setLineWidth(0.25);
   doc.line(margin, y, width - margin, y);
   y += line + 1;
-  centered("Le client confirme avoir reçu les colis ci-dessus en bon état.", base - 1);
+  centered("Le client confirme avoir reçu les colis plus haut en bon état.", base - 1);
   y += 1;
   centered("MERCI DE VOTRE CONFIANCE !", base, "bold");
   centered("Conservez ce ticket comme preuve de remise.", base - 1);

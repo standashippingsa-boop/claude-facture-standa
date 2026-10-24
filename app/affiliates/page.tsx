@@ -59,7 +59,7 @@ export default function AffiliatesPage() {
       const j = await adminApi("affiliate_approve", { application_id: id });
       if (!j.ok) { setNotice("Erè: " + j.reason); return; }
       setCreds({ username: j.username, password: j.password, referralLink: j.referralLink, mailSent: j.mailSent, mailError: j.mailError });
-      setNotice(j.mailSent ? `Affilié créé et e-mail envoyé à ${j.affiliate?.email}.` : `Affilié créé, mais l'e-mail n'a pas pu être envoyé (${j.mailError}). Copiez les accès ci-dessous.`);
+      setNotice(j.mailSent ? `Affilié créé et courriel envoyé à ${j.affiliate?.email}.` : `Affilié créé, mais le courriel n'a pas pu être envoyé (${j.mailError}). Copiez les accès plus bas.`);
       await load();
     } finally { setBusy(null); }
   };
@@ -107,7 +107,7 @@ export default function AffiliatesPage() {
       const j = await adminApi("affiliate_renew", { affiliate_id: id });
       if (!j.ok) { setNotice("Erè: " + j.reason); return; }
       setCreds({ username: j.username, password: j.password, referralLink: j.referralLink, mailSent: j.mailSent, mailError: j.mailError });
-      setNotice(j.mailSent ? `Nouveau lien créé (${j.contractStart} → ${j.contractEnd}) et e-mail envoyé à ${j.affiliate?.email}.` : `Nouveau lien créé, mais l'e-mail n'a pas pu être envoyé (${j.mailError}). Copiez les accès ci-dessous.`);
+      setNotice(j.mailSent ? `Nouveau lien créé (${j.contractStart} → ${j.contractEnd}) et courriel envoyé à ${j.affiliate?.email}.` : `Nouveau lien créé, mais le courriel n'a pas pu être envoyé (${j.mailError}). Copiez les accès plus bas.`);
       await load();
     } finally { setBusy(null); }
   };
@@ -119,8 +119,8 @@ export default function AffiliatesPage() {
       const j = await adminApi("affiliate_reset_password", { affiliate_id: id });
       if (!j.ok) { setNotice("Erè: " + j.reason); return; }
       const a = affiliates.find((x) => x.id === id);
-      setCreds({ username: a?.username ?? "", password: j.password, referralLink: a?.referral_link ?? "", mailSent: false, mailError: "Nouveau mot de passe — communiquez-le vous-même à l'affilié." });
-      setNotice("Mot de passe réinitialisé. Copiez-le ci-dessous et transmettez-le à l'affilié.");
+      setCreds({ username: a?.username ?? "", password: j.password, referralLink: a?.referral_link ?? "", mailSent: false, mailError: "Nouveau mot de passe : à communiquer à l'affilié par vos soins." });
+      setNotice("Mot de passe réinitialisé. Copiez le mot de passe plus bas et transmettez le à l'affilié.");
     } finally { setBusy(null); }
   };
 
@@ -159,15 +159,15 @@ export default function AffiliatesPage() {
 
       {/* ── KPI — vue d'ensemble ─────────────────────────────────────── */}
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi icon={Clock3} tone="amber" label="Candidatures en attente" value={loading ? "—" : String(pending.length)} />
-        <Kpi icon={UserCheck} tone="emerald" label="Affiliés actifs" value={loading ? "—" : String(activeAffiliates.length)} />
-        <Kpi icon={Wallet} tone="amber" label="Commissions dues" value={loading ? "—" : usd(totalDue)} />
-        <Kpi icon={CheckCircle2} tone="navy" label="Commissions payées" value={loading ? "—" : usd(totalPaid)} />
+        <Kpi icon={Clock3} tone="amber" label="Candidatures en attente" value={loading ? "" : String(pending.length)} />
+        <Kpi icon={UserCheck} tone="emerald" label="Affiliés actifs" value={loading ? "" : String(activeAffiliates.length)} />
+        <Kpi icon={Wallet} tone="amber" label="Commissions dues" value={loading ? "" : usd(totalDue)} />
+        <Kpi icon={CheckCircle2} tone="navy" label="Commissions payées" value={loading ? "" : usd(totalPaid)} />
       </div>
 
       {creds && (
         <div className="mt-4 rounded-xl border border-accent/30 bg-accent-light/40 px-4 py-3.5 text-sm">
-          <p className="font-bold text-navy">Accès de l'affilié — le mot de passe ne sera plus réaffiché :</p>
+          <p className="font-bold text-navy">Accès de l'affilié, le mot de passe ne sera plus réaffiché :</p>
           <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
             <CopyField label="Identifiant" value={creds.username} />
             <CopyField label="Mot de passe" value={creds.password} />
@@ -206,7 +206,7 @@ export default function AffiliatesPage() {
                     <div>
                       <p className="font-bold text-navy">{a.fullname} <StatusPill status={a.status} /></p>
                       <p className="text-[13px] text-mute">{a.email} · {a.phone}{a.city ? ` · ${a.city}` : ""}</p>
-                      <p className="text-[13px] text-mute">{a.id_type} — {a.id_number}</p>
+                      <p className="text-[13px] text-mute">{a.id_type}  {a.id_number}</p>
                       {a.motivation && <p className="mt-1.5 max-w-xl text-[13px] italic text-mute">« {a.motivation} »</p>}
                       <p className="mt-1 text-[11px] text-mute">Reçue le {dateFr(a.created_at)}</p>
                     </div>
@@ -249,7 +249,7 @@ export default function AffiliatesPage() {
                               <p className={`mt-1 text-[11px] font-semibold ${urgent ? "text-amber-700" : "text-mute"}`}>
                                 {left > 0 ? `${left} jour${left > 1 ? "s" : ""} restant${left > 1 ? "s" : ""}`
                                   : a.contract_end < new Date().toISOString().slice(0, 10)
-                                    ? "Contrat terminé — plus de commission, à renouveler"
+                                    ? "Contrat terminé, plus de commission, à renouveler"
                                     : "Expire aujourd'hui"}
                               </p>
                             </div>
@@ -313,8 +313,8 @@ export default function AffiliatesPage() {
                   {commissions.map((c) => (
                     <tr key={c.id} className="border-t border-line">
                       <td className="px-4 py-3 text-mute">{dateFr(c.created_at)}</td>
-                      <td className="px-4 py-3">{c.invoice_number || "—"}</td>
-                      <td className="px-4 py-3">{c.client_name || "—"}</td>
+                      <td className="px-4 py-3">{c.invoice_number || ""}</td>
+                      <td className="px-4 py-3">{c.client_name || ""}</td>
                       <td className="px-4 py-3 font-semibold text-navy">
                         {usd(c.amount)}
                         <span className="block text-[11px] font-normal text-mute">{formatHtg(c.status === "paid" && c.paid_amount_htg != null ? Number(c.paid_amount_htg) : toPayoutHtg(Number(c.amount)))}</span>

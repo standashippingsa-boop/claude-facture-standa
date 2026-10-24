@@ -62,7 +62,7 @@ export const FAQ_TOPICS: FaqTopic[] = [
       "pa parèt", "pa wè", "poko parèt", "pa gen koli",
       "not showing", "don't see", "doesn't appear", "missing", "can't find"],
     answer: {
-      fr: "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. L'application se met à jour automatiquement ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. S'il n'apparaît toujours pas, c'est souvent que le code client MC-… n'était pas sur la ligne « Address 2 » lors de l'achat. Écrivez-nous sur WhatsApp avec votre numéro de suivi pour une réclamation.",
+      fr: "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. L'application se met à jour automatiquement ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. S'il n'apparaît toujours pas, c'est souvent que le code client MC-… n'était pas sur la ligne « Address 2 » lors de l'achat. Écrivez à STANDA sur WhatsApp avec votre numéro de suivi pour une réclamation.",
       ht: "Koli w parèt depi depo Miami nou an resevwa l epi anrejistre l, pa anvan. App la mete tèt li ajou otomatikman ; ou ka tou peze bouton ↻ anwo ekran an. Si li toujou pa parèt, souvan se paske kòd kliyan MC-... pa t sou liy « Address 2 » lè w te achte a. Ekri nou sou WhatsApp ak nimewo tracking ou pou fè yon reklamasyon.",
       en: "Your package shows up as soon as our Miami warehouse has received and logged it, not before. The app refreshes automatically; you can also tap the ↻ button at the top of the screen. If it still doesn't show, it's usually because the customer code MC-… wasn't on the 'Address 2' line at checkout. Message us on WhatsApp with your tracking number to file a claim."
     }
@@ -95,7 +95,7 @@ export const FAQ_TOPICS: FaqTopic[] = [
       "modpas bliye", "bliye modpas",
       "forgot password", "reset password", "forgot my password"],
     answer: {
-      fr: "Écrivez-nous sur WhatsApp : nous vous envoyons un nouveau mot de passe. Connectez-vous avec votre code client MC-XXXXX et ce mot de passe, puis changez-le dans votre profil.",
+      fr: "Écrivez à STANDA sur WhatsApp : nous vous envoyons un nouveau mot de passe. Veuillez vous connecter avec votre code client MC-XXXXX et ce mot de passe, puis changez le dans votre profil.",
       ht: "Ekri nou sou WhatsApp: nou voye yon nouvo modpas ba ou. Konekte ak kòd kliyan MC-XXXXX ou ak modpas sa a, epi chanje l nan pwofil ou.",
       en: "Message us on WhatsApp and we'll send you a new password. Log in with your customer code MC-XXXXX and that password, then change it from your profile."
     }
@@ -106,9 +106,9 @@ export const FAQ_TOPICS: FaqTopic[] = [
       "pri ka chanje", "kijan pri a kalkile", "konbyen pri a",
       "price change", "how is the price calculated", "how much does it cost", "pricing"],
     answer: {
-      fr: "Le prix correspond au poids du colis × le tarif de votre ville. Un petit colis a un prix fixe selon votre configuration. À partir de 6,5 lb au total, une taxe fixe de 10 $ s'applique. Certains articles (téléphone, ordinateur, caméra…) ont un prix forfaitaire, sans rapport au poids. Le prix affiché dans l'app est une estimation — le prix final est fixé après la pesée réelle à l'entrepôt.",
-      ht: "Pri a se pwa koli a × tarif vil ou. Yon ti koli gen yon pri fiks selon konfigirasyon an. Apati 6.5 lb antou, yon taks fiks $10 aplike. Sèten atik (telefòn, òdinatè, kamera...) gen yon pri fòfè, pwa a pa konte. Pri ki afiche nan app la se yon estimasyon — pri final la fikse apre vrè pwa a pran nan depo a.",
-      en: "The price is the package's weight × your city's rate. A small package gets a fixed price under your plan. From 6.5 lb total, a fixed $10 tax applies. Some items (phone, laptop, camera…) have a flat price regardless of weight. The price shown in the app is an estimate — the final price is set after the real weight is taken at the warehouse."
+      fr: "Le prix correspond au poids du colis × le tarif de votre ville. Un petit colis a un prix fixe selon votre configuration. À partir de 6,5 lb au total, une taxe fixe de 10 $ s'applique. Certains articles (téléphone, ordinateur, caméra…) ont un prix forfaitaire, sans rapport au poids. Le prix affiché dans l'app est une estimation, le prix final est fixé après la pesée réelle à l'entrepôt.",
+      ht: "Pri a se pwa koli a × tarif vil ou. Yon ti koli gen yon pri fiks selon konfigirasyon an. Apati 6.5 lb antou, yon taks fiks $10 aplike. Sèten atik (telefòn, òdinatè, kamera...) gen yon pri fòfè, pwa a pa konte. Pri ki afiche nan app la se yon estimasyon, pri final la fikse apre vrè pwa a pran nan depo a.",
+      en: "The price is the package's weight × your city's rate. A small package gets a fixed price under your plan. From 6.5 lb total, a fixed $10 tax applies. Some items (phone, laptop, camera…) have a flat price regardless of weight. The price shown in the app is an estimate, the final price is set after the real weight is taken at the warehouse."
     }
   },
   {
@@ -139,9 +139,9 @@ export const FAQ_TOPICS: FaqTopic[] = [
       "atik entèdi", "sa ki entèdi",
       "forbidden items", "prohibited items", "what can't i ship", "banned items"],
     answer: {
-      fr: "Les compagnies aériennes et la douane interdisent : armes et munitions, produits inflammables, explosifs, produits corrosifs, batteries au lithium séparées, drogues, contenu pornographique, animaux vivants, espèces, produits périssables. Vous êtes responsable du contenu de votre colis — en cas de doute, contactez-nous sur WhatsApp avant votre achat.",
-      ht: "Konpayi avyon ak douàn entèdi: zam ak minisyon, pwodwi enflamab, eksplozif, pwodwi kowozif, batri lityòm apa, dwòg, kontni pònografik, bèt vivan, lajan likid, pwodwi perisab. Ou responsab sa ki nan koli w — si w gen dout, ekri nou sou WhatsApp anvan ou achte.",
-      en: "Airlines and customs prohibit: weapons and ammunition, flammable products, explosives, corrosive products, separated lithium batteries, drugs, pornographic content, live animals, cash, perishable goods. You're responsible for your package's contents — if unsure, message us on WhatsApp before you buy."
+      fr: "Les compagnies aériennes et la douane interdisent : armes et munitions, produits inflammables, explosifs, produits corrosifs, batteries au lithium séparées, drogues, contenu pornographique, animaux vivants, espèces, produits périssables. Vous êtes responsable du contenu de votre colis, en cas de doute, contactez STANDA sur WhatsApp avant votre achat.",
+      ht: "Konpayi avyon ak douàn entèdi: zam ak minisyon, pwodwi enflamab, eksplozif, pwodwi kowozif, batri lityòm apa, dwòg, kontni pònografik, bèt vivan, lajan likid, pwodwi perisab. Ou responsab sa ki nan koli w, si w gen dout, ekri nou sou WhatsApp anvan ou achte.",
+      en: "Airlines and customs prohibit: weapons and ammunition, flammable products, explosives, corrosive products, separated lithium batteries, drugs, pornographic content, live animals, cash, perishable goods. You're responsible for your package's contents, if unsure, message us on WhatsApp before you buy."
     }
   },
 ];
@@ -149,15 +149,15 @@ export const FAQ_TOPICS: FaqTopic[] = [
 export const GREETING_KEYWORDS = ["bonjour", "bonsoir", "salut", "bonjou", "bonswa", "alo", "hello", "hi", "hey", "good morning", "good afternoon"];
 
 export const GREETING: Localized = {
-  fr: "Bonjour ! Je suis Daha, l'assistant STANDA COMMERCIAL. Je peux vous dire où en sont vos colis, combien vous devez, ou comment fonctionne le service. Posez-moi votre question !",
+  fr: "Bonjour ! Je suis Daha, l'assistant STANDA COMMERCIAL. Je peux vous dire où en sont vos colis, combien vous devez, ou comment fonctionne le service. Posez votre question !",
   ht: "Bonjou ! Mwen se Daha, asistan STANDA COMMERCIAL. Mwen ka di w kote koli w yo ye, konbyen ou dwe, oswa kijan sèvis la mache. Poze m kesyon w !",
   en: "Hello! I'm Daha, the STANDA COMMERCIAL assistant. I can tell you where your packages are, how much you owe, or how the service works. Ask away!"
 };
 
 export const FALLBACK: Localized = {
-  fr: "Je n'ai pas de réponse toute prête pour cette question précise. Écrivez-nous sur WhatsApp — notre équipe vous répondra directement.",
-  ht: "Mwen pa gen yon repons tou pare pou kesyon presi sa a. Ekri nou sou WhatsApp — ekip nou ap reponn ou dirèkteman.",
-  en: "I don't have a ready answer for that exact question. Message us on WhatsApp — our team will answer you directly."
+  fr: "Je n'ai pas de réponse toute prête pour cette question précise. Écrivez à STANDA sur WhatsApp, notre équipe vous répondra directement.",
+  ht: "Mwen pa gen yon repons tou pare pou kesyon presi sa a. Ekri nou sou WhatsApp, ekip nou ap reponn ou dirèkteman.",
+  en: "I don't have a ready answer for that exact question. Message us on WhatsApp, our team will answer you directly."
 };
 
 /** Mo-kle ki di nou kliyan an ap mande sou PWÒP done l yo (pa yon FAQ jeneral). */

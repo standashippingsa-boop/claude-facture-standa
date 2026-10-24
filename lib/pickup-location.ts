@@ -12,7 +12,7 @@ export type ActivePickupAgency = { nom: string; ordre?: number | null; adresse?:
 export function pickupLabel(agency: ActivePickupAgency): string {
   const nom = String(agency.nom ?? "").trim();
   const adresse = String(agency.adresse ?? "").trim();
-  return adresse ? `${nom} — ${adresse}` : nom;
+  return adresse ? `${nom} : ${adresse}` : nom;
 }
 
 function key(value: string) {

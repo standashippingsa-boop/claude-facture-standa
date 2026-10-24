@@ -33,12 +33,12 @@ export default function AgentReportsList() {
       <button type="button" onClick={() => void load()} aria-label="Actualiser" className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100"><RefreshCw size={15} /></button>
     </div>
     {rows === null ? <div className="h-24 animate-pulse bg-slate-50" /> : rows.length ? <div className="max-h-96 divide-y divide-line overflow-auto">{rows.map((row) => {
-      const [zone, ...rest] = String(row.details ?? "").split(" — ");
+      const details = String(row.details ?? ""); const cut = details.search(/s[—:]s/); const zone = cut < 0 ? details : details.slice(0, cut); const rest = cut < 0 ? [] : [details.slice(cut + 3)];
       return <div key={row.id} className="flex items-center gap-3 px-4 py-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-orange-50 text-[#e85e19]"><FileText size={16} /></span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-navy">{zone} · {String(row.user_name ?? "").replace(" · agent_retrait", "")}</p>
-          <p className="truncate text-xs text-mute">{new Date(row.created_at).toLocaleString("fr-FR")} · {rest.join(" — ")}</p>
+          <p className="truncate text-xs text-mute">{new Date(row.created_at).toLocaleString("fr-FR")} · {rest.join(" · ")}</p>
         </div>
         <button type="button" disabled={busyId === row.id} onClick={() => void open(row.id)} className="btn btn-ghost !py-1.5 text-xs">{busyId === row.id ? "…" : "Ouvrir le PDF"}</button>
       </div>;

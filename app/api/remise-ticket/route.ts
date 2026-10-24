@@ -258,7 +258,7 @@ export async function GET(req: Request) {
         remaining_htg: sum(invoices.map((invoice) => invoice.remaining_htg))
       },
       qr_payload: [
-        "STANDA COMMERCIAL - Ticket de remise",
+        "STANDA COMMERCIAL : Ticket de remise",
         `Ticket: ${ticketNumber}`,
         `Client: ${customerCode}`,
         `Colis: ${packages.length}`,

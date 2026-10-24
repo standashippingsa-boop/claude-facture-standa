@@ -19,7 +19,7 @@ type PublicVille = { id: string; name: string; pickup_location: string };
 const schema = z.object({
   fullname: z.string().min(1, "Le prénom est obligatoire"),
   surname: z.string().min(1, "Le nom est obligatoire"),
-  email: z.string().email("L'adresse e-mail n'est pas valide"),
+  email: z.string().email("L'adresse électronique n'est pas valide"),
   phone: z.string().min(6, "Le téléphone est obligatoire"),
   whatsapp: z.string().min(6, "Le numéro WhatsApp est obligatoire"),
   city: z.string().min(1, "Sélectionnez votre ville dans la liste"),
@@ -101,7 +101,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
       setDone(true);
     } catch (e: any) {
       setErr(e.message?.includes("already registered")
-        ? "Cette adresse e-mail est déjà associée à un compte. Connectez-vous."
+        ? "Cette adresse électronique est déjà associée à un compte. Veuillez vous connecter."
         : safeMessage(e));
     }
   };
@@ -115,7 +115,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
           <p className="text-sm text-slate-600">
             Votre compte est <b>en attente d&apos;activation</b>. L&apos;équipe STANDA COMMERCIAL
             vérifiera vos informations puis activera votre compte. Vous recevrez sur WhatsApp
-            votre adresse de dépôt aux États-Unis, votre <b>code MC</b>
+            votre adresse de dépôt aux USA, votre <b>code MC</b>
             et un <b>mot de passe</b> pour vous connecter.
           </p>
           <button type="button" onClick={onGoLogin} className="btn justify-center w-full">
@@ -143,7 +143,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <F name="fullname" label="Prénom *" placeholder="Ex. : Jean" />
             <F name="surname" label="Nom *" placeholder="Ex. : Baptiste" />
-            <F name="email" label="E-mail *" type="email" placeholder="vous@exemple.com" />
+            <F name="email" label="Courriel *" type="email" placeholder="vous@exemple.com" />
             <F name="phone" label="Téléphone *" placeholder="+509 ..." />
             <F name="whatsapp" label="Numéro WhatsApp *" placeholder="+509 ..." />
             <label className="block">
@@ -155,7 +155,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
                 {...register("city")}
               >
                 <option value="">
-                  {citiesState === "loading" ? "Chargement des villes…" : "— Sélectionnez votre ville —"}
+                  {citiesState === "loading" ? "Chargement des villes…" : "Sélectionnez votre ville"}
                 </option>
                 {villes.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
               </select>
@@ -175,7 +175,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
             <label className="block">
               <span className="text-xs font-semibold text-slate-600">Pièce d&apos;identité *</span>
               <select className="input mt-1 text-ink" defaultValue="" {...register("id_type")}>
-                <option className="bg-white text-ink" value="">— Sélectionnez —</option>
+                <option className="bg-white text-ink" value="">Sélectionnez</option>
                 <option className="bg-white text-ink" value="Carte d'identité nationale">Carte d&apos;identité nationale</option>
                 <option className="bg-white text-ink" value="Passeport">Passeport</option>
               </select>

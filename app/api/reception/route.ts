@@ -107,7 +107,7 @@ export async function POST(req: Request) {
       clients: rows.map((r) => ({
         customer_code: r.customer_code,
         fullname: r.fullname,
-        ville_name: r.ville_id ? (villeName.get(r.ville_id) ?? "—") : "—",
+        ville_name: r.ville_id ? (villeName.get(r.ville_id) ?? "") : "",
         miami_count: miamiCount.get(r.customer_code) ?? 0
       }))
     });
@@ -139,7 +139,7 @@ export async function POST(req: Request) {
       clients: rows.map((r) => ({
         customer_code: r.customer_code,
         fullname: r.fullname ?? "",
-        ville_name: r.ville_id ? (villeName.get(r.ville_id) ?? "—") : "—",
+        ville_name: r.ville_id ? (villeName.get(r.ville_id) ?? "") : "",
         miami_count: miamiCount.get(r.customer_code) ?? 0
       }))
     });

@@ -131,7 +131,7 @@ export default function ReceptionScanner() {
       scanned: counts.scanned, found: counts.found, validated: counts.validated,
       already: counts.already, notfound: counts.notfound,
       seconds, avg: counts.scanned ? +(seconds / counts.scanned).toFixed(2) : 0,
-      who: staffName || "—", date: new Date().toLocaleString("fr-FR"), toVerify: [...toVerify],
+      who: staffName || "", date: new Date().toLocaleString("fr-FR"), toVerify: [...toVerify],
     });
     void logReceptionSession({ ...counts, seconds, who: staffName });
     setSession(null); stopCamera(); setResult(null);
@@ -153,7 +153,7 @@ export default function ReceptionScanner() {
       if (r.ok) {
         beep("ok");
         setCounts((c) => ({ ...c, validated: c.validated + 1 }));
-        setMsg({ t: "ok", s: `Vérifié — ${pkg.tracking_number} → ${r.status}` });
+        setMsg({ t: "ok", s: `Vérifié : ${pkg.tracking_number} → ${r.status}` });
         setResult(null);
         // Faz 3: pwopoze foto de preuve (sèlman mòd manuel — pou pa ralanti mòd continu)
         if (mode === "manuel") setPhotoFor(pkg);
@@ -240,7 +240,7 @@ export default function ReceptionScanner() {
       <div className={`rounded-xl p-4 flex items-center justify-between flex-wrap gap-3 ${session ? "bg-emerald-50 border border-emerald-300" : "bg-mist border border-line"}`}>
         {!session ? (
           <>
-            <div className="text-sm text-mute">Mode entrepôt — scanner en continu sans interruption.</div>
+            <div className="text-sm text-mute">Mode entrepôt, scanner en continu sans interruption.</div>
             <button className="btn btn-brand !py-2.5" onClick={startSession}>
               ▶ Commencer la Réception
             </button>
@@ -329,7 +329,7 @@ export default function ReceptionScanner() {
             <span className="pill pill-green"><span className="pill-dot" />Vérifié</span>
           </div>
           <p className="text-xs text-mute mb-3">
-            {photoFor.customer_code} — {photoFor.customer_name} · <span className="font-mono">{photoFor.tracking_number}</span>
+            {photoFor.customer_code}  {photoFor.customer_name} · <span className="font-mono">{photoFor.tracking_number}</span>
           </p>
           <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f && photoFor) takeProofPhoto(photoFor, f); if (photoRef.current) photoRef.current.value = ""; }} />
@@ -351,7 +351,7 @@ export default function ReceptionScanner() {
             <div className="flex items-center gap-2">
               <Package size={18} className="text-navy" />
               <span className="font-extrabold text-navy text-lg">{pkg.customer_code}</span>
-              <span className="text-mute">— {pkg.customer_name}</span>
+              <span className="text-mute"> {pkg.customer_name}</span>
             </div>
             {pkg.verified || result?.outcome === "already"
               ? <span className="pill pill-green"><span className="pill-dot" />Vérifié MCPACK</span>
@@ -360,13 +360,13 @@ export default function ReceptionScanner() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1.5 text-sm">
             {[
               ["Tracking ID", <span className="font-mono">{pkg.tracking_number}</span>],
-              ["Tracking Number", <span className="font-mono">{pkg.tracking_manual || "—"}</span>],
+              ["Tracking Number", <span className="font-mono">{pkg.tracking_manual || ""}</span>],
               ["Poids", `${Number(pkg.weight || 0)} lb`],
-              ["Contenu", pkg.content || "—"],
+              ["Contenu", pkg.content || ""],
               ["Statut actuel", <StatusBadge status={pkg.status} />],
-              ["Date de réception", pkg.received_at ? dateFr(pkg.received_at) : "—"],
+              ["Date de réception", pkg.received_at ? dateFr(pkg.received_at) : ""],
               ["Facturé", pkg.invoice_id ? "Oui" : "Non"],
-              ["Jours en dépôt", jours(pkg) != null ? `${jours(pkg)} j` : "—"],
+              ["Jours en dépôt", jours(pkg) != null ? `${jours(pkg)} j` : ""],
             ].map(([k, v], i) => (
               <div key={i}>
                 <div className="text-[11px] text-mute">{k as string}</div>
@@ -386,7 +386,7 @@ export default function ReceptionScanner() {
             </div>
           )}
           {result?.outcome === "already" && (
-            <p className="mt-3 text-sm text-amber-700 font-semibold">⚠ Ce colis a déjà été vérifié — aucune modification.</p>
+            <p className="mt-3 text-sm text-amber-700 font-semibold">⚠ Ce colis a déjà été vérifié, aucune modification.</p>
           )}
         </div>
       )}
@@ -405,7 +405,7 @@ export default function ReceptionScanner() {
       {/* Lis À Vérifier (introuvables) */}
       {toVerify.length > 0 && (
         <div className="border-t border-line pt-3">
-          <p className="text-xs font-bold text-red-700 mb-1.5">À Vérifier — introuvables ({toVerify.length}) :</p>
+          <p className="text-xs font-bold text-red-700 mb-1.5">À Vérifier, introuvables ({toVerify.length}) :</p>
           <div className="flex flex-wrap gap-1.5">
             {toVerify.map((c, i) => (
               <span key={i} className="font-mono text-[11px] bg-red-50 text-red-700 rounded px-2 py-0.5">{c}</span>
@@ -441,7 +441,7 @@ export default function ReceptionScanner() {
           </div>
           {report.toVerify.length > 0 && (
             <div className="mt-3 pt-3 border-t border-line">
-              <p className="text-xs font-bold text-red-700 mb-1.5">À Vérifier — introuvables ({report.toVerify.length}) :</p>
+              <p className="text-xs font-bold text-red-700 mb-1.5">À Vérifier, introuvables ({report.toVerify.length}) :</p>
               <div className="flex flex-wrap gap-1.5">
                 {report.toVerify.map((c, i) => (
                   <span key={i} className="font-mono text-[11px] bg-red-50 text-red-700 rounded px-2 py-0.5">{c}</span>

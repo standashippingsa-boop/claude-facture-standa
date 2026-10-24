@@ -142,7 +142,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
 
   // ===== Tarification (menm règ ak paj Packages) =====
   const applyTarif = async () => {
-    if (!client?.ville) { setNotice("Kliyan sa a poko gen vil tarification — Modifye l nan Clients."); return; }
+    if (!client?.ville) { setNotice("Kliyan sa a poko gen vil tarification : Modifye l nan Clients."); return; }
     const targets = (selected.length ? selected : visible).filter((p) => p.status === "Disponible");
     if (!targets.length) { setNotice("Pa gen koli Disponible pou tarife."); return; }
     setBusy(true);
@@ -162,20 +162,20 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     if (!confirm(
       `⚠️ SUPPRIMER DÉFINITIVEMENT ce colis ?\n\n` +
       `Tracking ID : ${p.tracking_number}\n` +
-      `Client : ${p.customer_code} — ${p.customer_name}\n` +
+      `Client : ${p.customer_code} : ${p.customer_name}\n` +
       `Statut : ${p.status}\n\n` +
       `➜ Le colis sera retiré de TOUT le système.\n` +
       `➜ Sa ligne de facture sera retirée ; la facture sera recalculée ou supprimée si vide.\n` +
       `➜ CETTE ACTION EST IRRÉVERSIBLE.\n\n` +
-      `Vous pourrez le ré-importer depuis MCPACK.`
+      `Vous pourrez le réimporter depuis MCPACK.`
     )) return;
-    if (!confirm(`Dernière confirmation — supprimer ${p.tracking_number} définitivement ?`)) return;
+    if (!confirm(`Dernière confirmation, supprimer ${p.tracking_number} définitivement ?`)) return;
     setBusy(true); setBusyId(p.id);
     try {
       const r = await hardDeletePackage(p.id);
       if (!r.ok) { setNotice("Erè: " + (r.reason ?? "inconnue")); return; }
       setNotice(`🗑 Colis ${p.tracking_number} supprimé définitivement` +
-        (r.invoiceDeleted ? " — facture devenue vide supprimée." : "."));
+        (r.invoiceDeleted ? ", facture devenue vide supprimée." : "."));
       await load();
     } catch (e: any) {
       setNotice("Erè: " + (e?.message ?? String(e)));
@@ -190,7 +190,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     if (bulkStatus === "Disponible" && factures.length) {
       if (!confirm(
         `${factures.length} colis déjà facturé(s) vont être retirés de leur facture.\n\n` +
-        `➜ Ils redeviendront « Disponible » et pourront être re-facturés.\n` +
+        `➜ Ils redeviendront « Disponible » et pourront être refacturés.\n` +
         `➜ La facture sera recalculée ou supprimée si elle devient vide.\n` +
         `➜ Opération enregistrée dans l'audit.`
       )) return;
@@ -198,7 +198,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       try {
         const r = await detachPackagesFromInvoice(factures.map((p) => p.id));
         if (!r.ok) { setNotice("Erè: " + (r.reason ?? "inconnue")); setBusy(false); return; }
-        setNotice(`✅ ${r.detached} colis remis en « Disponible » — rien n'est supprimé, ils restent dans le système.` +
+        setNotice(`✅ ${r.detached} colis remis en « Disponible », rien n'est supprimé, ils restent dans le système.` +
           (r.invoicesDeleted ? ` ${r.invoicesDeleted} facture(s) vide(s) supprimée(s).` : ""));
         // GAD: si yon filtè Statut aktif ap kache koli nou fèk chanje yo,
         // chanje filtè a pou yo rete VIZIB — yo pa dwe sanble disparèt.
@@ -245,8 +245,8 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           const phone = ` Notifikasyon telefòn: ${j.pushSent ?? 0} aparèy.`;
           mailInfo = (j.ok ? " Email voye." : client.email ? ` ⚠️ Email: ${j.reason ?? j.error ?? "echwe"}` : " Kliyan san imèl.") + phone;
           if (!j.ok && client.email) {
-            await logAction("Notification e-mail échouée",
-              `${bulkStatus} — ${client.customer_code}: ${j.error ?? j.reason ?? "echwe"}`,
+            await logAction("Notification courriel échouée",
+              `${bulkStatus} : ${client.customer_code}: ${j.error ?? j.reason ?? "echwe"}`,
               "", client.customer_code);
           }
         } catch { mailInfo = " ⚠️ Email pa pati."; }
@@ -254,7 +254,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       // GAD: si yon filtè Statut aktif ap kache koli nou fèk chanje yo,
       // chanje filtè a pou yo rete VIZIB — yo pa dwe sanble disparèt.
       if (statusF && statusF !== bulkStatus) setStatusF(bulkStatus);
-      setNotice(`✅ ${targets.length} colis passés à "${bulkStatus}" — rien n'est supprimé, ils restent dans le système.` + mailInfo);
+      setNotice(`✅ ${targets.length} colis passés à "${bulkStatus}", rien n'est supprimé, ils restent dans le système.` + mailInfo);
       setBulkStatus("");
       await load();
     } catch (e: any) { setNotice("Erè: " + e.message); }
@@ -309,7 +309,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     <div className="space-y-5">
       <div className="flex items-center gap-3 flex-wrap">
         <Link href={backHref} className="btn btn-ghost !px-2.5" title="Retour à la liste précédente"><ArrowLeft size={16} /></Link>
-        <h1 className="text-xl font-extrabold text-navy">{client.customer_code} — {non}</h1>
+        <h1 className="text-xl font-extrabold text-navy">{client.customer_code}  {non}</h1>
         <span className={`badge ${client.account_status === "Actif" || !client.account_status
           ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
           {client.account_status ?? "Actif"}</span>
@@ -327,7 +327,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
                ["Pièce", `${client.id_type ?? ""} ${client.id_number ?? ""}`.trim()],
                ["Username", client.username]] as const).map(([k, v]) => (
               <div key={k}><span className="text-slate-400">{k}:</span>{" "}
-                <span className="font-semibold">{v || "—"}</span></div>
+                <span className="font-semibold">{v || ""}</span></div>
             ))}
           </div>
         </section>
@@ -351,7 +351,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           <h2 className="text-xs font-bold text-navy uppercase tracking-wide">Activité par mois</h2>
           <p className="text-xs text-mute">
             {activityPeak
-              ? <>Mois le plus actif : <b className="text-ink">{activityPeak.label}</b> — <b className="text-ink">{activityPeak.value} colis</b></>
+              ? <>Mois le plus actif : <b className="text-ink">{activityPeak.label}</b>  <b className="text-ink">{activityPeak.value} colis</b></>
               : "Aucun colis sur les 12 derniers mois."}
           </p>
         </div>
@@ -361,8 +361,8 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       {retraitCount !== null && (
         <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-navy">
           {retraitCount > 0
-            ? <><b>Demande de retrait</b> — {retraitCount} colis sélectionné(s). Cliquez sur <b>Générer la facture</b> pour préparer le retrait.</>
-            : <><b>Demande de retrait</b> — aucun colis de cette demande n&apos;est encore « Disponible » et non facturé.</>}
+            ? <><b>Demande de retrait</b>  {retraitCount} colis sélectionné(s). Cliquez sur <b>Générer la facture</b> pour préparer le retrait.</>
+            : <><b>Demande de retrait</b> : aucun colis de cette demande n&apos;est encore « Disponible » et non facturé.</>}
         </p>
       )}
 
@@ -374,7 +374,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
         </BusyButton>
         <select className="input !w-44 !py-1.5 !text-xs" value={bulkStatus}
           onChange={(e) => setBulkStatus(e.target.value)}>
-          <option value="">— Changer statut —</option>
+          <option value="">Changer statut</option>
           {[...INTERNAL_STATUSES, "Livré"].filter((s, i, a) => a.indexOf(s) === i)
             .map((s) => <option key={s}>{s}</option>)}
         </select>
@@ -431,7 +431,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
                     ? <span className="mt-0.5 block font-sans text-[10px] font-bold text-violet-700">Conduce {conduceNumbers.get(p.conduce_id)}</span>
                     : <span className="mt-0.5 block font-sans text-[10px] text-slate-400">Sans conduce</span>}
                 </td>
-                <td className="tdc font-mono text-[11px]">{p.tracking_manual || <span className="text-slate-300">—</span>}</td>
+                <td className="tdc font-mono text-[11px]">{p.tracking_manual || <span className="text-slate-300"></span>}</td>
                 <td className="tdc whitespace-nowrap">{p.created_date}</td>
                 <td className="tdc text-right">{p.weight}</td>
                 <td className="tdc max-w-[180px]" title={special.isSpecial ? `${p.content}\nRaison : ${special.reason}` : p.content}>
@@ -491,7 +491,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide">
-                Import PDF — {pdfRows.length} colis pour {client.customer_code}
+                Import PDF{pdfRows.length} colis pour {client.customer_code}
               </h2>
               <button className="text-slate-400 hover:text-navy" onClick={() => setPdfRows(null)}><X size={18} /></button>
             </div>

@@ -40,7 +40,7 @@ export default function SiteFooter() {
               </span>
             </div>
             <p className="text-[13px] leading-relaxed text-white/65">
-              Expédition et livraison de colis entre les États-Unis et Haïti.
+              Expédition et livraison de colis entre les USA et Haïti.
               Rapide, fiable, suivi de bout en bout.
             </p>
           </div>

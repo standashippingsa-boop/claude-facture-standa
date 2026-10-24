@@ -104,8 +104,8 @@ export default function AddressGuide({ code = "MC-XXXXX", fullName }: { code?: s
       <section className="rounded-xl border border-red-200 bg-red-50 p-4">
         <p className="text-[15px] font-extrabold text-red-800">La règle la plus importante</p>
         <p className="mt-1 text-[14px] leading-relaxed text-red-900">
-          Votre code {C} doit apparaître sur <b>chaque</b> adresse. Sur <b>Amazon</b>, écrivez-le juste après <b>{DEPOT.address1}</b>, sur la même ligne.
-          Sur <b>SHEIN</b>, écrivez-le dans la case de la <b>ligne 2</b> (Apt, suite, unit). Sans ce code, nous ne pouvons pas savoir à qui appartient le colis.
+          Votre code {C} doit apparaître sur <b>chaque</b> adresse. Sur <b>Amazon</b>, écrivez le juste après <b>{DEPOT.address1}</b>, sur la même ligne.
+          Sur <b>SHEIN</b>, écrivez le dans la case de la <b>ligne 2</b> (Apt, suite, unit). Sans ce code, nous ne pouvons pas savoir à qui appartient le colis.
         </p>
       </section>
 
@@ -117,7 +117,7 @@ export default function AddressGuide({ code = "MC-XXXXX", fullName }: { code?: s
             <Field n={1} label="Country/Region" value="United States" select />
             <Field n={2} label="Full name (First and Last name)" value={nameExample} />
             <Field n={3} label="Phone number" value={phoneDigits} hint="May be used to assist delivery" />
-            <div className="rounded-full border border-slate-400 py-2 text-center text-[13px] text-slate-500">Use my location — ne pas toucher</div>
+            <div className="rounded-full border border-slate-400 py-2 text-center text-[13px] text-slate-500">Use my location, ne pas toucher</div>
             <Field n={4} label="Street address" value={street} />
             <Field n={5} label="Unit or suite number" empty="Laisser vide" />
             <Field n={6} label="City" value={DEPOT.city} />
@@ -163,7 +163,7 @@ export default function AddressGuide({ code = "MC-XXXXX", fullName }: { code?: s
         <ul className="mt-2 list-disc space-y-1 pl-5 text-[14px] leading-relaxed text-slate-700">
           <li>Vérifiez que le code {C} est bien écrit, sans faute.</li>
           <li>Si le site propose de « corriger » ou « suggérer » l&apos;adresse, gardez celle que vous avez écrite avec votre code.</li>
-          <li>Une question ? Écrivez-nous sur WhatsApp avant de payer.</li>
+          <li>Une question ? Écrivez à STANDA sur WhatsApp avant de payer.</li>
         </ul>
       </section>
     </div>

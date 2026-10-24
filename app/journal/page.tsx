@@ -144,13 +144,13 @@ export default function JournalPage() {
                   <td className="tdc max-w-[150px] truncate"
                     title={[r.user_name, r.ip_address && `IP: ${r.ip_address}`, r.user_agent && shortUA(r.user_agent)]
                       .filter(Boolean).join(" · ")}>
-                    {r.user_name || "—"}
+                    {r.user_name || ""}
                   </td>
                   <td className="tdc"><span className={`badge ${ACTION_STYLES[r.action] ?? "bg-slate-100 text-slate-600"}`}>{r.action}</span></td>
                   <td className="tdc max-w-[240px]">
                     {(() => {
                       const m = r.details?.match(/photo:(https?:\/\/\S+)/);
-                      const clean = r.details?.replace(/\s*\|\s*photo:https?:\/\/\S+/, "") || "—";
+                      const clean = r.details?.replace(/\s*\|\s*photo:https?:\/\/\S+/, "") || "";
                       return (
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="truncate" title={clean}>{clean}</span>
@@ -164,8 +164,8 @@ export default function JournalPage() {
                       );
                     })()}
                   </td>
-                  <td className="tdc font-mono text-[11px]">{r.package_ref || "—"}</td>
-                  <td className="tdc font-bold text-navy">{r.customer_code || "—"}</td>
+                  <td className="tdc font-mono text-[11px]">{r.package_ref || ""}</td>
+                  <td className="tdc font-bold text-navy">{r.customer_code || ""}</td>
                 </tr>
               );
             })}

@@ -14,7 +14,7 @@ import { ImageResponse } from "next/og";
  * 1200×630 se dimansyon estanda WhatsApp/Facebook mande.
  */
 export const runtime = "edge";
-export const alt = "STANDA COMMERCIAL — Expédition de colis USA vers Haïti";
+export const alt = "STANDA COMMERCIAL : Expédition de colis USA vers Haïti";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

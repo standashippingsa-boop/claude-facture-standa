@@ -109,7 +109,7 @@ export default function HistoriquePage() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="h-page">Historique</h1>
-          <p className="text-sm text-mute mt-0.5">Colis remis au client — historique complet, jamais supprimé</p>
+          <p className="text-sm text-mute mt-0.5">Colis remis au client, historique complet, jamais supprimé</p>
         </div>
         <RefreshButton onRefresh={load} />
       </div>
@@ -152,8 +152,8 @@ export default function HistoriquePage() {
                   <td className="td"><CheckCircle2 size={16} className="text-emerald-600" aria-label="Colis livré" /></td>
                   <td className="td font-bold">
                     {inv
-                      ? <Link href="/invoices" className="text-navy hover:underline" title={`Facture ${inv.invoice_number} — ${dateFr(inv.created_at)}`}>{inv.invoice_number}</Link>
-                      : <span className="text-mute">—</span>}
+                      ? <Link href="/invoices" className="text-navy hover:underline" title={`Facture ${inv.invoice_number} : ${dateFr(inv.created_at)}`}>{inv.invoice_number}</Link>
+                      : <span className="text-mute"></span>}
                   </td>
                   <td className="td">
                     <Link href={withReturnTo(`/clients/${encodeURIComponent(p.customer_code)}`, pathname)} className="text-navy hover:underline font-semibold">
@@ -162,7 +162,7 @@ export default function HistoriquePage() {
                   </td>
                   <td className="td">{p.customer_name}</td>
                   <td className="td font-mono text-xs">{p.tracking_number}</td>
-                  <td className="td text-xs">{p.conduce_id ? (conduceMap.get(p.conduce_id) ?? "—") : "—"}</td>
+                  <td className="td text-xs">{p.conduce_id ? (conduceMap.get(p.conduce_id) ?? "") : ""}</td>
                   <td className="td">{p.created_date}</td>
                   <td className="td">{p.weight}</td>
                   <td className="td max-w-[190px]" title={special.isSpecial ? `${p.content}\nRaison : ${special.reason}` : p.content}>
@@ -186,7 +186,7 @@ export default function HistoriquePage() {
                           className="inline-flex items-center gap-0.5 rounded-full bg-blue-100 text-blue-700 px-1.5 py-0.5 text-[9px] font-bold hover:bg-blue-200"
                           title="Photo de preuve"><Camera size={10} /> Photo</a>
                       )}
-                      {!p.verified && !p.proof_photo_url && <span className="text-mute text-[11px]">—</span>}
+                      {!p.verified && !p.proof_photo_url && <span className="text-mute text-[11px]"></span>}
                     </div>
                   </td>
                   <td className="td"><StatusBadge status={p.status} /></td>

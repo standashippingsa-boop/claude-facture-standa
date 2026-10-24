@@ -84,7 +84,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "Informations personnelles incomplètes." }, { status: 400 });
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      return NextResponse.json({ ok: false, reason: "Adresse e-mail invalide." }, { status: 400 });
+      return NextResponse.json({ ok: false, reason: "Adresse électronique invalide." }, { status: 400 });
     }
     // Validation shipping (adresse, téléphone, ville) centralisée dans
     // lib/validation/shipping.ts — même schéma que /api/ingest, au lieu
@@ -112,7 +112,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "Service temporairement indisponible." }, { status: 503 });
     }
     if (!ville) {
-      return NextResponse.json({ ok: false, reason: "La ville sélectionnée n'est plus disponible. Choisissez-en une autre." }, { status: 400 });
+      return NextResponse.json({ ok: false, reason: "La ville sélectionnée n'est plus disponible. Merci d'en choisir une autre." }, { status: 400 });
     }
 
     // Le lieu de récupération est choisi ici, côté serveur. Le navigateur ne
@@ -219,9 +219,9 @@ export async function POST(req: Request) {
       return NextResponse.json({
         ok: false,
         reason: `Ces informations correspondent déjà à un compte existant. Pour ouvrir un `
-              + `deuxième compte, utilisez une autre adresse e-mail et un autre numéro de `
-              + `téléphone — c'est par là que nous envoyons vos notifications, factures et `
-              + `mots de passe. Sinon, connectez-vous à votre compte ou contactez STANDA COMMERCIAL.`
+              + `deuxième compte, utilisez une autre adresse électronique et un autre numéro de `
+              + `téléphone, c'est par là que nous envoyons vos notifications, factures et `
+              + `mots de passe. Sinon, veuillez vous connecter à votre compte ou contactez STANDA COMMERCIAL.`
       }, { status: 409 });
     }
 
@@ -279,7 +279,7 @@ export async function POST(req: Request) {
 
     await svc.from("journal").insert({
       user_name: fullname, action: "Inscription Client",
-      details: `Nouveau profil client créé (${email || phone || "—"})`,
+      details: `Nouveau profil client créé (${email || phone || ""})`,
       package_ref: "", customer_code: ""
     });
 

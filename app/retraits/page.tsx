@@ -224,7 +224,7 @@ function RetraitRow({
         <td className="td whitespace-nowrap">{dateFr(r.created_at)}</td>
         <td className="td font-bold text-navy">{r.customer_code}</td>
         <td className="td">{r.customer_name}</td>
-        <td className="td">{r.ville || "—"}</td>
+        <td className="td">{r.ville || ""}</td>
         <td className="td text-right">{r.package_count}</td>
         <td className="td text-right">{Number(r.total_weight).toFixed(2)}</td>
         <td className="td"><span className={`badge ${BADGE[r.status]}`}>{r.status}</span></td>
@@ -276,11 +276,11 @@ function RetraitRow({
                               title={ok ? "Sélectionner pour facturer" : "Colis non disponible ou déjà facturé"} />
                           </td>
                           <td className="py-1 pr-3 font-mono">{p.tracking_number}</td>
-                          <td className="py-1 pr-3 font-mono">{p.tracking_manual || "—"}</td>
-                          <td className="py-1 pr-3">{p.content || "—"}</td>
+                          <td className="py-1 pr-3 font-mono">{p.tracking_manual || ""}</td>
+                          <td className="py-1 pr-3">{p.content || ""}</td>
                           <td className="py-1 pr-3">
                             {p.invoice_id
-                              ? <span className="text-emerald-700 font-semibold">Facturé — {usd(p.total_usd)}</span>
+                              ? <span className="text-emerald-700 font-semibold">Facturé{usd(p.total_usd)}</span>
                               : p.status}
                           </td>
                           <td className="py-1 text-right">{Number(p.weight).toFixed(2)}</td>

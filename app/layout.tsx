@@ -30,11 +30,11 @@ export const metadata: Metadata = {
    * epi `default` sèvi lè yon paj pa gen tit pa l.
    */
   title: {
-    default: "STANDA COMMERCIAL — Expédition de colis USA → Haïti",
+    default: "STANDA COMMERCIAL : Expédition de colis USA → Haïti",
     template: "%s | STANDA COMMERCIAL"
   },
   description:
-    "Recevez vos achats en ligne des États-Unis en Haïti. Adresse de dépôt "
+    "Recevez vos achats en ligne des USA en Haïti. Adresse de dépôt "
     + "gratuite à Miami, suivi de colis en temps réel et livraison en agence.",
   applicationName: "STANDA COMMERCIAL",
 

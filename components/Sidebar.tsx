@@ -121,7 +121,7 @@ export default function Sidebar({ staff }: { staff?: Staff | null }) {
         <div className="flex items-center gap-3 px-2 py-2 mb-1">
           <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center text-sm font-bold">{initials}</div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold truncate">{staff?.prenom || staff?.username || "—"}</p>
+            <p className="text-sm font-semibold truncate">{staff?.prenom || staff?.username || ""}</p>
             <p className="text-[11px] text-white/50">{isAdmin ? "Administrateur" : "Employé"}</p>
           </div>
         </div>

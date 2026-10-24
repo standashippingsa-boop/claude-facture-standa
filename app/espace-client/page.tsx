@@ -117,8 +117,8 @@ function noticeKey(kind: string, ...parts: Array<string | undefined | null>): st
  * konsa ekip la wè imedyatman de ki koli kliyan an ap pale.
  */
 function waPkgLink(p: Pkg, code: string): string {
-  const tn = String(p.tracking_manual ?? "").trim() || "—";
-  const id = String(p.tracking_number ?? "").trim() || "—";
+  const tn = String(p.tracking_manual ?? "").trim() || "";
+  const id = String(p.tracking_number ?? "").trim() || "";
   const msg =
     `Tracking Number: ${tn}\n` +
     `Tracking ID: ${id}\n` +
@@ -281,7 +281,7 @@ export default function EspaceClientPage() {
     try {
       const r = await subscribeToPush(client.customer_code);
       if (r.ok) { setToast("Notifications activées."); setPushState("on"); dismissPushBanner(); }
-      else if (r.reason === "denied") { setPushState("denied"); setToast("Notifications refusées — activez-les depuis les réglages de votre navigateur si vous changez d'avis."); dismissPushBanner(); }
+      else if (r.reason === "denied") { setPushState("denied"); setToast("Notifications refusées, activez les notifications depuis les réglages de votre navigateur si vous changez d'avis."); dismissPushBanner(); }
       // "timeout" (réseau lent, service worker pas encore prêt) : la bannière
       // reste affichée pour que le client puisse simplement réessayer.
       else if (r.reason === "timeout") setToast("La demande a pris trop de temps. Vérifiez votre connexion et réessayez.");
@@ -425,11 +425,11 @@ export default function EspaceClientPage() {
           <Clock className="mx-auto text-amber-500" size={44} />
           <h1 className="text-lg font-extrabold text-navy">Votre compte est en attente d&apos;activation</h1>
           <p className="text-sm text-slate-600">
-            {non} — l&apos;équipe STANDA COMMERCIAL vérifie vos informations. Dès que votre compte sera activé,
-            vous recevrez votre adresse de dépôt aux États-Unis et pourrez utiliser tous nos services.
+            {non} : l&apos;équipe STANDA COMMERCIAL vérifie vos informations. Dès que votre compte sera activé,
+            vous recevrez votre adresse de dépôt aux USA et pourrez utiliser tous nos services.
           </p>
           <a className="btn btn-wa justify-center w-full" href={WA_LINK} target="_blank" rel="noreferrer">
-            <WhatsAppIcon size={15} /> Contactez-nous sur WhatsApp
+            <WhatsAppIcon size={15} /> Contactez STANDA sur WhatsApp
           </a>
           <button className="btn btn-ghost justify-center w-full" onClick={logout}>
             <LogOut size={15} /> Se déconnecter
@@ -537,7 +537,7 @@ export default function EspaceClientPage() {
       id: "available",
       key: noticeKey("available", ...nonFactures.map((pkg) => `${pkg.id}:${pkg.status}`).sort()),
       title: nonFactures.length === 1 ? "Votre colis est disponible" : `${nonFactures.length} colis sont disponibles`,
-      description: "Présentez-vous à votre agence avec une pièce d'identité.",
+      description: "Venez à votre agence avec une pièce d'identité.",
       stamp: "À l'instant",
       to: "disponibles",
       kind: "available"
@@ -678,7 +678,7 @@ export default function EspaceClientPage() {
             </div>
             <div className="flex items-center justify-between text-[13px]">
               <span className="text-mute">Taxe fixe</span>
-              <span className="font-semibold text-ink">{est.fixedTax > 0 ? usd(est.fixedTax) : "—"}</span>
+              <span className="font-semibold text-ink">{est.fixedTax > 0 ? usd(est.fixedTax) : ""}</span>
             </div>
             <div className="flex items-center justify-between pt-1.5 border-t border-line">
               <span className="text-[13px] font-bold text-ink">Total estimé</span>
@@ -688,7 +688,7 @@ export default function EspaceClientPage() {
         )}
         {!est && !reel && !facturedItems.length && (
           <p className="mt-3 pt-3 border-t border-line text-[11px] text-amber-700">
-            Le tarif de votre ville n&apos;est pas encore configuré. Contactez-nous sur WhatsApp.
+            Le tarif de votre ville n&apos;est pas encore configuré. Contactez STANDA sur WhatsApp.
           </p>
         )}
       </div>
@@ -756,13 +756,13 @@ export default function EspaceClientPage() {
                   : (r.items ?? []).map((it, i) => (
                     <div key={it.id ?? i} className="px-4 py-2.5">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="font-mono text-[12px] font-bold text-ink truncate">{it.tracking_number || "—"}</p>
+                        <p className="font-mono text-[12px] font-bold text-ink truncate">{it.tracking_number || ""}</p>
                         <span className="text-[12px] font-semibold text-ink shrink-0">
-                          {Number(it.weight) > 0 ? `${Number(it.weight).toFixed(2)} lb` : "—"}
+                          {Number(it.weight) > 0 ? `${Number(it.weight).toFixed(2)} lb` : ""}
                         </span>
                       </div>
                       <p className="text-[11px] text-mute truncate mt-0.5">
-                        {it.tracking_manual || "—"} · {it.content || "—"}
+                        {it.tracking_manual || ""} · {it.content || ""}
                       </p>
                     </div>
                   ))}
@@ -787,13 +787,13 @@ export default function EspaceClientPage() {
           <input type="checkbox" aria-label="Chwazi koli a"
             className="absolute top-3.5 right-0 z-10 h-[18px] w-[18px] accent-emerald-600 disabled:opacity-30"
             checked={sel.has(p.id)} disabled={!selectable}
-            title={selectable ? undefined : "Colis déjà facturé — réglez la facture pour le retirer."}
+            title={selectable ? undefined : "Colis déjà facturé, réglez la facture pour le retirer."}
             onChange={() => toggleSel(p.id)} />
         )}
         <button onClick={() => setDetail(p)} className={`w-full text-left ${check ? "pr-7" : ""}`}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="font-mono text-[13px] font-bold text-ink truncate">{p.tracking_number || "—"}</p>
+              <p className="font-mono text-[13px] font-bold text-ink truncate">{p.tracking_number || ""}</p>
               {p.tracking_manual && <p className="font-mono text-[11px] text-mute truncate mt-0.5">{p.tracking_manual}</p>}
               <div className="mt-1 flex flex-wrap gap-1">
                 {check && isInvoiced(p) && <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">Facturé</span>}
@@ -810,9 +810,9 @@ export default function EspaceClientPage() {
             </div>
           )}
           <div className="flex items-center justify-between gap-2 mt-2.5">
-            <span className="text-xs text-mute truncate">{p.content || "—"}</span>
+            <span className="text-xs text-mute truncate">{p.content || ""}</span>
             <span className="flex shrink-0 items-baseline gap-2">
-              <span className="text-xs font-semibold text-ink">{Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : "—"}</span>
+              <span className="text-xs font-semibold text-ink">{Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : ""}</span>
               {price != null && <span className="text-base font-extrabold text-accent-dark">{usd(price)}</span>}
               {price == null && check && special.isSpecial && !facture && <span className="text-xs font-bold text-amber-700">Prix à confirmer</span>}
             </span>
@@ -975,8 +975,8 @@ export default function EspaceClientPage() {
                       onClick={() => { setDetail(p); setTrackQuery(""); }}
                       className="flex w-full items-center justify-between gap-2 border-b border-line px-3.5 py-2.5 text-left last:border-0 hover:bg-mist">
                       <span className="min-w-0">
-                        <span className="block truncate font-mono text-xs font-bold text-ink">{p.tracking_number || p.tracking_manual || "—"}</span>
-                        <span className="block truncate text-[11px] text-mute">{p.content || "—"}</span>
+                        <span className="block truncate font-mono text-xs font-bold text-ink">{p.tracking_number || p.tracking_manual || ""}</span>
+                        <span className="block truncate text-[11px] text-mute">{p.content || ""}</span>
                       </span>
                       <StatusBadge status={p.status} />
                     </button>
@@ -1053,13 +1053,13 @@ export default function EspaceClientPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-[13px] font-semibold text-white/85">Total</p>
-                        <p className="mt-1 text-[32px] font-extrabold leading-none tracking-tight">{dispoEst ? usd(dispoEst.total) : "—"}</p>
+                        <p className="mt-1 text-[32px] font-extrabold leading-none tracking-tight">{dispoEst ? usd(dispoEst.total) : ""}</p>
                       </div>
                       <span className="shrink-0 rounded-full bg-white px-3.5 py-2 text-sm font-extrabold text-accent-dark">{dispoWeight.toFixed(2)} lb</span>
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/25 pt-3 text-[13px]">
-                      <div><p className="text-white/80">Frais d'expédition</p><p className="mt-0.5 text-base font-extrabold">{dispoEst ? usd(dispoEst.subtotal) : "—"}</p></div>
-                      <div><p className="text-white/80">Taxe fixe</p><p className="mt-0.5 text-base font-extrabold">{dispoEst && dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : "—"}</p></div>
+                      <div><p className="text-white/80">Frais d'expédition</p><p className="mt-0.5 text-base font-extrabold">{dispoEst ? usd(dispoEst.subtotal) : ""}</p></div>
+                      <div><p className="text-white/80">Taxe fixe</p><p className="mt-0.5 text-base font-extrabold">{dispoEst && dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : ""}</p></div>
                     </div>
                     {dispoSpecialCount > 0 && (
                       <p className="mt-3 rounded-xl bg-white/15 px-3 py-2 text-[12px] font-semibold leading-relaxed">
@@ -1068,7 +1068,7 @@ export default function EspaceClientPage() {
                     )}
                   </section>
                 ) : (
-                  <p className="px-1 text-xs text-amber-700">Le tarif de votre ville n&apos;est pas encore configuré. Contactez-nous sur WhatsApp.</p>
+                  <p className="px-1 text-xs text-amber-700">Le tarif de votre ville n&apos;est pas encore configuré. Contactez STANDA sur WhatsApp.</p>
                 )}
                 <div>
                   {disponiblesOnly.map((p) => <PkgCard key={p.id} p={p} check price={pkgEstimate(p)} />)}
@@ -1252,7 +1252,7 @@ export default function EspaceClientPage() {
               <ol className="mt-3 space-y-3">
                 {([
                   ["Achetez en ligne", `Sur Amazon, SHEIN, eBay… utilisez l'adresse de notre dépôt à Miami et ajoutez le code ${client.customer_code} dans le champ « Address 2 ».`],
-                  ["Réception à Miami", "Notre entrepôt enregistre et pèse votre colis. Vous recevez ensuite une notification par e-mail ou WhatsApp."],
+                  ["Réception à Miami", "Notre entrepôt enregistre et pèse votre colis. Vous recevez ensuite une notification par courriel ou WhatsApp."],
                   ["Acheminement du colis", "Votre colis part de Miami vers Haïti, passe les formalités puis rejoint votre agence."],
                   ["Retrait en agence", "Lorsque le statut devient « Disponible », cliquez sur « Préparer mon retrait » afin que votre colis soit prêt à votre arrivée."]
                 ] as const).map(([t, d], i) => (
@@ -1278,7 +1278,7 @@ export default function EspaceClientPage() {
                 Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement <b>entre 3 et 7 jours ouvrables</b> pour qu&apos;il arrive à votre agence en Haïti.
               </p>
               <p className="text-[12px] text-mute mt-2 leading-relaxed">
-                Un <b>jour ouvrable</b> va du lundi au vendredi — les samedis et dimanches ne comptent pas dans ce délai. Un colis reçu un vendredi peut donc arriver le mardi ou mercredi suivant sans retard de notre part.
+                Un <b>jour ouvrable</b> va du lundi au vendredi, les samedis et dimanches ne comptent pas dans ce délai. Un colis reçu un vendredi peut donc arriver le mardi ou mercredi suivant sans retard de notre part.
               </p>
               <p className="text-[11px] text-mute mt-2 leading-relaxed">
                 Ce délai peut varier seulement selon la douane, ou si votre code client ne figure pas dans l&apos;adresse du colis : une réclamation doit alors être faite avant que le colis puisse être envoyé en Haïti, ce qui prend du temps. Suivez chaque étape directement dans l&apos;application, sans avoir à nous contacter.
@@ -1321,7 +1321,7 @@ export default function EspaceClientPage() {
                 Retirez votre colis dans le point de retrait le plus proche de vous.
               </p>
               {agences.length === 0 ? (
-                <p className="text-[12px] text-mute mt-3">Contactez-nous sur WhatsApp pour connaître l&apos;agence la plus proche de vous.</p>
+                <p className="text-[12px] text-mute mt-3">Contactez STANDA sur WhatsApp pour connaître l&apos;agence la plus proche de vous.</p>
               ) : (
                 <div className="mt-3 divide-y divide-line">
                   {agences.map((a) => (
@@ -1348,7 +1348,7 @@ export default function EspaceClientPage() {
                 <li className="flex gap-2"><span className="text-navy">•</span>
                   <span>À partir de <b>{TAX_THRESHOLD_LB} lb</b> au total, une taxe fixe de <b>{usd(TAX_FIXED_USD)}</b> s&apos;applique.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span>Certains articles comme les téléphones, ordinateurs portables et appareils photo ont un <b>prix forfaitaire</b> — le poids ne s&apos;applique pas.</span></li>
+                  <span>Certains articles comme les téléphones, ordinateurs portables et appareils photo ont un <b>prix forfaitaire</b> : le poids ne s&apos;applique pas.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
                   <span>Le prix affiché dans l&apos;application est une <b>estimation</b>. Le prix final est fixé après la pesée du colis à l&apos;entrepôt.</span></li>
               </ul>
@@ -1364,13 +1364,13 @@ export default function EspaceClientPage() {
               </h2>
               <ul className="mt-3 space-y-2 text-[12px] text-mute leading-relaxed">
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span><b>Transparence</b> — le prix final correspond toujours au poids réel pesé à l&apos;entrepôt, jamais à une estimation imposée.</span></li>
+                  <span><b>Transparence</b> : le prix final correspond toujours au poids réel pesé à l&apos;entrepôt, jamais à une estimation imposée.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span><b>Sécurité</b> — chaque colis est suivi de sa réception à Miami jusqu&apos;à sa remise à votre agence.</span></li>
+                  <span><b>Sécurité</b> : chaque colis est suivi de sa réception à Miami jusqu&apos;à sa remise à votre agence.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span><b>Rapidité</b> — vos colis sont acheminés régulièrement vers Haïti, sans attendre un plein chargement.</span></li>
+                  <span><b>Rapidité</b> : vos colis sont acheminés régulièrement vers Haïti, sans attendre un plein chargement.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span><b>Proximité</b> — une équipe joignable par téléphone et WhatsApp pour répondre à vos questions.</span></li>
+                  <span><b>Proximité</b> : une équipe joignable par téléphone et WhatsApp pour répondre à vos questions.</span></li>
               </ul>
               <a href={`tel:${WA_NUM}`} className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-line px-3 py-2.5 text-[13px] font-bold text-navy">
                 <Phone size={15} /> {SUPPORT_PHONE}
@@ -1397,7 +1397,7 @@ export default function EspaceClientPage() {
               <p className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 mt-3 leading-relaxed">
                 <AlertTriangle size={12} className="inline mr-1" />
                 Vous êtes responsable du contenu de votre colis. Un article interdit peut être saisi par la douane sans recours.
-                En cas de doute, contactez-nous sur WhatsApp avant votre achat.
+                En cas de doute, contactez STANDA sur WhatsApp avant votre achat.
               </p>
             </div>
 
@@ -1413,15 +1413,15 @@ export default function EspaceClientPage() {
                   // Si youn nan règ sa yo chanje, mete repons lan ajou tou.
                   ["Combien de temps prend mon colis ?",
                    "Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement entre 3 et 7 jours ouvrables pour qu'il arrive à votre agence en Haïti. Ce délai peut varier seulement selon la douane, ou si votre code client ne figure pas dans l'adresse du colis : une réclamation doit alors être faite avant que le colis puisse être envoyé en Haïti, ce qui prend du temps. Ouvrez le colis dans l'application pour voir son étape : Reçu à Miami, En préparation, En transit, Arrivé en Haïti, En route vers agence, puis Disponible."],
-                  ["Pourquoi mon colis n'apparaît-il pas encore ?",
-                   "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. Si le transporteur indique « livré », comptez quelques heures pour l'enregistrement. L'application se met à jour toute seule chaque minute ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. Si votre colis n'apparaît pas, c'est souvent que l'adresse a été mal encodée lors de l'achat ou que votre code client MC-… n'a pas été mis sur la ligne « Address 2 » : sans ce code, nous ne pouvons pas relier le colis à votre compte. Recopiez toujours exactement l'adresse de la page « Mon adresse ». Dans ce cas, écrivez-nous sur WhatsApp avec votre numéro de suivi pour faire une réclamation."],
-                  ["Puis-je envoyer plusieurs colis ensemble ?",
+                  ["Mon colis n'apparaît pas encore : pourquoi ?",
+                   "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. Si le transporteur indique « livré », comptez quelques heures pour l'enregistrement. L'application se met à jour toute seule chaque minute ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. Si votre colis n'apparaît pas, c'est souvent que l'adresse a été mal encodée lors de l'achat ou que votre code client MC-… n'a pas été mis sur la ligne « Address 2 » : sans ce code, nous ne pouvons pas relier le colis à votre compte. Recopiez toujours exactement l'adresse de la page « Mon adresse ». Dans ce cas, écrivez à STANDA sur WhatsApp avec votre numéro de suivi pour faire une réclamation."],
+                  ["Envoyer plusieurs colis ensemble, c'est possible ?",
                    "Oui. Vous pouvez commander dans plusieurs boutiques : chaque colis est reçu et pesé séparément à Miami, et tous ceux qui portent votre code client sont regroupés dans votre compte. Les colis disponibles en même temps peuvent être réunis sur une seule facture."],
                   ["Que signifie « Préparer mon retrait » ?",
                    "Quand un colis passe au statut « Disponible », ouvrez « Disponibles », cochez les colis que vous viendrez chercher et touchez « Préparer mon retrait ». L'agence prépare alors vos colis avant votre arrivée : votre demande passe de « En attente » à « Préparé », puis à « Remis » quand vous les avez récupérés. Les factures impayées doivent être réglées à l'agence avant la remise. Vous disposez de 15 jours pour retirer un colis disponible ; à partir du 16e jour, des frais d'entreposage de 5 $ US par jour s'appliquent."],
                   ["J'ai oublié mon mot de passe.",
-                   "Écrivez-nous sur WhatsApp : nous vous envoyons un nouveau mot de passe. Connectez-vous avec votre code client MC-XXXXX et ce mot de passe. Vous pouvez ensuite le changer : touchez votre nom en haut de l'écran, puis « Changer mon mot de passe »."],
-                  ["Le prix peut-il changer ?",
+                   "Écrivez à STANDA sur WhatsApp : nous vous envoyons un nouveau mot de passe. Veuillez vous connecter avec votre code client MC-XXXXX et ce mot de passe. Vous pouvez ensuite le changer : touchez votre nom en haut de l'écran, puis « Changer mon mot de passe »."],
+                  ["Le prix final peut varier ?",
                    "Oui : le calculateur donne une estimation. Le prix final est celui de votre facture, calculé sur le poids réel pesé à notre entrepôt de Miami, selon le tarif de votre ville. Il peut différer de l'estimation si le poids réel n'est pas celui que vous avez encodé, si le colis contient un article à tarif spécial comme un téléphone, un ordinateur portable, une tablette, une caméra ou un téléviseur, ou si des frais d'entreposage s'ajoutent pour un retrait après 15 jours. Le montant en gourdes est calculé au taux du jour de la facture."]
                 ] as const).map(([q, a]) => (
                   <details key={q} className="py-2.5 group">
@@ -1436,7 +1436,7 @@ export default function EspaceClientPage() {
             </div>
 
             <a href={WA_LINK} target="_blank" rel="noreferrer" className="btn btn-wa w-full justify-center">
-              <WhatsAppIcon size={15} /> Une question ? Écrivez-nous sur WhatsApp
+              <WhatsAppIcon size={15} /> Une question ? Écrivez à STANDA sur WhatsApp
             </a>
           </>
         )}
@@ -1455,7 +1455,7 @@ export default function EspaceClientPage() {
             </button>
 
             <div className="card p-5">
-              {([["Full Name / Nombre completo", non || "—"],
+              {([["Full Name / Nombre completo", non || ""],
                  ["Address 1", DEPOT.address1],
                  ["Address 2", client.customer_code],
                  ["City", DEPOT.city],
@@ -1483,7 +1483,7 @@ export default function EspaceClientPage() {
 
               {calcOk && !calcRes && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-                  Le tarif de votre ville n&apos;est pas encore configuré. Contactez-nous sur WhatsApp.
+                  Le tarif de votre ville n&apos;est pas encore configuré. Contactez STANDA sur WhatsApp.
                 </p>
               )}
 
@@ -1498,7 +1498,7 @@ export default function EspaceClientPage() {
                   <div className="flex justify-between px-4 py-2.5 text-sm">
                     <span className="text-mute">Taxe fixe</span>
                     <span className="font-semibold text-ink">
-                      {calcRes.fixedTax > 0 ? usd(calcRes.fixedTax) : "—"}
+                      {calcRes.fixedTax > 0 ? usd(calcRes.fixedTax) : ""}
                     </span>
                   </div>
                   <div className="flex justify-between px-4 py-3 bg-mist rounded-b-xl">
@@ -1510,8 +1510,8 @@ export default function EspaceClientPage() {
 
               <p className="text-[11px] text-mute">
                 Une taxe fixe de {usd(TAX_FIXED_USD)} s&apos;applique à partir de {TAX_THRESHOLD_LB} lb au total.
-                Petit colis {smallCfg.min}–{smallCfg.max} lb : {usd(smallCfg.price)}.
-                Il s&apos;agit d&apos;une <b>estimation</b> — le prix final est fixé après la pesée à l&apos;entrepôt.
+                Petit colis {smallCfg.min}{smallCfg.max} lb : {usd(smallCfg.price)}.
+                Il s&apos;agit d&apos;une <b>estimation</b> : le prix final est fixé après la pesée à l&apos;entrepôt.
               </p>
             </div>
           </>

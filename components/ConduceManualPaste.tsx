@@ -59,7 +59,7 @@ export default function ConduceManualPaste({
     setBusy(true);
     try {
       const r = await importConduceExcelRows(conduceId, conduceNumber, excelRows, staffName);
-      setMsg({ t: "ok", s: `✔ ${r.created} créés, ${r.updated} mis à jour/liés${r.special ? ` — ${r.special} colis spécial${r.special > 1 ? "aux" : ""}` : ""} — ${r.totalWeight.toFixed(2)} lb au total.${r.bons.length ? ` Bon de remise créé : ${r.bons.map((bon) => `${bon.destination} (${bon.package_count})`).join(", ")}.` : ""}` });
+      setMsg({ t: "ok", s: `✔ ${r.created} créés, ${r.updated} mis à jour/liés${r.special ? ` : ${r.special} colis spécial${r.special > 1 ? "aux" : ""}` : ""} : ${r.totalWeight.toFixed(2)} lb au total.${r.bons.length ? ` Bon de remise créé : ${r.bons.map((bon) => `${bon.destination} (${bon.package_count})`).join(", ")}.` : ""}` });
       setExcelRows(null); setFileName("");
       onLinked?.();
     } catch (e: any) {
@@ -106,7 +106,7 @@ export default function ConduceManualPaste({
     <div className="card p-4 space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="flex items-center gap-2 text-sm font-semibold text-navy">
-          <ClipboardList size={15} /> Importer les colis — Conduce {conduceNumber}
+          <ClipboardList size={15} /> Importer les colis : Conduce {conduceNumber}
         </span>
         <div className="flex rounded-lg border border-line overflow-hidden text-xs">
           <button onClick={() => setMode("excel")}
@@ -144,10 +144,10 @@ export default function ConduceManualPaste({
               </div>
               {excelSpecial > 0 && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
-                  <p className="font-bold">Colis spéciaux détectés — raison copiée du fichier Excel</p>
+                  <p className="font-bold">Colis spéciaux détectés, raison copiée du fichier Excel</p>
                   <ul className="mt-1.5 space-y-1">
                     {excelRows.filter((row) => row.is_special).slice(0, 8).map((row) => (
-                      <li key={row.guia}><span className="font-mono font-semibold">{row.guia}</span> — {row.special_reason || "Signal spécial dans la ligne Excel."}</li>
+                      <li key={row.guia}><span className="font-mono font-semibold">{row.guia}</span>  {row.special_reason || "Signal spécial dans la ligne Excel."}</li>
                     ))}
                   </ul>
                   {excelSpecial > 8 && <p className="mt-1 text-amber-800">Et {excelSpecial - 8} autre(s) colis spécial(aux).</p>}

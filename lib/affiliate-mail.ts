@@ -48,8 +48,8 @@ export function buildAffiliateApprovalEmail(a: {
 }): { subject: string; html: string } {
   const websiteLink = affiliateWebsiteLink(a.code);
   const subject = a.isRenewal
-    ? `Votre nouveau contrat d'affiliation STANDA COMMERCIAL — ${a.code}`
-    : `Bienvenue dans le programme d'affiliation STANDA COMMERCIAL — ${a.code}`;
+    ? `Votre nouveau contrat d'affiliation STANDA COMMERCIAL : ${a.code}`
+    : `Bienvenue dans le programme d'affiliation STANDA COMMERCIAL : ${a.code}`;
   const intro = a.isRenewal
     ? `Votre contrat <strong>programme d'affiliation STANDA COMMERCIAL</strong> est renouvelé pour 3 mois, avec un <strong>nouveau lien</strong>. L'ancien lien ne génère plus de commission. Voici vos nouvelles informations :`
     : `Votre candidature au <strong>programme d'affiliation STANDA COMMERCIAL</strong> est acceptée. Voici vos informations :`;
@@ -71,7 +71,7 @@ ${label("2. Lien du site")}
 <p style="margin:2px 0 0;font-size:12px;line-height:1.5;color:#4B5563">Pour une personne qui veut d'abord mieux connaître le service : le site explique tout. Si elle crée son compte ensuite depuis le site, sur le même téléphone et dans les 30 jours, elle vous est quand même rattachée.</p>
 ${copyBox(websiteLink, websiteLink)}
 <p style="margin:8px 0 0;font-size:11px;line-height:1.5;color:#6B7280">Pour copier un lien : appuyez longuement dessus puis « Copier l'adresse du lien » sur téléphone, ou clic droit puis « Copier l'adresse du lien » sur ordinateur.</p>
-<p style="margin:8px 0 0;padding:8px 10px;background:#FFF7ED;border-radius:6px;font-size:12px;line-height:1.5;color:#9A3412"><strong>Important :</strong> partagez toujours l'un de ces deux liens. Une personne qui tape elle-même l'adresse du site, sans votre lien, ne peut pas vous être rattachée.</p></td></tr>
+<p style="margin:8px 0 0;padding:8px 10px;background:#FFF7ED;border-radius:6px;font-size:12px;line-height:1.5;color:#9A3412"><strong>Important :</strong> partagez toujours l'un de ces deux liens. Une personne qui tape directement l'adresse du site, sans votre lien, ne peut pas vous être rattachée.</p></td></tr>
 <tr><td style="padding:14px 32px 0">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
 <tr><td style="padding:6px 0;color:#6B7280;font-size:13px">Code</td><td align="right" style="padding:6px 0;font-size:13px;font-weight:700;font-family:monospace">${esc(a.code)}</td></tr>
@@ -88,9 +88,9 @@ ${label("Mot de passe")}${copyBox(a.password)}
 <a href="${esc(LOGIN_URL)}" style="display:inline-block;padding:13px 22px;font-size:14px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:8px">Me connecter à mon Espace Affilié</a>
 </td></tr></table>
 <p style="margin:8px 0 0;font-size:12px;color:#9CA3AF">Dans votre Espace Affilié : bouton « Copier » pour votre lien, suivi de vos clients et de vos commissions.</p></td></tr>
-<tr><td style="padding:18px 32px 0"><p style="margin:0;font-size:13px;line-height:1.6;color:#4B5563">Le contrat détaillant les conditions du programme est joint à cet e-mail en PDF.</p></td></tr>
+<tr><td style="padding:18px 32px 0"><p style="margin:0;font-size:13px;line-height:1.6;color:#4B5563">Le contrat détaillant les conditions du programme est joint à ce courriel en PDF.</p></td></tr>
 <tr><td style="padding:22px 32px 24px"><div style="height:2px;background:#1E3A8A;margin-bottom:12px"></div>
-<p style="margin:0;font-size:11px;color:#9CA3AF">STANDA COMMERCIAL — standacommercialsa.com</p></td></tr>
+<p style="margin:0;font-size:11px;color:#9CA3AF">STANDA COMMERCIAL, standacommercialsa.com</p></td></tr>
 </table></td></tr></table></body></html>`;
   return { subject, html };
 }

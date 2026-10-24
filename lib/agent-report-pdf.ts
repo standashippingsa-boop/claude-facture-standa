@@ -19,7 +19,7 @@ const usd = (value: number) => "$" + Number(value || 0).toFixed(2);
 // Les polices standard du PDF ne connaissent pas les espaces insécables : espace simple.
 const plain = (text: string) => text.replace(/[\u00a0\u202f]/g, " ");
 const htg = (value: number) => plain(new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 }).format(Number(value || 0))) + " HTG";
-const when = (value: string) => value ? plain(new Date(value).toLocaleString("fr-CA", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })) : "—";
+const when = (value: string) => value ? plain(new Date(value).toLocaleString("fr-CA", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })) : "";
 
 export function methodLabel(method: string) {
   const value = (method || "").trim();
@@ -59,7 +59,7 @@ export async function buildAgentReportPdf(input: AgentReportInput) {
   doc.setFont("helvetica", "bold"); doc.setFontSize(16);
   doc.text("STANDA COMMERCIAL", 14, 13);
   doc.setFont("helvetica", "normal"); doc.setFontSize(11);
-  doc.text(`Rapport du point de retrait — ${input.zone}`, 14, 21);
+  doc.text(`Rapport du point de retrait : ${input.zone}`, 14, 21);
   doc.setFontSize(9);
   doc.text(`Édité le ${when(now.toISOString())}`, W - 14, 13, { align: "right" });
 
@@ -100,13 +100,13 @@ export async function buildAgentReportPdf(input: AgentReportInput) {
   section(`Paiements reçus (${input.payments.length})`);
   table(["Date", "Client", "Facture", "Moyen", "Référence", "Montant"], input.payments.map((payment) => [
     when(payment.created_at), `${payment.customer_code}${payment.customer_name ? " · " + payment.customer_name : ""}`,
-    payment.invoice_number || "—", methodLabel(payment.payment_method), payment.payment_reference || "—",
+    payment.invoice_number || "", methodLabel(payment.payment_method), payment.payment_reference || "",
     payment.currency === "HTG" ? htg(payment.amount) : usd(payment.amount)
   ]), [5]);
 
   section(`Colis remis (${input.deliveries.length})`);
   table(["Date de remise", "Client", "Tracking", "Facture"], input.deliveries.map((item) => [
-    when(item.delivered_at), `${item.customer_code}${item.customer_name ? " · " + item.customer_name : ""}`, item.tracking, item.invoice_number || "—"
+    when(item.delivered_at), `${item.customer_code}${item.customer_name ? " · " + item.customer_name : ""}`, item.tracking, item.invoice_number || ""
   ]));
 
   section(`Clients avec un solde à régler (${input.balances.length})`);
@@ -117,8 +117,11 @@ export async function buildAgentReportPdf(input: AgentReportInput) {
 
   if (y > 255) { doc.addPage(); y = 30; }
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
-  doc.text("Signature de l'agent : ____________________", 14, y + 8);
-  doc.text("Reçu par l'administration : ____________________", W / 2 + 2, y + 8);
+  doc.text("Signature de l'agent :", 14, y + 8);
+  doc.text("Reçu par l'administration :", W / 2 + 2, y + 8);
+  doc.setDrawColor(150, 150, 150); doc.setLineWidth(0.3);
+  doc.line(14, y + 20, W / 2 - 8, y + 20);
+  doc.line(W / 2 + 2, y + 20, W - 14, y + 20);
 
   const pages = doc.getNumberOfPages();
   for (let page = 1; page <= pages; page++) {

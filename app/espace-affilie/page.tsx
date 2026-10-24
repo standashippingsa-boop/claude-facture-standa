@@ -141,7 +141,7 @@ export default function AffiliatePortalPage() {
             hint="Pour une personne qui veut d’abord mieux connaître le service : le site explique tout. Si elle crée son compte ensuite depuis le site, sur le même téléphone et dans les 30 jours, elle vous est quand même rattachée."
             value={affiliate.website_link} copied={copied === "website"} onCopy={() => void copyLink("website")}
           />
-          <p className="mt-3 text-[11.5px] leading-relaxed text-white/60">Important : partagez toujours un de ces deux liens. Une personne qui tape elle-même l’adresse du site, sans votre lien, ne peut pas vous être rattachée.</p>
+          <p className="mt-3 text-[11.5px] leading-relaxed text-white/60">Important : partagez toujours un de ces deux liens. Une personne qui tape directement l’adresse du site, sans votre lien, ne peut pas vous être rattachée.</p>
 
           {affiliate.status === "active" && (
             <div className="mt-4">
@@ -224,7 +224,7 @@ export default function AffiliatePortalPage() {
               {!commissions.length && (
                 <tr><td colSpan={3} className="px-4 py-10 text-center">
                   <span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-mist text-mute"><HandCoins size={19} /></span>
-                  <p className="mt-2 text-mute">Aucune commission pour le moment — partagez votre lien !</p>
+                  <p className="mt-2 text-mute">Aucune commission pour le moment, partagez votre lien !</p>
                 </td></tr>
               )}
             </tbody>

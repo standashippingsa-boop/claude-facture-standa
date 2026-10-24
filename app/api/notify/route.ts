@@ -54,13 +54,13 @@ const esc = (s: unknown) =>
 /** Valè tèks: si li vid/absan -> "—". */
 const dash = (v: unknown): string => {
   const s = String(v ?? "").trim();
-  return s ? esc(s) : "—";
+  return s ? esc(s) : "";
 };
 
 /** Pwa: absan / pa yon nonm / 0 -> "—". Sinon "0.5 lb" (san zewo initil). */
 const lbs = (v: unknown): string => {
   const n = Number(v);
-  if (!Number.isFinite(n) || n <= 0) return "—";
+  if (!Number.isFinite(n) || n <= 0) return "";
   return `${String(Number(n.toFixed(2)))} lb`;
 };
 
@@ -73,8 +73,8 @@ function buildHtml(b: NotifyBody): { subject: string; html: string } {
   const many = pkgs.length > 1;
 
   const subject = isMiami
-    ? `Nou resevwa koli ou Miami — ${b.client.code}`
-    : `Koli ou disponib — ${b.client.code}`;
+    ? `Nou resevwa koli ou Miami : ${b.client.code}`
+    : `Koli ou disponib : ${b.client.code}`;
 
   const headline = isMiami ? "Nou resevwa koli ou." : "Bon nouvèl. Koli ou disponib.";
   const sub = isMiami
@@ -127,11 +127,11 @@ function buildHtml(b: NotifyBody): { subject: string; html: string } {
   const totalRows = many
     ? divider +
       row("Nombre de colis", String(pkgs.length)) +
-      row("Poids total", totalWeight > 0 ? `${String(Number(totalWeight.toFixed(2)))} lb` : "—")
+      row("Poids total", totalWeight > 0 ? `${String(Number(totalWeight.toFixed(2)))} lb` : "")
     : "";
 
   const emptyRow = !pkgs.length
-    ? divider + row("Colis", "—")
+    ? divider + row("Colis", "")
     : "";
 
   const html = `<!DOCTYPE html>
@@ -187,7 +187,7 @@ function buildHtml(b: NotifyBody): { subject: string; html: string } {
           <div style="font-size:13px;line-height:1.55;color:#4B5563;margin-top:6px" class="dm-muted">${sub}</div>
         </td></tr>
 
-        <!-- DÉTAILS DU COLIS — yon sèl lis, menm bagay sou tout ekran -->
+        <!-- DÉTAILS DU COLIS, yon sèl lis, menm bagay sou tout ekran -->
         <tr><td class="px" style="padding:20px 40px 0">
           <div style="font-size:10px;letter-spacing:.6px;color:#6B7280;font-weight:700;text-transform:uppercase;font-family:${FONT};padding-bottom:4px" class="dm-muted">Détails du colis</div>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse">
@@ -367,7 +367,7 @@ export async function POST(req: Request) {
     const type = body.sample === "disponible" ? "disponible" : "recu_miami";
     const { subject, html } = buildHtml({
       type,
-      client: { name: "Marie Joseph", code: "MC-XXXXX", ville: "Cap-Haïtien", email: to },
+      client: { name: "Marie Joseph", code: "MC-XXXXX", ville: "Gonaïves", email: to },
       packages: [
         { tracking_number: "WR102600237168", tracking_manual: "SPXMIA0136726100", content: "ACC. PERSONAL", weight: 4, fournisseur: "SHEIN" },
         { tracking_number: "WR102600233342", tracking_manual: "1Z999AA10123456784", content: "Chaussures", weight: 0.65, fournisseur: "Amazon" }
@@ -404,12 +404,12 @@ export async function POST(req: Request) {
     const now = new Date().toLocaleString("fr-FR");
     const testHtml =
       `<!DOCTYPE html><html><body style="font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:24px;color:#111827">`
-      + `<h2 style="margin:0 0 8px">✅ Le système d'e-mail fonctionne</h2>`
-      + `<p style="color:#4B5563;font-size:14px">Message de test envoyé depuis Paramètres → Notifications e-mail.<br>`
+      + `<h2 style="margin:0 0 8px">✅ Le système de courriel fonctionne</h2>`
+      + `<p style="color:#4B5563;font-size:14px">Message de test envoyé depuis Paramètres → Notifications courriel.<br>`
       + `Expéditeur : <code>${esc(from)}</code><br>Date : ${esc(now)}</p>`
-      + `<p style="color:#9CA3AF;font-size:12px">STANDA COMMERCIAL — ${esc(SITE_URL.replace("https://", ""))} · ${esc(SUPPORT_PHONE)}</p>`
+      + `<p style="color:#9CA3AF;font-size:12px">STANDA COMMERCIAL : ${esc(SITE_URL.replace("https://", ""))} · ${esc(SUPPORT_PHONE)}</p>`
       + `</body></html>`;
-    const r = await sendViaResend(key, to, "Test STANDA COMMERCIAL — notifications e-mail", testHtml);
+    const r = await sendViaResend(key, to, "Test STANDA COMMERCIAL, notifications courriel", testHtml);
     return r.ok
       ? NextResponse.json({ ok: true, id: r.id, config, to })
       : NextResponse.json({ ok: false, code: r.code, status: r.status, error: r.message, config, to }, { status: 200 });

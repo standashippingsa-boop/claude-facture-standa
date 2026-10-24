@@ -82,8 +82,8 @@ export async function POST(req: Request) {
         return NextResponse.json({
           ok: false, blocked: true,
           reason: openParcels > 0
-            ? "Vous avez encore des colis en cours. Vous pourrez supprimer votre compte une fois qu'ils vous auront été remis. Besoin d'aide ? Contactez-nous sur WhatsApp."
-            : "Une facture reste à régler. Vous pourrez supprimer votre compte une fois qu'elle sera soldée. Besoin d'aide ? Contactez-nous sur WhatsApp."
+            ? "Vous avez encore des colis en cours. Vous pourrez supprimer votre compte une fois qu'ils vous auront été remis. Besoin d'aide ? Contactez STANDA sur WhatsApp."
+            : "Une facture reste à régler. Vous pourrez supprimer votre compte une fois qu'elle sera soldée. Besoin d'aide ? Contactez STANDA sur WhatsApp."
         }, { status: 409 });
       }
 
@@ -132,6 +132,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[delete-account]", error);
-    return NextResponse.json({ ok: false, reason: "Suppression impossible pour le moment. Contactez-nous sur WhatsApp." }, { status: 500 });
+    return NextResponse.json({ ok: false, reason: "Suppression impossible pour le moment. Contactez STANDA sur WhatsApp." }, { status: 500 });
   }
 }

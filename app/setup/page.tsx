@@ -33,7 +33,7 @@ export default function SetupPage() {
       <div className="card p-8 max-w-md w-full space-y-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="" className="mx-auto h-16 object-contain" />
-        <h1 className="text-lg font-extrabold text-navy text-center">Konfigirasyon inisyal — Administrateur</h1>
+        <h1 className="text-lg font-extrabold text-navy text-center">Konfigirasyon inisyal : Administrateur</h1>
         <p className="text-xs text-slate-500 text-center">
           Kreye premye kont administratè a. Paj sa a mache yon sèl fwa.
         </p>

@@ -101,7 +101,7 @@ export function withManualSpecialPackageMetadata(
   if (cleanKind === "Autre" && !cleanNote) {
     throw new Error("Précisez pourquoi ce colis est spécial.");
   }
-  const reason = shorten([cleanKind, cleanNote].filter(Boolean).join(" — "));
+  const reason = shorten([cleanKind, cleanNote].filter(Boolean).join(" · "));
   // Si MCPACK a signalé ce colis dans ADIC., sa note est une preuve métier :
   // une modification manuelle ne doit jamais la faire disparaître.
   const previousReason = clean(fields[SPECIAL_PACKAGE_REASON]);

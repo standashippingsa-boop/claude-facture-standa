@@ -8,7 +8,7 @@ import AddressGuide from "@/components/site/AddressGuide";
  * lyen an bay yon kliyan depi Paramètres (gid adrès SHEIN / Amazon).
  */
 export const metadata: Metadata = {
-  title: "Entrer votre adresse sur SHEIN et Amazon — STANDA COMMERCIAL",
+  title: "Entrer votre adresse sur SHEIN et Amazon : STANDA COMMERCIAL",
   description: "Comment remplir l'adresse de notre dépôt de Miami sur SHEIN et Amazon, case par case.",
   robots: { index: false, follow: false }
 };

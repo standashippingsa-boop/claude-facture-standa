@@ -8,7 +8,7 @@ import { SITE } from "@/lib/site";
 import { getAgences, type Agence } from "@/lib/agences";
 
 export const metadata: Metadata = {
-  title: "Nos agences — STANDA COMMERCIAL",
+  title: "Nos agences : STANDA COMMERCIAL",
   description: "Retrouvez les agences et points de retrait STANDA COMMERCIAL en Haïti : adresses, téléphones, WhatsApp et horaires.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/agences" }
@@ -26,12 +26,12 @@ export default async function AgencesPage() {
   return <div className="min-h-screen bg-[#f7f9fd] text-ink"><SiteHeader /><main>
 
     <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24 lg:px-10 xl:px-6"><div className="max-w-2xl"><p className="text-[14px] font-semibold text-accent-dark">Choisissez votre ville</p><h1 className="mt-4 text-[28px] font-extrabold leading-tight tracking-tight text-navy sm:text-[36px]">Les agences à votre service.</h1><p className="mt-4 text-[16px] leading-relaxed text-mute">Appelez, écrivez sur WhatsApp ou ouvrez directement l&apos;itinéraire vers l&apos;agence de votre choix.</p></div>
-      {loadError && <p className="mt-8 rounded-lg border border-amber-200 bg-amber-50 px-5 py-4 text-[14px] text-amber-800">La liste des agences est temporairement indisponible. Contactez-nous directement sur WhatsApp.</p>}
+      {loadError && <p className="mt-8 rounded-lg border border-amber-200 bg-amber-50 px-5 py-4 text-[14px] text-amber-800">La liste des agences est temporairement indisponible. Contactez STANDA directement sur WhatsApp.</p>}
       {!loadError && !agences.length && <p className="mt-8 rounded-lg border border-line bg-white px-5 py-7 text-center text-[14px] text-mute">Aucune agence n&apos;est disponible pour le moment.</p>}
       <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{agences.map((agence) => <AgenceCard key={agence.id ?? agence.nom} agence={agence} />)}</div>
     </section>
 
-    <section className="border-y border-line bg-white"><div className="mx-auto grid max-w-7xl gap-8 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[.86fr_1.14fr] lg:items-center lg:px-10 xl:px-6"><div><p className="text-[14px] font-semibold text-accent-dark">Avant de venir</p><h2 className="mt-4 text-[28px] font-extrabold leading-tight tracking-tight text-navy sm:text-[36px]">Un retrait plus simple pour vous.</h2><p className="mt-4 max-w-lg text-[15px] leading-relaxed text-mute">Ayez votre code client, le numéro de votre colis ou votre facture à portée de main. L&apos;équipe pourra vous guider rapidement.</p></div><div className="grid gap-3 sm:grid-cols-3"><Tip icon={Phone} title="Appelez avant" text="Pour toute question." /><Tip icon={WhatsAppIcon} title="Écrivez-nous" text="Sur WhatsApp." /><Tip icon={Clock3} title="Vérifiez l&apos;heure" text="Avant de vous déplacer." /></div></div></section>
+    <section className="border-y border-line bg-white"><div className="mx-auto grid max-w-7xl gap-8 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[.86fr_1.14fr] lg:items-center lg:px-10 xl:px-6"><div><p className="text-[14px] font-semibold text-accent-dark">Avant de venir</p><h2 className="mt-4 text-[28px] font-extrabold leading-tight tracking-tight text-navy sm:text-[36px]">Un retrait plus simple pour vous.</h2><p className="mt-4 max-w-lg text-[15px] leading-relaxed text-mute">Ayez votre code client, le numéro de votre colis ou votre facture à portée de main. L&apos;équipe pourra vous guider rapidement.</p></div><div className="grid gap-3 sm:grid-cols-3"><Tip icon={Phone} title="Appelez avant" text="Pour toute question." /><Tip icon={WhatsAppIcon} title="Écrivez à STANDA" text="Sur WhatsApp." /><Tip icon={Clock3} title="Vérifiez l&apos;heure" text="Avant de vous déplacer." /></div></div></section>
   </main><SiteFooter /></div>;
 }
 

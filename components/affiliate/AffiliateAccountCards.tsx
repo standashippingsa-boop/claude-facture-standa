@@ -87,7 +87,7 @@ export function ContractSection({ uploadedAt, onUploaded }: { uploadedAt: string
       </div>
       {!uploadedAt && (
         <ol className="mt-3 space-y-1.5 text-[13px] leading-relaxed text-mute">
-          <li><b className="text-navy">1.</b> Téléchargez le contrat et imprimez-le.</li>
+          <li><b className="text-navy">1.</b> Téléchargez le contrat, puis imprimez le.</li>
           <li><b className="text-navy">2.</b> Remplissez vos informations, paraphez chaque page et signez la dernière.</li>
           <li><b className="text-navy">3.</b> Scannez les pages en un seul PDF.</li>
           <li><b className="text-navy">4.</b> Envoyez le fichier ici.</li>

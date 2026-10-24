@@ -17,7 +17,7 @@ import { getAgences, Agence } from "@/lib/agences";
  *     POU PAJ SA A SÈLMAN, menm jan ak /accueil ak /contact.
  */
 export const metadata: Metadata = {
-  title: "Nos agences — STANDA COMMERCIAL",
+  title: "Nos agences : STANDA COMMERCIAL",
   description:
     "Retrouvez toutes les agences et points de retrait STANDA COMMERCIAL en Haïti : adresses, téléphones, WhatsApp et horaires d'ouverture.",
   robots: { index: true, follow: true },
@@ -104,8 +104,8 @@ export default async function AgencesPage() {
       <section className="mx-auto max-w-6xl px-4 py-14 sm:py-20">
         {loadError && (
           <p className="mb-8 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm">
-            Impossible de charger la liste des agences pour le moment. Contactez-nous directement
-            par téléphone ou WhatsApp ci-dessus.
+            Impossible de charger la liste des agences pour le moment. Contactez STANDA directement
+            par téléphone ou WhatsApp plus haut.
           </p>
         )}
 

@@ -29,7 +29,7 @@ export default function ResetPasswordPage() {
       router.replace("/espace-client");
     } catch (e: any) {
       setErr(e.message?.includes("session")
-        ? "Sesyon an ekspire — retounen sou paj koneksyon an epi klike 'Mot de passe oublié ?' ankò."
+        ? "Sesyon an ekspire, retounen sou paj koneksyon an epi klike 'Mot de passe oublié ?' ankò."
         : safeMessage(e));
     } finally { setBusy(false); }
   };

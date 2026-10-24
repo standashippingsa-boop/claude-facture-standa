@@ -11,14 +11,14 @@ import { SITE } from "@/lib/site";
 import { SITE_URL } from "@/lib/branding";
 
 export const metadata: Metadata = {
-  title: "STANDA COMMERCIAL — Vos colis des États-Unis vers Haïti",
-  description: "Commandez en ligne aux États-Unis, utilisez votre adresse à Miami et recevez vos colis en Haïti avec STANDA COMMERCIAL.",
+  title: "STANDA COMMERCIAL : Vos colis des USA vers Haïti",
+  description: "Commandez en ligne aux USA, utilisez votre adresse à Miami et recevez vos colis en Haïti avec STANDA COMMERCIAL.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/accueil" },
   keywords: ["standa commercial", "shipping Haïti", "colis USA Haïti", "adresse Miami Haïti", "casillero Haïti", "envoi colis Ayiti"],
   openGraph: {
     type: "website", url: "/accueil", siteName: "STANDA COMMERCIAL", locale: "fr_HT",
-    title: "STANDA COMMERCIAL — Vos colis des États-Unis vers Haïti",
+    title: "STANDA COMMERCIAL : Vos colis des USA vers Haïti",
     description: "Une adresse à Miami, un suivi clair et la récupération de vos colis en agence en Haïti.",
     images: [{ url: "/hero-shopping.jpg", width: 1600, height: 1067, alt: "Colis STANDA COMMERCIAL" }]
   }
@@ -26,13 +26,13 @@ export const metadata: Metadata = {
 
 const STEPS = [
   { title: "Créez votre compte", text: "L'inscription est gratuite. Remplissez le formulaire avec votre nom, votre téléphone et l'agence où vous voulez récupérer vos colis." },
-  { title: "Recevez votre code client", text: "Dès l'inscription, vous obtenez un code personnel qui commence par MC. C'est lui qui permet de reconnaître vos colis : gardez-le." },
+  { title: "Recevez votre code client", text: "Dès l'inscription, vous obtenez un code personnel qui commence par MC. C'est lui qui permet de reconnaître vos colis : conservez ce code." },
   { title: "Copiez votre adresse à Miami", text: "Dans votre espace client, vous trouvez l'adresse de notre dépôt à Miami. Votre code MC se place sur la deuxième ligne de l'adresse." },
   { title: "Achetez en ligne", text: "Commandez sur la boutique de votre choix (SHEIN, Amazon, Temu…) et mettez l'adresse de Miami comme adresse de livraison, avec votre code MC." },
   { title: "Nous recevons votre colis à Miami", text: "À son arrivée au dépôt, le colis est pesé et enregistré sur votre compte. Vous le voyez apparaître dans votre espace client." },
   { title: "Votre colis voyage vers Haïti", text: "Suivez chaque étape : en préparation, en transit, arrivé en Haïti, puis en route vers votre agence. Le suivi fonctionne aussi sur cette page, sans compte." },
   { title: "Votre colis est disponible", text: "Quand le colis est dans votre agence, son statut passe à « Disponible » et votre facture s'affiche dans votre espace client." },
-  { title: "Payez et récupérez", text: "Présentez-vous à votre agence avec votre code client, réglez votre facture et repartez avec votre colis." }
+  { title: "Payez et récupérez", text: "Venez à votre agence avec votre code client, réglez votre facture et repartez avec votre colis." }
 ];
 
 const INTERDITS = [
@@ -62,7 +62,7 @@ const SHOPPING_PLATFORMS = [
 const JSONLD = {
   "@context": "https://schema.org", "@type": "MovingCompany", name: "STANDA COMMERCIAL", legalName: "Standa Shipping SA",
   url: `${SITE_URL}/accueil`, logo: `${SITE_URL}/logo.png`, image: `${SITE_URL}/hero-shopping.jpg`,
-  description: "Service d'expédition de colis des États-Unis vers Haïti.", telephone: SITE.phone, email: SITE.email,
+  description: "Service d'expédition de colis des USA vers Haïti.", telephone: SITE.phone, email: SITE.email,
   areaServed: [{ "@type": "Country", name: "Haïti" }],
   address: { "@type": "PostalAddress", streetAddress: DEPOT.address1, addressLocality: DEPOT.city, addressRegion: DEPOT.state, postalCode: DEPOT.zip, addressCountry: "US" },
   sameAs: [SITE.instagramUrl, SITE.facebookUrl, SITE.tiktokUrl]
@@ -127,7 +127,7 @@ export default function AccueilPage() {
           <div className={`${WRAP} grid gap-8 lg:grid-cols-2 lg:items-center lg:gap-16`}>
             <h2 className="max-w-xl text-[30px] font-extrabold leading-tight tracking-tight sm:text-[40px]">Vos colis arrivent là où vous pouvez les récupérer.</h2>
             <div>
-              <p className="max-w-lg text-[16px] leading-relaxed text-white/80">Quand votre colis est disponible, rendez-vous dans votre agence. Consultez les villes, horaires et coordonnées de nos points de retrait.</p>
+              <p className="max-w-lg text-[16px] leading-relaxed text-white/80">Quand votre colis est disponible, passez à votre agence. Consultez les villes, horaires et coordonnées de nos points de retrait.</p>
               <Link href="/agences" className={`${BTN} mt-6 bg-white text-navy hover:bg-accent-light focus-visible:outline-white`}>Trouver mon agence <ArrowRight size={16} /></Link>
             </div>
           </div>

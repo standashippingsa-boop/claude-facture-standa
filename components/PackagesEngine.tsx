@@ -166,7 +166,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
     return d >= 0 ? d : null;
   };
   const showTip = (p: Pkg, e: any) => setHover({
-    p, ville: tarifMap.get(p.customer_code)?.ville?.name ?? "—", x: e.clientX, y: e.clientY
+    p, ville: tarifMap.get(p.customer_code)?.ville?.name ?? "", x: e.clientX, y: e.clientY
   });
   // Opsyon fakti — chak toggle endepandan (admin chwazi pou CHAK fakti)
 
@@ -369,7 +369,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
     if (bulkStatus === "Disponible" && factures.length) {
       if (!confirm(
         `${factures.length} colis déjà facturé(s) vont être retirés de leur facture.\n\n` +
-        `➜ Ils redeviendront « Disponible » et pourront être re-facturés.\n` +
+        `➜ Ils redeviendront « Disponible » et pourront être refacturés.\n` +
         `➜ La facture sera recalculée ou supprimée si elle devient vide.\n` +
         `➜ Opération enregistrée dans l'audit.`
       )) return;
@@ -377,7 +377,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       try {
         const r = await detachPackagesFromInvoice(factures.map((p) => p.id));
         if (!r.ok) { setNotice("Erè: " + (r.reason ?? "inconnue")); return; }
-        setNotice(`✅ ${r.detached} colis remis en « Disponible » — rien n'est supprimé, ils restent dans le système.` +
+        setNotice(`✅ ${r.detached} colis remis en « Disponible », rien n'est supprimé, ils restent dans le système.` +
           (r.invoicesDeleted ? ` ${r.invoicesDeleted} facture(s) vide(s) supprimée(s).` : ""));
         // GAD: si yon filtè "Statut" aktif t ap kache koli nou fèk chanje yo,
         // chanje filtè a pou yo rete VIZIB — yo pa dwe sanble disparèt.
@@ -457,12 +457,12 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
           (problems.length ? ` ⚠️ ${problems.slice(0, 2).join(" | ").slice(0, 300)}` : "");
         // Tras dirab: si imèl echwe, kite yon antre nan Journal (toast la disparèt)
         if (problems.length) {
-          await logAction("Notification e-mail échouée",
-            `${bulkStatus} — ${sent} envoyé(s), ${problems.length} échec(s): ${problems.join(" | ").slice(0, 400)}`,
+          await logAction("Notification courriel échouée",
+            `${bulkStatus} : ${sent} envoyé(s), ${problems.length} échec(s): ${problems.join(" | ").slice(0, 400)}`,
             "", "");
         }
       }
-      setNotice(`✅ ${targets.length} colis passés à "${bulkStatus}" — rien n'est supprimé, ils restent dans le système.` + mailInfo);
+      setNotice(`✅ ${targets.length} colis passés à "${bulkStatus}", rien n'est supprimé, ils restent dans le système.` + mailInfo);
       setBulkStatus("");
     } catch (e: any) { setNotice("Erè: " + e.message); }
     finally { setBusy(false); }
@@ -498,7 +498,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
       // vil, admin an dwe separe yo pou chak ajan resevwa sèlman pwòp lis li.
       if (destinations.length !== 1) {
         throw new Error(destinations.length
-          ? "Sélection multi-villes : créez un Bon de remise séparé pour chaque ville."
+          ? "Sélection plusieurs villes : créez un Bon de remise séparé pour chaque ville."
           : "Ville de destination introuvable. Créez ce Bon depuis la page Bon de remise et choisissez la ville.");
       }
       const destination = destinations[0];
@@ -517,7 +517,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
         try { await saveBonRemisePdf(recordId, pdf.blob, pdf.filename); }
         catch { archiveWarning = " PDF telechaje, men achiv sekirize a pa rive anrejistre."; }
       }
-      setNotice(`Bon de remise créé (${selectedAll.length} colis) — PDF telechaje.${archiveWarning}`);
+      setNotice(`Bon de remise créé (${selectedAll.length} colis) : PDF telechaje.${archiveWarning}`);
     } catch (e: any) {
       if (recordId) await deleteBonRemiseRecord(recordId).catch(() => undefined);
       setNotice("Erè: " + e.message);
@@ -561,7 +561,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
     try {
       const metadata = await markPackageSpecial(specialEditor.id, kind, note, staffName);
       setPkgs((previous) => previous.map((pkg) => pkg.id === specialEditor.id ? { ...pkg, mcpack_data: metadata } : pkg));
-      setNotice(`Colis ${specialEditor.tracking_number} marqué spécial — ${kind}. Le prix sera demandé lors de la facturation.`);
+      setNotice(`Colis ${specialEditor.tracking_number} marqué spécial : ${kind}. Le prix sera demandé lors de la facturation.`);
       setSpecialEditor(null);
     } catch (error: any) {
       setNotice("Erreur : " + (error?.message ?? "impossible de marquer ce colis."));
@@ -587,20 +587,20 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
     if (!confirm(
       `⚠️ SUPPRIMER DÉFINITIVEMENT ce colis ?\n\n` +
       `Tracking ID : ${p.tracking_number}\n` +
-      `Client : ${p.customer_code} — ${p.customer_name}\n` +
+      `Client : ${p.customer_code} : ${p.customer_name}\n` +
       `Statut : ${p.status}\n\n` +
       `➜ Le colis sera retiré de TOUT le système.\n` +
       `➜ Sa ligne de facture sera retirée ; la facture sera recalculée ou supprimée si vide.\n` +
       `➜ CETTE ACTION EST IRRÉVERSIBLE.\n\n` +
-      `Vous pourrez le ré-importer depuis MCPACK.`
+      `Vous pourrez le réimporter depuis MCPACK.`
     )) return;
-    if (!confirm(`Dernière confirmation — supprimer ${p.tracking_number} définitivement ?`)) return;
+    if (!confirm(`Dernière confirmation, supprimer ${p.tracking_number} définitivement ?`)) return;
     setBusy(true); setBusyId(p.id);
     try {
       const r = await hardDeletePackage(p.id);
       if (!r.ok) { setNotice("Erè: " + (r.reason ?? "inconnue")); return; }
       setNotice(`🗑 Colis ${p.tracking_number} supprimé définitivement` +
-        (r.invoiceDeleted ? " — facture devenue vide supprimée." : "."));
+        (r.invoiceDeleted ? ", facture devenue vide supprimée." : "."));
       setPkgs((prev) => prev.filter((x) => x.id !== p.id));
     } catch (e: any) {
       setNotice("Erè: " + (e?.message ?? String(e)));
@@ -634,7 +634,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
   /** Koreksyon Tracking Number — ADMIN sèlman, ak audit log (pwen #3) */
   const correctTracking = async (p: Pkg) => {
     const nv = window.prompt(
-      `Correction Tracking Number — ${p.tracking_number}\n` +
+      `Correction Tracking Number : ${p.tracking_number}\n` +
       `Ancien: ${p.tracking_manual}\n\n` +
       `⚠️ Cette correction sera enregistrée dans l'audit.\n\nNouveau Tracking Number :`,
       p.tracking_manual
@@ -664,7 +664,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
         {!hideHeader && (
           <div>
             <h1 className="h-page">Packages</h1>
-            <p className="text-sm text-mute mt-0.5">Gestion des colis — statuts, tarification et facturation</p>
+            <p className="text-sm text-mute mt-0.5">Gestion des colis, statuts, tarification et facturation</p>
           </div>
         )}
         <div className="flex gap-2 flex-wrap">
@@ -738,7 +738,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
             ) : (
               <p className="text-sm text-mute">Aucun colis spécial ne correspond aux autres filtres actuels.</p>
             )}
-            <p className="mt-3 text-[11px] text-mute">Cliquez sur un colis pour voir son signalement et le modifier. La liste complète reste aussi affichée dans le tableau ci-dessous.</p>
+            <p className="mt-3 text-[11px] text-mute">Cliquez sur un colis pour voir son signalement et le modifier. La liste complète reste aussi affichée dans le tableau plus bas.</p>
           </div>
         )}
       </section>
@@ -775,7 +775,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
               const special = specialPackageInfo(p);
               return (
               <tr key={p.id} className={`${p.received_at ? "!bg-emerald-50" : i % 2 ? "bg-mist" : ""} ${sel.has(p.id) ? "!bg-blue-50" : ""}`}
-                title={p.received_at ? `Reçu chez MCPACK — ${p.received_method}` : "En attente de réception"}>
+                title={p.received_at ? `Reçu chez MCPACK : ${p.received_method}` : "En attente de réception"}>
                 <td className="tdc">
                   <input type="checkbox" checked={sel.has(p.id)} onChange={() => toggle(p.id)} />
                 </td>
@@ -792,7 +792,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
                   </Link>
                 </td>
                 <td className="tdc max-w-[80px] truncate" title={tarifMap.get(p.customer_code)?.ville?.name ?? ""}>
-                  {tarifMap.get(p.customer_code)?.ville?.name ?? <span className="text-amber-600">—</span>}
+                  {tarifMap.get(p.customer_code)?.ville?.name ?? <span className="text-amber-600"></span>}
                 </td>
                 <td className="tdc font-mono text-[11px] whitespace-nowrap cursor-help"
                   onMouseEnter={(e) => showTip(p, e)}
@@ -807,7 +807,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
                   {!p.tracking_manual ? (
                     // Vid: pèmèt premye antre (yon sèl fwa)
                     <input type="text" defaultValue=""
-                      placeholder="—" title="Tracking Number"
+                      placeholder="" title="Tracking Number"
                       className="input !w-24 !py-0.5 !px-1 !text-[11px] font-mono"
                       onBlur={(e) => {
                         const v = e.target.value.trim();
@@ -859,7 +859,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
                     <div className="flex items-center gap-1">
                       {(() => {
                         const keys = pkgSources(p);
-                        if (!keys.length) return <span className="text-mute text-[11px]">—</span>;
+                        if (!keys.length) return <span className="text-mute text-[11px]"></span>;
                         return SRC_DEFS.filter((d) => keys.includes(d.key)).map((d) => (
                           <span key={d.key} className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${d.cls}`} title={d.label}>
                             <d.Icon size={13} />
@@ -874,7 +874,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
                     <StatusBadge status={p.status} />
                     {p.verified && (
                       <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 text-emerald-700 px-1.5 py-0.5 text-[9px] font-bold"
-                        title={`Vérifié MCPACK${p.verified_at ? " — " + dateFr(p.verified_at) : ""}`}>
+                        title={`Vérifié MCPACK${p.verified_at ? "" + dateFr(p.verified_at) : ""}`}>
                         <CheckCircle2 size={10} /> Vérifié
                       </span>
                     )}
@@ -897,7 +897,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
                   )}
                   {p.status !== "Disponible" && p.status !== "Facturé" && (
                     <button className="text-emerald-600 hover:text-emerald-800 mr-1 disabled:opacity-50"
-                      title="Marquer « Disponible » (sans e-mail — utilisez la sélection pour envoyer un e-mail)"
+                      title="Marquer « Disponible » (sans courriel, utilisez la sélection pour envoyer un courriel)"
                       disabled={busyId === p.id}
                       onClick={() => marquerDisponibleRapide(p)}>
                       {busyId === p.id ? <Spinner size={14} /> : <PackageCheck size={14} />}
@@ -949,7 +949,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
               )}
               <select className="input !w-44 !py-2" value={bulkStatus}
                 onChange={(e) => setBulkStatus(e.target.value)}>
-                <option value="">— Statut... —</option>
+                <option value="">Statut...</option>
                 {INTERNAL_STATUSES.map((s) => <option key={s}>{s}</option>)}
               </select>
               <BusyButton className="btn !bg-emerald-600 hover:!bg-emerald-700"
@@ -1033,21 +1033,21 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
         const special = specialPackageInfo(p);
         const rows: [string, React.ReactNode][] = [
           ["Code client", <span className="font-bold text-navy">{p.customer_code}</span>],
-          ["Nom du client", p.customer_name || "—"],
+          ["Nom du client", p.customer_name || ""],
           ["Ville", hover.ville],
           ["Tracking ID", <span className="font-mono">{p.tracking_number}</span>],
-          ["Tracking Number", <span className="font-mono">{p.tracking_manual || "—"}</span>],
+          ["Tracking Number", <span className="font-mono">{p.tracking_manual || ""}</span>],
           ["Conduce", conduceOf(p) ? <span className="font-bold text-violet-700">{conduceOf(p)}</span> : <span className="text-slate-400">Aucune</span>],
           ["Poids", `${Number(p.weight || 0)} lb`],
-          ["Contenu", p.content || "—"],
+          ["Contenu", p.content || ""],
           ...(special.isSpecial ? [["Colis spécial", <span className="text-amber-800" title={special.reason}>{special.reason}</span>] as [string, React.ReactNode]] : []),
           ["Statut", <StatusBadge status={p.status} />],
-          ["Date de création", dateFr(p.created_date) || "—"],
-          ["Date de réception", p.received_at ? dateFr(p.received_at) : "—"],
+          ["Date de création", dateFr(p.created_date) || ""],
+          ["Date de réception", p.received_at ? dateFr(p.received_at) : ""],
           ["Facturé", p.invoice_id
             ? <span className="pill pill-green"><span className="pill-dot" />Oui</span>
             : <span className="pill pill-gray"><span className="pill-dot" />Non</span>],
-          ["Jours en dépôt", jrs != null ? `${jrs} j` : "—"]
+          ["Jours en dépôt", jrs != null ? `${jrs} j` : ""]
         ];
         // pozisyon: evite depase bò dwat/anba ekran
         const left = Math.min(hover.x + 16, (typeof window !== "undefined" ? window.innerWidth : 1200) - 300);
@@ -1109,7 +1109,7 @@ function SpecialPackageEditor({
   const initialKind = MANUAL_SPECIAL_PACKAGE_KINDS.includes(existing.kind as ManualSpecialPackageKind)
     ? existing.kind as ManualSpecialPackageKind
     : "Autre";
-  const manualPrefix = `${initialKind} —`;
+  const manualPrefix = `${initialKind}, `;
   const initialNote = existing.source === "manual" && existing.reason.startsWith(manualPrefix)
     ? existing.reason.slice(manualPrefix.length).trim()
     : existing.source === "manual" ? existing.reason : "";
