@@ -9,6 +9,7 @@ import Logo from "@/components/Logo";
 
 import { useNoticeToast } from "@/lib/notify";
 import { normalizeMcCode } from "@/lib/utils";
+import PwaInstallButton from "@/components/PwaInstallButton";
 import {
   clearReceptionOffline, enqueueConduce, loadDirectory, loadQueue, rememberAgent, rememberedAgent,
   saveDirectory, saveQueue, searchDirectory, type QueuedConduce, type ReceptionClient
@@ -228,10 +229,13 @@ export default function ReceptionAgentPortal() {
               <span role="status" aria-label={offline ? "Hors ligne" : "Connecté"} title={offline ? "Hors ligne" : "Connecté"}
                 className={`h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white/70 ${offline ? "bg-red-500" : "bg-emerald-400"}`} />
             </div>
+            <div className="flex items-center gap-2">
+            <PwaInstallButton appName="STANDA Réception" className="!h-9 !w-9 bg-white/15 backdrop-blur-md hover:!bg-white/25" />
             <button onClick={logout} aria-label="Déconnexion"
               className="grid h-9 w-9 place-items-center rounded-full bg-white/15 text-white backdrop-blur-md hover:bg-white/25">
               <LogOut size={16} />
             </button>
+            </div>
           </div>
         </div>
 

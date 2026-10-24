@@ -6,6 +6,7 @@ import { RefreshCw, X } from "lucide-react";
 const CLIENT_PWA_SCOPE = "/espace-client";
 const AGENT_PWA_SCOPE = "/espace-remise";
 const RECEPTION_PWA_SCOPE = "/reception";
+const AFFILIATE_PWA_SCOPE = "/espace-affilie";
 
 /**
  * PWA Manager — STANDA COMMERCIAL (v3)
@@ -57,9 +58,11 @@ export default function PwaManager() {
     || pathname.startsWith("/espace-client/");
   const isAgentPwaPath = pathname === "/point-retrait" || pathname === "/espace-remise" || pathname.startsWith("/espace-remise/");
   const isReceptionPwaPath = pathname === "/reception-login" || pathname === "/reception" || pathname.startsWith("/reception/");
+  const isAffiliatePwaPath = pathname === "/espace-affilie" || pathname.startsWith("/espace-affilie/");
   const pwaScope = isClientPwaPath ? CLIENT_PWA_SCOPE
     : isAgentPwaPath ? AGENT_PWA_SCOPE
     : isReceptionPwaPath ? RECEPTION_PWA_SCOPE
+    : isAffiliatePwaPath ? AFFILIATE_PWA_SCOPE
     : null;
 
   /**

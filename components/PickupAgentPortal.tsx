@@ -17,6 +17,7 @@ import Logo from "@/components/Logo";
 import StaffNotifications from "@/components/StaffNotifications";
 
 import { MessageScreen } from "@/components/Toaster";
+import PwaInstallButton from "@/components/PwaInstallButton";
 type ZonePackage = {
   id: string; tracking_number: string; tracking_manual: string; customer_code: string; customer_name: string;
   customer_balance_usd: number; customer_balance_htg: number; balance_invoice_id: string; balance_invoice_number: string;
@@ -513,6 +514,7 @@ export default function PickupAgentPortal() {
               ? <p className="truncate text-[15px] font-semibold">{pageTitle}</p>
               : <><p className="truncate text-[15px] font-semibold leading-tight">{data ? `Bonjour, ${firstName}` : "STANDA"}</p><p className="truncate text-[11px] text-white/65">{data ? `Point de retrait · ${data.zone.name}` : "Point de retrait"}</p></>}
           </div>
+          <PwaInstallButton appName="STANDA Retrait" />
           <StaffNotifications variant="icon" />
           <button type="button" onClick={logout} aria-label="Se déconnecter" title="Se déconnecter" className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white/85 transition hover:bg-white/10"><LogOut size={18} /></button>
         </div>
@@ -759,6 +761,7 @@ function AgentSettingsView({ agentName, pushPermission, pushBusy, onActivate }: 
         {pushPermission === "denied" && <p className="mt-3 text-xs leading-5 text-slate-500">Sur iPhone, ouvrez Réglages, puis les réglages du site ou de l’application STANDA. Sur Android ou ordinateur, ouvrez les autorisations de notifications du navigateur.</p>}
       </div>
     </Card>
+    <Card className="p-1.5"><PwaInstallButton variant="row" appName="STANDA Retrait" /></Card>
     <Card className="px-4 py-3.5"><p className="text-sm font-semibold text-slate-900">Ce que vous recevrez</p><p className="mt-1 text-[13px] leading-6 text-slate-600">Une alerte quand un bon de remise est créé pour votre zone, et quand un paiement est enregistré pour un client de votre agence. Les alertes restent liées seulement à ce compte et à cet appareil.</p></Card>
   </div>;
 }

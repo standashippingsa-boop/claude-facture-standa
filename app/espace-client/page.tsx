@@ -62,6 +62,7 @@ import AddressGuide from "@/components/site/AddressGuide";
 import { ClientLogisticsDashboard, ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
 
 import { useNoticeToast } from "@/lib/notify";
+import PwaInstallButton from "@/components/PwaInstallButton";
 type View = "home" | "disponibles" | "colisFactures" | "receptions" | "factures" | "historique" | "retraits" | "notifications" | "adresse" | "calc" | "infos" | "guideAdresse" | "challenge";
 type NoticeKind = "available" | "invoice" | "pickup" | "shipment" | "announce";
 type ClientNotice = {
@@ -857,6 +858,8 @@ export default function EspaceClientPage() {
             className="client-header-icon">
             <MessageCircle size={20} />
           </button>
+
+          <PwaInstallButton appName="STANDA" className="client-header-icon !h-10 !w-9 !rounded-xl" />
 
           <button onClick={openNotifications} aria-label="Notifications" title="Notifications"
             className="client-header-icon relative">

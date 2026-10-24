@@ -8,6 +8,7 @@ import { formatHtg, toPayoutHtg, type AffiliatePayoutMethod } from "@/lib/affili
 import { ContractSection, PayoutSection, dateFr } from "@/components/affiliate/AffiliateAccountCards";
 
 import { useNoticeToast } from "@/lib/notify";
+import PwaInstallButton from "@/components/PwaInstallButton";
 import { MessageScreen } from "@/components/Toaster";
 /**
  * PÒTAY AFILYE — tablo bò. Zewo enpòtasyon @/lib/db oswa @/lib/supabase:
@@ -106,6 +107,7 @@ export default function AffiliatePortalPage() {
             <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-accent">Espace Affilié</p><h1 className="text-[20px] font-black text-navy">{affiliate.fullname}</h1></div>
           </div>
           <div className="flex items-center gap-2">
+            <PwaInstallButton appName="STANDA Affiliés" className="!h-9 !w-9 !rounded-lg bg-white !text-navy shadow-card hover:!bg-mist" />
             <Link href="/espace-affilie/parametres" className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-[13px] font-bold text-navy shadow-card hover:bg-mist">
               <Settings size={15} /> <span className="hidden sm:inline">Paramètres</span>
             </Link>
