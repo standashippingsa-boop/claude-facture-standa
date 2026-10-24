@@ -65,7 +65,12 @@ export default function GuideAidePage() {
               </li>
             ))}
           </ol>
-          <div className="mt-6 rounded-2xl bg-mist p-5 text-[14px] leading-relaxed text-slate-700">
+          <div className="mt-6 rounded-2xl border-2 border-accent bg-accent-light p-5 text-[14px] leading-relaxed text-navy">
+            <p className="text-[16px] font-extrabold">Nous ne récupérons pas les colis à domicile</p>
+            <p className="mt-2">STANDA COMMERCIAL ne passe pas prendre de colis chez vous, aux États-Unis ni ailleurs. Nous recevons uniquement les colis livrés à notre dépôt de Miami.</p>
+            <p className="mt-2"><b>Le colis est déjà entre vos mains et vous voulez l&apos;envoyer en Haïti ?</b> Expédiez-le vous-même à notre adresse de Miami, Floride, avec un transporteur comme <b>FedEx</b>, <b>UPS</b> ou <b>USPS</b>. Écrivez l&apos;adresse exactement comme dans le guide ci-dessus, <b>avec votre code MC</b> : à son arrivée au dépôt, le colis est enregistré sur votre compte puis envoyé vers votre agence.</p>
+          </div>
+          <div className="mt-4 rounded-2xl bg-mist p-5 text-[14px] leading-relaxed text-slate-700">
             <p><b>Délai :</b> une fois le colis reçu à Miami, comptez généralement <b>3 à 7 jours ouvrables</b> (lundi au vendredi) jusqu&apos;à votre agence.</p>
             <p className="mt-2">Le délai peut être plus long si la douane l&apos;exige, ou si votre code MC manque dans l&apos;adresse du colis : une réclamation est alors nécessaire avant l&apos;envoi.</p>
           </div>
