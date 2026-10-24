@@ -63,7 +63,7 @@ export default function AppConnexionPage() {
   };
 
   return (
-    <div className="login-compact relative min-h-screen flex flex-col overflow-hidden">
+    <div className="login-compact login-client relative min-h-screen flex flex-col overflow-hidden">
       <AuthBackdrop />
 
       <div className="relative flex-1 flex flex-col justify-center px-5 py-10 w-full max-w-sm mx-auto">

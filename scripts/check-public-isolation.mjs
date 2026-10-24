@@ -35,7 +35,7 @@
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 
-const ZONES = ["app/accueil", "app/contact", "app/agences", "app/(site)", "components/site"];
+const ZONES = ["app/accueil", "app/contact", "app/agences", "app/guide-aide", "app/guide-adresse", "app/(site)", "components/site"];
 const ZONES_OBLIGATWA = ["app/accueil", "components/site"];
 
 /** Modil ki pale ak bazdone a. */

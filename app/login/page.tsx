@@ -63,7 +63,7 @@ function LoginInner() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#061937] text-white">
+    <div className="login-compact login-client relative min-h-screen overflow-hidden bg-[#061937] text-white">
       <AuthBackdrop />
       <div className="relative mx-auto max-w-5xl px-5 py-6 sm:px-8 sm:py-9">
         <header className="flex items-center justify-between gap-4">

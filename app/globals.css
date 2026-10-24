@@ -171,6 +171,12 @@ body { @apply bg-mist text-slate-700 antialiased; }
 .client-app-font .login-compact.min-h-screen { min-height: calc(100vh / .7); }
 /* iPhone agrandit la page si le texte d'un champ fait moins de 16 px : on garde 16 px réels. */
 .login-compact input, .login-compact select, .login-compact textarea { font-size: calc(16px / .7) !important; }
+/* Connexion CLIENT (code MC + mot de passe) : 60 % de la taille d'origine.
+   App : 0,75 × 0,8 (.client-app-font) = 0,6 · Site (/login) : 0,6. */
+.login-compact.login-client { --login-zoom: .6; }
+.client-app-font .login-compact.login-client { --login-zoom: .75; }
+.login-compact.login-client.min-h-screen, .client-app-font .login-compact.login-client.min-h-screen { min-height: calc(100vh / .6); }
+.login-compact.login-client input, .login-compact.login-client select, .login-compact.login-client textarea { font-size: calc(16px / .6) !important; }
 
 .client-app {
   background-color: #f8faff;
