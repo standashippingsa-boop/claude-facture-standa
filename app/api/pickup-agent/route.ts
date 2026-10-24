@@ -9,6 +9,7 @@ import type { AccountType, Ville } from "@/lib/types";
 import { sendPushToCustomer } from "@/lib/push-server";
 import { sendFcmToCustomer } from "@/lib/push-fcm-server";
 import { pushParcelEventToCustomers } from "@/lib/customer-push";
+import { sendAgentReport } from "@/lib/agent-report-server";
 import { commitPaymentAllocations, describePaymentLines, PAYMENT_INVOICE_COLUMNS, planPaymentLines, readInvoiceIds, readPaymentLines, type PaymentInvoice } from "@/lib/invoice-payment-server";
 
 /**
@@ -483,6 +484,16 @@ export async function POST(req: Request) {
     const { db, agent, zoneName } = context;
     const centralCode = await centralAccountCode(db);
     const body = await req.json().catch(() => null);
+
+    // Rapport PDF (fait dans l'app de l'agent) → archivé + envoyé à l'administration.
+    if (body?.action === "send_report") {
+      const config = getSupabaseAdminConfig();
+      if (!config) return NextResponse.json({ ok: false, reason: "Service indisponible." }, { status: 503 });
+      const agentName = [agent.prenom, agent.nom].filter(Boolean).join(" ").trim() || agent.username;
+      const sent = await sendAgentReport(config, db, { agentName, zone: zoneName, pdfBase64: String(body.pdf ?? ""), summary: String(body.summary ?? "") });
+      if (!sent.ok) return NextResponse.json({ ok: false, reason: sent.reason }, { status: 400 });
+      return NextResponse.json(sent);
+    }
 
     if (body?.action === "confirm_bon_remise") {
       const bonId = code(body.bon_remise_id);

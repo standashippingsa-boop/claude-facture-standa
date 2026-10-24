@@ -2,7 +2,7 @@
 
 import { supabase } from "@/lib/supabase";
 
-export type SecureDocumentKind = "invoice" | "bon-remise";
+export type SecureDocumentKind = "invoice" | "bon-remise" | "agent-report";
 
 /**
  * Ouvre un document sans jamais exposer l'URL Storage au navigateur.

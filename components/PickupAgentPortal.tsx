@@ -544,7 +544,9 @@ export default function PickupAgentPortal() {
               {!subPage && tab === "ready" && <ReadyView groups={shownGroups} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
               {!subPage && tab === "history" && <RemiseHistoryView packages={filteredPackages} onOpenTicket={(packageId) => setTicketPackageId(packageId)} openCustomer={expandedCustomer} onOpenCustomer={setExpandedCustomer} />}
               {!subPage && tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
-              {!subPage && tab === "reports" && <ReportsView agentName={data.agent.name} payments={reportPayments} balances={reportBalances} onOpenInvoice={openInvoice} onStartPayment={(customerCode) => startPayment(customerCode)} onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} />}
+              {!subPage && tab === "reports" && <ReportsView zoneName={data.zone.name} deliveries={delivered} allPayments={report.agent_payments} allBalances={report.customer_balances}
+                onSendReport={async (pdf, summary) => { await call({ action: "send_report", pdf, summary }); }}
+                agentName={data.agent.name} payments={reportPayments} balances={reportBalances} onOpenInvoice={openInvoice} onStartPayment={(customerCode) => startPayment(customerCode)} onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} />}
               {subPage === "invoice" && selectedInvoice && !invoiceInline && <InvoiceDetails invoice={selectedInvoice} packages={packages.filter((item) => item.invoice_id === selectedInvoice.id)} onClose={goBack} onPay={selectedInvoice.payment_status !== "Payé" && selectedInvoice.has_pdf ? () => startPayment(selectedInvoice.customer_code, [selectedInvoice.id]) : undefined} />}
               {subPage === "payment" && paymentTarget && !paymentInline && <ClientPaymentForm plain key={paymentTarget.customerCode + (paymentTarget.invoiceIds ?? []).join()} title="Paiement avant remise" customerCode={paymentTarget.customerCode} customerName={dossiers.find((dossier) => dossier.customerCode === paymentTarget.customerCode)?.customerName ?? report.customer_balances.find((balance) => balance.customer_code === paymentTarget.customerCode)?.customer_name} invoices={paymentInvoicesFor(paymentTarget.customerCode)} initialSelected={paymentTarget.invoiceIds} busy={paymentBusy} error={paymentError} onSubmit={(payload) => void recordPayment(payload)} onClose={goBack} />}
             </div>
@@ -1239,7 +1241,41 @@ function MethodBreakdown({ payments }: { payments: AgentPayment[] }) {
   </Card>;
 }
 
-function ReportsView({ agentName, payments, balances, onOpenInvoice, onStartPayment, onOpenReceipt }: { agentName: string; payments: AgentPayment[]; balances: CustomerBalanceReport[]; onOpenInvoice: (invoiceId: string) => void; onStartPayment: (customerCode: string) => void; onOpenReceipt: (paymentId: string) => void }) {
+function ReportsView({ agentName, zoneName, payments, balances, allPayments, allBalances, deliveries, onSendReport, onOpenInvoice, onStartPayment, onOpenReceipt }: { agentName: string; zoneName: string; payments: AgentPayment[]; balances: CustomerBalanceReport[]; allPayments: AgentPayment[]; allBalances: CustomerBalanceReport[]; deliveries: ZonePackage[]; onSendReport: (pdfBase64: string, summary: string) => Promise<void>; onOpenInvoice: (invoiceId: string) => void; onStartPayment: (customerCode: string) => void; onOpenReceipt: (paymentId: string) => void }) {
+  const [pdfBusy, setPdfBusy] = useState<"download" | "send" | null>(null);
+  // Période du rapport : depuis le plus ancien paiement non clôturé (sinon aujourd'hui).
+  const since = allPayments.reduce((min, payment) => payment.created_at && payment.created_at < min ? payment.created_at : min,
+    new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
+  const reportDeliveries = deliveries.filter((item) => item.delivered_at && item.delivered_at >= since)
+    .sort((a, b) => b.delivered_at.localeCompare(a.delivered_at));
+  const buildPdf = async () => {
+    const { buildAgentReportPdf } = await import("@/lib/agent-report-pdf");
+    return buildAgentReportPdf({
+      agentName, zone: zoneName, since, payments: allPayments, balances: allBalances,
+      deliveries: reportDeliveries.map((item) => ({ customer_code: item.customer_code, customer_name: item.customer_name, tracking: packageReference(item), invoice_number: item.invoice_number, delivered_at: item.delivered_at }))
+    });
+  };
+  const downloadPdf = async () => {
+    if (pdfBusy) return;
+    setPdfBusy("download");
+    try { const { doc, fileName } = await buildPdf(); doc.save(fileName); }
+    catch (error) { notify.error(error instanceof Error ? error.message : "PDF impossible.", { title: "Rapport PDF" }); }
+    finally { setPdfBusy(null); }
+  };
+  const sendPdf = async () => {
+    if (pdfBusy) return;
+    if (!window.confirm("Envoyer le rapport PDF à l'administration ?")) return;
+    setPdfBusy("send");
+    try {
+      const { doc, cash } = await buildPdf();
+      const pdf = String(doc.output("datauristring")).split(",").pop() ?? "";
+      const summary = `Caisse ${fmtUsd(cash.usd)} · ${fmtHtg(cash.htg)} · ${allPayments.length} paiement(s) · ${reportDeliveries.length} colis remis · ${allBalances.length} client(s) avec solde`;
+      await onSendReport(pdf, summary);
+      notify.success("L'administration a reçu votre rapport PDF.", { title: "Rapport envoyé" });
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : "Envoi impossible.", { title: "Rapport non envoyé" });
+    } finally { setPdfBusy(null); }
+  };
   // Zelle arrive directement sur le compte STANDA : il est listé, mais pas compté
   // dans l'argent que l'agent doit remettre à l'administration.
   const totals = cashTotals(payments);
@@ -1260,6 +1296,14 @@ function ReportsView({ agentName, payments, balances, onOpenInvoice, onStartPaym
       </div>
       {hasZelle && <p className="mt-3 text-[12px] text-white/75">Zelle (déjà sur le compte STANDA, hors caisse) : {fmtUsd(zelle.usd)}{zelle.htg > 0.009 ? " · " + fmtHtg(zelle.htg) : ""}</p>}
     </section>
+    <Card className="p-4">
+      <p className="text-[15px] font-semibold text-slate-900">Rapport PDF</p>
+      <p className="mt-0.5 text-xs text-slate-500">Caisse, détail Espèces / MonCash / NatCash / Zelle, paiements, colis remis ({reportDeliveries.length}) et soldes clients.</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <button type="button" disabled={!!pdfBusy} onClick={() => void sendPdf()} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-4 text-sm font-semibold text-white hover:bg-[#d4530f] disabled:opacity-60">{pdfBusy === "send" ? <Spinner size={16} /> : <FileText size={17} />}{pdfBusy === "send" ? "Envoi…" : "Envoyer à l’administration"}</button>
+        <button type="button" disabled={!!pdfBusy} onClick={() => void downloadPdf()} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-[#0b2a5b] ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-60">{pdfBusy === "download" ? <Spinner size={16} /> : <FileDown size={17} />}Télécharger le PDF</button>
+      </div>
+    </Card>
     <MethodBreakdown payments={payments} />
     <p className="px-1 text-xs leading-5 text-slate-500">Seuls les paiements de ce point de retrait sont comptés. Quand l’argent est remis à l’administration, elle clôture le rapport : la caisse repart à zéro et seuls les soldes clients restent.</p>
 

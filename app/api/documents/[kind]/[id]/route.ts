@@ -62,7 +62,7 @@ export async function GET(req: Request, context: RouteContext) {
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   const { kind, id } = await context.params;
-  if ((kind !== "invoice" && kind !== "bon-remise") || !UUID.test(id)) {
+  if ((kind !== "invoice" && kind !== "bon-remise" && kind !== "agent-report") || !UUID.test(id)) {
     return NextResponse.json({ ok: false, reason: "Document introuvable." }, { status: 404 });
   }
 
@@ -98,6 +98,19 @@ export async function GET(req: Request, context: RouteContext) {
       const { data, error } = await db.storage.from(INVOICE_BUCKET).download(path);
       if (error || !data) return NextResponse.json({ ok: false, reason: "PDF indisponible." }, { status: 404 });
       return pdfResponse(data, `Facture-${invoice.invoice_number || id}.pdf`);
+    }
+
+    if (kind === "agent-report") {
+      // Rapport d'un point de retrait : administration seulement.
+      if (staff?.role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." }, { status: 403 });
+      const { data: entry } = await db.from("journal").select("id, action, package_ref, created_at").eq("id", id).maybeSingle();
+      const reportPath = String(entry?.package_ref ?? "");
+      if (!entry || entry.action !== "Rapport agence (PDF)" || !/^rapports\/[A-Za-z0-9._-]+\.pdf$/.test(reportPath)) {
+        return NextResponse.json({ ok: false, reason: "Rapport introuvable." }, { status: 404 });
+      }
+      const { data } = await db.storage.from(BON_BUCKET).download(reportPath);
+      if (!data) return NextResponse.json({ ok: false, reason: "PDF indisponible." }, { status: 404 });
+      return pdfResponse(data, reportPath.split("/").pop() ?? "Rapport.pdf");
     }
 
     if (!staff) return NextResponse.json({ ok: false, reason: "Accès refusé." }, { status: 403 });
