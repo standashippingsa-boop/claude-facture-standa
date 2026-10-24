@@ -19,6 +19,9 @@ import { notify } from "@/lib/notify";
  *    ajoutée ensuite est comptée tout de suite. « À payer » = Conduces du lot non payées.
  *    Dès qu'une Conduce (ou sa facture MCPACK) est marquée payée, ses livres passent
  *    dans l'historique. Les Conduces après la période attendent le prochain lot.
+ *  - Lots : les Conduces d'une facture MCPACK non payée forment le lot en cours ;
+ *    celles ajoutées ensuite sont suivies dessous (« prochain lot ») et prennent
+ *    la place du lot dès que la facture est payée.
  *  - Comptes Ergens : codes réglés dans Paramètres ; sans réglage, reconnaissance par le nom
  *    (fiche client ou nom MCPACK du colis). Tous les autres clients sont à STANDA.
  *  - Montant = livres × tarif (Paramètres, 3 $ par défaut). Livres = poids de la facture
@@ -139,7 +142,16 @@ export default function McpackPayableCard() {
     const { start, end } = settings.period;
     const unpaid = lines.filter((line) => line.conduce.payment_status !== "Payé");
     const inPeriod = (line: ConduceLine) => line.day >= start && line.day <= end;
-    const pending = unpaid.filter(inPeriod).sort((a, b) => b.day.localeCompare(a.day));
+    const allPending = unpaid.filter(inPeriod).sort((a, b) => b.day.localeCompare(a.day));
+    // LOT EN COURS = Conduces déjà sur une facture MCPACK non payée. Les Conduces
+    // ajoutées APRÈS cette facture forment le PROCHAIN LOT, suivi à part en dessous.
+    // Quand la facture est payée, le prochain lot prend la place du lot en cours.
+    const invoicedPending = allPending.filter((line) => line.invoiced);
+    const freshPending = allPending.filter((line) => !line.invoiced);
+    const pending = invoicedPending.length ? invoicedPending : freshPending;
+    const nextLot = invoicedPending.length ? freshPending : [];
+    const lotInvoiceIds = Array.from(new Set(invoicedPending.map((line) => line.invoiceId).filter(Boolean))) as string[];
+    const lotKey = lotInvoiceIds.length ? "inv:" + lotInvoiceIds.sort().join("+") : periodKey(settings.period);
     const paidInPeriod = lines.filter((line) => line.conduce.payment_status === "Payé" && inPeriod(line));
     const after = unpaid.filter((line) => line.day > end);
     const before = unpaid.filter((line) => line.day < start);
@@ -159,11 +171,13 @@ export default function McpackPayableCard() {
       .sort((a, b) => b.paidAt.localeCompare(a.paidAt));
 
     const pendingLbs = sumLbs(pending.map((line) => line.lbs));
-    const periodLbs = sumLbs([...pending, ...paidInPeriod].map((line) => line.lbs));
+    // Part Ergens = celle du lot en cours (ce qui est facturé ensemble).
+    const periodLbs = pendingLbs;
+    const nextLbs = sumLbs(nextLot.map((line) => line.lbs));
     const invoiced = pending.filter((line) => line.invoiced);
     return {
-      rate: settings.rate, period: settings.period, receipt: settings.receipts[periodKey(settings.period)] ?? null,
-      pending, pendingLbs, periodLbs, paidInPeriod,
+      rate: settings.rate, period: settings.period, receipt: settings.receipts[lotKey] ?? null, lotKey, lotInvoiced: invoicedPending.length > 0,
+      pending, pendingLbs, periodLbs, paidInPeriod, nextLot, nextLbs,
       invoicedLbs: totalOf(sumLbs(invoiced.map((line) => line.lbs))), invoicedCount: invoiced.length,
       after: { count: after.length, lbs: totalOf(sumLbs(after.map((line) => line.lbs))), lastDay: after.reduce((max, line) => line.day > max ? line.day : max, "") },
       before: { count: before.length, lbs: totalOf(sumLbs(before.map((line) => line.lbs))) },
@@ -182,7 +196,7 @@ export default function McpackPayableCard() {
   const toggleReceipt = async () => {
     if (!view) return;
     const ergensDue = (view.periodLbs.dokasav + view.periodLbs.blic) * view.rate;
-    const key = periodKey(view.period);
+    const key = view.lotKey;
     if (view.receipt) { if (!confirm("Annuler l’enregistrement de la part Ergens reçue pour cette période ?")) return; }
     else if (!confirm(`Confirmer qu’Ergens a remis sa part : ${fmtUsd(ergensDue)} (Dokasav + Blic Express) ?`)) return;
     setBusy(true);
@@ -193,7 +207,7 @@ export default function McpackPayableCard() {
   /** Relevé imprimable (Enregistrer en PDF) de la part Ergens de la période. */
   const printStatement = () => {
     if (!view) return;
-    const rows = [...view.pending, ...view.paidInPeriod].filter((line) => line.lbs.dokasav + line.lbs.blic > 0).sort((a, b) => a.day.localeCompare(b.day));
+    const rows = view.pending.filter((line) => line.lbs.dokasav + line.lbs.blic > 0).sort((a, b) => a.day.localeCompare(b.day));
     const esc = (value: string) => value.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
     const win = window.open("", "_blank");
     if (!win) { notify.error("Autorisez les fenêtres pour ce site afin d’ouvrir le relevé.", { title: "Relevé Ergens" }); return; }
@@ -213,7 +227,7 @@ ${rows.map((line) => `<tr><td>${esc(line.conduce.conduce_number)}</td><td>${esc(
 
   const total = view ? totalOf(view.pendingLbs) : 0;
   const ergensPeriod = view ? view.periodLbs.dokasav + view.periodLbs.blic : 0;
-  const periodDone = Boolean(view && view.pending.length === 0 && view.paidInPeriod.length > 0);
+  const periodDone = false;
 
   return <section className="space-y-3" aria-label="À payer à MCPACK">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -247,7 +261,7 @@ ${rows.map((line) => `<tr><td>${esc(line.conduce.conduce_number)}</td><td>${esc(
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         {/* Solde comme sur une app bancaire */}
         <div className="rounded-2xl bg-[#0b2a5b] p-5 text-white">
-          <p className="text-[13px] text-white/70">Reste à payer · {view.pending.length} conduce{view.pending.length > 1 ? "s" : ""} non payée{view.pending.length > 1 ? "s" : ""}</p>
+          <p className="text-[13px] text-white/70">{view.lotInvoiced ? "Facture MCPACK à payer" : "Reste à payer"} · {view.pending.length} conduce{view.pending.length > 1 ? "s" : ""}</p>
           <p className="mt-1 text-[34px] font-semibold leading-tight tracking-tight tabular-nums">{fmtUsd(total * view.rate)}</p>
           <p className="text-sm text-white/75 tabular-nums">{fmtLb(total)} × {fmtUsd(view.rate)} / lb</p>
 
@@ -299,6 +313,29 @@ ${rows.map((line) => `<tr><td>${esc(line.conduce.conduce_number)}</td><td>${esc(
         </div>
       </div>
     </>}
+
+    {/* PROCHAIN LOT : Conduces arrivées après la facture MCPACK en cours */}
+    {view && view.nextLot.length > 0 && (() => {
+      const nextTotal = totalOf(view.nextLbs);
+      return <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-sky-200">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3.5">
+          <div><p className="text-sm font-semibold text-slate-900">Nouvelles conduces · prochain lot</p><p className="text-xs text-slate-500">Arrivées après la facture en cours. Elles prendront sa place dès qu’elle sera payée.</p></div>
+          <div className="text-right"><p className="text-lg font-semibold tabular-nums text-slate-900">{fmtUsd(nextTotal * view.rate)}</p><p className="text-[11px] tabular-nums text-slate-500">{fmtLb(nextTotal)}</p></div>
+        </div>
+        <div className="mt-2 grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 text-center">
+          {SHARES.map((share) => <div key={share.key} className="px-2 py-2.5">
+            <p className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500"><span className="h-2 w-2 rounded-full" style={{ background: share.color }} />{share.label}</p>
+            <p className="text-sm font-semibold tabular-nums text-slate-900">{fmtUsd(view.nextLbs[share.key] * view.rate)}</p>
+            <p className="text-[11px] tabular-nums text-slate-400">{fmtLb(view.nextLbs[share.key])}</p>
+          </div>)}
+        </div>
+        <div className="divide-y divide-slate-100 border-t border-slate-100">{view.nextLot.map((line) => <div key={line.conduce.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+          <Link href={`/conduces/${line.conduce.id}`} className="font-mono font-semibold text-navy hover:underline">{line.conduce.conduce_number}</Link>
+          <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{fmtDate(line.day)} · STANDA {fmtLb(line.lbs.standa)} · Ergens {fmtLb(line.lbs.dokasav + line.lbs.blic)}</span>
+          <span className="shrink-0 font-semibold tabular-nums text-slate-900">{fmtUsd(line.total * view.rate)}</span>
+        </div>)}</div>
+      </div>;
+    })()}
 
     {/* Détail par conduce */}
     {view && view.pending.length > 0 && <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200/70">
