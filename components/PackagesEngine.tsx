@@ -457,7 +457,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
           (problems.length ? ` ⚠️ ${problems.slice(0, 2).join(" | ").slice(0, 300)}` : "");
         // Tras dirab: si imèl echwe, kite yon antre nan Journal (toast la disparèt)
         if (problems.length) {
-          await logAction("Notification email échouée",
+          await logAction("Notification e-mail échouée",
             `${bulkStatus} — ${sent} envoyé(s), ${problems.length} échec(s): ${problems.join(" | ").slice(0, 400)}`,
             "", "");
         }
@@ -636,7 +636,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
     const nv = window.prompt(
       `Correction Tracking Number — ${p.tracking_number}\n` +
       `Ancien: ${p.tracking_manual}\n\n` +
-      `⚠️ Cette correction sera enregistrée dans l'audit.\n\nNouveau Tracking Number:`,
+      `⚠️ Cette correction sera enregistrée dans l'audit.\n\nNouveau Tracking Number :`,
       p.tracking_manual
     );
     if (nv === null) return;
@@ -664,7 +664,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
         {!hideHeader && (
           <div>
             <h1 className="h-page">Packages</h1>
-            <p className="text-sm text-mute mt-0.5">Gestion des colis — statuts, tarification & facturation</p>
+            <p className="text-sm text-mute mt-0.5">Gestion des colis — statuts, tarification et facturation</p>
           </div>
         )}
         <div className="flex gap-2 flex-wrap">
@@ -762,7 +762,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
         <table className="w-full text-xs">
           <thead><tr>
             <th className="thc"><input type="checkbox" checked={allChecked} onChange={(e) => toggleAll(e.target.checked)} /></th>
-            {["Code", "Nom Client", "Ville", "Tracking ID", "Tracking Number", "Lb", "Content", "Price $", "Total $", "Total HTG",
+            {["Code", "Nom du client", "Ville", "Tracking ID", "Tracking Number", "Lb", "Content", "Price $", "Total $", "Total HTG",
               ...(hideHeader ? [] : ["Source"]), "Status", ""]
               .map((h) => <th key={h} className="thc">{h}</th>)}
           </tr></thead>
@@ -897,7 +897,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
                   )}
                   {p.status !== "Disponible" && p.status !== "Facturé" && (
                     <button className="text-emerald-600 hover:text-emerald-800 mr-1 disabled:opacity-50"
-                      title="Marquer Disponible (san email — sèvi ak seleksyon an pou voye email)"
+                      title="Marquer « Disponible » (sans e-mail — utilisez la sélection pour envoyer un e-mail)"
                       disabled={busyId === p.id}
                       onClick={() => marquerDisponibleRapide(p)}>
                       {busyId === p.id ? <Spinner size={14} /> : <PackageCheck size={14} />}
@@ -1032,8 +1032,8 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
         const jrs = joursDepot(p);
         const special = specialPackageInfo(p);
         const rows: [string, React.ReactNode][] = [
-          ["Code Client", <span className="font-bold text-navy">{p.customer_code}</span>],
-          ["Nom Client", p.customer_name || "—"],
+          ["Code client", <span className="font-bold text-navy">{p.customer_code}</span>],
+          ["Nom du client", p.customer_name || "—"],
           ["Ville", hover.ville],
           ["Tracking ID", <span className="font-mono">{p.tracking_number}</span>],
           ["Tracking Number", <span className="font-mono">{p.tracking_manual || "—"}</span>],
@@ -1042,8 +1042,8 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
           ["Contenu", p.content || "—"],
           ...(special.isSpecial ? [["Colis spécial", <span className="text-amber-800" title={special.reason}>{special.reason}</span>] as [string, React.ReactNode]] : []),
           ["Statut", <StatusBadge status={p.status} />],
-          ["Date création", dateFr(p.created_date) || "—"],
-          ["Date réception", p.received_at ? dateFr(p.received_at) : "—"],
+          ["Date de création", dateFr(p.created_date) || "—"],
+          ["Date de réception", p.received_at ? dateFr(p.received_at) : "—"],
           ["Facturé", p.invoice_id
             ? <span className="pill pill-green"><span className="pill-dot" />Oui</span>
             : <span className="pill pill-gray"><span className="pill-dot" />Non</span>],

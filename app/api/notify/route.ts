@@ -404,12 +404,12 @@ export async function POST(req: Request) {
     const now = new Date().toLocaleString("fr-FR");
     const testHtml =
       `<!DOCTYPE html><html><body style="font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:24px;color:#111827">`
-      + `<h2 style="margin:0 0 8px">✅ Le système d'email fonctionne</h2>`
-      + `<p style="color:#4B5563;font-size:14px">Message de test envoyé depuis Paramètres → Notifications email.<br>`
+      + `<h2 style="margin:0 0 8px">✅ Le système d'e-mail fonctionne</h2>`
+      + `<p style="color:#4B5563;font-size:14px">Message de test envoyé depuis Paramètres → Notifications e-mail.<br>`
       + `Expéditeur : <code>${esc(from)}</code><br>Date : ${esc(now)}</p>`
       + `<p style="color:#9CA3AF;font-size:12px">STANDA COMMERCIAL — ${esc(SITE_URL.replace("https://", ""))} · ${esc(SUPPORT_PHONE)}</p>`
       + `</body></html>`;
-    const r = await sendViaResend(key, to, "Test STANDA COMMERCIAL — notifications email", testHtml);
+    const r = await sendViaResend(key, to, "Test STANDA COMMERCIAL — notifications e-mail", testHtml);
     return r.ok
       ? NextResponse.json({ ok: true, id: r.id, config, to })
       : NextResponse.json({ ok: false, code: r.code, status: r.status, error: r.message, config, to }, { status: 200 });

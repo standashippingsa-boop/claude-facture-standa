@@ -204,8 +204,8 @@ export default function McpackInvoiceWorkspace({
 
             {analysis.duplicateTrackings.length > 0 && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-[11px] text-red-800">
-                <p className="font-extrabold flex items-center gap-1.5"><AlertCircle size={14} /> Tracking trouvé dans plusieurs Conduces</p>
-                <p className="mt-1">Ces tracking ne sont pas ajoutés automatiquement à la facture. Vérifiez-les avant de continuer.</p>
+                <p className="font-extrabold flex items-center gap-1.5"><AlertCircle size={14} /> Numéro de suivi trouvé dans plusieurs Conduces</p>
+                <p className="mt-1">Ces numéros de suivi ne sont pas ajoutés automatiquement à la facture. Vérifiez-les avant de continuer.</p>
                 <ul className="mt-1.5 space-y-0.5 font-mono font-semibold">
                   {analysis.duplicateTrackings.map((conflict) => (
                     <li key={conflict.tracking}>{conflict.tracking} → Conduces {conflict.conduceNumbers.join(", ")}</li>

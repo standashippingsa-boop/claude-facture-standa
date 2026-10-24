@@ -16,7 +16,7 @@ const APK_URL = "/downloads/standa.apk";
 const FEATURES = [
   { icon: PackageSearch, title: "Suivi en temps réel", text: "L'état de chaque colis, de Miami jusqu'à votre agence." },
   { icon: Bell, title: "Notifications", text: "Une alerte sur votre téléphone à chaque changement important." },
-  { icon: ShieldCheck, title: "Vos factures", text: "Consultez et réglez vos factures directement dans l'app." }
+  { icon: ShieldCheck, title: "Vos factures", text: "Consultez et réglez vos factures directement dans l'application." }
 ];
 
 const STEPS = [

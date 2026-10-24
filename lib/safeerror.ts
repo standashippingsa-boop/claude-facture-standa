@@ -20,7 +20,7 @@ const LEAKY = [
 
 /** Mesaj klè nou ekri tèt nou — nou kite yo pase. */
 const SAFE_HINTS = [
-  "Trop de tentatives", "Session requise", "Session invalide", "Email invalide",
+  "Trop de tentatives", "Session requise", "Session invalide", "mail invalide",
   "Nom invalide", "Téléphone invalide", "Un compte existe déjà",
   "déjà facturé", "introuvable", "Aucun colis", "mot de passe",
 ];

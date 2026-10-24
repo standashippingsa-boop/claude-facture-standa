@@ -44,8 +44,8 @@ function LoginInner() {
     const raw = username.trim();
     const norm = normalizeMcCode(raw);
     const pass = password;
-    if (!raw) { setErr("Saisissez votre code MC."); return; }
-    if (!pass) { setErr("Saisissez votre mot de passe."); return; }
+    if (!raw) { setErr("Encodez votre code MC."); return; }
+    if (!pass) { setErr("Encodez votre mot de passe."); return; }
 
     setAuthRealm("client");
     setBusy(true);
@@ -87,7 +87,7 @@ function LoginInner() {
               {needHelp && <a href={WA} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#1fb857]"><WhatsAppIcon size={14} /> Demander de l&apos;aide sur WhatsApp</a>}
 
               <BusyButton type="submit" busy={busy} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3.5 text-sm font-bold text-white shadow-[0_14px_26px_-14px_rgba(228,101,10,.95)] transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
-                busyLabel="Connexion en cours...">Se connecter</BusyButton>
+                busyLabel="Connexion en cours…">Se connecter</BusyButton>
               <p className="mt-4 text-center text-[11.5px] leading-relaxed text-slate-500">Mot de passe oublié ? Contactez-nous sur WhatsApp pour recevoir un nouveau mot de passe.</p>
             </form>
           </section>

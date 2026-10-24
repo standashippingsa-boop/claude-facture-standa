@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — Scanner de Réception MCPACK (Faz 1)
+ * STANDA COMMERCIAL — Scanner de réception MCPACK (Faz 1)
  * ══════════════════════════════════════════════════════════
  * Scan fizik koli MCPACK (Caribe Tours). Sipòte:
  *   • Kamera telefòn / Webcam (ZXing barcode + QR)
@@ -94,7 +94,7 @@ export default function ReceptionScanner() {
         setCounts((c) => ({ ...c, notfound: c.notfound + 1 }));
         setToVerify((l) => (l.includes(code) ? l : [...l, code]));
         setResult(res);
-        setMsg({ t: "warn", s: `Package introuvable : ${code}` });
+        setMsg({ t: "warn", s: `Colis introuvable : ${code}` });
       } else if (res.outcome === "already") {
         beep("already");
         setCounts((c) => ({ ...c, already: c.already + 1 }));
@@ -112,7 +112,7 @@ export default function ReceptionScanner() {
       }
     } catch (e: any) {
       beep("error");
-      setMsg({ t: "err", s: "Erreur scan : " + (e?.message ?? String(e)) });
+      setMsg({ t: "err", s: "Erreur de scan : " + (e?.message ?? String(e)) });
     } finally { setBusy(false); }
   };
 
@@ -163,7 +163,7 @@ export default function ReceptionScanner() {
       }
     } catch (e: any) {
       beep("error");
-      setMsg({ t: "err", s: "Erreur validation : " + (e?.message ?? String(e)) });
+      setMsg({ t: "err", s: "Erreur de validation : " + (e?.message ?? String(e)) });
     } finally { setBusy(false); refocusKbd(); }
   };
 
@@ -176,7 +176,7 @@ export default function ReceptionScanner() {
       const { savePackageProofPhoto } = await import("@/lib/db");
       const r = await savePackageProofPhoto(pkg.id, file, staffName);
       if (r.ok) { beep("ok"); setMsg({ t: "ok", s: "Photo de preuve enregistrée." }); }
-      else { beep("error"); setMsg({ t: "err", s: "Échec enregistrement photo." }); }
+      else { beep("error"); setMsg({ t: "err", s: "Échec de l'enregistrement de la photo." }); }
     } catch (e: any) {
       beep("error"); setMsg({ t: "err", s: "Erreur photo : " + (e?.message ?? String(e)) });
     } finally { setPhotoBusy(false); setPhotoFor(null); refocusKbd(); }
@@ -223,7 +223,7 @@ export default function ReceptionScanner() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <ScanLine size={18} className="text-navy" />
-          <h2 className="h-sec">Scanner de Réception</h2>
+          <h2 className="h-sec">Scanner de réception</h2>
         </div>
         {/* Switch Mode */}
         <div className="flex rounded-lg border border-line overflow-hidden text-xs">
@@ -236,11 +236,11 @@ export default function ReceptionScanner() {
         </div>
       </div>
 
-      {/* Ba Session — Mode Entrepôt (Faz 2) */}
+      {/* Ba Session — Mode entrepôt (Faz 2) */}
       <div className={`rounded-xl p-4 flex items-center justify-between flex-wrap gap-3 ${session ? "bg-emerald-50 border border-emerald-300" : "bg-mist border border-line"}`}>
         {!session ? (
           <>
-            <div className="text-sm text-mute">Mode Entrepôt — scanner en continu sans interruption.</div>
+            <div className="text-sm text-mute">Mode entrepôt — scanner en continu sans interruption.</div>
             <button className="btn btn-brand !py-2.5" onClick={startSession}>
               ▶ Commencer la Réception
             </button>
@@ -335,7 +335,7 @@ export default function ReceptionScanner() {
             onChange={(e) => { const f = e.target.files?.[0]; if (f && photoFor) takeProofPhoto(photoFor, f); if (photoRef.current) photoRef.current.value = ""; }} />
           <div className="flex gap-2">
             <button className="btn btn-brand flex-1 !py-2.5" onClick={() => photoRef.current?.click()} disabled={photoBusy}>
-              <Camera size={16} /> {photoBusy ? "Enregistrement…" : "Prendre / Choisir une photo"}
+              <Camera size={16} /> {photoBusy ? "Enregistrement…" : "Prendre ou choisir une photo"}
             </button>
             <button className="btn btn-ghost" onClick={() => { setPhotoFor(null); refocusKbd(); }} disabled={photoBusy}>
               Passer
@@ -364,7 +364,7 @@ export default function ReceptionScanner() {
               ["Poids", `${Number(pkg.weight || 0)} lb`],
               ["Contenu", pkg.content || "—"],
               ["Statut actuel", <StatusBadge status={pkg.status} />],
-              ["Date réception", pkg.received_at ? dateFr(pkg.received_at) : "—"],
+              ["Date de réception", pkg.received_at ? dateFr(pkg.received_at) : "—"],
               ["Facturé", pkg.invoice_id ? "Oui" : "Non"],
               ["Jours en dépôt", jours(pkg) != null ? `${jours(pkg)} j` : "—"],
             ].map(([k, v], i) => (
@@ -394,7 +394,7 @@ export default function ReceptionScanner() {
       {/* Koli introuvable */}
       {result?.outcome === "not_found" && (
         <div className="rounded-2xl border-2 border-red-300 bg-red-50/40 p-4">
-          <p className="font-bold text-red-700">Package introuvable</p>
+          <p className="font-bold text-red-700">Colis introuvable</p>
           <p className="text-sm text-mute mt-1">Code scanné : <span className="font-mono">{result.code}</span></p>
           <div className="flex gap-2 mt-3">
             <button className="btn btn-ghost" onClick={() => { setResult(null); refocusKbd(); }}>Nouvelle recherche</button>
@@ -417,7 +417,7 @@ export default function ReceptionScanner() {
       {report && (
         <div className="rounded-2xl border-2 border-navy/20 bg-white p-5">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-extrabold text-navy text-lg">Rapport de Réception</h3>
+            <h3 className="font-extrabold text-navy text-lg">Rapport de réception</h3>
             <button className="text-mute hover:text-navy" onClick={() => setReport(null)}><X size={18} /></button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">

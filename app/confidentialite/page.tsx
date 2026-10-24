@@ -109,7 +109,7 @@ export default function ConfidentialitePage() {
             <Li><b>Délai de retrait</b> — dès qu&apos;un colis est disponible, vous disposez de <b>15 jours</b> pour venir le récupérer à votre point de retrait.</Li>
             <Li><b>Frais d&apos;entreposage</b> — à compter du <b>16e jour</b>, des frais d&apos;entreposage de <b>5 $ US par jour</b> s&apos;appliquent jusqu&apos;au retrait du colis. Ces frais doivent être réglés avant la remise.</Li>
             <Li><b>Colis non réclamé</b> — après <b>60 jours</b> sans retrait, le colis peut être remis aux autorités compétentes, conformément aux règles applicables. Le client perd alors tout droit de réclamation sur ce colis.</Li>
-            <Li><b>Adresse et code client</b> — vous êtes responsable de saisir correctement l&apos;adresse de dépôt et votre code MC lors de vos achats. Si l&apos;adresse est erronée, incomplète ou si le code MC est absent, STANDA COMMERCIAL ne peut garantir l&apos;identification, le suivi ou la récupération du colis. Le client assume la perte qui en résulte.</Li>
+            <Li><b>Adresse et code client</b> — vous êtes responsable d&apos;encoder correctement l&apos;adresse de dépôt et votre code MC lors de vos achats. Si l&apos;adresse est erronée, incomplète ou si le code MC est absent, STANDA COMMERCIAL ne peut garantir l&apos;identification, le suivi ou la récupération du colis. Le client assume la perte qui en résulte.</Li>
           </ul>
         </S>
 

@@ -74,7 +74,7 @@ function buildHtml(b: ContactBody): { subject: string; html: string } {
         <tr><td style="padding:16px 32px 22px;border-top:1px solid #EAECEF">
           <p style="margin:0;color:#9CA3AF;font-size:11px;line-height:1.6;font-family:${FONT}">
             Envoyé depuis le formulaire de contact — ${SITE_URL.replace("https://", "")}<br>
-            Répondez directement à ce courriel pour contacter le visiteur, ou appelez ${SUPPORT_PHONE}.
+            Répondez directement à cet e-mail pour contacter le visiteur, ou appelez ${SUPPORT_PHONE}.
           </p>
         </td></tr>
       </table>

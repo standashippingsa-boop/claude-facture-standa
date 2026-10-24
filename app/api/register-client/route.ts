@@ -84,7 +84,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "Informations personnelles incomplètes." }, { status: 400 });
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      return NextResponse.json({ ok: false, reason: "Email invalide." }, { status: 400 });
+      return NextResponse.json({ ok: false, reason: "Adresse e-mail invalide." }, { status: 400 });
     }
     // Validation shipping (adresse, téléphone, ville) centralisée dans
     // lib/validation/shipping.ts — même schéma que /api/ingest, au lieu

@@ -208,9 +208,9 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   const taxe = round2(Math.max(0, Number(taxeFixe) || 0));
   const dga = round2(Math.max(0, Number(fraisDga) || 0));
   const disc = round2(Math.max(0, Number(discount) || 0));
-  if (Number(taxeFixe) < 0) errors.push("Taxe Fixe négative invalide.");
+  if (Number(taxeFixe) < 0) errors.push("Taxe fixe négative invalide.");
   if (Number(fraisDga) < 0) errors.push("Frais DGA négatifs invalides.");
-  if (Number(discount) < 0) errors.push("Discount négatif invalide.");
+  if (Number(discount) < 0) errors.push("Réduction négative invalide.");
 
   // ---- SERVICE ORDER (V15) — li + valide ----
   const kind: InvoiceKind = input.kind === "service_order" ? "service_order" : "shipping";

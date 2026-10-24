@@ -256,7 +256,7 @@ export default function ConducesPage() {
   const createInFolder = async () => {
     if (!jour) return;
     const number = newConduceNumber.trim();
-    if (!number) { setNotice("Entrez le numéro de la Conduce."); return; }
+    if (!number) { setNotice("Encodez le numéro de la Conduce."); return; }
     setCreating(true);
     try {
       const [result] = await createPendingConduces([number], staffName, { conduceDate: jour.key });
@@ -340,7 +340,7 @@ export default function ConducesPage() {
             { key: "office", label: "Office", type: "select", value: officeF, onChange: setOfficeF, options: officeOptions },
             { key: "from", label: "À partir du", type: "date", value: fromF, onChange: setFromF },
             { key: "to", label: "Jusqu'au", type: "date", value: toF, onChange: setToF },
-            { key: "payment", label: "Pement MCPACK", type: "select", value: paymentF, onChange: setPaymentF, options: [{ value: "Non payé", label: "À payer" }, { value: "Payé", label: "Payé" }] },
+            { key: "payment", label: "Paiement MCPACK", type: "select", value: paymentF, onChange: setPaymentF, options: [{ value: "Non payé", label: "À payer" }, { value: "Payé", label: "Payé" }] },
             { key: "mcpack", label: "Facture MCPACK", type: "select", value: mcpackF, onChange: setMcpackF, options: [{ value: "Facturée", label: "Facturée · à payer" }, { value: "Payée", label: "Payée" }] },
             { key: "bon", label: "Bon de remise", type: "select", value: bonF, onChange: setBonF, options: [{ value: "open", label: "Aucun colis remis" }, { value: "done", label: "Colis déjà remis" }] },
             { key: "special", label: "Colis spéciaux", type: "select", value: specialF, onChange: setSpecialF, options: [{ value: "yes", label: "Avec colis spéciaux" }, { value: "no", label: "Sans colis spéciaux" }] },
@@ -425,7 +425,7 @@ export default function ConducesPage() {
               : tab === "historique"
                 ? "Aucune journée entièrement facturée pour le moment."
                 : tab === "actives"
-                  ? "Aucune conduce en cours — voyez l'onglet Historique."
+                  ? "Aucune conduce en cours — consultez l'onglet Historique."
                   : <>Aucune conduce enregistrée. Importez-en depuis{" "}
                       <Link href="/sync" className="text-navy underline font-semibold">Synchronisation</Link>.</>}
           </p>

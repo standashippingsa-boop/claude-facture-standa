@@ -51,7 +51,7 @@ export const FAQ_TOPICS: FaqTopic[] = [
       "konbyen tan", "konbyen jou", "dele", "kile", "kilè",
       "how long", "days", "when will", "delay", "arrival time"],
     answer: {
-      fr: "Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement entre 3 et 7 jours ouvrables (lundi-vendredi) pour qu'il arrive à votre agence en Haïti. Ce délai peut varier selon la douane, ou si votre code client ne figurait pas dans l'adresse du colis.",
+      fr: "Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement entre 3 et 7 jours ouvrables (du lundi au vendredi) pour qu'il arrive à votre agence en Haïti. Ce délai peut varier selon la douane, ou si votre code client ne figurait pas dans l'adresse du colis.",
       ht: "Yon fwa koli w rive nan depo nou Miami, konte apeprè 3 a 7 jou ouvrab (lendi-vandredi) pou l rive nan ajans ou an Ayiti. Dele sa a ka chanje selon douàn, oswa si kòd kliyan w pa t sou adrès koli a.",
       en: "Once your package is received at our Miami warehouse, expect roughly 3 to 7 business days (Monday-Friday) for it to reach your agency in Haiti. This can vary depending on customs, or if your customer code wasn't included on the package address."
     }
@@ -62,7 +62,7 @@ export const FAQ_TOPICS: FaqTopic[] = [
       "pa parèt", "pa wè", "poko parèt", "pa gen koli",
       "not showing", "don't see", "doesn't appear", "missing", "can't find"],
     answer: {
-      fr: "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. L'application se met à jour automatiquement ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. S'il n'apparaît toujours pas, c'est souvent que le code client MC-… n'était pas sur la ligne « Address 2 » lors de l'achat. Écrivez-nous sur WhatsApp avec votre numéro de tracking pour une réclamation.",
+      fr: "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. L'application se met à jour automatiquement ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. S'il n'apparaît toujours pas, c'est souvent que le code client MC-… n'était pas sur la ligne « Address 2 » lors de l'achat. Écrivez-nous sur WhatsApp avec votre numéro de suivi pour une réclamation.",
       ht: "Koli w parèt depi depo Miami nou an resevwa l epi anrejistre l, pa anvan. App la mete tèt li ajou otomatikman ; ou ka tou peze bouton ↻ anwo ekran an. Si li toujou pa parèt, souvan se paske kòd kliyan MC-... pa t sou liy « Address 2 » lè w te achte a. Ekri nou sou WhatsApp ak nimewo tracking ou pou fè yon reklamasyon.",
       en: "Your package shows up as soon as our Miami warehouse has received and logged it, not before. The app refreshes automatically; you can also tap the ↻ button at the top of the screen. If it still doesn't show, it's usually because the customer code MC-… wasn't on the 'Address 2' line at checkout. Message us on WhatsApp with your tracking number to file a claim."
     }
@@ -128,7 +128,7 @@ export const FAQ_TOPICS: FaqTopic[] = [
       "pwen retrè", "ki ajans", "kote pou m retire",
       "pickup point", "which agency", "where to pick up", "agency location"],
     answer: {
-      fr: "Retirez votre colis dans le point de retrait le plus proche de vous. La liste complète de nos agences est disponible dans « Guide & Aide » de l'application.",
+      fr: "Retirez votre colis dans le point de retrait le plus proche de vous. La liste complète de nos agences est disponible dans « Guide et aide » de l'application.",
       ht: "Retire koli w nan pwen retrè ki pi pre w la. Lis konplè ajans nou yo disponib nan « Guide & Aide » nan app la.",
       en: "Pick up your package at the pickup point nearest you. The full list of our agencies is available under 'Guide & Aide' in the app."
     }

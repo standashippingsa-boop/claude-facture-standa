@@ -50,7 +50,7 @@ export default function ConduceManualPaste({
       if (!rows.length) { setMsg({ t: "err", s: "Aucun colis détecté dans ce fichier." }); setExcelRows(null); }
       else { setExcelRows(rows); setFileName(f.name); }
     } catch (e: any) {
-      setMsg({ t: "err", s: "Erreur lecture Excel : " + (e?.message ?? String(e)) });
+      setMsg({ t: "err", s: "Erreur de lecture Excel : " + (e?.message ?? String(e)) });
     } finally { setBusy(false); }
   };
 
@@ -63,7 +63,7 @@ export default function ConduceManualPaste({
       setExcelRows(null); setFileName("");
       onLinked?.();
     } catch (e: any) {
-      setMsg({ t: "err", s: "Erreur import : " + (e?.message ?? String(e)) });
+      setMsg({ t: "err", s: "Erreur d'import : " + (e?.message ?? String(e)) });
     } finally { setBusy(false); }
   };
 
@@ -78,7 +78,7 @@ export default function ConduceManualPaste({
     try {
       setMatches(await matchConduceCodes(codes));
     } catch (e: any) {
-      setMsg({ t: "err", s: "Erreur analyse : " + (e?.message ?? String(e)) });
+      setMsg({ t: "err", s: "Erreur d'analyse : " + (e?.message ?? String(e)) });
     } finally { setBusy(false); }
   };
 
@@ -92,7 +92,7 @@ export default function ConduceManualPaste({
       setMatches(null); setText("");
       onLinked?.();
     } catch (e: any) {
-      setMsg({ t: "err", s: "Erreur liaison : " + (e?.message ?? String(e)) });
+      setMsg({ t: "err", s: "Erreur de liaison : " + (e?.message ?? String(e)) });
     } finally { setBusy(false); }
   };
 

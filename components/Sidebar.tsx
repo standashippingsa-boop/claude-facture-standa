@@ -28,7 +28,7 @@ const groups: { title: string; items: { href: string; label: string; icon: typeo
     title: "Facturation",
     items: [
       { href: "/invoices", label: "Factures", icon: FileText },
-      { href: "/bon-remise", label: "Bon de Remise", icon: FileDown },
+      { href: "/bon-remise", label: "Bon de remise", icon: FileDown },
       { href: "/retraits", label: "Retraits", icon: Inbox },
       { href: "/rapports-financiers", label: "Rapports financiers", icon: ChartNoAxesCombined },
       { href: "/affiliates", label: "Affiliation", icon: HandCoins },

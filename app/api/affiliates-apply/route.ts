@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
     if (fullname.length < 2) return NextResponse.json({ ok: false, reason: "Indiquez votre nom complet." }, { status: 400 });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      return NextResponse.json({ ok: false, reason: "Adresse courriel invalide." }, { status: 400 });
+      return NextResponse.json({ ok: false, reason: "Adresse e-mail invalide." }, { status: 400 });
     }
     if (digits(phone).length < 7) return NextResponse.json({ ok: false, reason: "Numéro de téléphone invalide." }, { status: 400 });
     if (!idType || idNumber.length < 2) {
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     if (existingAffiliate) {
       return NextResponse.json({
         ok: false,
-        reason: "Un compte affilié actif existe déjà pour ce courriel. Connectez-vous à votre Espace Affilié, ou contactez Standa Commercial."
+        reason: "Un compte affilié actif existe déjà pour cette adresse e-mail. Connectez-vous à votre Espace Affilié, ou contactez Standa Commercial."
       }, { status: 409 });
     }
 

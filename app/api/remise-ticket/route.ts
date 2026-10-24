@@ -262,7 +262,7 @@ export async function GET(req: Request) {
         `Ticket: ${ticketNumber}`,
         `Client: ${customerCode}`,
         `Colis: ${packages.length}`,
-        `Remis le: ${deliveredAt || "-"}`,
+        `Remis le : ${deliveredAt || "-"}`,
         `Code: ${securityCode}`
       ].join("\n")
     };

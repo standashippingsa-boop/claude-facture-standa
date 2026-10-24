@@ -27,8 +27,8 @@ export function buildDepotMessage(c: Client, password?: string): string {
     `Code Postal :\n${DEPOT.zip}\n\n` +
     `Téléphone :\n${DEPOT.phone}\n\n` +
     `⚠️ IMPORTANT\n` +
-    `Toujours utiliser votre code ${code} sur chacun de vos colis.\n` +
-    `Sans ce code nous ne pourrons pas identifier vos colis.\n`;
+    `Utilisez toujours votre code ${code} sur chacun de vos colis.\n` +
+    `Sans ce code, nous ne pourrons pas identifier vos colis.\n`;
   if (password) {
     msg +=
       `\n----------------------------------------\n` +

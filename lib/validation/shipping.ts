@@ -49,7 +49,7 @@ export const incomingPackageSchema = z.object({
 
 /** Anvlòp batch pou /api/ingest — limit gwosè batch la anplis chak eleman. */
 export const ingestBatchSchema = z.object({
-  packages: z.array(z.unknown()).min(1, "Aucun package reçu.").max(500, "Trop de colis en un seul envoi : 500 maximum."),
+  packages: z.array(z.unknown()).min(1, "Aucun colis reçu.").max(500, "Trop de colis en un seul envoi : 500 maximum."),
 });
 
 /** Aplike sekma a sou yon sèl eleman, san fè tout batch la echwe pou 1 move liy. */

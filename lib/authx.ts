@@ -80,7 +80,7 @@ export function clientSignInErrorMessage(reason: ClientSignInFailure, code: stri
   if (reason === "rate_limited") {
     return "Trop de tentatives de connexion ont été détectées. Attendez quelques minutes avant de réessayer.";
   }
-  return `Le code ${code || "MC-XXXXX"} ou le mot de passe est incorrect. Vérifiez votre saisie puis réessayez.`;
+  return `Le code ${code || "MC-XXXXX"} ou le mot de passe est incorrect. Vérifiez votre encodage, puis réessayez.`;
 }
 
 export async function getMyStaff(): Promise<Staff | null> {

@@ -48,8 +48,8 @@ export default function AppConnexionPage() {
     const norm = normalizeMcCode(raw);
     // Le mot de passe doit rester strictement identique à la saisie de l'utilisateur.
     const pass = password;
-    if (!raw) { setErr("Saisissez votre code MC."); return; }
-    if (!pass) { setErr("Saisissez votre mot de passe."); return; }
+    if (!raw) { setErr("Encodez votre code MC."); return; }
+    if (!pass) { setErr("Encodez votre mot de passe."); return; }
 
     setAuthRealm("client");
     setBusy(true);

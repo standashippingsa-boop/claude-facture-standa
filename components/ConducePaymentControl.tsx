@@ -33,7 +33,7 @@ export default function ConducePaymentControl({
   const toggle = async () => {
     const next = paid ? "Non payé" : "Payé";
     const question = paid
-      ? `Remettre la Conduce ${conduce.conduce_number} à « Poko peye MCPACK » ?`
+      ? `Remettre la Conduce ${conduce.conduce_number} à « Non payée à MCPACK » ?`
       : `Confirmer que la facture MCPACK de la Conduce ${conduce.conduce_number} est déjà payée ?`;
     if (!window.confirm(question)) return;
 
@@ -62,7 +62,7 @@ export default function ConducePaymentControl({
       ? <span className="pill pill-green"><CheckCircle2 size={11} className="mr-0.5" />MCPACK payé</span>
       : invoiced
         ? <span className="pill pill-amber"><CircleDollarSign size={11} className="mr-0.5" />Facturée · à payer</span>
-        : <span className="pill pill-gray">Pas facturée MCPACK</span>;
+        : <span className="pill pill-gray">Non facturée par MCPACK</span>;
   }
 
   // Yon Conduce ki poko nan yon fakti MCPACK pa dwe montre "à payer":
@@ -70,7 +70,7 @@ export default function ConducePaymentControl({
   // fin valide nan espas Factures MCPACK la.
   if (!paid && !invoiced) {
     return <span className={`inline-flex rounded-full bg-slate-100 text-slate-500 font-bold ${compact ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-xs"}`}>
-      Pas facturée MCPACK
+      Non facturée par MCPACK
     </span>;
   }
 

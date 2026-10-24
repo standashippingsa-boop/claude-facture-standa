@@ -47,7 +47,7 @@ export default function StaffLogin({
     const u = username.trim();
     // Ne jamais modifier le mot de passe : des espaces peuvent faire partie d'un mot de passe valide.
     const p = password;
-    if (!u || !p) { setErr("Entrez votre nom d’utilisateur et votre mot de passe."); return; }
+    if (!u || !p) { setErr("Encodez votre nom d’utilisateur et votre mot de passe."); return; }
     if (!isSupabaseConfigured) {
       setErr("Le service de connexion n'est pas configuré sur cet ordinateur. Ajoutez les clés publiques Supabase dans le fichier .env.local, puis redémarrez l'application.");
       return;
@@ -63,7 +63,7 @@ export default function StaffLogin({
         if (message.includes("fetch") || message.includes("network") || message.includes("timeout")) {
           setErr("Impossible de joindre le service de connexion. Vérifiez votre connexion internet puis réessayez.");
         } else {
-          setErr("Nom d'utilisateur ou mot de passe incorrect. Vérifiez votre saisie puis réessayez.");
+          setErr("Nom d'utilisateur ou mot de passe incorrect. Vérifiez votre encodage, puis réessayez.");
         }
         return;
       }

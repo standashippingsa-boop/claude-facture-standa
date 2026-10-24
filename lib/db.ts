@@ -412,7 +412,7 @@ export async function makeConducesAvailableForVille(
 
   await logAction(
     "Colis rendus disponibles par ville",
-    `${ids.length} Conduce(s) → ${ville.name}: ${available} rendus disponibles, ${priced} tarifés, ${alreadyAvailable} déjà disponibles, ${skippedLocked} facturé(s)/livré(s) conservé(s) — par ${who || "système"}`,
+    `${ids.length} Conduce(s) → ${ville.name} : ${available} rendus disponibles, ${priced} tarifés, ${alreadyAvailable} déjà disponibles, ${skippedLocked} facturé(s)/livré(s) conservé(s) — par ${who || "système"}`,
     "", ""
   );
   return { cityName: ville.name, available, priced, alreadyAvailable, skippedLocked, customersInCity: accountByCode.size };
@@ -497,7 +497,7 @@ export async function makeBonRemiseAvailable(bonId: string, who = ""): Promise<C
 
   await logAction(
     "Colis rendus disponibles par Bon de remise",
-    `Bon ${bon.bon_number} → ${ville.name}: ${available} rendus disponibles, ${priced} tarifés, ${alreadyAvailable} déjà disponibles, ${skippedLocked} facturé(s)/livré(s) conservé(s) — par ${who || "système"}`,
+    `Bon ${bon.bon_number} → ${ville.name} : ${available} rendus disponibles, ${priced} tarifés, ${alreadyAvailable} déjà disponibles, ${skippedLocked} facturé(s)/livré(s) conservé(s) — par ${who || "système"}`,
     "", ""
   );
   return { cityName: ville.name, available, priced, alreadyAvailable, skippedLocked, customersInCity: codes.length };
@@ -1388,7 +1388,7 @@ export async function commitFactureDisponible(
     batch_id: batchId, kind: "Import Facture", items_count: updated, undo_data: undo
   });
   await logAction("Import Facture",
-    `Batch ${batchId}: ${updated} colis → Disponible`, batchId, "");
+    `Lot ${batchId} : ${updated} colis → Disponible`, batchId, "");
 
   return { batchId, updated, skipped: matches.filter((m) => m.matched).length - updated };
 }
@@ -1782,7 +1782,7 @@ export async function createInvoiceFromComputation(
   mode: "addition" | "small_control"
 ): Promise<Invoice> {
   // Sekirite: refize si moteur la pa t valide, oswa total pa kòrèk
-  if (!comp.ok) throw new Error("Facture refusée: " + comp.errors.join(" "));
+  if (!comp.ok) throw new Error("Facture refusée : " + comp.errors.join(" "));
   if (!verifyTotal(comp)) throw new Error("Erreur de calcul détectée. Facture bloquée.");
 
   // ══ GAD #1: ANTI DOUB-FAKTI (verifye kont BAZDONE a, pa ekran an) ══
@@ -2991,7 +2991,7 @@ export async function applyPhotoValidations(items: PhotoMatch[]): Promise<{
     items_count: received, undo_data: undo
   });
   await logAction("Analyse Photo",
-    `Batch ${batchId}: ${received} colis reçus, ${trackingAdded} Tracking Number ajoutés`, batchId, "");
+    `Lot ${batchId} : ${received} colis reçus, ${trackingAdded} Tracking Number ajoutés`, batchId, "");
 
   return { batchId, received, trackingAdded };
 }

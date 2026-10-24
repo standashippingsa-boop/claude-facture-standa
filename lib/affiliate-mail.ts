@@ -48,11 +48,11 @@ export function buildAffiliateApprovalEmail(a: {
 }): { subject: string; html: string } {
   const websiteLink = affiliateWebsiteLink(a.code);
   const subject = a.isRenewal
-    ? `Votre nouveau contrat Affiliation STANDA COMMERCIAL — ${a.code}`
-    : `Bienvenue dans le programme Affiliation STANDA COMMERCIAL — ${a.code}`;
+    ? `Votre nouveau contrat d'affiliation STANDA COMMERCIAL — ${a.code}`
+    : `Bienvenue dans le programme d'affiliation STANDA COMMERCIAL — ${a.code}`;
   const intro = a.isRenewal
-    ? `Votre contrat <strong>programme Affiliation STANDA COMMERCIAL</strong> est renouvelé pour 3 mois, avec un <strong>nouveau lien</strong>. L'ancien lien ne génère plus de commission. Voici vos nouvelles informations :`
-    : `Votre candidature au <strong>programme Affiliation STANDA COMMERCIAL</strong> est acceptée. Voici vos informations :`;
+    ? `Votre contrat <strong>programme d'affiliation STANDA COMMERCIAL</strong> est renouvelé pour 3 mois, avec un <strong>nouveau lien</strong>. L'ancien lien ne génère plus de commission. Voici vos nouvelles informations :`
+    : `Votre candidature au <strong>programme d'affiliation STANDA COMMERCIAL</strong> est acceptée. Voici vos informations :`;
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>
 <body style="margin:0;padding:0;background:#F4F6F9;font-family:${FONT}">

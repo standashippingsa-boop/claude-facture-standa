@@ -104,7 +104,7 @@ export default function ClientPaymentForm({ customerCode, customerName, invoices
       if (amount === null || amount <= 0) return fail(label + "entrez le montant remis par le client.");
       if (!lines[index].method) return fail(label + "choisissez le moyen de paiement.");
     }
-    if (!plan) return fail("Entrez le montant remis par le client.");
+    if (!plan) return fail("Encodez le montant remis par le client.");
     if (!plan.ok) return fail(plan.reason);
     onSubmit({ invoiceIds: chosen.map((row) => row.invoice.id), lines: valid, summary });
   };

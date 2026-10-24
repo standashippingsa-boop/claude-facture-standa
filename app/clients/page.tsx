@@ -33,7 +33,7 @@ const schema = z.object({
 }).superRefine((value, ctx) => {
   const price = Number(String(value.vip_price_per_lb ?? "").replace(",", "."));
   if (value.account_type === "VIP" && !(Number.isFinite(price) && price > 0)) {
-    ctx.addIssue({ code: "custom", path: ["vip_price_per_lb"], message: "Entrez le prix VIP par livre (ex. 2.50)." });
+    ctx.addIssue({ code: "custom", path: ["vip_price_per_lb"], message: "Encodez le prix VIP par livre (ex. 2,50)." });
   }
 });
 type Form = z.infer<typeof schema>;
@@ -61,7 +61,7 @@ export default function ClientsPage() {
   });
   const [notice, setNotice] = useState<string | null>(null);
   useNoticeToast(notice, setNotice);
-  const [mcClient, setMcClient] = useState<Client | null>(null);  // modal "Créer compte MCPACK"
+  const [mcClient, setMcClient] = useState<Client | null>(null);  // modal "Créer un compte MCPACK"
   const [mcCode, setMcCode] = useState("");
   // Apre aktivasyon: kredansyèl yo (pou montre + voye WhatsApp)
   const [creds, setCreds] = useState<{ client: Client; username: string; password: string } | null>(null);
@@ -196,7 +196,7 @@ export default function ClientsPage() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="h-page">Clients</h1>
-          <p className="text-sm text-mute mt-0.5">Gestion des clients — codes, villes & comptes</p>
+          <p className="text-sm text-mute mt-0.5">Gestion des clients — codes, villes et comptes</p>
         </div>
         <div className="flex gap-3">
           <button className="btn btn-ghost border border-line" onClick={scanDups} title="Detekte kliyan ki egziste 2 fwa">
@@ -239,7 +239,7 @@ export default function ClientsPage() {
         </section>
       )}
 
-      <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Code, nom, téléphone, WhatsApp, email…"
+      <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Code, nom, téléphone, WhatsApp, e-mail…"
         resultCount={filtered.length} onClear={clearFilters}
         fields={[
           { key: "city", label: "Ville", type: "select", value: cityF, onChange: setCityF, options: villes.flatMap((ville) => ville.id ? [{ value: ville.id, label: ville.name }] : []) },
@@ -256,7 +256,7 @@ export default function ClientsPage() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {([["customer_code", "Code client *", "Ex: 36191"],
-               ["fullname", "Nom complet *", "Ex: Jean Baptiste"],
+               ["fullname", "Nom complet *", "Ex. : Jean Baptiste"],
                ["whatsapp", "WhatsApp", "Ex: +509 3712 3456"],
                ["email", "Email", "ex@mail.com"]] as const).map(([k, label, ph]) => (
               <label key={k} className="block">
@@ -466,7 +466,7 @@ export default function ClientsPage() {
         </div>
       )}
 
-      {/* ===== Modal: Créer compte MCPACK ===== */}
+      {/* ===== Modal: Créer un compte MCPACK ===== */}
       {mcClient && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
           onClick={() => setMcClient(null)}>
@@ -474,7 +474,7 @@ export default function ClientsPage() {
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide">
-                Créer compte MCPACK — {[mcClient.fullname, mcClient.surname].filter(Boolean).join(" ")}
+                Créer un compte MCPACK — {[mcClient.fullname, mcClient.surname].filter(Boolean).join(" ")}
               </h2>
               <button className="text-slate-400 hover:text-navy" onClick={() => setMcClient(null)}><X size={18} /></button>
             </div>

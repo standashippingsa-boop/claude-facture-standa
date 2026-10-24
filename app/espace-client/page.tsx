@@ -1037,8 +1037,8 @@ export default function EspaceClientPage() {
                       <span className="shrink-0 rounded-full bg-white px-3.5 py-2 text-sm font-extrabold text-accent-dark">{dispoWeight.toFixed(2)} lb</span>
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/25 pt-3 text-[13px]">
-                      <div><p className="text-white/80">Shipping fee</p><p className="mt-0.5 text-base font-extrabold">{dispoEst ? usd(dispoEst.subtotal) : "—"}</p></div>
-                      <div><p className="text-white/80">Fixed tax</p><p className="mt-0.5 text-base font-extrabold">{dispoEst && dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : "—"}</p></div>
+                      <div><p className="text-white/80">Frais d'expédition</p><p className="mt-0.5 text-base font-extrabold">{dispoEst ? usd(dispoEst.subtotal) : "—"}</p></div>
+                      <div><p className="text-white/80">Taxe fixe</p><p className="mt-0.5 text-base font-extrabold">{dispoEst && dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : "—"}</p></div>
                     </div>
                     {dispoSpecialCount > 0 && (
                       <p className="mt-3 rounded-xl bg-white/15 px-3 py-2 text-[12px] font-semibold leading-relaxed">
@@ -1393,7 +1393,7 @@ export default function EspaceClientPage() {
                   ["Combien de temps prend mon colis ?",
                    "Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement entre 3 et 7 jours ouvrables pour qu'il arrive à votre agence en Haïti. Ce délai peut varier seulement selon la douane, ou si votre code client ne figure pas dans l'adresse du colis : une réclamation doit alors être faite avant que le colis puisse être envoyé en Haïti, ce qui prend du temps. Ouvrez le colis dans l'application pour voir son étape : Reçu à Miami, En préparation, En transit, Arrivé en Haïti, En route vers agence, puis Disponible."],
                   ["Pourquoi mon colis n'apparaît-il pas encore ?",
-                   "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. Si le transporteur indique « livré », comptez quelques heures pour l'enregistrement. L'application se met à jour toute seule chaque minute ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. Si votre colis n'apparaît pas, c'est souvent que l'adresse a été mal saisie lors de l'achat ou que votre code client MC-… n'a pas été mis sur la ligne « Address 2 » : sans ce code, nous ne pouvons pas relier le colis à votre compte. Recopiez toujours exactement l'adresse de la page « Mon adresse ». Dans ce cas, écrivez-nous sur WhatsApp avec votre numéro de tracking pour faire une réclamation."],
+                   "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. Si le transporteur indique « livré », comptez quelques heures pour l'enregistrement. L'application se met à jour toute seule chaque minute ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. Si votre colis n'apparaît pas, c'est souvent que l'adresse a été mal encodée lors de l'achat ou que votre code client MC-… n'a pas été mis sur la ligne « Address 2 » : sans ce code, nous ne pouvons pas relier le colis à votre compte. Recopiez toujours exactement l'adresse de la page « Mon adresse ». Dans ce cas, écrivez-nous sur WhatsApp avec votre numéro de suivi pour faire une réclamation."],
                   ["Puis-je envoyer plusieurs colis ensemble ?",
                    "Oui. Vous pouvez commander dans plusieurs boutiques : chaque colis est reçu et pesé séparément à Miami, et tous ceux qui portent votre code client sont regroupés dans votre compte. Les colis disponibles en même temps peuvent être réunis sur une seule facture."],
                   ["Que signifie « Préparer mon retrait » ?",
@@ -1401,7 +1401,7 @@ export default function EspaceClientPage() {
                   ["J'ai oublié mon mot de passe.",
                    "Écrivez-nous sur WhatsApp : nous vous envoyons un nouveau mot de passe. Connectez-vous avec votre code client MC-XXXXX et ce mot de passe. Vous pouvez ensuite le changer : touchez votre nom en haut de l'écran, puis « Changer mon mot de passe »."],
                   ["Le prix peut-il changer ?",
-                   "Oui : le calculateur donne une estimation. Le prix final est celui de votre facture, calculé sur le poids réel pesé à notre entrepôt de Miami, selon le tarif de votre ville. Il peut différer de l'estimation si le poids réel n'est pas celui que vous avez saisi, si le colis contient un article à tarif spécial comme un téléphone, un ordinateur portable, une tablette, une caméra ou un téléviseur, ou si des frais d'entreposage s'ajoutent pour un retrait après 15 jours. Le montant en gourdes est calculé au taux du jour de la facture."]
+                   "Oui : le calculateur donne une estimation. Le prix final est celui de votre facture, calculé sur le poids réel pesé à notre entrepôt de Miami, selon le tarif de votre ville. Il peut différer de l'estimation si le poids réel n'est pas celui que vous avez encodé, si le colis contient un article à tarif spécial comme un téléphone, un ordinateur portable, une tablette, une caméra ou un téléviseur, ou si des frais d'entreposage s'ajoutent pour un retrait après 15 jours. Le montant en gourdes est calculé au taux du jour de la facture."]
                 ] as const).map(([q, a]) => (
                   <details key={q} className="py-2.5 group">
                     <summary className="text-[13px] font-semibold text-ink cursor-pointer list-none flex items-start gap-2">

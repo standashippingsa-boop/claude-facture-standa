@@ -9,7 +9,7 @@ import { useNoticeToast, notify } from "@/lib/notify";
  * STANDA COMMERCIAL — FÒM MESAJ PAJ CONTACT LA
  * ═══════════════════════════════════════════════
  * Vizitè a ka voye mesaj li DE FASON:
- *   1) "Envoyer par email"    -> POST /api/contact (Resend, deja konfigire nan Vercel)
+ *   1) "Envoyer par e-mail"    -> POST /api/contact (Resend, deja konfigire nan Vercel)
  *   2) "Envoyer sur WhatsApp" -> louvri wa.me ak mesaj la deja ekri, vizitè a peze Send li menm
  *
  * Konsa mesaj lan toujou rive menm si RESEND_API_KEY pa konfigire
@@ -47,7 +47,7 @@ export default function ContactForm() {
   // Résultat de l'envoi : page plein écran (✓ vert / ✕ rouge).
   useEffect(() => {
     if (status === "sent") notify.success("Merci, nous vous répondrons rapidement.", { title: "Message envoyé" });
-    else if (status === "skipped") notify.warning("L'envoi par email n'est pas disponible pour le moment. Utilisez WhatsApp — c'est le moyen le plus rapide de nous joindre.", { title: "Email indisponible" });
+    else if (status === "skipped") notify.warning("L'envoi par e-mail n'est pas disponible pour le moment. Utilisez WhatsApp — c'est le moyen le plus rapide de nous joindre.", { title: "E-mail indisponible" });
     else if (status === "error") notify.error("Le message n'est pas parti. Réessayez ou écrivez-nous sur WhatsApp.", { title: "Envoi impossible" });
   }, [status]);
 
@@ -57,7 +57,7 @@ export default function ContactForm() {
       return false;
     }
     if (!email.trim() && !phone.trim()) {
-      setValidationMsg("Veuillez indiquer un email ou un numéro de téléphone.");
+      setValidationMsg("Veuillez indiquer une adresse e-mail ou un numéro de téléphone.");
       return false;
     }
     setValidationMsg("");
@@ -152,7 +152,7 @@ export default function ContactForm() {
         </Field>
 
         <Field label="Message">
-          <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Écrivez votre message ici..." rows={4} className={`${FLD} py-3 resize-none`} />
+          <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Écrivez votre message ici…" rows={4} className={`${FLD} py-3 resize-none`} />
         </Field>
 
 
@@ -165,7 +165,7 @@ export default function ContactForm() {
                 <span className="inline-block h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
                 Envoi...
               </>
-            ) : "Envoyer par email"}
+            ) : "Envoyer par e-mail"}
           </button>
 
           <button type="button" onClick={sendByWhatsApp} className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-[#25D366] hover:bg-[#1fb857] text-white font-bold text-[15px] transition">

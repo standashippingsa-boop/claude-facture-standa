@@ -192,7 +192,7 @@ function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: strin
     y += 1;
     centered(`Agence : ${t.agency?.name || t.point}`, base, "bold");
     if (t.agency?.address) centered(t.agency.address);
-    if (t.agency?.phone && t.agency.phone !== t.company.phone) centered(`Tél agence : ${t.agency.phone}`);
+    if (t.agency?.phone && t.agency.phone !== t.company.phone) centered(`Tél. de l'agence : ${t.agency.phone}`);
     if (t.agency?.hours) centered(t.agency.hours);
   }
   dashed();

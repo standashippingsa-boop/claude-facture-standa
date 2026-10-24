@@ -16,8 +16,8 @@ export async function exportPackagesExcel(
   const XLSX: any = await import("xlsx");
 
   const rows = pkgs.map((p) => ({
-    "Code Client": p.customer_code,
-    "Nom Client": p.customer_name,
+    "Code client": p.customer_code,
+    "Nom du client": p.customer_name,
     "Ville": tarifMap.get(p.customer_code)?.ville?.name ?? "",
     "Tracking ID": p.tracking_number,
     "Tracking Number": p.tracking_manual || "",
@@ -30,8 +30,8 @@ export async function exportPackagesExcel(
     "Statut": p.status,
     "Vérifié MCPACK": p.verified ? "Oui" : "Non",
     "Facturé": p.invoice_id ? "Oui" : "Non",
-    "Date création": p.created_date ? dateFr(p.created_date) : "",
-    "Date réception": p.received_at ? dateFr(p.received_at) : "",
+    "Date de création": p.created_date ? dateFr(p.created_date) : "",
+    "Date de réception": p.received_at ? dateFr(p.received_at) : "",
   }));
 
   const ws = XLSX.utils.json_to_sheet(rows);

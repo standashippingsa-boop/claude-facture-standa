@@ -62,7 +62,7 @@ export default function ChallengeView({ data, onChanged }: { data: ChallengeMe; 
           <div><p className="text-[12px] text-white/75">Crédité au challenge</p><p className="text-xl font-extrabold">{data.sponsored ? "—" : lb(balances?.validated)}</p></div>
         </div>
         {data.sponsored && (
-          <p className="mt-3 rounded-xl bg-white/15 px-3 py-2 text-[13px] leading-relaxed">Vos livres sont attribués à votre parrain. Vos colis restent visibles dans votre espace.</p>
+          <p className="mt-3 rounded-xl bg-white/15 px-3 py-2 text-[13px] leading-relaxed">Vos livres sont attribuées à votre parrain. Vos colis restent visibles dans votre espace.</p>
         )}
       </section>
 
@@ -74,7 +74,7 @@ export default function ChallengeView({ data, onChanged }: { data: ChallengeMe; 
               ? "Votre demande est en attente de validation par STANDA."
               : data.enrollment === "rejected"
                 ? "Votre demande n’a pas été retenue. Vous pouvez refaire une demande."
-                : "Comme affilié, vous pouvez cumuler vos livres et celles de vos filleuls. La participation doit être validée par STANDA."}
+                : "En tant qu’affilié, vous pouvez cumuler vos livres et celles de vos filleuls. La participation doit être validée par STANDA."}
             {" "}En attendant, vos propres colis comptent pour vous.
           </p>
           {data.enrollment !== "pending" && <button type="button" disabled={!!busy} onClick={() => void requestEnrollment()} className="mt-3 min-h-10 rounded-xl bg-navy px-4 text-sm font-bold text-white disabled:opacity-50">{busy === "enroll" ? "…" : "Demander à participer"}</button>}

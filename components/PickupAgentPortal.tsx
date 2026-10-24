@@ -265,7 +265,7 @@ export default function PickupAgentPortal() {
       const matches = packages.filter((item) => [item.tracking_number, item.tracking_manual]
         .some((tracking) => String(tracking || "").replace(/\s+/g, "").endsWith(lastSixDigits)));
       if (matches.length > 1) {
-        setMessage({ type: "error", text: "Plus d’un colis possède ces 6 derniers chiffres. Entrez le numéro de suivi complet pour éviter toute erreur." });
+        setMessage({ type: "error", text: "Plus d’un colis possède ces 6 derniers chiffres. Encodez le numéro de suivi complet pour éviter toute erreur." });
         return;
       }
       if (matches.length === 1) {
@@ -808,7 +808,7 @@ function HomeDashboard({
       <p className="text-[15px] font-semibold text-slate-900">Ouvrir un dossier client</p>
       <p className="mb-3 mt-0.5 text-xs text-slate-500">Code client (ex. MC-3817) ou les 6 derniers chiffres du suivi.</p>
       <form onSubmit={(event) => { event.preventDefault(); onOpenDossier(); }} className="flex gap-2">
-        <label className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-50 px-3 ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-[#0b2a5b]"><Search size={18} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => onSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none placeholder:font-normal placeholder:text-slate-400" placeholder="MC-3817 ou 481223" aria-label="Code client ou numéro de tracking" autoCapitalize="characters" /></label>
+        <label className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-50 px-3 ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-[#0b2a5b]"><Search size={18} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => onSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none placeholder:font-normal placeholder:text-slate-400" placeholder="MC-3817 ou 481223" aria-label="Code client ou numéro de suivi" autoCapitalize="characters" /></label>
         <button type="submit" disabled={!search.trim()} className="h-12 shrink-0 rounded-xl bg-[#e85e19] px-4 text-sm font-semibold text-white transition hover:bg-[#d4530f] disabled:cursor-not-allowed disabled:opacity-40">Ouvrir</button>
       </form>
     </Card>
@@ -888,7 +888,7 @@ function RemiseOffer({ offer, busy, onRelease, onLater }: { offer: { customerCod
       <h2 id="remise-offer-title" className="mt-6 text-xl font-semibold text-slate-900">Paiement enregistré — {offer.customerCode}</h2>
       <p className="mx-auto mt-2 whitespace-pre-line text-[15px] leading-relaxed text-slate-600">{offer.paymentText}</p>
       <p className="mx-auto mt-5 rounded-xl bg-orange-50 px-4 py-3 text-sm font-medium text-[#c2410c]">{count} colis {count > 1 ? "sont prêts" : "est prêt"} à être remis au client.</p>
-      <button type="button" autoFocus disabled={busy} onClick={onRelease} className="mx-auto mt-6 flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-[15px] font-semibold text-white outline-none transition hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:opacity-60">{busy ? <Spinner size={18} /> : <Printer size={19} />}{busy ? "Remise en cours..." : "Remettre et voir le ticket"}</button>
+      <button type="button" autoFocus disabled={busy} onClick={onRelease} className="mx-auto mt-6 flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-[15px] font-semibold text-white outline-none transition hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:opacity-60">{busy ? <Spinner size={18} /> : <Printer size={19} />}{busy ? "Remise en cours…" : "Remettre et voir le ticket"}</button>
       <button type="button" disabled={busy} onClick={onLater} className="mx-auto mt-3 flex h-11 w-full max-w-xs items-center justify-center rounded-xl text-sm font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">Plus tard</button>
     </div>
   </div>;

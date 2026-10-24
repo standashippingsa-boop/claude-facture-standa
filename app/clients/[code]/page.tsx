@@ -83,7 +83,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     setBusy(true);
     try {
       const r = await commitPdfImport(pdfRows, client, true);
-      setNotice(`✅ Import PDF: ${r.created} créés, ${r.updated} mis à jour, ${r.ignored} ignorés.`);
+      setNotice(`✅ Import PDF : ${r.created} créés, ${r.updated} mis à jour, ${r.ignored} ignorés.`);
       setPdfRows(null);
       await load();
     } catch (e: any) { setNotice("Erè: " + e.message); }
@@ -245,7 +245,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           const phone = ` Notifikasyon telefòn: ${j.pushSent ?? 0} aparèy.`;
           mailInfo = (j.ok ? " Email voye." : client.email ? ` ⚠️ Email: ${j.reason ?? j.error ?? "echwe"}` : " Kliyan san imèl.") + phone;
           if (!j.ok && client.email) {
-            await logAction("Notification email échouée",
+            await logAction("Notification e-mail échouée",
               `${bulkStatus} — ${client.customer_code}: ${j.error ?? j.reason ?? "echwe"}`,
               "", client.customer_code);
           }
@@ -323,7 +323,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1.5 text-xs">
             {([["Téléphone", client.phone], ["WhatsApp", client.whatsapp], ["Email", client.email],
                ["Pays", client.country], ["Ville", [client.city, client.city2].filter(Boolean).join(" / ") || client.ville?.name],
-               ["Ville tarif", client.ville?.name], ["Adresse", client.address],
+               ["Ville tarifaire", client.ville?.name], ["Adresse", client.address],
                ["Pièce", `${client.id_type ?? ""} ${client.id_number ?? ""}`.trim()],
                ["Username", client.username]] as const).map(([k, v]) => (
               <div key={k}><span className="text-slate-400">{k}:</span>{" "}
@@ -332,7 +332,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           </div>
         </section>
         <section className="card p-4 grid grid-cols-2 gap-3 text-center">
-          {[["Colis total", pkgs.length], ["Livrés", livres.length],
+          {[["Total des colis", pkgs.length], ["Livrés", livres.length],
             ["Poids total (lb)", totalLbs.toFixed(2)],
             ["Total facturé", usd(totalFacture)],
             ["Disponible à facturer", usd(nonFacture)],
@@ -361,7 +361,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
       {retraitCount !== null && (
         <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-navy">
           {retraitCount > 0
-            ? <><b>Demande de retrait</b> — {retraitCount} colis sélectionné(s). Cliquez sur <b>Générer Facture</b> pour préparer le retrait.</>
+            ? <><b>Demande de retrait</b> — {retraitCount} colis sélectionné(s). Cliquez sur <b>Générer la facture</b> pour préparer le retrait.</>
             : <><b>Demande de retrait</b> — aucun colis de cette demande n&apos;est encore « Disponible » et non facturé.</>}
         </p>
       )}
@@ -383,7 +383,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           <PackageCheck size={14} /> Appliquer ({selected.length})
         </BusyButton>
         <button className="btn" onClick={facturer} disabled={busy || !selectedDisponible.length}>
-          <FileText size={14} /> Générer Facture ({selectedDisponible.length})
+          <FileText size={14} /> Générer la facture ({selectedDisponible.length})
         </button>
         <label className="btn btn-ghost border border-line cursor-pointer">
           <Upload size={14} /> Importer PDF
@@ -517,7 +517,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
               </table>
             </div>
             <div className="flex gap-3">
-              <BusyButton className="btn" onClick={validerPdf} busy={busy} busyLabel="Import en cours...">
+              <BusyButton className="btn" onClick={validerPdf} busy={busy} busyLabel="Import en cours…">
                 {`Importer ${pdfRows.length} colis`}
               </BusyButton>
               <button className="btn btn-ghost" onClick={() => setPdfRows(null)}>Annuler</button>

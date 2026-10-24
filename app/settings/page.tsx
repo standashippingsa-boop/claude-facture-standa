@@ -111,10 +111,10 @@ export default function SettingsPage() {
   };
 
   const corrigerTracking = async () => {
-    if (!confirm("Analyser toute la base et corriger les colonnes Tracking ID / Tracking Number mal placées?")) return;
+    if (!confirm("Analyser toute la base et corriger les colonnes Tracking ID / Tracking Number mal placées ?")) return;
     try {
       const r = await fixTrackingColumns();
-      setNotice(`✅ Correction terminée: ${r.swapped} inversés, ${r.movedToId} corrigés, ${r.movedToManual} nettoyés.`);
+      setNotice(`✅ Correction terminée : ${r.swapped} inversés, ${r.movedToId} corrigés, ${r.movedToManual} nettoyés.`);
     } catch (e: any) { setNotice("Erè: " + e.message); }
   };
 
@@ -180,7 +180,7 @@ export default function SettingsPage() {
           lè w chanje tarif yon vil, tout <b>nouvo</b> fakti itilize nouvo tarif la otomatikman.
         </p>
         <p className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2">
-          <b>Petits colis 0.10–0.99 lb:</b> yo kalkile <b>Pwa × Prix/lb</b> vil la,
+          <b>Petits colis 0,10–0,99 lb :</b> yo kalkile <b>Pwa × Prix/lb</b> vil la,
           menm jan ak tout lòt koli. Ex: 3.99 USD/lb × 0.60 lb = 2.39 USD.
         </p>
 
@@ -193,9 +193,9 @@ export default function SettingsPage() {
               {([["name", "Ville *", "Ex: Port-au-Prince"],
                  ["price_personal", "Prix Personnel / lb (USD) *", "1.90"],
                  ["price_business", "Prix Business / lb (USD) *", "1.60"],
-                 ["tax_personal", "Tax Personnel / lb (USD)", "0.20"],
-                 ["tax_business", "Tax Business / lb (USD)", "0.15"],
-                 ["fixed_fee", "Frais fixe (USD)", "0"]] as const).map(([k, label, ph]) => (
+                 ["tax_personal", "Taxe Personnel / lb (USD)", "0.20"],
+                 ["tax_business", "Taxe Business / lb (USD)", "0.15"],
+                 ["fixed_fee", "Frais fixes (USD)", "0"]] as const).map(([k, label, ph]) => (
                 <label key={k} className="block">
                   <span className="text-xs font-medium text-slate-500">{label}</span>
                   <input className="input mt-1" placeholder={ph} {...register(k)} />
@@ -215,7 +215,7 @@ export default function SettingsPage() {
 
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr>{["Ville", "Prix Perso/lb", "Prix Business/lb", "Tax Perso/lb", "Tax Business/lb", "Frais fixe", "Statut", ""]
+            <thead><tr>{["Ville", "Prix Perso/lb", "Prix Business/lb", "Taxe Perso/lb", "Taxe Business/lb", "Frais fixes", "Statut", ""]
               .map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
             <tbody>
               {villes.length === 0 ? (
@@ -265,7 +265,7 @@ export default function SettingsPage() {
             const r = Number(rate);
             if (!r || r <= 0) { setNotice("Taux la dwe pi gran pase 0."); return; }
             await setUsdRate(r);
-            setNotice(`Taux enregistré: 1 USD = ${r.toFixed(2)} HTG. Tout nouvo facture ap itilize l.`);
+            setNotice(`Taux enregistré : 1 USD = ${r.toFixed(2)} HTG. Toutes les nouvelles factures l’utiliseront.`);
           }}>Enregistrer le taux</button>
         </div>
       </section>
@@ -359,7 +359,7 @@ export default function SettingsPage() {
       <section className="card p-5 space-y-4">
         <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Général</h2>
         <p className="text-xs text-slate-500 bg-mist rounded-lg px-3 py-2">
-          ℹ️ Petits colis 0.10–0.99 lb: depi v8, yo kalkile <b>Pwa × Prix/lb vil la</b> menm
+          ℹ️ Petits colis 0,10–0,99 lb : depi v8, yo kalkile <b>Pwa × Prix/lb vil la</b> menm
           jan ak tout lòt koli. Pa gen pri fiks ankò.
         </p>
         <label className="block">
@@ -388,11 +388,11 @@ export default function SettingsPage() {
           </p>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={taxFixOn} onChange={(e) => setTaxFixOn(e.target.checked)} />
-            Inclure <b>Tax Fix</b> dans les factures
+            Inclure <b>Taxe fixe</b> dans les factures
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={taxDgaOn} onChange={(e) => setTaxDgaOn(e.target.checked)} />
-            Inclure <b>Tax DGA</b>
+            Inclure <b>Taxe DGA</b>
           </label>
         </div>
         <div className="border-t border-line pt-3 space-y-2">
@@ -403,12 +403,12 @@ export default function SettingsPage() {
           </p>
           <div className="grid grid-cols-3 gap-3">
             <label className="block">
-              <span className="text-xs text-slate-600">Poids min (lb)</span>
+              <span className="text-xs text-slate-600">Poids min. (lb)</span>
               <input type="number" step="0.01" min="0" className="input mt-1" value={spMin}
                 onChange={(e) => setSpMin(e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-slate-600">Poids max (lb)</span>
+              <span className="text-xs text-slate-600">Poids max. (lb)</span>
               <input type="number" step="0.01" min="0" className="input mt-1" value={spMax}
                 onChange={(e) => setSpMax(e.target.value)} />
             </label>
@@ -455,14 +455,14 @@ const PLATFORM_ORIGIN = "https://www.standacommercialsa.com";
 function PlatformLinksSection() {
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
   const platforms = [
-    { label: "Site Web STANDA", description: "Site public et informations générales", path: "/accueil" },
+    { label: "Site web STANDA", description: "Site public et informations générales", path: "/accueil" },
     { label: "Inscription client", description: "Créer un nouveau compte client", path: "/inscription" },
     { label: "Espace client", description: "Connexion à l’application client", path: "/espace-client/connexion" },
     { label: "Plateforme administrateur", description: "Connexion réservée à l’administration", path: "/admin-login" },
     { label: "Plateforme employé", description: "Connexion réservée au personnel", path: "/employe" },
     { label: "Plateforme réception", description: "Connexion pour les agents de réception", path: "/reception-login" },
     { label: "Point de retrait", description: "Connexion pour les agents de remise", path: "/point-retrait" },
-    { label: "Programme affiliation", description: "Présentation et demande d’affiliation", path: "/affiliation" },
+    { label: "Programme d’affiliation", description: "Présentation et demande d’affiliation", path: "/affiliation" },
     { label: "Espace affilié", description: "Connexion des affiliés approuvés", path: "/espace-affilie/login" },
     { label: "Nos agences", description: "Liste publique des agences STANDA", path: "/agences" },
     { label: "Guide et aide (à envoyer aux clients)", description: "Adresse SHEIN / Amazon case par case, fonctionnement de l’expédition et prix shipping par ville (compte Personnel)", path: "/guide-aide" },
@@ -504,7 +504,7 @@ function PlatformLinksSection() {
 
 // ================= MCPACK & ERGENS (admin) =================
 // Tarif MCPACK par livre et comptes Ergens (Dokasav, Blic Express) utilisés par
-// le graphique « À payer à MCPACK » du Dashboard. Sans code, Ergens est reconnu par le nom.
+// le graphique « À payer à MCPACK » du tableau de bord. Sans code, Ergens est reconnu par le nom.
 function McpackErgensSection({ onNotice }: { onNotice: (s: string) => void }) {
   const [rate, setRate] = useState("3");
   const [dokasav, setDokasav] = useState("");
@@ -522,7 +522,7 @@ function McpackErgensSection({ onNotice }: { onNotice: (s: string) => void }) {
       const codes = { dokasav: parseCodeList(dokasav), blic: parseCodeList(blic) };
       await saveMcpackConfig(Number(rate.replace(",", ".")), codes);
       setDokasav(codes.dokasav.join(", ")); setBlic(codes.blic.join(", "));
-      onNotice("Réglages MCPACK & Ergens enregistrés.");
+      onNotice("Réglages MCPACK et Ergens enregistrés.");
     } catch (error) { onNotice("Erè: " + (error instanceof Error ? error.message : "enregistrement impossible")); }
     finally { setBusy(false); }
   };
@@ -530,7 +530,7 @@ function McpackErgensSection({ onNotice }: { onNotice: (s: string) => void }) {
     <section className="space-y-3">
       <h2 className="text-sm font-bold text-navy uppercase tracking-wide">MCPACK & Ergens</h2>
       <div className="card p-5 space-y-4">
-        <p className="text-xs text-mute">Utilisé par le graphique « À payer à MCPACK » du Dashboard. Laissez un champ de codes vide pour reconnaître le compte par son nom.</p>
+        <p className="text-xs text-mute">Utilisé par le graphique « À payer à MCPACK » du tableau de bord. Laissez un champ de codes vide pour reconnaître le compte par son nom.</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <label className="block"><span className="text-xs font-medium text-slate-500">Tarif MCPACK (USD par livre)</span>
             <input className="input mt-1" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} disabled={!ready} /></label>
@@ -579,7 +579,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
 
   const save = async () => {
     if (!f.nom || !f.prenom || !f.username || f.password.length < 6) {
-      onNotice("Nom, Prénom, Nom d'utilisateur ak Mot de passe 6 karaktè minimòm obligatwa."); return;
+      onNotice("Nom, prénom, nom d’utilisateur et mot de passe (6 caractères minimum) obligatoires."); return;
     }
     if (f.role === "agent_retrait" && !f.pickup_ville_id) {
       onNotice("Chwazi zòn/pwen rekiperasyon ajan an."); return;
@@ -619,7 +619,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
   const resetPassword = async () => {
     if (!resetting) return;
     if (newPassword.length < 6) {
-      onNotice("Mot de passe a dwe gen omwen 6 karaktè."); return;
+      onNotice("Le mot de passe doit contenir au moins 6 caractères."); return;
     }
     setBusy(true);
     try {
@@ -642,7 +642,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
   const saveEdit = async () => {
     if (!editing) return;
     if (!ef.username.trim()) { onNotice("Nom d'utilisateur obligatoire."); return; }
-    if (ef.password && ef.password.length < 6) { onNotice("Mot de passe a dwe gen omwen 6 karaktè."); return; }
+    if (ef.password && ef.password.length < 6) { onNotice("Le mot de passe doit contenir au moins 6 caractères."); return; }
     if (editing.role === "agent_retrait" && !ef.pickup_ville_id) { onNotice("Chwazi zòn/pwen rekiperasyon ajan an."); return; }
     setBusy(true);
     try {
@@ -673,7 +673,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-navy uppercase tracking-wide">👥 Personnel & agents de remise</h2>
+          <h2 className="text-sm font-bold text-navy uppercase tracking-wide">👥 Personnel et agents de remise</h2>
           <button className="btn" onClick={() => setShow((s) => !s)}>+ Nouveau compte</button>
       </div>
 
@@ -868,13 +868,13 @@ function AffiliateSettingsSection({ onNotice }: { onNotice: (s: string) => void 
       await setSetting("affiliate_commission_amount", String(Number(amount) || 10));
       await setSetting("affiliate_contract_pdf_url", url);
       setPdfUrl(url); setPdfFile(null);
-      onNotice("Paramètres du programme Affiliation enregistrés.");
+      onNotice("Paramètres du programme d’affiliation enregistrés.");
     } finally { setBusy(false); }
   };
 
   return (
     <section className="card p-6 space-y-3">
-      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">🤝 Programme Affiliation</h2>
+      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">🤝 Programme d’affiliation</h2>
       <p className="text-xs text-slate-500">
         Montant versé à un affilié pour chaque facture générée par un client qu&apos;il a
         parrainé, pendant la durée de son contrat — et le contrat PDF joint
@@ -921,7 +921,7 @@ function EmailNotificationsSection() {
     try {
       const j = await callProbe("sample", testTo.trim(), sample);
       setResult(j?.ok
-        ? { ok: true, msg: `Exemple envoyé à ${j.to}. Ouvrez-le sur votre téléphone (vérifiez aussi les Spams).` }
+        ? { ok: true, msg: `Exemple envoyé à ${j.to}. Ouvrez-le sur votre téléphone (vérifiez aussi le dossier des courriers indésirables).` }
         : { ok: false, msg: j?.error || j?.reason || "Échec inconnu." });
     } catch (e) {
       setResult({ ok: false, msg: "Erreur réseau : " + (e instanceof Error ? e.message : String(e)) });
@@ -938,7 +938,7 @@ function EmailNotificationsSection() {
       const j = await callProbe("test", testTo.trim());
       if (j?.config) setDiag(j.config as EmailDiag);
       if (j?.ok) {
-        setResult({ ok: true, msg: `Envoyé à ${j.to}. Vérifiez la boîte de réception ET le dossier Spam.` });
+        setResult({ ok: true, msg: `Envoyé à ${j.to}. Vérifiez la boîte de réception ET le dossier des courriers indésirables.` });
       } else {
         setResult({ ok: false, msg: j?.error || j?.reason || "Échec inconnu." });
       }
@@ -949,7 +949,7 @@ function EmailNotificationsSection() {
 
   return (
     <section className="card p-6 space-y-3">
-      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">📧 Notifications email</h2>
+      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">📧 Notifications e-mail</h2>
       <p className="text-xs text-slate-500">
         Lè yon koli pase <b>« Reçu à Miami »</b> oswa <b>« Disponible »</b>, kliyan an resevwa yon imèl
         otomatik. Sèvi ak tès sa a pou verifye ke sa mache <b>vre</b> — non sèlman sou papye.
@@ -961,7 +961,7 @@ function EmailNotificationsSection() {
             <b>Clé Resend :</b>{" "}
             {diag.resend_key_present
               ? <span className="text-emerald-700">✓ configurée</span>
-              : <span className="text-red-600 font-semibold">✗ absente — aucun email ne part</span>}
+              : <span className="text-red-600 font-semibold">✗ absente — aucun e-mail ne part</span>}
           </div>
           <div><b>Expéditeur :</b> <code className="text-[11px]">{diag.email_from}</code>{diag.from_is_default && <span className="text-slate-400"> · valeur par défaut</span>}</div>
           <div>
@@ -975,7 +975,7 @@ function EmailNotificationsSection() {
 
       <div className="flex gap-2 items-end flex-wrap">
         <label className="block">
-          <span className="text-xs text-slate-600">Envoyer un email test à</span>
+          <span className="text-xs text-slate-600">Envoyer un e-mail de test à</span>
           <input className="input mt-1" type="email" placeholder="votre@email.com"
             value={testTo} onChange={(e) => setTestTo(e.target.value)} />
         </label>
@@ -984,7 +984,7 @@ function EmailNotificationsSection() {
         </BusyButton>
       </div>
       <div className="rounded-lg border border-line p-3">
-        <p className="text-xs font-semibold text-navy">Voir l&apos;email que reçoivent les clients</p>
+        <p className="text-xs font-semibold text-navy">Voir l&apos;e-mail que reçoivent les clients</p>
         <p className="mt-0.5 text-[11px] text-slate-500">Envoie le vrai modèle (exemple « MC-XXXXX », 2 colis) à l&apos;adresse ci-dessus.</p>
         <div className="mt-2 flex flex-wrap gap-2">
           <button type="button" className="btn btn-ghost border border-line" disabled={busy || !testTo.trim()} onClick={() => void sendSample("recu_miami")}>Exemple « Reçu à Miami »</button>
@@ -998,8 +998,8 @@ function EmailNotificationsSection() {
         <ol className="list-decimal ml-5 mt-2 space-y-1.5">
           <li><b>Clé absente</b> : Vercel → Settings → Environment Variables → ajouter <code>RESEND_API_KEY</code> et si besoin <code>EMAIL_FROM</code>, puis <b>Redeploy</b>.</li>
           <li><b>« mode test » / « domaine non vérifié »</b> : sur <code>resend.com/domains</code>, ajouter le domaine <code>{diag?.from_domain || "standacommercialsa.com"}</code> et publier les enregistrements DNS SPF + DKIM chez le registrar. Tant que ce n&apos;est pas fait, Resend n&apos;envoie qu&apos;à l&apos;adresse du compte Resend.</li>
-          <li><b>Reçu mais dans les Spams</b> : le domaine est vérifié mais DKIM/DMARC incomplet — compléter les DNS.</li>
-          <li><b>« kliyan san imèl »</b> : la fiche client n&apos;a pas d&apos;adresse email.</li>
+          <li><b>Reçu, mais dans les courriers indésirables</b> : le domaine est vérifié mais DKIM/DMARC incomplets — complétez les enregistrements DNS.</li>
+          <li><b>« kliyan san imèl »</b> : la fiche client n&apos;a pas d&apos;adresse e-mail.</li>
         </ol>
       </details>
     </section>

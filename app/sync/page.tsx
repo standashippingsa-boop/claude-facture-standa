@@ -36,7 +36,7 @@ export default function SyncPage() {
   const [applyDone, setApplyDone] = useState<string | null>(null);
   useNoticeToast(applyDone, setApplyDone, { tone: "success" });
   const [lastBatch, setLastBatch] = useState<string | null>(null);
-  // ===== Import Facture MCPACK (pwen #6a) =====
+  // ===== Import de facture MCPACK (pwen #6a) =====
   const factureRef = useRef<HTMLInputElement>(null);
   const [factures, setFactures] = useState<FactureMatch[] | null>(null);
   const [factProg, setFactProg] = useState("");
@@ -45,7 +45,7 @@ export default function SyncPage() {
 
   /** RÈG N°8 — Annuler la dernière importation */
   const annulerImport = async () => {
-    if (!confirm("Annuler la dernière importation photo? Les colis reviendront à leur état précédent.")) return;
+    if (!confirm("Annuler la dernière importation photo ? Les colis reviendront à leur état précédent.")) return;
     setBusy(true);
     try {
       const r = await undoLastImport();
@@ -69,7 +69,7 @@ export default function SyncPage() {
     try {
       const r = await applyPhotoValidations(items);
       setLastBatch(r.batchId);
-      setApplyDone(`✅ Importation ${r.batchId}: ${r.received} colis marqués reçus${r.trackingAdded ? `, ${r.trackingAdded} Tracking Number ajoutés` : ""}.`);
+      setApplyDone(`✅ Importation ${r.batchId} : ${r.received} colis marqués reçus${r.trackingAdded ? `, ${r.trackingAdded} Tracking Number ajoutés` : ""}.`);
       setScans(null); setAccepted(new Set());
     } catch (e: any) { setErr("Erè: " + e.message); }
     finally { setBusy(false); }
@@ -92,7 +92,7 @@ export default function SyncPage() {
     if (arr.length < all.length) setErr(`${all.length - arr.length} fichier(s) ignoré(s) : format ou taille non accepté.`);
     setBusy(true);
     try {
-      setScanProg(`Analyse de ${arr.length} photo(s)...`);
+      setScanProg(`Analyse de ${arr.length} photo(s)…`);
       const raw = await scanPhotos(arr, (idx, total, p) =>
         setScanProg(`Photo ${idx + 1}/${total} — ${Math.round(p * 100)}%`));
       const analyzed = await analyzePhotoScans(raw.map((r) => ({
@@ -106,7 +106,7 @@ export default function SyncPage() {
       for (let i = 0; i < nonId.length; i++) {
         const f = arr.find((x) => x.name === nonId[i].filename);
         if (!f) continue;
-        setScanProg(`Sauvegarde photo non identifiée ${i + 1}/${nonId.length}...`);
+        setScanProg(`Sauvegarde photo non identifiée ${i + 1}/${nonId.length}…`);
         const u = await uploadScanPhoto(f);
         if (u) urls[nonId[i].filename] = u;
       }
@@ -121,7 +121,7 @@ export default function SyncPage() {
     } finally { setBusy(false); }
   };
 
-  // ===== Import Facture MCPACK — ekstrè + match (pwen #6a, READ-ONLY) =====
+  // ===== Import de facture MCPACK — ekstrè + match (pwen #6a, READ-ONLY) =====
   const handleFactures = async (files: FileList) => {
     setErr(null); setFactures(null);
     const allF = Array.from(files);
@@ -141,7 +141,7 @@ export default function SyncPage() {
       // dedoublonnen sou tracking
       const seen = new Set<string>();
       const uniq = all.filter((t) => { const k = t.value.toUpperCase(); if (seen.has(k)) return false; seen.add(k); return true; });
-      setFactProg("Vérification des correspondances...");
+      setFactProg("Vérification des correspondances…");
       const matched = await matchFactureTrackings(uniq);
       setFactures(matched);
       setFactProg("");
@@ -207,9 +207,9 @@ export default function SyncPage() {
 
     if (!confirm(
       `Marquer ${cibles.length} colis « Disponible » ?\n\n` +
-      `📧 ${withEmail} email(s) seront envoyés à ${withEmail} client(s)` +
-      `${noEmail ? ` (${noEmail} client(s) sans email — pas d'envoi)` : ""}.\n\n` +
-      `Les colis déjà Disponible ne reçoivent PAS de nouvel email.`
+      `📧 ${withEmail} e-mail(s) seront envoyé(s) à ${withEmail} client(s)` +
+      `${noEmail ? ` (${noEmail} client(s) sans e-mail — pas d'envoi)` : ""}.\n\n` +
+      `Les colis déjà « Disponible » ne reçoivent PAS de nouvel e-mail.`
     )) return;
 
     setBusy(true); setErr(null);
@@ -237,13 +237,13 @@ export default function SyncPage() {
       }
       // Tras dirab: si imèl echwe, kite yon antre nan Journal (toast la disparèt)
       if (problems.length) {
-        await logAction("Notification email échouée",
-          `Import Facture — ${sent} envoyé(s), ${problems.length} échec(s): ${problems.join(" | ").slice(0, 400)}`,
+        await logAction("Notification e-mail échouée",
+          `Import Facture — ${sent} envoyé(s), ${problems.length} échec(s) : ${problems.join(" | ").slice(0, 400)}`,
           "", "");
       }
       setApplyDone(
-        `✅ Import Facture ${r.batchId}: ${r.updated} colis Disponible • ${sent} email(s) envoyé(s)` +
-        `${noEmail ? `, ${noEmail} sans email` : ""} • ${pushed} notification(s) téléphone.` +
+        `✅ Import de facture ${r.batchId} : ${r.updated} colis « Disponible » • ${sent} e-mail(s) envoyé(s)` +
+        `${noEmail ? `, ${noEmail} sans e-mail` : ""} • ${pushed} notification(s) téléphone.` +
         (problems.length ? ` ⚠️ ${problems.slice(0, 2).join(" | ").slice(0, 200)}` : ""));
       setLastBatch(r.batchId);
       setFactures(null); setFactureText(""); setCorrections({});
@@ -257,7 +257,7 @@ export default function SyncPage() {
     try {
       const items = extractFromText(factureText);
       if (!items.length) { setErr("Okenn Tracking Number detekte nan tèks la."); return; }
-      setFactProg("Vérification des correspondances...");
+      setFactProg("Vérification des correspondances…");
       const matched = await matchFactureTrackings(items);
       setFactures(matched);
       setFactProg("");
@@ -309,7 +309,7 @@ export default function SyncPage() {
       <div className="card p-6">
         <p className="text-sm text-slate-600 mb-4">
           1. Sou MCPACK, klike <b>Exportar XLS</b>. &nbsp;2. Chwazi fichye a isit la. &nbsp;
-          3. Verifye rezime a epi <b>Valider Importation</b>. Doublon yo p ap janm ajoute 2 fwa.
+          3. Verifye rezime a epi <b>Valider l'importation</b>. Doublon yo p ap janm ajoute 2 fwa.
         </p>
         <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-line rounded-xl py-10 cursor-pointer hover:border-navy-light transition-colors">
           <Upload className="text-navy-light" />
@@ -329,7 +329,7 @@ export default function SyncPage() {
       <div className="card p-6">
         <div className="flex items-center gap-2 mb-3">
           <Image size={16} className="text-navy-light" />
-          <h2 className="text-sm font-bold text-navy">Analyse Photos des Colis</h2>
+          <h2 className="text-sm font-bold text-navy">Analyse des photos de colis</h2>
           <div className="flex-1" />
           <BusyButton className="btn btn-ghost border border-line !py-1 !text-xs" onClick={annulerImport} busy={busy}>
             ↩️ Annuler la dernière importation
@@ -453,7 +453,7 @@ export default function SyncPage() {
                 </table>
               </div>
               <p className="text-[11px] text-slate-400">
-                <b>Mode Zéro Risque:</b> scanner a pa devine, pa kreye koli, epi li bloke tout konfli.
+                <b>Mode zéro risque :</b> scanner a pa devine, pa kreye koli, epi li bloke tout konfli.
                 Konfyans minimòm pou modifikasyon otomatik: <b>98%</b>. Fakti yo toujou kalkile ak done bazdone a.
                 Tout analiz nan Journal OCR ak ansyen/nouvo valè.
               </p>
@@ -462,7 +462,7 @@ export default function SyncPage() {
         })()}
       </div>
 
-      {busy && !preview && <p className="text-sm text-slate-500">Analyse en cours...</p>}
+      {busy && !preview && <p className="text-sm text-slate-500">Analyse en cours…</p>}
 
       {/* ===== Modal: chwazi kliyan pou koli PDF yo ===== */}
       {preview && (
@@ -499,7 +499,7 @@ export default function SyncPage() {
           )}
           <BusyButton className="btn mt-4" onClick={valider} busy={busy} disabled={preview.newRows.length === 0}
             busyLabel="Importation...">
-            <CheckCircle2 size={15} /> {`Valider Importation (${preview.newRows.length} colis)`}
+            <CheckCircle2 size={15} /> {`Valider l'importation (${preview.newRows.length} colis)`}
           </BusyButton>
         </div>
       )}
@@ -510,8 +510,8 @@ export default function SyncPage() {
             <CheckCircle2 size={20} /> Synchronisation terminée avec succès
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-            {([["Nouveaux packages", done.new_packages, "text-emerald-700"],
-               ["Packages mis à jour", done.existing_packages, "text-blue-700"],
+            {([["Nouveaux colis", done.new_packages, "text-emerald-700"],
+               ["Colis mis à jour", done.existing_packages, "text-blue-700"],
                ["Nouveaux clients", done.new_clients, "text-teal-700"],
                ["Erreurs", done.errors, done.errors > 0 ? "text-red-600" : "text-slate-500"]] as const).map(([k, v, c]) => (
               <div key={k} className="bg-white rounded-lg py-3 border border-emerald-100">
@@ -524,11 +524,11 @@ export default function SyncPage() {
         </div>
       )}
 
-      {/* ===== Import Facture MCPACK (pwen #6a) ===== */}
+      {/* ===== Import de facture MCPACK (pwen #6a) ===== */}
       <div className="card p-5 space-y-3">
         <div className="flex items-center gap-2">
           <FileText size={16} className="text-navy" />
-          <h2 className="h-sec">Import Facture MCPACK</h2>
+          <h2 className="h-sec">Import de facture MCPACK</h2>
         </div>
         <p className="text-xs text-mute">
           Chwazi fakti MCPACK yo. Sistèm nan ap ekstrè Tracking Number yo epi
@@ -603,7 +603,7 @@ export default function SyncPage() {
                           className="input !py-1 !text-[11px] font-mono flex-1"
                           defaultValue={f.tracking}
                           onChange={(e) => setCorrections((c) => ({ ...c, [f.tracking]: e.target.value }))}
-                          placeholder="Tracking Number à corriger..." />
+                          placeholder="Tracking Number à corriger…" />
                         <BusyButton className="btn btn-ghost !py-1 !px-2.5 !text-[11px] shrink-0"
                           onClick={() => reverifierUn(f.tracking)} busy={busy}
                           title="Vérifier ce tracking" spinnerSize={11}>
@@ -627,7 +627,7 @@ export default function SyncPage() {
                   <BusyButton className="btn btn-brand" onClick={validerFactures} busy={busy}>
                     <CheckCircle2 size={15} /> Valider → Disponible + Email ({dispo.length})
                   </BusyButton>
-                  <span className="text-xs text-mute">Un email est envoyé à chaque client. Les colis déjà Disponible/Facturé sont ignorés.</span>
+                  <span className="text-xs text-mute">Un e-mail est envoyé à chaque client. Les colis déjà « Disponible » ou « Facturé » sont ignorés.</span>
                 </div>
               )}
             </div>

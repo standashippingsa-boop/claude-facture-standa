@@ -1,7 +1,7 @@
 import { sendFcmToStaff } from "@/lib/push-fcm-server";
 import { sendPushToStaff } from "@/lib/push-server";
 
-/** Push « Nouveau Bon de Remise » à chaque agent de retrait de la ville. Serveur seulement. */
+/** Push « Nouveau bon de remise » à chaque agent de retrait de la ville. Serveur seulement. */
 export async function notifyPickupAgents(
   config: Parameters<typeof sendPushToStaff>[0],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,7 +14,7 @@ export async function notifyPickupAgents(
   const { data: agents } = await svc.from("staff").select("id").eq("role", "agent_retrait").eq("pickup_ville_id", ville.id);
   if (!agents?.length) return 0;
 
-  const title = "Nouveau Bon de Remise";
+  const title = "Nouveau bon de remise";
   const text = packageCount > 1
     ? `${packageCount} colis vous attendent — ${bonNumber || "un nouveau lot"} pour ${destination}.`
     : `Un colis vous attend — ${bonNumber || "un nouveau lot"} pour ${destination}.`;

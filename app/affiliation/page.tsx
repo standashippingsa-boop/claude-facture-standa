@@ -41,7 +41,7 @@ export default function AffiliationPage() {
         // actives; elle ne dépend donc pas de la clé publique du navigateur.
         const response = await fetch("/api/public/agences", { signal: controller.signal });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok || !Array.isArray(payload.cities)) throw new Error("Cities unavailable");
+        if (!response.ok || !Array.isArray(payload.cities)) throw new Error("Villes indisponibles");
 
         const available = payload.cities.filter(
           (city: unknown): city is AgencyCity =>
@@ -72,7 +72,7 @@ export default function AffiliationPage() {
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email.trim())) {
-      setError("Adresse courriel invalide. Vérifiez-la.");
+      setError("Adresse e-mail invalide. Vérifiez-la.");
       return;
     }
     if (f.phone.replace(/\D/g, "").length < 7) {
@@ -134,7 +134,7 @@ export default function AffiliationPage() {
         >
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-sky-100 text-[#0d4b99]"><CircleHelp size={22} /></span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-semibold text-[#082861]">Comment fonctionne le programme?</span>
+            <span className="block text-[15px] font-semibold text-[#082861]">Comment fonctionne le programme ?</span>
             <span className="mt-0.5 block text-[12px] leading-relaxed text-[#627a9d]">Découvrez Standa, votre rôle, les utilisations du service et les commissions.</span>
           </span>
           <ChevronRight size={21} className="shrink-0 text-[#6380a6]" />
@@ -155,7 +155,7 @@ export default function AffiliationPage() {
             <div className="flex flex-col items-center gap-3 px-3 py-10 text-center">
               <span className="grid h-14 w-14 place-items-center rounded-2xl bg-emerald-100 text-emerald-600"><CheckCircle2 size={31} /></span>
               <h2 className="text-xl font-bold tracking-[-.01em] text-[#09295e]">Candidature envoyée</h2>
-              <p className="max-w-sm text-sm leading-[1.7] text-[#5c7192]">Merci. Notre équipe examinera votre candidature et vous répondra par courriel.</p>
+              <p className="max-w-sm text-sm leading-[1.7] text-[#5c7192]">Merci. Notre équipe examinera votre candidature et vous répondra par e-mail.</p>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
@@ -172,7 +172,7 @@ export default function AffiliationPage() {
 
               <div className="grid gap-3.5 sm:grid-cols-2 sm:gap-4">
                 <FormField label="Nom complet" required><Input icon={UserRound} value={f.fullname} onChange={set("fullname")} placeholder="Votre nom complet" autoComplete="name" required /></FormField>
-                <FormField label="Adresse courriel" required><Input icon={Mail} type="email" value={f.email} onChange={set("email")} placeholder="exemple@courriel.com" autoComplete="email" required /></FormField>
+                <FormField label="Adresse e-mail" required><Input icon={Mail} type="email" value={f.email} onChange={set("email")} placeholder="exemple@courriel.com" autoComplete="email" required /></FormField>
                 <FormField label="Téléphone" required><Input icon={Phone} type="tel" value={f.phone} onChange={set("phone")} placeholder="(509) 0000-0000" autoComplete="tel" required /></FormField>
                 <FormField label="WhatsApp"><Input icon={MessageCircle} type="tel" value={f.whatsapp} onChange={set("whatsapp")} placeholder="Numéro WhatsApp" autoComplete="tel" /></FormField>
                 <FormField label="Ville ou zone" required>
@@ -198,7 +198,7 @@ export default function AffiliationPage() {
                   />
                 </FormField>
                 <FormField label="Numéro de pièce" required><Input icon={CreditCard} value={f.id_number} onChange={set("id_number")} placeholder="Numéro de pièce d’identité" required /></FormField>
-                <div className="sm:col-span-2"><FormField label="Pourquoi souhaitez-vous devenir affilié?"><textarea value={f.motivation} onChange={set("motivation")} rows={3} placeholder="Parlez-nous brièvement de votre réseau ou de votre expérience." className="w-full resize-y rounded-xl border border-[#d4dfed] bg-white px-3.5 py-3 text-sm font-normal leading-relaxed text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100" /></FormField></div>
+                <div className="sm:col-span-2"><FormField label="Pourquoi souhaitez-vous devenir affilié ?"><textarea value={f.motivation} onChange={set("motivation")} rows={3} placeholder="Parlez-nous brièvement de votre réseau ou de votre expérience." className="w-full resize-y rounded-xl border border-[#d4dfed] bg-white px-3.5 py-3 text-sm font-normal leading-relaxed text-[#27466f] outline-none placeholder:text-[#9aabc2] transition focus:border-[#2563eb] focus:ring-4 focus:ring-blue-100" /></FormField></div>
               </div>
 
 
@@ -228,14 +228,14 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
       </div>
 
       <section className="mt-4 rounded-2xl bg-[#0b3675] p-4 text-white">
-        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-sky-200">Standa Commercial, c’est quoi?</p>
+        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-sky-200">Qu’est-ce que Standa Commercial ?</p>
         <p className="mt-2 text-[14px] leading-[1.7] text-white/90">
           Standa Commercial est un service d’expédition de colis des États-Unis vers Haïti. Le client reçoit une adresse de dépôt à Miami et un code personnel, suit ses colis, puis les récupère dans son agence en Haïti.
         </p>
       </section>
 
       <section className="mt-4">
-        <h3 className="text-[17px] font-bold text-[#12386f]">Pourquoi ce programme existe?</h3>
+        <h3 className="text-[17px] font-bold text-[#12386f]">Pourquoi ce programme existe-t-il ?</h3>
         <p className="mt-1.5 text-[14px] leading-[1.7] text-[#516b90]">
           Standa Commercial veut développer son réseau par la recommandation de personnes de confiance. Le programme permet à un affilié de faire connaître le service dans son entourage, tout en recevant une commission lorsque les personnes qu’il a référées utilisent réellement le service.
         </p>
@@ -261,7 +261,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
       </section>
 
       <section className="mt-4 rounded-2xl border border-[#d7e7fb] bg-[#f7fbff] p-4">
-        <h3 className="text-[15px] font-semibold text-[#0b3778]">Ce que vous aurez comme affilié</h3>
+        <h3 className="text-[15px] font-semibold text-[#0b3778]">Ce que vous recevez en tant qu’affilié</h3>
         <ul className="mt-2.5 space-y-2 text-[13px] leading-[1.55] text-[#4f6b91]">
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Deux liens personnels à partager : un pour l’inscription directe, un pour découvrir le site.</li>
           <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#2563eb]" />Un espace affilié pour voir les comptes créés avec votre lien et leur progression.</li>
@@ -271,7 +271,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
       </section>
 
       <section className="mt-4">
-        <h3 className="text-[17px] font-bold text-[#12386f]">Votre rôle comme affilié</h3>
+        <h3 className="text-[17px] font-bold text-[#12386f]">Votre rôle en tant qu’affilié</h3>
         <p className="mt-1.5 text-[14px] leading-[1.7] text-[#516b90]">
           Votre rôle est simple : présenter Standa Commercial, partager votre lien et accompagner votre contact jusqu’à son inscription. Standa Commercial garde la responsabilité de l’adresse de Miami, de la réception, du suivi, de la tarification, des paiements et de la remise des colis.
         </p>
@@ -295,7 +295,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
       </ol>
 
       <section className="mt-5 rounded-2xl border border-orange-100 bg-orange-50/70 p-4">
-        <h3 className="text-[15px] font-semibold text-[#9a3a0e]">Comment la commission est comptée?</h3>
+        <h3 className="text-[15px] font-semibold text-[#9a3a0e]">Comment la commission est-elle calculée ?</h3>
         <p className="mt-1.5 text-[13px] leading-[1.65] text-[#8a542f]">
           La commission ne se calcule pas pour chaque colis pris séparément. Elle correspond à une utilisation confirmée du service par un client que vous avez référé. Si plusieurs colis font partie de la même utilisation, ils ne créent pas plusieurs commissions. Si ce client utilise Standa Commercial de nouveau dans une autre utilisation confirmée, une nouvelle commission peut être ajoutée selon les conditions de votre contrat.
         </p>

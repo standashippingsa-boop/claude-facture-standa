@@ -47,7 +47,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
       try {
         const response = await fetch("/api/public/villes", { signal: controller.signal });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok || !Array.isArray(payload.villes)) throw new Error("Cities unavailable");
+        if (!response.ok || !Array.isArray(payload.villes)) throw new Error("Villes indisponibles");
 
         const available = payload.villes.filter(
           (city: unknown): city is PublicVille =>
@@ -191,8 +191,8 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
 
 
           <BusyButton type="submit" className="btn w-full justify-center py-3" busy={isSubmitting} disabled={citiesState !== "ready"}
-            busyLabel="Création du compte...">
-            {citiesState === "loading" ? "Chargement des villes..." : "Créer mon compte"}
+            busyLabel="Création du compte…">
+            {citiesState === "loading" ? "Chargement des villes…" : "Créer mon compte"}
           </BusyButton>
 
       <p className="text-center text-xs text-slate-500">

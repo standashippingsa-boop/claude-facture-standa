@@ -209,7 +209,7 @@ export default function InvoicesPage() {
         <RefreshButton onRefresh={load} />
       </div>
 
-      <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="No facture, code ou nom client…"
+      <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="N° de facture, code ou nom du client…"
         resultCount={filtered.length} onClear={clearFilters}
         fields={[
           { key: "customer", label: "Code client", type: "select", value: customerF, onChange: setCustomerF, options: customerOptions },
@@ -221,7 +221,7 @@ export default function InvoicesPage() {
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr>{["Date", "No Facture", "Code Client", "Nom Client", "Sous-total", "Tax", "Total USD", "Taux", "Total HTG", "Paiement", "Actions"]
+          <thead><tr>{["Date", "No Facture", "Code client", "Nom du client", "Sous-total", "Tax", "Total USD", "Taux", "Total HTG", "Paiement", "Actions"]
             .map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody>
             {filtered.length === 0 ? (

@@ -57,12 +57,12 @@ export default function ChallengeAdminPage() {
   if (!campaign) return <p className="card p-6 text-sm text-mute">Aucune campagne. La migration du challenge doit être appliquée.</p>;
 
   const saveCampaignForm = () => run(async () => {
-    if (campaign.status === "active" && !confirm("Activer la campagne ? Les livres des colis livrés pendant la période seront crédités et les clients verront le challenge.")) throw new Error("Activation annulée.");
+    if (campaign.status === "active" && !confirm("Activer la campagne ? Les livres des colis livrés pendant la période seront créditées et les clients verront le challenge.")) throw new Error("Activation annulée.");
     await saveCampaign(campaign.id, { name: campaign.name, start_at: campaign.start_at, end_at: campaign.end_at, status: campaign.status, allow_repeat_wins: campaign.allow_repeat_wins });
   }, "Campagne enregistrée.");
 
   const exportCsv = () => {
-    const rows = [["Code", "Nom", "Type", "Livres validés", "Disponible", "Colis"], ...participants.map((p) => [p.code, p.name, p.type, p.validated, p.available, p.packages])];
+    const rows = [["Code", "Nom", "Type", "Livres validées", "Disponible", "Colis"], ...participants.map((p) => [p.code, p.name, p.type, p.validated, p.available, p.packages])];
     const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
     const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a"); a.href = url; a.download = `challenge-participants-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
@@ -138,7 +138,7 @@ export default function ChallengeAdminPage() {
               <td className="td whitespace-nowrap">
                 {claim.status === "pending" && <button type="button" className="mr-2 font-bold text-emerald-700" disabled={busy} onClick={() => void run(() => decideClaim(claim.id, "approve"), "Demande approuvée.")}>Approuver</button>}
                 {claim.status === "approved" && <button type="button" className="mr-2 font-bold text-navy" disabled={busy} onClick={() => deliver(claim)}>Remettre</button>}
-                {(claim.status === "pending" || claim.status === "approved") && <button type="button" className="font-bold text-red-600" disabled={busy} onClick={() => { if (confirm("Refuser ? Les livres réservés seront restitués.")) void run(() => decideClaim(claim.id, "reject"), "Demande refusée, livres restitués."); }}>Refuser</button>}
+                {(claim.status === "pending" || claim.status === "approved") && <button type="button" className="font-bold text-red-600" disabled={busy} onClick={() => { if (confirm("Refuser ? Les livres réservés seront restitués.")) void run(() => decideClaim(claim.id, "reject"), "Demande refusée, livres restituées."); }}>Refuser</button>}
               </td>
             </tr>)}</tbody>
           </table>
@@ -150,7 +150,7 @@ export default function ChallengeAdminPage() {
         <div className="flex items-center justify-between"><h2 className="h-sec">Participants · {participants.length}</h2>
           <button type="button" className="btn btn-ghost border border-line" onClick={exportCsv} disabled={!participants.length}><Download size={14} /> Export CSV</button>
         </div>
-        {participants.length === 0 ? <p className="mt-2 text-sm text-mute">Aucun livre crédité pour le moment.</p> : (
+        {participants.length === 0 ? <p className="mt-2 text-sm text-mute">Aucune livre créditée pour le moment.</p> : (
           <table className="mt-3 w-full min-w-[600px] text-sm">
             <thead><tr>{["#", "Code", "Nom", "Type", "Validé", "Disponible", "Colis"].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
             <tbody>{participants.map((p, i) => <tr key={p.code + p.type}>

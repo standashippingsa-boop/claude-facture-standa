@@ -67,7 +67,7 @@ export function generateInvoicePdf(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.text(`No: ${inv.invoice_number}`, W - 14, 21, { align: "right" });
-  doc.text(`Date: ${dateFr(inv.created_at || new Date())}`, W - 14, 26, { align: "right" });
+  doc.text(`Date : ${dateFr(inv.created_at || new Date())}`, W - 14, 26, { align: "right" });
 
   // ===== SERVICE ORDER — li valè yo, tou dousman (fakti shipping -> 0) =====
   const purchase = Number(inv.order_purchase) || 0;
@@ -93,7 +93,7 @@ export function generateInvoicePdf(
   doc.text(`Nom: ${inv.customer_name}`, 20, 63);
   doc.text(`Ville: ${inv.ville || "—"}`, W / 2 + 4, 57);
   doc.text(`WhatsApp: ${inv.whatsapp}`, W / 2 + 4, 63);
-  doc.text(`Lieu de récupération: ${inv.pickup_location}`, 20, 69);
+  doc.text(`Lieu de récupération : ${inv.pickup_location}`, 20, 69);
 
   // ===== Tablo =====
   autoTable(doc, {
@@ -158,12 +158,12 @@ export function generateInvoicePdf(
 
   const lines: { label: string; value: number; bold?: boolean; htgNote?: number }[] = [];
   // Pati KÒMAND lan vin an premye — se li ki pi gwo montan an.
-  if (purchase > 0) lines.push({ label: "Prix d'achat commande:", value: purchase, htgNote: purchase * rate });
-  if (svcFee > 0) lines.push({ label: "Frais de service:", value: svcFee, htgNote: svcFee * rate });
-  lines.push({ label: "Sous-total colis:", value: Number(inv.subtotal) || 0 });
-  if (taxFix > 0) lines.push({ label: "Taxe Fixe:", value: taxFix });
-  if (dga > 0) lines.push({ label: "Frais DGA:", value: dga });
-  if (disc > 0) lines.push({ label: "Discount:", value: -disc });
+  if (purchase > 0) lines.push({ label: "Prix d'achat de la commande :", value: purchase, htgNote: purchase * rate });
+  if (svcFee > 0) lines.push({ label: "Frais de service :", value: svcFee, htgNote: svcFee * rate });
+  lines.push({ label: "Sous-total colis :", value: Number(inv.subtotal) || 0 });
+  if (taxFix > 0) lines.push({ label: "Taxe fixe :", value: taxFix });
+  if (dga > 0) lines.push({ label: "Frais DGA :", value: dga });
+  if (disc > 0) lines.push({ label: "Réduction :", value: -disc });
 
   // De liy anplis (Acompte + BALANCE) SÈLMAN si gen yon acompte reyèl.
   const extraRows = deposit > 0 ? 2 : 0;
@@ -191,7 +191,7 @@ export function generateInvoicePdf(
   doc.setDrawColor(180, 180, 180);
   doc.line(x + 5, ly - 3.5, x + boxW - 5, ly - 3.5);
   doc.setFont("helvetica", "bold");
-  doc.text("TOTAL USD:", x + 5, ly + 1);
+  doc.text("TOTAL USD :", x + 5, ly + 1);
   doc.text(usd(grand), x + boxW - 5, ly + 1, { align: "right" });
 
   // ===== ACOMPTE + BALANCE (Service Order sèlman) =====
@@ -199,7 +199,7 @@ export function generateInvoicePdf(
   if (deposit > 0) {
     doc.setFont("helvetica", "normal");
     ry += 7;
-    doc.text("Acompte versé:", x + 5, ry);
+    doc.text("Acompte versé :", x + 5, ry);
     doc.text("-" + usd(deposit), x + boxW - 5, ry, { align: "right" });
     if (rate > 0) {
       doc.setFontSize(7.5); doc.setTextColor(120, 120, 120);
@@ -225,7 +225,7 @@ export function generateInvoicePdf(
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text(deposit > 0 ? "BALANCE HTG:" : "TOTAL HTG:", x + 5, y + boxH + 7);
+  doc.text(deposit > 0 ? "SOLDE HTG :" : "TOTAL HTG :", x + 5, y + boxH + 7);
   doc.text(htg(totalHtg), x + boxW - 5, y + boxH + 7, { align: "right" });
 
   doc.setFont("helvetica", "normal");

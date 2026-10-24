@@ -26,7 +26,7 @@ import { useNoticeToast } from "@/lib/notify";
  *
  * Workflow obligatwa (menm tout kote):
  *   1) Ouvri fenèt konfigirasyon
- *   2) Mande: Taxe Fixe / Frais DGA / Discount / Mode de calcul
+ *   2) Mande: Taxe fixe / Frais DGA / Discount / Mode de calcul
  *   3) Montre apèsi konplè
  *   4-5) Admin verifye epi konfime
  *   6) Jenere PDF
@@ -110,7 +110,7 @@ export default function InvoiceDialog({
   const [kind, setKind] = useState<InvoiceKind>("shipping");
   const [orderPurchase, setOrderPurchase] = useState("");
   const [orderDeposit, setOrderDeposit] = useState("");
-  /** Devise de saisie des montants Service Order : gourdes par défaut, converti en USD au taux des Paramètres. */
+  /** Devise d'encodage des montants Service Order : gourdes par défaut, converti en USD au taux des Paramètres. */
   const [orderCur, setOrderCur] = useState<"HTG" | "USD">("HTG");
   const orderToUsd = (raw: string) => {
     const value = Number(String(raw).replace(",", "."));
@@ -301,7 +301,7 @@ export default function InvoiceDialog({
           if (sansBon.length && conduceIds.length) {
             const bon = await createBonRemiseRecord({
               bonNumber: createBonRemiseNumber(), packageIds: sansBon.map((p) => p.id), conduceIds,
-              packageCount: sansBon.length, destination: villeChoisie.name, who: "Facture compte central"
+              packageCount: sansBon.length, destination: villeChoisie.name, who: "Facture du compte central"
             });
             centralInfo = ` Bon ${bon.bon_number} créé pour l'agence de ${villeChoisie.name}.`;
           } else if (sansBon.length) {
@@ -353,8 +353,8 @@ export default function InvoiceDialog({
     if (busy) return;
     if (pending && !confirm(
       `Fermer sans imprimer ?\n\nLa facture ${pending.inv.invoice_number} reste enregistrée ` +
-      `dans Invoices sans PDF. ` +
-      `Vous pourrez l'imprimer ou l'annuler plus tard depuis Invoices.`
+      `dans Factures sans PDF. ` +
+      `Vous pourrez l'imprimer ou l'annuler plus tard depuis Factures.`
     )) return;
     onClose();
   };
@@ -368,7 +368,7 @@ export default function InvoiceDialog({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-extrabold text-navy">{pending ? "Facture créée — Livraison" : "Générer Facture — Options"}</h2>
+          <h2 className="text-lg font-extrabold text-navy">{pending ? "Facture créée — Livraison" : "Générer la facture — options"}</h2>
           <button className="text-slate-400 hover:text-slate-600" onClick={requestClose} disabled={busy}><X size={18} /></button>
         </div>
         <p className="text-sm text-slate-600 mb-3">
@@ -395,7 +395,7 @@ export default function InvoiceDialog({
           <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">
             <input type="radio" name="ikind" className="mt-1" checked={kind === "shipping"}
               onChange={() => setKind("shipping")} />
-            <span><b>Shipping seulement</b> — transport des colis</span>
+            <span><b>Expédition seulement</b> — transport des colis</span>
           </label>
           <label className="flex items-start gap-2 text-sm py-1 cursor-pointer">
             <input type="radio" name="ikind" className="mt-1" checked={kind === "service_order"}
@@ -407,7 +407,7 @@ export default function InvoiceDialog({
           {kind === "service_order" && (
             <div className="mt-2 border-t border-line pt-2.5 space-y-2">
               <div className="flex items-center gap-2 text-sm">
-                <span className="flex-1 font-semibold text-navy">Devise de saisie</span>
+                <span className="flex-1 font-semibold text-navy">Devise d'encodage</span>
                 <div className="flex gap-1">{(["HTG", "USD"] as const).map((cur) => (
                   <button key={cur} type="button" aria-pressed={orderCur === cur} onClick={() => setOrderCur(cur)}
                     className={`rounded-lg px-3 py-1 text-xs font-bold ${orderCur === cur ? "bg-navy text-white" : "bg-slate-100 text-slate-700"}`}>
@@ -571,7 +571,7 @@ export default function InvoiceDialog({
                 );
               })}
             </div>
-            {specialWithoutPrice.length > 0 && <p className="mt-2 text-[11px] font-bold text-red-700">Entrez le prix fixe ou la taxe de chaque colis spécial.</p>}
+            {specialWithoutPrice.length > 0 && <p className="mt-2 text-[11px] font-bold text-red-700">Encodez le prix fixe ou la taxe de chaque colis spécial.</p>}
           </section>
         )}
 
@@ -621,7 +621,7 @@ export default function InvoiceDialog({
               <span className="text-[11px] font-semibold text-navy">{Object.keys(packageTaxes).length ? `${Object.keys(packageTaxes).length} colis taxé${Object.keys(packageTaxes).length > 1 ? "s" : ""}` : showPackageTaxes ? "Fermer" : "Ajouter"}</span>
             </button>
             {showPackageTaxes && <>
-              <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">Le prix shipping du colis ne change pas : la taxe s&apos;ajoute sur sa ligne et apparaît dans la colonne « Taxe » de la facture.</p>
+              <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">Le prix d&apos;expédition du colis ne change pas : la taxe s&apos;ajoute sur sa ligne et apparaît dans la colonne « Taxe » de la facture.</p>
               <div className="mt-2 max-h-52 overflow-y-auto divide-y divide-line">
                 {pkgs.map((p) => (
                   <label key={p.id} className="flex items-center gap-2 py-1.5">
@@ -646,7 +646,7 @@ export default function InvoiceDialog({
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={useTaxe}
               onChange={(e) => { setTaxeTouched(true); setUseTaxe(e.target.checked); }} />
-            <b>Taxe Fixe</b>
+            <b>Taxe fixe</b>
             {useTaxe && <input type="number" step="0.01" min="0" placeholder="0.00"
               className="input !w-28 !py-1 text-right ml-auto" value={taxeVal}
               onChange={(e) => { setTaxeTouched(true); setTaxeVal(e.target.value); }} />}
@@ -665,7 +665,7 @@ export default function InvoiceDialog({
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={useDisc} onChange={(e) => setUseDisc(e.target.checked)} />
-            <b>Discount</b>
+            <b>Réduction</b>
             {useDisc && <input type="number" step="0.01" min="0" placeholder="0.00"
               className="input !w-28 !py-1 text-right ml-auto" value={discount} onChange={(e) => setDiscount(e.target.value)} />}
           </label>
@@ -681,7 +681,7 @@ export default function InvoiceDialog({
         {/* ERÈ validasyon — bloke */}
         {comp && !comp.ok && (
           <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2 space-y-1">
-            <p className="text-xs font-bold text-red-700">❌ Facture bloquée — corriger avant de continuer:</p>
+            <p className="text-xs font-bold text-red-700">❌ Facture bloquée — corrigez avant de continuer :</p>
             {comp.errors.map((e, i) => <p key={i} className="text-[11px] text-red-600">• {e}</p>)}
           </div>
         )}
@@ -695,13 +695,13 @@ export default function InvoiceDialog({
               <b>{usd(comp.lines.filter((l) => l.isFixed).reduce((s, l) => s + l.amount, 0))}</b></div>
           )}
           {comp?.ok && comp.orderPurchase > 0 && (
-            <div className="flex justify-between"><span className="text-slate-500">Prix d&apos;achat commande</span><b>{usd(comp.orderPurchase)} <span className="text-[10px] font-normal text-slate-400">{htg(comp.orderPurchase * rate)}</span></b></div>
+            <div className="flex justify-between"><span className="text-slate-500">Prix d&apos;achat de la commande</span><b>{usd(comp.orderPurchase)} <span className="text-[10px] font-normal text-slate-400">{htg(comp.orderPurchase * rate)}</span></b></div>
           )}
           {comp?.ok && comp.orderServiceFee > 0 && (
             <div className="flex justify-between"><span className="text-slate-500">Frais de service</span><b>{usd(comp.orderServiceFee)}</b></div>
           )}
           <div className="flex justify-between"><span className="text-slate-500">Sous-total colis</span><b>{usd(comp?.subtotal ?? 0)}</b></div>
-          {useTaxe && Number(taxeVal) > 0 && <div className="flex justify-between"><span className="text-slate-500">Taxe Fixe</span><b>{usd(Number(taxeVal))}</b></div>}
+          {useTaxe && Number(taxeVal) > 0 && <div className="flex justify-between"><span className="text-slate-500">Taxe fixe</span><b>{usd(Number(taxeVal))}</b></div>}
           {useDga && Number(fraisDga) > 0 && <div className="flex justify-between"><span className="text-slate-500">Frais DGA</span><b>{usd(Number(fraisDga))}</b></div>}
           {useDisc && Number(discount) > 0 && <div className="flex justify-between"><span className="text-slate-500">Discount</span><b>−{usd(Number(discount))}</b></div>}
           <div className="flex justify-between border-t border-line pt-1.5 text-navy"><span className="font-bold">TOTAL USD</span><b>{usd(comp?.totalUsd ?? 0)}</b></div>
@@ -712,7 +712,7 @@ export default function InvoiceDialog({
             </>
           )}
           <div className="flex justify-between items-center bg-navy text-white rounded-lg px-3 py-2 mt-1">
-            <span className="font-semibold">{comp?.ok && comp.orderDeposit > 0 ? "BALANCE HTG" : "TOTAL HTG"}</span><b className="text-lg">{htg(comp?.totalHtg ?? 0)}</b>
+            <span className="font-semibold">{comp?.ok && comp.orderDeposit > 0 ? "SOLDE HTG" : "TOTAL HTG"}</span><b className="text-lg">{htg(comp?.totalHtg ?? 0)}</b>
           </div>
           <p className="text-[11px] text-slate-400 text-right">Taux: 1 USD = {rate.toFixed(2)} HTG · Prix/LB non modifié</p>
         </div>

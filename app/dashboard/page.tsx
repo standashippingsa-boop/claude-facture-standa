@@ -186,9 +186,9 @@ export default function Dashboard() {
           <div className="card p-5">
             <div className="flex items-center gap-2 mb-3">
               <UserCheck size={15} className="text-emerald-600" />
-              <h3 className="text-sm font-bold text-ink">Clients actifs vs inactifs</h3>
+              <h3 className="text-sm font-bold text-ink">Clients actifs et inactifs</h3>
             </div>
-            <p className="text-xs text-mute mb-3">Actif = a envoyé au moins un colis.</p>
+            <p className="text-xs text-mute mb-3">Actif : a envoyé au moins un colis.</p>
             {charts ? <StatusStackedBar slices={clientStatusSlices} /> : <Loader inline size={40} />}
           </div>
         </div>

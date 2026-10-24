@@ -34,7 +34,7 @@ export async function exportPackagesPdf(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.text(title, 32, 19);
-  doc.text(`Date: ${dateFr(new Date())}   |   Total: ${pkgs.length} colis`, W - 14, 15, { align: "right" });
+  doc.text(`Date : ${dateFr(new Date())}   |   Total : ${pkgs.length} colis`, W - 14, 15, { align: "right" });
 
   const splitDate = (raw?: string) => {
     const s = String(raw ?? "").trim();

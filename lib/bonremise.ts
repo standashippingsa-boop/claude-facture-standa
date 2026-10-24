@@ -115,7 +115,7 @@ export async function generateBonRemise(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.text(`No: ${numero}`, W - 14, 20, { align: "right" });
-  doc.text(`Date: ${dateFr(opts.date ? new Date(opts.date) : new Date())}`, W - 14, 25, { align: "right" });
+  doc.text(`Date : ${dateFr(opts.date ? new Date(opts.date) : new Date())}`, W - 14, 25, { align: "right" });
 
   // ===== Rezime =====
   const boxH = showConduce ? 24 : 18;
@@ -126,8 +126,8 @@ export async function generateBonRemise(
   doc.setFont("helvetica", "bold");
   doc.text(`Ville(s) destination: ${villes.length ? villes.join(", ") : "—"}`, 20, 48);
   doc.setFont("helvetica", "normal");
-  doc.text(`Nombre de colis: ${pkgs.length}`, 20, 54);
-  doc.text(`Poids total: ${totalWeight.toFixed(2)} LB`, W / 2 + 4, 54);
+  doc.text(`Nombre de colis : ${pkgs.length}`, 20, 54);
+  doc.text(`Poids total : ${totalWeight.toFixed(2)} LB`, W / 2 + 4, 54);
   if (showConduce) {
     doc.setFont("helvetica", "bold");
     const label = `Conduce(s): `;
@@ -159,8 +159,8 @@ export async function generateBonRemise(
 
   // ===== Tablo koli yo =====
   const head = showConduce
-    ? ["#", "Conduce", "Tracking ID", "Code Client", "Nom Client", "Ville", "Poids (lb)"]
-    : ["#", "Tracking ID", "Code Client", "Nom Client", "Ville", "Poids (lb)"];
+    ? ["#", "Conduce", "Tracking ID", "Code client", "Nom du client", "Ville", "Poids (lb)"]
+    : ["#", "Tracking ID", "Code client", "Nom du client", "Ville", "Poids (lb)"];
 
   autoTable(doc, {
     startY: (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8,
@@ -197,7 +197,7 @@ export async function generateBonRemise(
   if (y > pageH - 30) { doc.addPage(); y = 40; }
 
   const colW = (W - 28 - 16) / 3;
-  const labels = ["Signature Expéditeur", "Signature Chauffeur", "Signature Réception"];
+  const labels = ["Signature de l'expéditeur", "Signature du chauffeur", "Signature à la réception"];
   doc.setTextColor(40, 40, 40);
   doc.setFontSize(9);
   labels.forEach((label, i) => {

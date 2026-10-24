@@ -97,7 +97,7 @@ export function readPaymentLines(body: any): { ok: true; lines: PaymentLine[] } 
     if (currency !== "USD" && currency !== "HTG") return { ok: false, reason: label + "devise invalide." };
     if (!PAYMENT_METHOD_SET.has(method)) return { ok: false, reason: label + "choisissez le moyen de paiement." };
     if ((currency === "USD" && amount > 100000) || (currency === "HTG" && amount > 50000000)) {
-      return { ok: false, reason: label + "montant trop élevé : vérifiez votre saisie." };
+      return { ok: false, reason: label + "montant trop élevé : vérifiez votre encodage." };
     }
     lines.push({ amount, currency, method, reference });
   }

@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     const office = String(body?.office ?? "").trim();
     const items: IncomingPkg[] = Array.isArray(body?.packages) ? body.packages : [];
     if (!conduceNumber) return NextResponse.json({ ok: false, reason: "Numéro de conduce manquant." }, { status: 400 });
-    if (!items.length) return NextResponse.json({ ok: false, reason: "Aucun package reçu." }, { status: 400 });
+    if (!items.length) return NextResponse.json({ ok: false, reason: "Aucun colis reçu." }, { status: 400 });
 
     // 3) Conduce — jwenn si li egziste, kreye si non (jamè doublon)
     const now = new Date().toISOString();

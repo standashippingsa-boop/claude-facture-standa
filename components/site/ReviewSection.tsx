@@ -126,7 +126,7 @@ export default function ReviewSection() {
             </fieldset>
             <label className="block">
               <span className="mb-1.5 block text-[12.5px] font-bold text-navy">Votre commentaire</span>
-              <textarea value={message} onChange={(event) => setMessage(event.target.value)} maxLength={600} rows={5} required placeholder="Décrivez votre expérience avec STANDA..." className="w-full resize-none rounded-md border border-line bg-mist px-3.5 py-3 text-[14.5px] text-ink placeholder:text-mute transition focus:border-accent focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent" />
+              <textarea value={message} onChange={(event) => setMessage(event.target.value)} maxLength={600} rows={5} required placeholder="Décrivez votre expérience avec STANDA…" className="w-full resize-none rounded-md border border-line bg-mist px-3.5 py-3 text-[14.5px] text-ink placeholder:text-mute transition focus:border-accent focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent" />
             </label>
             <input value={website} onChange={(event) => setWebsite(event.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute h-px w-px overflow-hidden opacity-0" />
             <div className="flex items-center justify-between gap-3 text-[12px] text-mute"><span>Votre avis sera affiché publiquement.</span><span>{message.length}/600</span></div>
@@ -137,7 +137,7 @@ export default function ReviewSection() {
 
       <div className="mt-8 rounded-lg border border-line bg-white p-5 sm:p-7">
         <div className="flex items-center gap-2"><Star size={18} className="fill-accent text-accent" /><h3 className="text-[21px] font-extrabold tracking-tight text-navy">Commentaires des clients</h3></div>
-        {status === "loading" ? <p className="mt-5 text-[14px] text-mute">Chargement des commentaires...</p> : reviews.length ? <div className="mt-6 grid gap-3 md:grid-cols-2">{reviews.map((review) => <article key={review.id} className="rounded-lg bg-mist p-5"><div className="flex items-start justify-between gap-4"><div><p className="font-bold text-navy">{review.author_name}</p><div className="mt-1"><Stars rating={review.rating} /></div></div><time dateTime={review.created_at} className="shrink-0 text-[11px] font-medium text-mute">{formatDate(review.created_at)}</time></div><p className="mt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-mute">{review.message}</p></article>)}</div> : <p className="mt-5 text-[14px] leading-relaxed text-mute">Soyez le premier à partager votre expérience avec STANDA.</p>}
+        {status === "loading" ? <p className="mt-5 text-[14px] text-mute">Chargement des commentaires…</p> : reviews.length ? <div className="mt-6 grid gap-3 md:grid-cols-2">{reviews.map((review) => <article key={review.id} className="rounded-lg bg-mist p-5"><div className="flex items-start justify-between gap-4"><div><p className="font-bold text-navy">{review.author_name}</p><div className="mt-1"><Stars rating={review.rating} /></div></div><time dateTime={review.created_at} className="shrink-0 text-[11px] font-medium text-mute">{formatDate(review.created_at)}</time></div><p className="mt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-mute">{review.message}</p></article>)}</div> : <p className="mt-5 text-[14px] leading-relaxed text-mute">Soyez le premier à partager votre expérience avec STANDA.</p>}
       </div>
     </section>
   );

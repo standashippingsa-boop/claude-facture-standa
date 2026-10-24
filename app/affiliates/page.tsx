@@ -153,7 +153,7 @@ export default function AffiliatesPage() {
     <div className="max-w-6xl">
       <div className="flex items-center gap-3">
         <HandCoins className="text-accent" />
-        <h1 className="text-2xl font-bold text-navy">Programme Affiliation</h1>
+        <h1 className="text-2xl font-bold text-navy">Programme d’affiliation</h1>
       </div>
       <p className="mt-1 text-sm text-mute">Candidatures, affiliés actifs et commissions. Paiement uniquement en gourdes, par MonCash ou NatCash.</p>
 

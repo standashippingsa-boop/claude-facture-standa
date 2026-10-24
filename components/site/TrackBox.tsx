@@ -117,7 +117,7 @@ export default function TrackBox() {
         <label htmlFor="track-input" className="block text-[22px] font-bold leading-tight text-navy">
           Suivre un colis
         </label>
-        <p className="mt-1 text-[14px] text-ink">Entrez votre numéro de suivi.</p>
+        <p className="mt-1 text-[14px] text-ink">Encodez votre numéro de suivi.</p>
 
         {/* Sou telefòn: anpile. Sou òdinatè: kòt a kòt. */}
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -140,7 +140,7 @@ export default function TrackBox() {
               <button
                 type="button"
                 onClick={clearAll}
-                aria-label="Effacer le numéro de tracking"
+                aria-label="Effacer le numéro de suivi"
                 title="Effacer"
                 className="absolute right-1.5 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center
                            text-mute hover:text-navy"
