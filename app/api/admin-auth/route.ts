@@ -9,6 +9,7 @@ import { AFFILIATE_PAYOUT_METHODS, SIGNED_CONTRACT_BUCKET, toPayoutHtg } from "@
 import { buildAffiliateOverview } from "@/lib/affiliate-overview";
 import { SITE_URL } from "@/lib/branding";
 import { ensureClientAuthAccount } from "@/lib/client-auth-server";
+import { signedStaffDocUrl } from "@/lib/staff-docs";
 
 // Kontra afilye atik 6: komisyon peye SÈLMAN an goud, pa MonCash oswa NatCash.
 const PAYOUT_METHODS = new Set<string>(AFFILIATE_PAYOUT_METHODS);
@@ -68,7 +69,7 @@ export async function POST(req: Request) {
   // Lekti sèlman (gade espas yon afilye, louvri kontra siyen li) gen pwòp
   // bidjè pa yo: fè navigasyon nan dosye afilye yo pa dwe bloke yon admin
   // ki bezwen apwouve oswa peye apre sa.
-  const readOnly = action === "affiliate_overview" || action === "affiliate_contract_url";
+  const readOnly = action === "affiliate_overview" || action === "affiliate_contract_url" || action === "staff_doc_url";
   const rl = readOnly
     ? rateLimit("adminauth-read:" + clientIp(req), 150, 600000)
     : rateLimit("adminauth:" + clientIp(req), 20, 600000);
@@ -291,7 +292,10 @@ export async function POST(req: Request) {
       const { data: settingsRows } = await svc.from("app_settings").select("*").in("key", ["affiliate_commission_amount", "affiliate_contract_pdf_url"]);
       const settings = Object.fromEntries((settingsRows ?? []).map((s: { key: string; value: string }) => [s.key, s.value]));
       const commissionAmount = Number(settings.affiliate_commission_amount) > 0 ? Number(settings.affiliate_commission_amount) : 10;
-      const contractPdfUrl = String(settings.affiliate_contract_pdf_url ?? "").trim() || null;
+      // Le modèle de contrat est dans un compartiment privé : lien temporaire de 10 min
+      // pour que le serveur d'envoi puisse le joindre au courriel.
+      const contractRaw = String(settings.affiliate_contract_pdf_url ?? "").trim();
+      const contractPdfUrl = contractRaw ? await signedStaffDocUrl(svc, contractRaw, 600) : null;
 
       let code = generateAffiliateCode(basis.fullname);
       // Kòd dwe inik — reesye kèk fwa si koyensidans (ra men posib).
@@ -480,6 +484,14 @@ export async function POST(req: Request) {
 
     // ---------- affiliate_contract_url (admin sèlman) — kontra siyen afilye a ----------
     // Bucket PRIVE: lyen siyen 5 minit, jamè yon URL piblik pèmanan.
+    // ---------- staff_doc_url (admin) : lien temporaire vers une pièce interne ----------
+    if (action === "staff_doc_url") {
+      if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
+      const url = await signedStaffDocUrl(svc, String(body.url ?? ""), 300);
+      if (!url) return NextResponse.json({ ok: false, reason: "Document indisponible." });
+      return NextResponse.json({ ok: true, url });
+    }
+
     if (action === "affiliate_contract_url") {
       if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
       const affiliateId = String(body.affiliate_id ?? "");

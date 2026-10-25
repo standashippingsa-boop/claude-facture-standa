@@ -804,7 +804,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
                   {ROLE_LABEL[s.role] ?? "Employé"}</span></td>
                 <td className="td text-xs">{s.role === "agent_retrait" ? (zones.find((v) => v.id === s.pickup_ville_id)?.name ?? "À configurer") : ""}</td>
                 <td className="td">{s.phone}</td>
-                <td className="td text-xs">{s.id_number}{s.id_photo_url && <> · <a className="text-navy underline" href={s.id_photo_url} target="_blank">foto</a></>}</td>
+                <td className="td text-xs">{s.id_number}{s.id_photo_url && <> · <button type="button" className="text-navy underline" onClick={() => void openStaffDoc(s.id_photo_url)}>foto</button></>}</td>
                 <td className="td text-right space-x-2">
                   <button className="text-navy hover:text-accent text-xs font-semibold" onClick={() => startEdit(s)}>
                     Modifier
@@ -886,7 +886,7 @@ function AffiliateSettingsSection({ onNotice }: { onNotice: (s: string) => void 
         <span className="text-xs text-slate-600">Contrat affilié PDF</span>
         <input className="input mt-1" type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)} />
         {pdfUrl && !pdfFile && (
-          <a href={pdfUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-accent hover:underline">
+          <a href={pdfUrl} onClick={(e) => { e.preventDefault(); void openStaffDoc(pdfUrl); }} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-accent hover:underline">
             Voir le contrat actuellement enregistré
           </a>
         )}
@@ -1114,4 +1114,12 @@ function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
       )}
     </section>
   );
+}
+
+/** Documents internes (compartiment privé) : le serveur fournit un lien de 5 minutes. */
+async function openStaffDoc(url: string) {
+  const tab = window.open("", "_blank");
+  const j = await adminApi("staff_doc_url", { url });
+  if (j?.ok && j.url) { if (tab) tab.location.href = j.url; else window.location.href = j.url; }
+  else { tab?.close(); alert(j?.reason ?? "Document indisponible."); }
 }
