@@ -12,6 +12,7 @@ import { getPendingRetraitsCount } from "@/lib/db";
 import { Staff } from "@/lib/types";
 import { isAdminOnlyPath } from "@/lib/access";
 import StaffNotifications from "./StaffNotifications";
+import { useSectionBadges } from "@/lib/section-badges";
 
 // Nav gwoupe pa seksyon (estil dashboard pwofesyonèl)
 const groups: { title: string; items: { href: string; label: string; icon: typeof Users }[] }[] = [
@@ -55,6 +56,9 @@ export default function Sidebar({ staff }: { staff?: Staff | null }) {
   const logout = async () => { await supabase.auth.signOut(); router.replace("/admin-login"); };
   const isAdmin = staff?.role === "admin";
   const initials = (staff?.prenom || staff?.username || "S").slice(0, 2).toUpperCase();
+
+  /** Boules de notification par section (nouvelles actions depuis la dernière visite). */
+  const badges = useSectionBadges(staff, path);
 
   /** Badge "Retraits" — demann kliyan an "En attente" k ap tann yon anplwaye. */
   const [pendingRetraits, setPendingRetraits] = useState(0);
@@ -101,6 +105,12 @@ export default function Sidebar({ staff }: { staff?: Staff | null }) {
                         active ? "bg-white text-navy font-semibold shadow-sm" : "text-white/75 hover:bg-white/10 hover:text-white"}`}>
                       <Icon size={17} className={active ? "text-navy" : ""} />
                       <span className="flex-1">{label}</span>
+                      {href !== "/retraits" && !active && (badges[href] ?? 0) > 0 && (
+                        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"
+                          title={`${badges[href]} nouvelle(s) action(s) depuis votre dernière visite`}>
+                          {badges[href] > 99 ? "99+" : badges[href]}
+                        </span>
+                      )}
                       {href === "/retraits" && pendingRetraits > 0 && (
                         <span className={`grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px] font-bold ${
                           active ? "bg-navy text-white" : "bg-amber-400 text-navy"}`}>

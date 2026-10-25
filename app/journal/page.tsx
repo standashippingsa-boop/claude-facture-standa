@@ -8,6 +8,7 @@ import FilterConsole from "@/components/FilterConsole";
 import { JournalRow, clearJournal, getJournal } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import { useRememberListContext } from "@/lib/list-context";
+import { usePreviousVisit } from "@/lib/section-badges";
 
 import { useNoticeToast } from "@/lib/notify";
 const PER_PAGE = 30;
@@ -44,6 +45,8 @@ function shortUA(ua: string): string {
 export default function JournalPage() {
   const { role } = useRole();
   const [rows, setRows] = useState<JournalRow[]>([]);
+  // Lignes arrivées depuis la visite précédente : marquées « Nouveau ».
+  const prevVisit = usePreviousVisit("/journal");
   const [search, setSearch] = useState("");
   const [action, setAction] = useState("");
   const [userF, setUserF] = useState("");
@@ -137,9 +140,13 @@ export default function JournalPage() {
               <tr><td colSpan={7} className="text-center py-8 text-slate-400">Pa gen anrejistreman.</td></tr>
             ) : view.map((r, i) => {
               const t = fmt(r.created_at);
+              const isNew = !!prevVisit && r.created_at > prevVisit;
               return (
-                <tr key={r.id} className={i % 2 ? "bg-mist" : ""}>
-                  <td className="tdc whitespace-nowrap">{t.d}</td>
+                <tr key={r.id} className={isNew ? "bg-amber-50" : i % 2 ? "bg-mist" : ""}>
+                  <td className="tdc whitespace-nowrap">
+                    {isNew && <span className="mr-1.5 inline-block rounded-full bg-red-500 px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase text-white">Nouveau</span>}
+                    {t.d}
+                  </td>
                   <td className="tdc whitespace-nowrap">{t.h}</td>
                   <td className="tdc max-w-[150px] truncate"
                     title={[r.user_name, r.ip_address && `IP: ${r.ip_address}`, r.user_agent && shortUA(r.user_agent)]
