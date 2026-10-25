@@ -11,6 +11,7 @@ import { SITE_URL } from "@/lib/branding";
 import { ensureClientAuthAccount } from "@/lib/client-auth-server";
 import { signedStaffDocUrl } from "@/lib/staff-docs";
 import { updateClientEverywhere } from "@/lib/client-update-server";
+import { readIssuedPassword, rememberIssuedPassword } from "@/lib/issued-password";
 
 // Kontra afilye atik 6: komisyon peye SÈLMAN an goud, pa MonCash oswa NatCash.
 const PAYOUT_METHODS = new Set<string>(AFFILIATE_PAYOUT_METHODS);
@@ -261,6 +262,7 @@ export async function POST(req: Request) {
       const pass = generatedPassword();
       const linked = await ensureClientAuthAccount(svc, clientId, code, pass, { activate: true });
       if (!linked.ok) return NextResponse.json({ ok: false, reason: linked.reason });
+      await rememberIssuedPassword(svc, linked.authUserId, pass);
       await auditCaller(req, "Compte client activé", `Kòd MC ${code}`, code);
       return NextResponse.json({ ok: true, password: pass, username: code });
     }
@@ -276,6 +278,19 @@ export async function POST(req: Request) {
       return NextResponse.json(r);
     }
 
+    // ---------- client_credentials : renvoyer les identifiants actuels (sans les changer) ----------
+    if (action === "client_credentials") {
+      if (role !== "admin" && role !== "employe") return NextResponse.json({ ok: false, reason: "Accès refusé." });
+      const { data: c } = await svc.from("clients").select("customer_code, auth_user_id").eq("id", String(body.client_id ?? "")).maybeSingle();
+      const code = String(c?.customer_code ?? "").trim();
+      if (!c || !code) return NextResponse.json({ ok: false, reason: "Ce client n'a pas encore de compte actif." });
+      if (!c.auth_user_id) return NextResponse.json({ ok: false, reason: "Ce client n'a pas encore d'accès en ligne. Envoyez-lui un nouveau mot de passe." });
+      const r = await readIssuedPassword(svc, c.auth_user_id, code);
+      if (!r.ok) return NextResponse.json(r);
+      await auditCaller(req, "Identifiants client renvoyés", code, code);
+      return NextResponse.json({ ok: true, username: code, password: r.password });
+    }
+
     // ---------- reset_client_password ----------
     if (action === "reset_client_password") {
       if (role !== "admin" && role !== "employe") return NextResponse.json({ ok: false, reason: "Accès refusé." });
@@ -288,6 +303,7 @@ export async function POST(req: Request) {
       const pass = generatedPassword();
       const linked = await ensureClientAuthAccount(svc, clientId, code, pass);
       if (!linked.ok) return NextResponse.json({ ok: false, reason: linked.reason });
+      await rememberIssuedPassword(svc, linked.authUserId, pass);
       await auditCaller(req, "Modpas kliyan reyajiste", code, code);
       return NextResponse.json({ ok: true, password: pass, username: code });
     }

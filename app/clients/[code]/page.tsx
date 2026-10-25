@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Calculator, FileText, PackageCheck, Pencil, Upload, X, Trash2, Printer } from "lucide-react";
 import ClientEditDialog from "@/components/ClientEditDialog";
+import ClientSendPanel from "@/components/ClientSendPanel";
 import StatusBadge from "@/components/StatusBadge";
 import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
@@ -339,6 +340,8 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
             } else void load();
           }} />
       )}
+
+      <ClientSendPanel client={client} onNotice={setNotice} />
 
       {/* ===== Enfòmasyon + estatistik ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

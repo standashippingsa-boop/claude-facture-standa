@@ -1,5 +1,5 @@
 import { Client, Invoice } from "./types";
-import { buildDepotMessage } from "./depot";
+import { buildCredentialsMessage, buildDepotMessage } from "./depot";
 import { htg, usd } from "./utils";
 
 /** Kite chif sèlman. Si 8 chif -> ajoute 509 (Ayiti). */
@@ -63,6 +63,12 @@ export function openWhatsApp(inv: Invoice, _count?: number) {
 export function openDepotWhatsApp(c: Client, password?: string) {
   const phone = normalizePhone(c.whatsapp || c.phone || "");
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(buildDepotMessage(c, password))}`, "_blank");
+}
+
+/** 🔐 Voye sèlman non itilizatè + modpas (san adrès depo). */
+export function openCredentialsWhatsApp(c: Client, username: string, password: string, fresh: boolean) {
+  const phone = normalizePhone(c.whatsapp || c.phone || "");
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(buildCredentialsMessage(c, username, password, fresh))}`, "_blank");
 }
 
 /** Mesaj pou notifye yon kliyan sou plizyè koli (File d'attente WhatsApp — bulk actions). */

@@ -13,6 +13,36 @@ export const DEPOT = {
  * Mesaj WhatsApp "Voye adrès depo" — fransè, ak enfòmasyon koneksyon yo
  * (username MC + modpas) si yo bay password la.
  */
+/** Identifiants seuls (sans l'adresse de dépôt). */
+export function buildCredentialsMessage(c: Client, username: string, password: string, fresh: boolean): string {
+  const non = [c.fullname, c.surname].filter(Boolean).join(" ").trim() || c.fullname;
+  return `Bonjour ${non},
+
+` +
+    (fresh ? `Voici votre nouveau mot de passe STANDA COMMERCIAL.
+
+` : `Voici vos informations de connexion STANDA COMMERCIAL.
+
+`) +
+    `Nom d'utilisateur :
+${username}
+
+` +
+    `Mot de passe :
+${password}
+
+` +
+    `Connexion :
+https://www.standacommercialsa.com/espace-client/connexion
+
+` +
+    `Ne partagez jamais ces informations. Vous pouvez changer votre mot de passe dans votre espace personnel.
+
+` +
+    `Merci.
+STANDA COMMERCIAL`;
+}
+
 export function buildDepotMessage(c: Client, password?: string): string {
   const non = [c.fullname, c.surname].filter(Boolean).join(" ").trim() || c.fullname;
   const code = c.customer_code || c.username || "MC-_____";
