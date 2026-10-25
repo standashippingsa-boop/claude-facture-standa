@@ -97,7 +97,7 @@ export default function ReceptionAgentPortal() {
       }
     } finally { flushingRef.current = false; }
     setQueue(loadQueue());
-    if (sent) setConduceMessage({ type: "ok", text: `${sent} Conduce envoyée${sent > 1 ? "s" : ""}, internet retrouvé.` });
+    if (sent) setConduceMessage({ type: "ok", text: `${sent} Conduce envoyée${sent > 1 ? "s" : ""} · internet retrouvé.` });
   }, [callApi]);
 
   /** Mete kopi lokal lis kliyan yo ajou (silansye: san rezo, ansyen kopi a rete). */
@@ -186,7 +186,7 @@ export default function ReceptionAgentPortal() {
       if (!result || result.status >= 500) {
         // San rezo: Conduce la rete sou telefòn nan, l ap voye pou kont li.
         setQueue(enqueueConduce(num, office.trim()));
-        setConduceMessage({ type: "ok", text: `Conduce ${num} gardée sur le téléphone, elle sera envoyée dès le retour d'internet.` });
+        setConduceMessage({ type: "ok", text: `Conduce ${num} gardée sur le téléphone · elle sera envoyée dès le retour d'internet.` });
         setConduceNumber(""); setOffice("");
         return;
       }
@@ -195,8 +195,8 @@ export default function ReceptionAgentPortal() {
       setConduceMessage({
         type: "ok",
         text: json.alreadyExisted
-          ? `Conduce ${json.conduce.conduce_number}, déjà enregistrée.`
-          : `Conduce ${json.conduce.conduce_number}, enregistrée.`
+          ? `Conduce ${json.conduce.conduce_number} · déjà enregistrée.`
+          : `Conduce ${json.conduce.conduce_number} · enregistrée.`
       });
       setConduceNumber(""); setOffice("");
     } catch {

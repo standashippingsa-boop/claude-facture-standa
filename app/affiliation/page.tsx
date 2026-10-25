@@ -287,7 +287,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
           Le client reçoit son adresse de dépôt à Miami et son code personnel. Lorsqu’il envoie un premier colis à cette adresse et que le colis est pris en charge dans le système, un signe « Service commencé » apparaît dans votre dossier. Vous savez alors qu’il utilise réellement Standa Commercial.
         </ProgramStep>
         <ProgramStep number="3" title="Une utilisation confirmée ajoute votre commission">
-          Lorsqu’une utilisation du service est confirmée par les opérations de Standa Commercial, par exemple, lors d’une expédition prise en charge ou d’un règlement confirmé, la commission prévue au contrat est ajoutée automatiquement à votre compte. Exemple : si la commission est de 10 USD, vous voyez 10 USD à recevoir.
+          Lorsqu’une utilisation du service est confirmée par les opérations de Standa Commercial · par exemple, lors d’une expédition prise en charge ou d’un règlement confirmé · la commission prévue au contrat est ajoutée automatiquement à votre compte. Exemple : si la commission est de 10 USD, vous voyez 10 USD à recevoir.
         </ProgramStep>
         <ProgramStep number="4" title="Vous suivez les paiements">
           Dans votre espace affilié, vous voyez le nom et le code du client, son étape actuelle, les commissions à recevoir et les commissions déjà payées. La liste se met à jour automatiquement : vous n’avez pas besoin de créer ces suivis à la main.

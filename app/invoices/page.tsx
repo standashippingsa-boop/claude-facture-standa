@@ -117,7 +117,7 @@ export default function InvoicesPage() {
     try {
       const r = await cancelInvoice(inv.id);
       if (r.ok) {
-        setNotice(`✅ Facture ${inv.invoice_number} annulée : ${r.restored} colis remis en « Disponible ».`);
+        setNotice(`✅ Facture ${inv.invoice_number} annulée · ${r.restored} colis remis en « Disponible ».`);
         setInvoices((prev) => prev.filter((x) => x.id !== inv.id));
       } else {
         setNotice("Erè anilasyon: " + (r.reason ?? "inconnue"));
@@ -148,7 +148,7 @@ export default function InvoicesPage() {
       });
       const result = await response.json().catch(() => ({ ok: false, reason: "Réponse du serveur illisible. Actualisez avant de réessayer." }));
       if (!response.ok || !result.ok) throw new Error(result.reason || "Paiement impossible.");
-      setNotice(`✅ Paiement enregistré : ${payload.summary}\n${invoiceStatusLines(result.payments ?? [])}`);
+      setNotice(`✅ Paiement enregistré · ${payload.summary}\n${invoiceStatusLines(result.payments ?? [])}`);
       setPaymentTarget(null);
       await load();
     } catch (e: unknown) {

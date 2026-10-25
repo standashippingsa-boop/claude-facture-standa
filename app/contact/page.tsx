@@ -9,7 +9,7 @@ import { SITE } from "@/lib/site";
 import { DEPOT } from "@/lib/depot";
 
 export const metadata: Metadata = {
-  title: "Contact : STANDA COMMERCIAL",
+  title: "Contact · STANDA COMMERCIAL",
   description: "Contactez STANDA COMMERCIAL par téléphone, WhatsApp ou courriel. Adresse de notre dépôt aux USA et formulaire de contact.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/contact" }

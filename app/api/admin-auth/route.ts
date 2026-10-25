@@ -299,7 +299,7 @@ export async function POST(req: Request) {
         .select("customer_code").eq("id", clientId).maybeSingle();
       if (!c) return NextResponse.json({ ok: false, reason: "Kliyan pa jwenn." });
       const code = String(c.customer_code ?? "").trim();
-      if (!code) return NextResponse.json({ ok: false, reason: "Kliyan sa a poko gen kòd MC, sèvi ak 'Créer compte MCPACK' pito." });
+      if (!code) return NextResponse.json({ ok: false, reason: "Kliyan sa a poko gen kòd MC · sèvi ak 'Créer compte MCPACK' pito." });
       const pass = generatedPassword();
       const linked = await ensureClientAuthAccount(svc, clientId, code, pass);
       if (!linked.ok) return NextResponse.json({ ok: false, reason: linked.reason });
@@ -360,7 +360,7 @@ export async function POST(req: Request) {
         mailSent = r.ok;
         if (!r.ok) mailError = r.message;
       } else {
-        mailError = "RESEND_API_KEY pa konfigire, imèl la pa voye.";
+        mailError = "RESEND_API_KEY pa konfigire · imèl la pa voye.";
       }
 
       return { ok: true as const, aff, username: code, password, referralLink, contractStart: toISODate(contractStart), contractEnd: toISODate(contractEnd), mailSent, mailError };
@@ -387,7 +387,7 @@ export async function POST(req: Request) {
         await svc.from("affiliate_applications").update({ status: "pending" }).eq("id", appRow.id);
         return NextResponse.json(r);
       }
-      await auditCaller(req, "Affilié approuvé", `${r.username} : ${appRow.fullname}`);
+      await auditCaller(req, "Affilié approuvé", `${r.username} · ${appRow.fullname}`);
       return NextResponse.json({ ok: true, affiliate: r.aff, username: r.username, password: r.password, referralLink: r.referralLink, mailSent: r.mailSent, mailError: r.mailError });
     }
 

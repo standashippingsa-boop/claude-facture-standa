@@ -564,7 +564,7 @@ export async function POST(req: Request) {
 
       await db.from("bons_remise").update({ received_at: new Date().toISOString(), received_by: agentName(agent) }).eq("id", bonId);
       await writeAudit(db, req, agent, "Bon de remise reçu",
-        `${bon.bon_number} : ${updated} colis rendus disponibles${alreadyReady ? `, ${alreadyReady} déjà prêts` : ""} · ${zoneName}`, bon.bon_number, "");
+        `${bon.bon_number} · ${updated} colis rendus disponibles${alreadyReady ? `, ${alreadyReady} déjà prêts` : ""} · ${zoneName}`, bon.bon_number, "");
       // Les clients dont les colis viennent de devenir « Disponible » reçoivent
       // l'alerte sur leur téléphone. `targets` exclut les colis déjà disponibles
       // (pas de doublon) ; le compte central n'est pas un client. Une panne

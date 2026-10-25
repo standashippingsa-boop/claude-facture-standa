@@ -48,8 +48,8 @@ export function buildAffiliateApprovalEmail(a: {
 }): { subject: string; html: string } {
   const websiteLink = affiliateWebsiteLink(a.code);
   const subject = a.isRenewal
-    ? `Votre nouveau contrat d'affiliation STANDA COMMERCIAL : ${a.code}`
-    : `Bienvenue dans le programme d'affiliation STANDA COMMERCIAL : ${a.code}`;
+    ? `Votre nouveau contrat d'affiliation STANDA COMMERCIAL · ${a.code}`
+    : `Bienvenue dans le programme d'affiliation STANDA COMMERCIAL · ${a.code}`;
   const intro = a.isRenewal
     ? `Votre contrat <strong>programme d'affiliation STANDA COMMERCIAL</strong> est renouvelé pour 3 mois, avec un <strong>nouveau lien</strong>. L'ancien lien ne génère plus de commission. Voici vos nouvelles informations :`
     : `Votre candidature au <strong>programme d'affiliation STANDA COMMERCIAL</strong> est acceptée. Voici vos informations :`;
@@ -90,7 +90,7 @@ ${label("Mot de passe")}${copyBox(a.password)}
 <p style="margin:8px 0 0;font-size:12px;color:#9CA3AF">Dans votre Espace Affilié : bouton « Copier » pour votre lien, suivi de vos clients et de vos commissions.</p></td></tr>
 <tr><td style="padding:18px 32px 0"><p style="margin:0;font-size:13px;line-height:1.6;color:#4B5563">Le contrat détaillant les conditions du programme est joint à ce courriel en PDF.</p></td></tr>
 <tr><td style="padding:22px 32px 24px"><div style="height:2px;background:#1E3A8A;margin-bottom:12px"></div>
-<p style="margin:0;font-size:11px;color:#9CA3AF">STANDA COMMERCIAL, standacommercialsa.com</p></td></tr>
+<p style="margin:0;font-size:11px;color:#9CA3AF">STANDA COMMERCIAL · standacommercialsa.com</p></td></tr>
 </table></td></tr></table></body></html>`;
   return { subject, html };
 }

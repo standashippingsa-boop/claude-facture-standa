@@ -208,7 +208,7 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
 
         <p className="font-bold">COLIS REMIS ({t.packages.length})</p>
         <div className="mt-1 space-y-1.5">{t.packages.map((item, index) => <div key={item.id}>
-          <p className="break-all font-bold">{index + 1}. {item.guia || item.tracking || ""}</p>
+          <p className="break-all font-bold">{index + 1}. {item.guia || item.tracking || "·"}</p>
           <div className="pl-[1.5ch]">
             {item.tracking && item.tracking !== item.guia && <p className="break-all">Trk : {item.tracking}</p>}
             <p>{[item.content, `Qté ${item.quantity}`, `${item.weight.toFixed(2)} lb`].filter(Boolean).join(" · ")}</p>
@@ -230,7 +230,7 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
               <Row label="Équivalent HTG" value={ticketHtg(invoice.payable_htg)} />
               <Row label="Payé" value={ticketUsd(invoice.paid_usd)} />
               <Row label="Reste" value={ticketUsd(invoice.remaining_usd)} />
-              <Row label="Statut" value={invoice.payment_status || ""} />
+              <Row label="Statut" value={invoice.payment_status || "·"} />
               {invoice.payments.map((payment, index) => <div key={index} className="mt-1">
                 <Row label={payment.method} value={ticketAmount(payment.amount, payment.currency)} />
                 <p className="pl-[1ch]">{ticketShortDateTime(payment.created_at)}{payment.received_by ? " · " + payment.received_by : ""}</p>
@@ -246,8 +246,8 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
         <Row label="Total payé" value={ticketUsd(t.totals.paid_usd)} bold />
         <Row label="Solde restant" value={ticketUsd(t.totals.remaining_usd)} bold />
         <p className="my-1.5 overflow-hidden whitespace-nowrap text-center font-bold">****** REMISE CONFIRMÉE ******</p>
-        <p>Remis par : {t.delivered_by || ""}</p>
-        <p>Imprimé par : {t.printed_by || ""}</p>
+        <p>Remis par : {t.delivered_by || "·"}</p>
+        <p>Imprimé par : {t.printed_by || "·"}</p>
         <p>Le : {ticketDateTime(t.printed_at)}</p>
         <Rule />
 

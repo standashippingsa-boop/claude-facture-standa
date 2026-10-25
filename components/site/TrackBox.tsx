@@ -180,7 +180,7 @@ export default function TrackBox() {
 function ResultCard({ result, onClose, onNewSearch }: { result: Found; onClose: () => void; onNewSearch: () => void }) {
   const current = stepIndex(result.status);
   const delivered = result.status === "Livré";
-  const label = result.status === "Facturé" ? "Disponible" : (result.status || "");
+  const label = result.status === "Facturé" ? "Disponible" : (result.status || "·");
   // Istorik la: etap koli a deja pase yo, pi resan an anlè (tankou USPS).
   const history = current >= 0 ? STEPS.slice(0, current + 1).reverse() : [];
   const receivedDate = result.received_at ? dateFr(result.received_at) : "";
@@ -192,7 +192,7 @@ function ResultCard({ result, onClose, onNewSearch }: { result: Found; onClose: 
       <div className="flex items-start justify-between gap-3 border-t border-line px-5 pt-5 sm:px-6">
         <div className="min-w-0">
           <p className="text-[13px] text-mute">Numéro de suivi :</p>
-          <p className="mt-0.5 break-all font-mono text-[15px] font-bold text-ink">{result.tracking_number || ""}</p>
+          <p className="mt-0.5 break-all font-mono text-[15px] font-bold text-ink">{result.tracking_number || "·"}</p>
         </div>
         <button
           type="button"

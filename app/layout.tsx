@@ -30,7 +30,7 @@ export const metadata: Metadata = {
    * epi `default` sèvi lè yon paj pa gen tit pa l.
    */
   title: {
-    default: "STANDA COMMERCIAL : Expédition de colis USA → Haïti",
+    default: "STANDA COMMERCIAL · Expédition de colis USA → Haïti",
     template: "%s | STANDA COMMERCIAL"
   },
   description:

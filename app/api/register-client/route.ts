@@ -237,7 +237,7 @@ export async function POST(req: Request) {
         ok: false,
         reason: `Ces informations correspondent déjà à un compte existant. Pour ouvrir un `
               + `deuxième compte, utilisez une autre adresse électronique et un autre numéro de `
-              + `téléphone, c'est par là que nous envoyons vos notifications, factures et `
+              + `téléphone · c'est par là que nous envoyons vos notifications, factures et `
               + `mots de passe. Sinon, veuillez vous connecter à votre compte ou contactez STANDA COMMERCIAL.`
       }, { status: 409 });
     }
@@ -299,7 +299,7 @@ export async function POST(req: Request) {
 
     await svc.from("journal").insert({
       user_name: fullname, action: "Inscription Client",
-      details: `Nouveau profil client créé (${email || phone || ""})`,
+      details: `Nouveau profil client créé (${email || phone || "·"})`,
       package_ref: "", customer_code: ""
     });
 

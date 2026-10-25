@@ -19,7 +19,7 @@ const usd = (value: number) => "$" + Number(value || 0).toFixed(2);
 // Les polices standard du PDF ne connaissent pas les espaces insécables : espace simple.
 const plain = (text: string) => text.replace(/[\u00a0\u202f]/g, " ");
 const htg = (value: number) => plain(new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 }).format(Number(value || 0))) + " HTG";
-const when = (value: string) => value ? plain(new Date(value).toLocaleString("fr-CA", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })) : "";
+const when = (value: string) => value ? plain(new Date(value).toLocaleString("fr-CA", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })) : "·";
 
 export function methodLabel(method: string) {
   const value = (method || "").trim();
@@ -59,7 +59,7 @@ export async function buildAgentReportPdf(input: AgentReportInput) {
   doc.setFont("helvetica", "bold"); doc.setFontSize(16);
   doc.text("STANDA COMMERCIAL", 14, 13);
   doc.setFont("helvetica", "normal"); doc.setFontSize(11);
-  doc.text(`Rapport du point de retrait : ${input.zone}`, 14, 21);
+  doc.text(`Rapport du point de retrait · ${input.zone}`, 14, 21);
   doc.setFontSize(9);
   doc.text(`Édité le ${when(now.toISOString())}`, W - 14, 13, { align: "right" });
 
@@ -131,7 +131,7 @@ Réf. ${p.payment_reference}` : ""),
 
   section(`Colis remis (${input.deliveries.length})`);
   table(["Date de remise", "Client", "Tracking", "Facture"], input.deliveries.map((item) => [
-    when(item.delivered_at), `${item.customer_code}${item.customer_name ? " · " + item.customer_name : ""}`, item.tracking, item.invoice_number || ""
+    when(item.delivered_at), `${item.customer_code}${item.customer_name ? " · " + item.customer_name : ""}`, item.tracking, item.invoice_number || "·"
   ]));
 
   section(`Clients avec un solde à régler (${input.balances.length})`);

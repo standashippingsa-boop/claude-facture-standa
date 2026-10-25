@@ -13,7 +13,7 @@ export function normalizePhone(raw: string): string {
 export function buildMessage(inv: Invoice): string {
   return (
     `Bonjou ${inv.customer_name},\n` +
-    `Men fakti STANDA COMMERCIAL ou a: No ${inv.invoice_number}, ` +
+    `Men fakti STANDA COMMERCIAL ou a: No ${inv.invoice_number} · ` +
     `${usd(inv.grand_total)} (${htg(inv.total_htg || inv.grand_total * inv.exchange_rate_used)}).\n` +
     "PDF la disponib nan espas kliyan STANDA ou a."
   );
@@ -42,7 +42,7 @@ export async function sendInvoicePdfWhatsApp(
       await navigator.share({
         files: [file],
         title: filename,
-        text: `Facture ${inv.invoice_number} : STANDA COMMERCIAL`
+        text: `Facture ${inv.invoice_number} · STANDA COMMERCIAL`
       });
       return "file";
     } catch (e: any) {

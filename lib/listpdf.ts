@@ -69,7 +69,7 @@ export async function exportPackagesPdf(
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
   const pageH = doc.internal.pageSize.getHeight();
-  doc.text("STANDA COMMERCIAL : " + title, 10, pageH - 6);
+  doc.text("STANDA COMMERCIAL · " + title, 10, pageH - 6);
 
   doc.save(`Liste_colis_${Date.now().toString().slice(-6)}.pdf`);
 }

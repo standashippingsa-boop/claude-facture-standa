@@ -179,8 +179,8 @@ export async function POST(req: Request) {
     if (error) return NextResponse.json({ ok: false, reason: "Enregistrement impossible. Réessayez." }, { status: 500 });
     if (previous && previous !== path) await svc.storage.from(CONTRACT_BUCKET).remove([previous]);
     await notifyAdminsOfAffiliateChange(svc, aff, previous
-      ? { title: "Affilié : contrat signé remplacé", message: "Un nouveau contrat signé a été envoyé, à vérifier." }
-      : { title: "Affilié : contrat signé reçu", message: "Contrat signé envoyé, à vérifier." });
+      ? { title: "Affilié : contrat signé remplacé", message: "Un nouveau contrat signé a été envoyé · à vérifier." }
+      : { title: "Affilié : contrat signé reçu", message: "Contrat signé envoyé · à vérifier." });
     return NextResponse.json({ ok: true, signed_contract_uploaded_at: uploadedAt });
   }
 

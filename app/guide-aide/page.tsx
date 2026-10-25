@@ -17,7 +17,7 @@ import { SUPPORT_PHONE } from "@/lib/branding";
  * Données : agences (module public autorisé) et /api/public/tarifs (liste blanche).
  */
 export const metadata: Metadata = {
-  title: "Guide et aide : STANDA COMMERCIAL",
+  title: "Guide et aide · STANDA COMMERCIAL",
   description: "Adresse SHEIN et Amazon, fonctionnement de l'expédition Miami → Haïti, délais, prix par ville, agences et questions fréquentes.",
   robots: { index: false, follow: false }
 };
@@ -116,7 +116,7 @@ export default async function GuideAidePage() {
 
         <Card title="Délai de livraison" icon={<Clock size={16} />}>
           <p>Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement <b>entre 3 et 7 jours ouvrables</b> pour qu&apos;il arrive à votre agence en Haïti.</p>
-          <p className="mt-2">Un <b>jour ouvrable</b> va du lundi au vendredi, les samedis et dimanches ne comptent pas dans ce délai. Un colis reçu un vendredi peut donc arriver le mardi ou mercredi suivant sans retard de notre part.</p>
+          <p className="mt-2">Un <b>jour ouvrable</b> va du lundi au vendredi · les samedis et dimanches ne comptent pas dans ce délai. Un colis reçu un vendredi peut donc arriver le mardi ou mercredi suivant sans retard de notre part.</p>
           <p className="mt-2 text-[13px]">Ce délai peut varier seulement selon la douane, ou si votre code client ne figure pas dans l&apos;adresse du colis : une réclamation doit alors être faite avant que le colis puisse être envoyé en Haïti, ce qui prend du temps. Suivez chaque étape directement dans l&apos;application, sans avoir à nous contacter.</p>
         </Card>
 
@@ -151,10 +151,10 @@ export default async function GuideAidePage() {
 
         <Card title="Nos principes" icon={<ShieldCheck size={16} />}>
           <ul className="space-y-2">
-            <li><b>Transparence</b> : le prix final correspond toujours au poids réel pesé à l&apos;entrepôt, jamais à une estimation imposée.</li>
-            <li><b>Sécurité</b> : chaque colis est suivi de sa réception à Miami jusqu&apos;à sa remise à votre agence.</li>
-            <li><b>Rapidité</b> : vos colis sont acheminés régulièrement vers Haïti, sans attendre un plein chargement.</li>
-            <li><b>Proximité</b> : une équipe joignable par téléphone et WhatsApp pour répondre à vos questions.</li>
+            <li><b>Transparence</b> · le prix final correspond toujours au poids réel pesé à l&apos;entrepôt, jamais à une estimation imposée.</li>
+            <li><b>Sécurité</b> · chaque colis est suivi de sa réception à Miami jusqu&apos;à sa remise à votre agence.</li>
+            <li><b>Rapidité</b> · vos colis sont acheminés régulièrement vers Haïti, sans attendre un plein chargement.</li>
+            <li><b>Proximité</b> · une équipe joignable par téléphone et WhatsApp pour répondre à vos questions.</li>
           </ul>
           <a href={`tel:${WA_NUM}`} className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-line px-3 py-2.5 text-[14px] font-bold text-navy"><Phone size={15} /> {SUPPORT_PHONE}</a>
         </Card>

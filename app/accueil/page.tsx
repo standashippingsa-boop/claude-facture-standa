@@ -11,14 +11,14 @@ import { SITE } from "@/lib/site";
 import { SITE_URL } from "@/lib/branding";
 
 export const metadata: Metadata = {
-  title: "STANDA COMMERCIAL : Vos colis des USA vers Haïti",
+  title: "STANDA COMMERCIAL · Vos colis des USA vers Haïti",
   description: "Commandez en ligne aux USA, utilisez votre adresse à Miami et recevez vos colis en Haïti avec STANDA COMMERCIAL.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/accueil" },
   keywords: ["standa commercial", "shipping Haïti", "colis USA Haïti", "adresse Miami Haïti", "casillero Haïti", "envoi colis Ayiti"],
   openGraph: {
     type: "website", url: "/accueil", siteName: "STANDA COMMERCIAL", locale: "fr_HT",
-    title: "STANDA COMMERCIAL : Vos colis des USA vers Haïti",
+    title: "STANDA COMMERCIAL · Vos colis des USA vers Haïti",
     description: "Une adresse à Miami, un suivi clair et la récupération de vos colis en agence en Haïti.",
     images: [{ url: "/hero-shopping.jpg", width: 1600, height: 1067, alt: "Colis STANDA COMMERCIAL" }]
   }

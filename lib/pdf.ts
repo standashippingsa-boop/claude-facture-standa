@@ -91,7 +91,7 @@ export function generateInvoicePdf(
   doc.setTextColor(40, 40, 40);
   doc.text(`Code: ${inv.customer_code}`, 20, 57);
   doc.text(`Nom: ${inv.customer_name}`, 20, 63);
-  doc.text(`Ville: ${inv.ville || ""}`, W / 2 + 4, 57);
+  doc.text(`Ville: ${inv.ville || "·"}`, W / 2 + 4, 57);
   doc.text(`WhatsApp: ${inv.whatsapp}`, W / 2 + 4, 63);
   doc.text(`Lieu de récupération : ${inv.pickup_location}`, 20, 69);
 
@@ -104,12 +104,12 @@ export function generateInvoicePdf(
       const tax = Number(k.tax) || 0;
       // Colonne « Taxe » : la taxe ajoutée sur ce colis (sinon « — »). Le montant
       // de la ligne = prix shipping + taxe.
-      const prixCell = tax > 0 ? tax.toFixed(2) : "";
+      const prixCell = tax > 0 ? tax.toFixed(2) : "·";
       const montant = tax > 0 ? Number(k.total ?? Number(k.price) + tax) : Number(k.price);
       return [
         String(i + 1),
         k.tracking_number,
-        k.tracking_manual || "",
+        k.tracking_manual || "·",
         w.toFixed(2),
         prixCell,
         montant.toFixed(2)

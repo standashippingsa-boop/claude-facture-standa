@@ -17,7 +17,7 @@ import { getAgences, Agence } from "@/lib/agences";
  *     POU PAJ SA A SÈLMAN, menm jan ak /accueil ak /contact.
  */
 export const metadata: Metadata = {
-  title: "Nos agences : STANDA COMMERCIAL",
+  title: "Nos agences · STANDA COMMERCIAL",
   description:
     "Retrouvez toutes les agences et points de retrait STANDA COMMERCIAL en Haïti : adresses, téléphones, WhatsApp et horaires d'ouverture.",
   robots: { index: true, follow: true },

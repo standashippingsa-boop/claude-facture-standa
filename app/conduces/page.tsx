@@ -222,7 +222,7 @@ export default function ConducesPage() {
       `Cette action est irréversible.`)) return;
     try {
       const { detached } = await deleteConduce(r.id);
-      setNotice(`Conduce ${r.conduce_number} supprimée${detached ? ` : ${detached} colis détachés` : ""}.`);
+      setNotice(`Conduce ${r.conduce_number} supprimée${detached ? ` · ${detached} colis détachés` : ""}.`);
       await load();
     } catch (e: unknown) { setNotice((e as Error).message); }
   };
@@ -425,7 +425,7 @@ export default function ConducesPage() {
               : tab === "historique"
                 ? "Aucune journée entièrement facturée pour le moment."
                 : tab === "actives"
-                  ? "Aucune conduce en cours, consultez l'onglet Historique."
+                  ? "Aucune conduce en cours · consultez l'onglet Historique."
                   : <>Aucune conduce enregistrée. Importez des conduces depuis{" "}
                       <Link href="/sync" className="text-navy underline font-semibold">Synchronisation</Link>.</>}
           </p>
@@ -627,7 +627,7 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPa
                   {r.specialCount > 0 && <span className="pill pill-amber !px-2"><Sparkles size={10} className="mr-0.5" />{r.specialCount} spécial{r.specialCount > 1 ? "aux" : ""}</span>}
                 </div>
                 <p className="text-[11px] text-mute mt-0.5 truncate">
-                  {r.office || "Office : "} · {r.count} colis · {r.weight.toFixed(1)} lb
+                  {r.office || "Office · "} · {r.count} colis · {r.weight.toFixed(1)} lb
                 </p>
                 {vide ? (
                   <p className="text-[11px] text-amber-700 mt-1.5">
@@ -654,7 +654,7 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPa
       {/* Benefis jounen an */}
       <div className="rounded-2xl bg-navy text-white p-4 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-white/55">Bénéfice estimé, journée</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-white/55">Bénéfice estimé · journée</p>
           <p className="text-[10px] text-white/45 mt-0.5">{cl.weight.toFixed(1)} lb × {usd(PROFIT_PER_LB)}/lb</p>
         </div>
         <span className="text-xl font-extrabold inline-flex items-center gap-1.5 shrink-0">

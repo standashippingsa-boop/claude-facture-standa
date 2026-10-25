@@ -412,7 +412,7 @@ export async function makeConducesAvailableForVille(
 
   await logAction(
     "Colis rendus disponibles par ville",
-    `${ids.length} Conduce(s) → ${ville.name} : ${available} rendus disponibles, ${priced} tarifés, ${alreadyAvailable} déjà disponibles, ${skippedLocked} facturé(s)/livré(s) conservé(s), par ${who || "système"}`,
+    `${ids.length} Conduce(s) → ${ville.name} : ${available} rendus disponibles, ${priced} tarifés, ${alreadyAvailable} déjà disponibles, ${skippedLocked} facturé(s)/livré(s) conservé(s) · par ${who || "système"}`,
     "", ""
   );
   return { cityName: ville.name, available, priced, alreadyAvailable, skippedLocked, customersInCity: accountByCode.size };
@@ -497,7 +497,7 @@ export async function makeBonRemiseAvailable(bonId: string, who = ""): Promise<C
 
   await logAction(
     "Colis rendus disponibles par Bon de remise",
-    `Bon ${bon.bon_number} → ${ville.name} : ${available} rendus disponibles, ${priced} tarifés, ${alreadyAvailable} déjà disponibles, ${skippedLocked} facturé(s)/livré(s) conservé(s), par ${who || "système"}`,
+    `Bon ${bon.bon_number} → ${ville.name} : ${available} rendus disponibles, ${priced} tarifés, ${alreadyAvailable} déjà disponibles, ${skippedLocked} facturé(s)/livré(s) conservé(s) · par ${who || "système"}`,
     "", ""
   );
   return { cityName: ville.name, available, priced, alreadyAvailable, skippedLocked, customersInCity: codes.length };
@@ -580,7 +580,7 @@ export async function createBonRemiseRecord(input: {
   }
 
   await logAction("Bon de remise créé",
-    `${bon.bon_number} : ${packageIds.length} colis, ${conduceIds.length} Conduce(s)${input.destination ? ` · ${input.destination}` : ""}`,
+    `${bon.bon_number} · ${packageIds.length} colis, ${conduceIds.length} Conduce(s)${input.destination ? ` · ${input.destination}` : ""}`,
     "", "");
 
   // Notifikasyon push pou ajan retrè zòn nan (app "Standa Agence") — kanal
@@ -704,7 +704,7 @@ export async function setConducePaymentStatus(
   if (error) throw error;
   await logAction(
     paid ? "Paiement MCPACK validé" : "Paiement MCPACK remis à non payé",
-    `Conduce ${conduceId} : ${paymentStatus}`,
+    `Conduce ${conduceId} · ${paymentStatus}`,
     "", ""
   );
   // Si Conduce a te soti nan yon fakti MCPACK, mete eta fakti a ann amoni.
@@ -1021,7 +1021,7 @@ export async function createMcpackInvoice(
   }
 
   await logAction("Facture MCPACK enregistrée",
-    `${input.fileName} : ${input.conduces.length} Conduce(s), ${input.matchedPackageCount} colis associés`, "", "");
+    `${input.fileName} · ${input.conduces.length} Conduce(s), ${input.matchedPackageCount} colis associés`, "", "");
   return {
     ...(invoice as Omit<McpackInvoice, "conduces">),
     conduces: input.conduces.map((line) => ({
@@ -1048,7 +1048,7 @@ export async function payMcpackInvoice(invoice: McpackInvoice, who = ""): Promis
   }).eq("id", invoice.id);
   if (invoiceError) throw invoiceError;
   await logAction("Facture MCPACK payée",
-    `${invoice.file_name} : ${conduceIds.length} Conduce(s) réglée(s)`, "", "");
+    `${invoice.file_name} · ${conduceIds.length} Conduce(s) réglée(s)`, "", "");
 }
 
 /** Met eta yon fakti MCPACK ajou si peman yon sèl Conduce chanje sou fich li. */
@@ -1299,7 +1299,7 @@ export async function importConduceExcelRows(
 
   const totalWeight = rows.reduce((s, r) => s + (r.weight || 0), 0);
   await logAction("Import Conduce · Excel",
-    `Conduce ${conduceNumber} : ${created} créés, ${updated} mis à jour/liés, ${rows.length} colis dont ${special} spécial(aux), ${totalWeight.toFixed(2)} lb, par ${who}`,
+    `Conduce ${conduceNumber} : ${created} créés, ${updated} mis à jour/liés, ${rows.length} colis dont ${special} spécial(aux), ${totalWeight.toFixed(2)} lb · par ${who}`,
     "", "");
   // Bon de remise pou chak vil, touswit apre koli yo antre nan Conduce a.
   // Kanal apa: yon echèk isit la pa anile enpòtasyon an (pwogram 10 minit la ap pran l).
@@ -1380,7 +1380,7 @@ export async function commitFactureDisponible(
     undo.push({ id: before.id, status: before.status,
       received_method: before.received_method ?? "", received_at: before.received_at ?? null });
     await logAction("Import Facture → Disponible",
-      `${m.guia || ""} | Tracking:${m.tracking} | "${before.status}" → "Disponible"`,
+      `${m.guia || "·"} | Tracking:${m.tracking} | "${before.status}" → "Disponible"`,
       m.guia || "", m.customerCode || "");
   }
 
@@ -1541,7 +1541,7 @@ export async function markPackageSpecial(
   if (error) throw error;
   await logAction(
     "Colis spécial",
-    `${kind}${String(note ?? "").trim() ? ` : ${String(note).trim()}` : ""}`,
+    `${kind}${String(note ?? "").trim() ? ` · ${String(note).trim()}` : ""}`,
     String(pkg.tracking_number ?? ""), String(pkg.customer_code ?? "")
   );
   return metadata;
@@ -1802,7 +1802,7 @@ export async function createInvoiceFromComputation(
     const ref = (dinv ?? [])[0];
     throw new Error(
       `Ce colis est déjà facturé (${deja.map((p: any) => p.tracking_number).slice(0, 3).join(", ")})` +
-      (ref ? ` : Facture ${ref.invoice_number}, ${new Date(ref.created_at).toLocaleDateString("fr-FR")}, ${ref.customer_name}.` : ".")
+      (ref ? ` · Facture ${ref.invoice_number}, ${new Date(ref.created_at).toLocaleDateString("fr-FR")}, ${ref.customer_name}.` : ".")
     );
   }
   // ══ GAD #2: tout koli dwe apateni kliyan an ══
@@ -2191,8 +2191,8 @@ export async function hardDeletePackage(
 
   // 1) Tras nan audit ANVAN nou efase (done a p ap egziste apre)
   await logAction("Suppression Colis",
-    `${p.tracking_number} | Tracking:${p.tracking_manual || ""} | Client:${p.customer_code} ${p.customer_name} | ` +
-    `Poids:${p.weight} | Contenu:${p.content || ""} | Statut:${p.status}` +
+    `${p.tracking_number} | Tracking:${p.tracking_manual || "·"} | Client:${p.customer_code} ${p.customer_name} | ` +
+    `Poids:${p.weight} | Contenu:${p.content || "·"} | Statut:${p.status}` +
     (p.invoice_id ? " | était facturé" : ""),
     p.tracking_number, p.customer_code);
 
@@ -2917,7 +2917,7 @@ export async function analyzePhotoScans(scans: {
       } else if (s.customer_code) {
         message = `Nou jwenn yon package pou kliyan ${normalizeMcCode(s.customer_code)} men foto a pa pèmèt nou idantifye Tracking ID oswa Tracking Number.`;
       } else {
-        message = "Aucun code détecté, étiquette illisible.";
+        message = "Aucun code détecté · étiquette illisible.";
       }
       return { ...base, matched: false, verdict: "no_match" as ScanVerdict, message, canApply: false };
     }
@@ -2933,10 +2933,10 @@ export async function analyzePhotoScans(scans: {
       matchedCode: hit.customer_code, matchedStatus: hit.status,
       verdict: (lowConf ? "review" : "validated") as ScanVerdict,
       message: lowConf
-        ? `Confiance ${Math.round(s.confidence)}% < ${MIN_CONFIDENCE}%, validation manuelle requise`
+        ? `Confiance ${Math.round(s.confidence)}% < ${MIN_CONFIDENCE}% · validation manuelle requise`
         : proposedTracking
-          ? `Colis identifié : Tracking Number "${proposedTracking}" sera ajouté`
-          : "Colis identifié, réception seulement",
+          ? `Colis identifié · Tracking Number "${proposedTracking}" sera ajouté`
+          : "Colis identifié · réception seulement",
       canApply: !lowConf,
       proposedTracking
     };
@@ -2985,11 +2985,11 @@ export async function applyPhotoValidations(items: PhotoMatch[]): Promise<{
     });
 
     await logAction("Analyse Photo",
-      `${m.filename} | Guía:${m.guia || ""} | confiance:${Math.round(m.confidence)}% | ` +
+      `${m.filename} | Guía:${m.guia || "·"} | confiance:${Math.round(m.confidence)}% | ` +
       (patch.tracking_manual
         ? `Tracking Number: "${before.tracking_manual ?? ""}" → "${patch.tracking_manual}"`
         : "réception seulement") +
-      ` | réception: "${before.received_at ?? ""}" → "${now}"`,
+      ` | réception: "${before.received_at ?? "·"}" → "${now}"`,
       m.matchedTracking ?? "", m.matchedCode ?? "");
   }
 
@@ -3026,7 +3026,7 @@ export async function undoLastImport(): Promise<{ ok: boolean; batchId?: string;
   }
   await supabase.from("import_batches").update({ undone: true }).eq("id", batch.id);
   await logAction("Annulation Import",
-    `Batch ${batch.batch_id} annulé : ${restored} colis restaurés`, batch.batch_id, "");
+    `Batch ${batch.batch_id} annulé · ${restored} colis restaurés`, batch.batch_id, "");
   return { ok: true, batchId: batch.batch_id, restored };
 }
 
@@ -3051,8 +3051,8 @@ export async function logOcrScans(scans: PhotoMatch[], photoUrls?: Record<string
     const action = s.canApply ? "Journal OCR" : "Photo non identifiée";
     const url = photoUrls?.[s.filename];
     await logAction(action,
-      `${s.filename} | barcode:${s.guiaSource === "barcode" ? "oui" : "non"} | Guía:${s.guia || ""} | ` +
-      `Tracking:${s.tracking_number || ""} | Code:${s.customer_code || ""} | ` +
+      `${s.filename} | barcode:${s.guiaSource === "barcode" ? "oui" : "non"} | Guía:${s.guia || "·"} | ` +
+      `Tracking:${s.tracking_number || "·"} | Code:${s.customer_code || "·"} | ` +
       `confiance:${Math.round(s.confidence)}% | ${s.verdict}` +
       (url ? ` | photo:${url}` : ""),
       s.guia || s.tracking_number, s.matchedCode ?? s.customer_code);

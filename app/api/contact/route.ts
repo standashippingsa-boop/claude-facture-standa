@@ -36,7 +36,7 @@ const emailOk = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
 function buildHtml(b: ContactBody): { subject: string; html: string } {
-  const subject = `Nouveau message : Contact site web${b.subject ? " : " + b.subject : ""}`;
+  const subject = `Nouveau message · Contact site web${b.subject ? " : " + b.subject : ""}`;
 
   const row = (k: string, v: string) => `
     <tr>
@@ -57,14 +57,14 @@ function buildHtml(b: ContactBody): { subject: string; html: string } {
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:#FFFFFF;border:1px solid #EAECEF;border-radius:6px">
         <tr><td style="background:#122B5C;padding:18px 32px;border-radius:6px 6px 0 0">
           <span style="color:#FFFFFF;font-size:15px;font-weight:800;font-family:${FONT}">STANDA COMMERCIAL</span>
-          <div style="color:#16A34A;font-size:12px;font-weight:700;font-family:${FONT};margin-top:2px">Nouveau message, formulaire Contact</div>
+          <div style="color:#16A34A;font-size:12px;font-weight:700;font-family:${FONT};margin-top:2px">Nouveau message · formulaire Contact</div>
         </td></tr>
         <tr><td style="padding:26px 32px 8px">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
             ${row("Nom", esc(b.name))}
-            ${row("Email", b.email ? `<a href="mailto:${esc(b.email)}" style="color:#122B5C;text-decoration:none">${esc(b.email)}</a>` : "")}
-            ${row("Téléphone", b.phone ? `<a href="tel:${esc(b.phone)}" style="color:#122B5C;text-decoration:none">${esc(b.phone)}</a>` : "")}
-            ${row("Sujet", b.subject ? esc(b.subject) : "")}
+            ${row("Email", b.email ? `<a href="mailto:${esc(b.email)}" style="color:#122B5C;text-decoration:none">${esc(b.email)}</a>` : "·")}
+            ${row("Téléphone", b.phone ? `<a href="tel:${esc(b.phone)}" style="color:#122B5C;text-decoration:none">${esc(b.phone)}</a>` : "·")}
+            ${row("Sujet", b.subject ? esc(b.subject) : "·")}
           </table>
         </td></tr>
         <tr><td style="padding:6px 32px 28px">
@@ -73,7 +73,7 @@ function buildHtml(b: ContactBody): { subject: string; html: string } {
         </td></tr>
         <tr><td style="padding:16px 32px 22px;border-top:1px solid #EAECEF">
           <p style="margin:0;color:#9CA3AF;font-size:11px;line-height:1.6;font-family:${FONT}">
-            Envoyé depuis le formulaire de contact : ${SITE_URL.replace("https://", "")}<br>
+            Envoyé depuis le formulaire de contact · ${SITE_URL.replace("https://", "")}<br>
             Répondez directement à ce courriel pour contacter le visiteur, ou appelez ${SUPPORT_PHONE}.
           </p>
         </td></tr>

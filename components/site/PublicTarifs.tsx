@@ -31,7 +31,7 @@ export default function PublicTarifs() {
         <li>• Le prix correspond au <b>poids du colis × tarif de votre ville</b> (tableau plus bas).</li>
         {state.petitColis && <li>• Petit colis entre <b>{state.petitColis.min} et {state.petitColis.max} lb</b> : prix fixe de <b>{usd(state.petitColis.price)}</b>.</li>}
         <li>• À partir de <b>{TAX_THRESHOLD_LB} lb</b> au total, une taxe fixe de <b>{usd(TAX_FIXED_USD)}</b> s&apos;applique.</li>
-        <li>• Certains articles comme les téléphones, ordinateurs portables et appareils photo ont un <b>prix forfaitaire</b> : le poids ne s&apos;applique pas.</li>
+        <li>• Certains articles comme les téléphones, ordinateurs portables et appareils photo ont un <b>prix forfaitaire</b> · le poids ne s&apos;applique pas.</li>
         <li>• Le prix affiché dans l&apos;application est une <b>estimation</b>. Le prix final est fixé après la pesée du colis à l&apos;entrepôt.</li>
       </ul>
       <div className="overflow-hidden rounded-2xl border border-line">

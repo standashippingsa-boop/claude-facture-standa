@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     const skipped: Array<{ guia: string; customer: string; reason: string }> = [];
     const skip = (guia: string, customer: unknown, reason: string) => {
       ignored++;
-      skipped.push({ guia: guia || "", customer: String(customer ?? "").trim(), reason });
+      skipped.push({ guia: guia || "·", customer: String(customer ?? "").trim(), reason });
     };
     const seen = new Set<string>();
     // Colis NOUVEAUX seulement, par code client : une mise à jour ou un renvoi

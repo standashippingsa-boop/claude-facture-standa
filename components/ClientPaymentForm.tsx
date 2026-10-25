@@ -20,7 +20,7 @@ type DraftLine = { id: number; amount: string; currency: "USD" | "HTG"; method: 
 const fmtUsd = (value: number) => "$" + Number(value || 0).toFixed(2);
 const fmtHtg = (value: number) => new Intl.NumberFormat("fr-HT", { maximumFractionDigits: 2 }).format(Number(value || 0)) + " HTG";
 const fmt = (currency: "USD" | "HTG", value: number) => currency === "HTG" ? fmtHtg(value) : fmtUsd(value);
-const dateText = (value: string | null) => value ? new Date(value).toLocaleDateString("fr-CA", { day: "numeric", month: "short", year: "numeric" }) : "";
+const dateText = (value: string | null) => value ? new Date(value).toLocaleDateString("fr-CA", { day: "numeric", month: "short", year: "numeric" }) : "·";
 const cn = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" ");
 const needsReference = (method: string) => method === "Zelle" || method === "Virement bancaire" || method === "MonCash" || method === "NatCash";
 

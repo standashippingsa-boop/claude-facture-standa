@@ -148,7 +148,7 @@ export default function McpackInvoiceWorkspace({
             <div className="flex flex-wrap justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-bold text-sm text-ink truncate"><FileText size={14} className="inline mr-1.5 text-navy" />{analysis.fileName}</p>
-                <p className="text-[11px] text-mute mt-0.5">Références lues dans le PDF, aucun changement n&apos;est encore enregistré.</p>
+                <p className="text-[11px] text-mute mt-0.5">Références lues dans le PDF · aucun changement n&apos;est encore enregistré.</p>
               </div>
               <div className="flex gap-1.5 text-[10px] font-bold">
                 <span className="pill pill-gray !px-2">{analysis.extractedTrackingCount} références lues</span>
@@ -175,7 +175,7 @@ export default function McpackInvoiceWorkspace({
               const gap = rec.systemLbs - rec.invoiceLbs;
               const ok = Math.abs(gap) < 0.01;
               return <div className={`rounded-xl border px-3 py-2.5 text-[11px] ${ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
-                <p className="font-extrabold flex items-center gap-1.5">{ok ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />} Livres : facture MCPACK {rec.invoiceLbs.toFixed(2)} lb · STANDA {rec.systemLbs.toFixed(2)} lb{ok ? ", identiques" : `, écart ${gap > 0 ? "+" : ""}${gap.toFixed(2)} lb`}</p>
+                <p className="font-extrabold flex items-center gap-1.5">{ok ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />} Livres : facture MCPACK {rec.invoiceLbs.toFixed(2)} lb · STANDA {rec.systemLbs.toFixed(2)} lb{ok ? " · identiques" : ` · écart ${gap > 0 ? "+" : ""}${gap.toFixed(2)} lb`}</p>
                 {rec.weightDiffs.length > 0 && <>
                   <p className="mt-1.5 font-bold">Poids différent ({rec.weightDiffs.length}) :</p>
                   <ul className="mt-0.5 space-y-0.5 font-mono">{rec.weightDiffs.map((d) => <li key={d.tracking}>{d.tracking} · Conduce {d.conduceNumber} · {d.customerCode} : MCPACK {d.invoiceLbs} lb / STANDA {d.systemLbs} lb</li>)}</ul>
@@ -194,7 +194,7 @@ export default function McpackInvoiceWorkspace({
                 <ul className="mt-1.5 space-y-0.5 font-semibold">
                   {analysis.alreadyRecordedConduces.map((line) => (
                     <li key={line.conduce.id}>
-                      Conduce {line.conduce.conduce_number}  {line.reason}
+                      Conduce {line.conduce.conduce_number} · {line.reason}
                       {line.invoiceFileName ? ` (${line.invoiceFileName})` : ""}
                     </li>
                   ))}
@@ -249,7 +249,7 @@ function InvoiceCard({ invoice, paying, onPay }: { invoice: McpackInvoice; payin
   const count = invoice.conduces.length;
   const date = invoice.created_at
     ? new Date(invoice.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })
-    : "";
+    : "·";
   return (
     <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-3">
       <div className="flex flex-col sm:flex-row sm:items-start gap-2.5">
@@ -257,7 +257,7 @@ function InvoiceCard({ invoice, paying, onPay }: { invoice: McpackInvoice; payin
           <p className="font-bold text-sm text-ink truncate"><FileText size={14} className="inline mr-1.5 text-amber-700" />{invoice.file_name || "Facture MCPACK"}</p>
           <p className="text-[11px] text-mute mt-0.5">Enregistrée le {date} · {invoice.matched_package_count} colis associés</p>
           <p className="text-[11px] text-navy font-semibold mt-1.5">
-            {invoice.conduces.map((line) => line.conduce?.conduce_number ?? "").join(" · ")}
+            {invoice.conduces.map((line) => line.conduce?.conduce_number ?? "·").join(" · ")}
           </p>
         </div>
         <button type="button" onClick={onPay} disabled={paying}

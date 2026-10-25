@@ -124,7 +124,7 @@ export default function AffiliateDetailPage() {
                   <p className="truncate text-[14px] font-semibold text-navy">
                     {c.customer_code ? <Link href={`/clients/${encodeURIComponent(c.customer_code)}`} className="hover:underline">{c.fullname}</Link> : c.fullname}
                   </p>
-                  <p className="text-[12px] text-mute">{c.customer_code || "Compte en attente d’activation"} · {c.account_status || ""} · inscrit le {dateFr(c.created_at)}{c.phone ? ` · ${c.phone}` : ""}</p>
+                  <p className="text-[12px] text-mute">{c.customer_code || "Compte en attente d’activation"} · {c.account_status || "·"} · inscrit le {dateFr(c.created_at)}{c.phone ? ` · ${c.phone}` : ""}</p>
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${stage.tone}`}>{stage.label}</span>
               </div>
@@ -142,8 +142,8 @@ export default function AffiliateDetailPage() {
                 {commissions.map((c) => (
                   <tr key={c.id} className="border-t border-line">
                     <td className="py-2.5 pr-3 text-mute">{dateFr(c.created_at)}</td>
-                    <td className="py-2.5 pr-3 font-semibold text-navy">{c.invoice_number || ""}</td>
-                    <td className="py-2.5 pr-3">{c.customer_name || ""}{c.customer_code && <span className="block text-[11px] text-mute">{c.customer_code}</span>}</td>
+                    <td className="py-2.5 pr-3 font-semibold text-navy">{c.invoice_number || "·"}</td>
+                    <td className="py-2.5 pr-3">{c.customer_name || "·"}{c.customer_code && <span className="block text-[11px] text-mute">{c.customer_code}</span>}</td>
                     <td className="py-2.5 pr-3 font-semibold text-navy">{usd(c.amount)}<span className="block text-[11px] font-normal text-mute">{formatHtg(c.status === "paid" && c.paid_amount_htg != null ? Number(c.paid_amount_htg) : toPayoutHtg(c.amount))}</span></td>
                     <td className="py-2.5">
                       {c.status === "paid"
@@ -165,8 +165,8 @@ export default function AffiliateDetailPage() {
           <Rows rows={[
             ["Identifiant", admin.username], ["Courriel", admin.email], ["Téléphone", admin.phone],
             ["WhatsApp", admin.whatsapp], ["Affilié depuis", dateFr(admin.created_at)],
-            ["Ville", admin.application?.city ?? ""],
-            ["Pièce d’identité", admin.application ? `${admin.application.id_type} : ${admin.application.id_number}` : ""],
+            ["Ville", admin.application?.city ?? "·"],
+            ["Pièce d’identité", admin.application ? `${admin.application.id_type} · ${admin.application.id_number}` : ""],
           ]} />
           {admin.application?.motivation && <p className="mt-3 rounded-lg bg-mist px-3 py-2 text-[12.5px] italic text-mute">« {admin.application.motivation} »</p>}
           {admin.application && <p className="mt-2 text-[11px] text-mute">Candidature reçue le {dateFr(admin.application.created_at)}</p>}
@@ -257,7 +257,7 @@ function Card({ title, icon: Icon, count, children }: { title: string; icon: typ
 function Rows({ rows }: { rows: Array<[string, string]> }) {
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
-      {rows.map(([k, v]) => <div key={k} className="contents"><dt className="text-mute">{k}</dt><dd className="break-all font-semibold text-navy">{v || ""}</dd></div>)}
+      {rows.map(([k, v]) => <div key={k} className="contents"><dt className="text-mute">{k}</dt><dd className="break-all font-semibold text-navy">{v || "·"}</dd></div>)}
     </dl>
   );
 }

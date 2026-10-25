@@ -122,7 +122,7 @@ export default function BonRemisePage() {
       await generateBonRemise(chosen, tarifMap, {
         destination: ville, conduceOf, centralCode: central
       });
-      setToast(`Bon de remise créé : ${chosen.length} colis${ville ? ` · ${ville}` : ""}`);
+      setToast(`Bon de remise créé · ${chosen.length} colis${ville ? ` · ${ville}` : ""}`);
     } finally { setBusy(false); }
   };
 
@@ -167,7 +167,7 @@ export default function BonRemisePage() {
                   <span className="font-mono font-bold text-sm truncate">{c.conduce_number}</span>
                 </div>
                 <p className={`text-[11px] mt-0.5 truncate ${on ? "text-white/80" : "text-white/45"}`}>
-                  {c.office || ""} · {c.conduce_date ? dateFr(c.conduce_date) : dateFr(c.created_at)}
+                  {c.office || "·"} · {c.conduce_date ? dateFr(c.conduce_date) : dateFr(c.created_at)}
                 </p>
               </button>
             );
@@ -200,7 +200,7 @@ export default function BonRemisePage() {
           </div>
           {ville && central && (
             <p className="text-[11px] text-navy bg-blue-50 border border-navy/15 rounded-lg px-3 py-2 mt-3">
-              Les colis du <b>compte central {central}</b> restent visibles quelle que soit la ville, ils prendront <b>{ville}</b> comme destination sur ce bon.
+              Les colis du <b>compte central {central}</b> restent visibles quelle que soit la ville · ils prendront <b>{ville}</b> comme destination sur ce bon.
             </p>
           )}
         </section>
@@ -234,15 +234,15 @@ export default function BonRemisePage() {
                         <td className="tdc" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" checked={on} onChange={() => toggle(p.id)} />
                         </td>
-                        <td className="tdc font-mono text-navy font-semibold">{conduceOf[p.id] || ""}</td>
+                        <td className="tdc font-mono text-navy font-semibold">{conduceOf[p.id] || "·"}</td>
                         <td className="tdc font-mono">{p.tracking_number}</td>
-                        <td className="tdc font-mono text-mute">{p.tracking_manual || ""}</td>
+                        <td className="tdc font-mono text-mute">{p.tracking_manual || "·"}</td>
                         <td className="tdc font-semibold">{p.customer_code}</td>
                         <td className="tdc truncate max-w-[160px]">{p.customer_name}</td>
                         <td className="tdc">
                           {cen
                             ? <span className="pill pill-blue"><span className="pill-dot" />{ville || "Flexible"}</span>
-                            : (villeOf(p) || "")}
+                            : (villeOf(p) || "·")}
                         </td>
                         <td className="tdc text-right whitespace-nowrap">{(Number(p.weight) || 0).toFixed(2)} lb</td>
                       </tr>

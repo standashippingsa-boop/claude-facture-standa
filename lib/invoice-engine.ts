@@ -168,7 +168,7 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
   // ---- DOUBLE VALIDATION (§3) ----
   // Kont VIP: pri pa liv pwòp kliyan an (villeForClient mete l nan `price_vip`).
   const ville = villeForClient(client);
-  if (!ville) errors.push("Ville du client introuvable, associez une ville tarifaire au client.");
+  if (!ville) errors.push("Ville du client introuvable · associez une ville tarifaire au client.");
   if (ville && !ville.active) errors.push(`La ville "${ville.name}" est désactivée dans Paramètres.`);
   const accountType: AccountType = client.account_type ?? "Personnel";
 
@@ -229,7 +229,7 @@ export function computeInvoice(input: InvoiceInput): InvoiceComputation {
       errors.push("Acompte négatif invalide.");
     }
     if (purchase > 0 && serviceFee <= 0) {
-      errors.push("Frais de service introuvables, vérifiez le tableau des tranches dans Paramètres.");
+      errors.push("Frais de service introuvables · vérifiez le tableau des tranches dans Paramètres.");
     }
   }
   if (!Number.isFinite(rate) || rate <= 0) errors.push("Taux USD→HTG invalide.");

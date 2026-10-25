@@ -16,8 +16,8 @@ export async function notifyPickupAgents(
 
   const title = "Nouveau bon de remise";
   const text = packageCount > 1
-    ? `${packageCount} colis vous attendent : ${bonNumber || "un nouveau lot"} pour ${destination}.`
-    : `Un colis vous attend : ${bonNumber || "un nouveau lot"} pour ${destination}.`;
+    ? `${packageCount} colis vous attendent · ${bonNumber || "un nouveau lot"} pour ${destination}.`
+    : `Un colis vous attend · ${bonNumber || "un nouveau lot"} pour ${destination}.`;
 
   let notified = 0;
   await Promise.all((agents as { id: string }[]).map(async (agent) => {

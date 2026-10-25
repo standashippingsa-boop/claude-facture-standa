@@ -69,7 +69,7 @@ export default function TimeSeriesBarChart({
             top: Math.max(8, pos.y - 44),
           }}
         >
-          {series[hoverI].label}  {series[hoverI].value} {unit}
+          {series[hoverI].label} · {series[hoverI].value} {unit}
         </div>
       )}
     </div>

@@ -8,7 +8,7 @@ import { SITE } from "@/lib/site";
 import { getAgences, type Agence } from "@/lib/agences";
 
 export const metadata: Metadata = {
-  title: "Nos agences : STANDA COMMERCIAL",
+  title: "Nos agences · STANDA COMMERCIAL",
   description: "Retrouvez les agences et points de retrait STANDA COMMERCIAL en Haïti : adresses, téléphones, WhatsApp et horaires.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/agences" }

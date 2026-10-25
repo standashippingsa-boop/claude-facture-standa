@@ -54,7 +54,7 @@ export default function WhatsAppQueue({ pkgs, onClose }: { pkgs: Pkg[]; onClose:
         </div>
 
         <p className="text-xs text-mute px-5 pt-3">
-          {codes.length} client(s), cliquez « Ouvrir » pour chaque client : WhatsApp s&apos;ouvre avec
+          {codes.length} client(s) · cliquez « Ouvrir » pour chaque client : WhatsApp s&apos;ouvre avec
           un message prêt, il ne reste qu&apos;à appuyer sur Envoyer.
         </p>
 

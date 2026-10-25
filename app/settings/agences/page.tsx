@@ -144,11 +144,11 @@ export default function AgencesSettingsPage() {
                 <span className="text-[11px] text-mute">Kite vid si ajans lan pa gen WhatsApp separe.</span>
               </label>
               <label className="block">
-                <span className="text-xs font-medium text-slate-500">Horaires, ligne 1</span>
+                <span className="text-xs font-medium text-slate-500">Horaires · ligne 1</span>
                 <input className="input mt-1" placeholder="Du lundi au samedi : 08h00 à 17h00" {...register("horaire_1")} />
               </label>
               <label className="block">
-                <span className="text-xs font-medium text-slate-500">Horaires, ligne 2</span>
+                <span className="text-xs font-medium text-slate-500">Horaires · ligne 2</span>
                 <input className="input mt-1" placeholder="Dimanche : Fermé" {...register("horaire_2")} />
               </label>
               <label className="block md:col-span-2">

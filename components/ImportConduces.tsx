@@ -61,7 +61,7 @@ export default function ImportConduces({ onLinked }: { onLinked?: () => void }) 
       <p className="text-sm text-mute">
         Collez les numéros de conduce reçus, un par ligne. Ils sont créés immédiatement
         <b> en attente</b>. Utilisez ensuite l&apos;<b>Extension Chrome sur MCPACK</b> pour
-        chaque numéro, elle importera automatiquement les colis dans la conduce correspondante.
+        chaque numéro · elle importera automatiquement les colis dans la conduce correspondante.
       </p>
       <textarea className="input !h-28 font-mono text-sm"
         placeholder={"10534\n10564\n10580\n10641"}

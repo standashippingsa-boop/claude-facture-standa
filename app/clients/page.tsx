@@ -93,7 +93,7 @@ export default function ClientsPage() {
     setMerging(true);
     try {
       for (const sec of others) await mergeClients(primary, sec);
-      setNotice(`✅ Fusion fèt : ${others.length} kont doub efase, tout done yo sou ${primary.customer_code || primary.fullname}.`);
+      setNotice(`✅ Fusion fèt · ${others.length} kont doub efase, tout done yo sou ${primary.customer_code || primary.fullname}.`);
       setDups((prev) => (prev ?? []).filter((x) => x.key !== gr.key));
       load();
     } catch (e: any) { setNotice("Erè fusion: " + e.message); }
@@ -174,7 +174,7 @@ export default function ClientsPage() {
   };
 
   const remove = async (c: Client) => {
-    if (!confirm(`Efase client ${c.customer_code} : ${c.fullname}?`)) return;
+    if (!confirm(`Efase client ${c.customer_code} · ${c.fullname}?`)) return;
     await deleteClient(c.id!); load();
   };
 
@@ -199,7 +199,7 @@ export default function ClientsPage() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="h-page">Clients</h1>
-          <p className="text-sm text-mute mt-0.5">Gestion des clients, codes, villes et comptes</p>
+          <p className="text-sm text-mute mt-0.5">Gestion des clients · codes, villes et comptes</p>
         </div>
         <div className="flex gap-3">
           <button className="btn btn-ghost border border-line" onClick={scanDups} title="Detekte kliyan ki egziste 2 fwa">
@@ -228,9 +228,9 @@ export default function ClientsPage() {
               <thead><tr>{["Client", "Ville actuelle", "Agence actuelle", "Correction"].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
               <tbody>{zoneFixes.map((fix) => (
                 <tr key={fix.client.id ?? fix.client.customer_code}>
-                  <td className="td"><b className="text-navy">{fix.client.customer_code || ""}</b> <span className="text-xs text-mute">{fix.client.fullname}</span></td>
-                  <td className="td text-xs">{fix.client.ville?.name ?? fix.client.city ?? ""}</td>
-                  <td className="td text-xs">{fix.client.pickup_location || ""}</td>
+                  <td className="td"><b className="text-navy">{fix.client.customer_code || "·"}</b> <span className="text-xs text-mute">{fix.client.fullname}</span></td>
+                  <td className="td text-xs">{fix.client.ville?.name ?? fix.client.city ?? "·"}</td>
+                  <td className="td text-xs">{fix.client.pickup_location || "·"}</td>
                   <td className="td text-xs">{Object.keys(fix.patch).length
                     ? <span className="text-emerald-700 font-semibold">→ {fix.ville?.name}{fix.pickup ? ` · ${fix.pickup}` : ""}</span>
                     : null}
@@ -285,7 +285,7 @@ export default function ClientsPage() {
               </select>
               {errors.ville_id && <span className="text-xs text-red-600">{errors.ville_id.message}</span>}
               {villes.length === 0 && (
-                <span className="text-xs text-amber-600">Poko gen vil, ajoute yo nan Paramètres &gt; Tarification.</span>
+                <span className="text-xs text-amber-600">Poko gen vil · ajoute yo nan Paramètres &gt; Tarification.</span>
               )}
             </label>
             {(() => {
@@ -411,10 +411,10 @@ export default function ClientsPage() {
               <button className="text-slate-400 hover:text-navy" onClick={() => setDups(null)}><X size={18} /></button>
             </div>
             {dups.length === 0 ? (
-              <p className="text-sm text-slate-500 py-6 text-center">✅ Pa gen okenn kliyan an doub, tout kont yo pwòp.</p>
+              <p className="text-sm text-slate-500 py-6 text-center">✅ Pa gen okenn kliyan an doub · tout kont yo pwòp.</p>
             ) : dups.map((gr) => (
               <div key={gr.key} className="border border-line rounded-lg p-4 space-y-2">
-                <p className="text-xs font-semibold text-amber-700">Menm {gr.reason} : chwazi kont pou KENBE a:</p>
+                <p className="text-xs font-semibold text-amber-700">Menm {gr.reason} · chwazi kont pou KENBE a:</p>
                 {gr.clients.map((c) => (
                   <label key={c.id} className="flex items-center gap-3 text-sm py-1 cursor-pointer">
                     <input type="radio" name={`g-${gr.key}`} checked={primaryPick[gr.key] === c.id}
@@ -504,7 +504,7 @@ export default function ClientsPage() {
                 .map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4 px-3 py-2">
                   <span className="text-slate-500 text-xs">{k}</span>
-                  <span className="font-semibold text-right select-all">{v || ""}</span>
+                  <span className="font-semibold text-right select-all">{v || "·"}</span>
                 </div>
               ))}
             </div>

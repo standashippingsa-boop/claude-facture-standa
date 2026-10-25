@@ -54,7 +54,7 @@ const DONE = "Livré";
 const READY_STATUSES = new Set(["Disponible", "Facturé"]);
 const fmtUsd = (value: number) => "$" + Number(value || 0).toFixed(2);
 const fmtHtg = (value: number) => new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 }).format(Number(value || 0)) + " HTG";
-const dateText = (value: string) => value ? new Date(value).toLocaleDateString("fr-CA", { day: "numeric", month: "short", year: "numeric" }) : "";
+const dateText = (value: string) => value ? new Date(value).toLocaleDateString("fr-CA", { day: "numeric", month: "short", year: "numeric" }) : "·";
 const quantityTotal = (items: ZonePackage[]) => items.reduce((total, item) => total + (Number(item.quantity) || 1), 0);
 const packageReference = (item: ZonePackage) => item.tracking_manual || item.tracking_number || "Colis sans numéro de suivi";
 const isReadyForPickup = (item: ZonePackage) => READY_STATUSES.has(item.status) && Boolean(item.invoice_id);
@@ -63,7 +63,7 @@ const canReleaseParcel = (item: ZonePackage) => isReadyForPickup(item) && item.i
 const HAITI_STATUSES = new Set(["Arrivé en Haïti", "En route vers agence"]);
 // Un colis « Disponible » sans facture est déjà en Haïti : il attend seulement sa facture.
 const arrivalSectionOf = (item: ZonePackage): ArrivalSection => HAITI_STATUSES.has(item.status) || READY_STATUSES.has(item.status) ? "haiti" : "miami";
-const dateTimeText = (value: string) => value ? new Date(value).toLocaleString("fr-CA", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+const dateTimeText = (value: string) => value ? new Date(value).toLocaleString("fr-CA", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "·";
 /** Facture de zone -> format du calcul de répartition (montant = solde de la facture envoyée au client). */
 const toPaymentInvoice = (invoice: ZoneInvoice): PaymentInvoice => ({
   id: invoice.id, invoice_number: invoice.invoice_number, customer_code: invoice.customer_code,
@@ -197,7 +197,7 @@ export default function PickupAgentPortal() {
     try {
       const r = await subscribeStaffToPush(data.agent.id);
       if (r.ok) { setPushPermission("granted"); setMessage({ type: "ok", text: "Notifications activées sur cet appareil." }); dismissPushBanner(); }
-      else if (r.reason === "denied") { setPushPermission("denied"); setMessage({ type: "error", text: "Notifications refusées, activez les notifications depuis les réglages de l'application si vous changez d'avis." }); dismissPushBanner(); }
+      else if (r.reason === "denied") { setPushPermission("denied"); setMessage({ type: "error", text: "Notifications refusées · activez les notifications depuis les réglages de l'application si vous changez d'avis." }); dismissPushBanner(); }
       else { setMessage({ type: "error", text: "Impossible d'activer les notifications pour le moment." }); void reportPushFailure(r.reason ?? "inconnu"); }
     } finally { setPushBusy(false); }
   };
@@ -410,7 +410,7 @@ export default function PickupAgentPortal() {
       const fresh = await load(true);
       const releasable = (fresh?.packages ?? []).filter((item) => item.customer_code === customerCode && canReleaseParcel(item)).map((item) => item.id);
       if (releasable.length) setRemiseOffer({ customerCode, packageIds: releasable, paymentText });
-      else notify.success(paymentText, { title: `Paiement enregistré : ${customerCode}` });
+      else notify.success(paymentText, { title: `Paiement enregistré · ${customerCode}` });
     } catch (error) {
       notify.error(error instanceof Error ? error.message : "Paiement impossible.", { title: "Paiement non enregistré" });
     } finally {
@@ -498,7 +498,7 @@ export default function PickupAgentPortal() {
   const onCustomerPage = (tab === "dossiers" && dossierPage.length > 0) || ((tab === "ready" || tab === "arrivals") && groupPage.length > 0)
     || (tab === "history" && !!expandedCustomer && filteredPackages.some((item) => item.customer_code === expandedCustomer));
   const TAB_TITLES: Record<Tab, string> = { home: "Accueil", dossiers: "Dossiers clients", arrivals: "Colis à venir", ready: "À remettre", bons: "Bons de remise", history: "Colis remis", reports: "Rapport", settings: "Paramètres" };
-  const pageTitle = subPage === "payment" ? `Paiement : ${paymentTarget?.customerCode ?? ""}`
+  const pageTitle = subPage === "payment" ? `Paiement · ${paymentTarget?.customerCode ?? ""}`
     : subPage === "invoice" ? `Facture ${selectedInvoice?.invoice_number ?? ""}`
     : onCustomerPage && tab === "arrivals" && arrivalSection ? `${expandedCustomer} · ${arrivalSection === "haiti" ? "Arrivés en Haïti" : "À Miami · en cours"}`
     : onCustomerPage ? `Client ${expandedCustomer}`

@@ -47,7 +47,7 @@ export default function ContactForm() {
   // Résultat de l'envoi : page plein écran (✓ vert / ✕ rouge).
   useEffect(() => {
     if (status === "sent") notify.success("Merci, nous vous répondrons rapidement.", { title: "Message envoyé" });
-    else if (status === "skipped") notify.warning("L'envoi par courriel n'est pas disponible pour le moment. Utilisez WhatsApp, c'est le moyen le plus rapide de nous joindre.", { title: "Courriel indisponible" });
+    else if (status === "skipped") notify.warning("L'envoi par courriel n'est pas disponible pour le moment. Utilisez WhatsApp · c'est le moyen le plus rapide de nous joindre.", { title: "Courriel indisponible" });
     else if (status === "error") notify.error("Le message n'est pas parti. Réessayez ou écrivez à STANDA sur WhatsApp.", { title: "Envoi impossible" });
   }, [status]);
 

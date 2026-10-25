@@ -92,7 +92,7 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
             <div>
               <h1 className="h-page">Conduce {conduce.conduce_number}</h1>
               <p className="text-sm text-mute mt-0.5">
-                {conduce.office || "Office : "} · {conduce.conduce_date ? dateFr(conduce.conduce_date) : dateFr(conduce.created_at)}
+                {conduce.office || "Office · "} · {conduce.conduce_date ? dateFr(conduce.conduce_date) : dateFr(conduce.created_at)}
                 {stats && stats.count > 0 && conduce.updated_at && (
                   <> · Dernière synchronisation : {new Date(conduce.updated_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</>
                 )}
@@ -108,7 +108,7 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
 
         {stats && stats.count === 0 && (
           <div className="rounded-lg bg-amber-50 text-amber-800 text-xs font-semibold px-3 py-2 mb-4 flex items-center gap-2">
-            <Clock size={14} /> En attente d&apos;import, sur MCPACK, ouvrez la Conduce
+            <Clock size={14} /> En attente d&apos;import · sur MCPACK, ouvrez la Conduce
             <span className="font-mono">{conduce.conduce_number}</span>, exportez le fichier Excel et importez ce fichier plus bas.
           </div>
         )}

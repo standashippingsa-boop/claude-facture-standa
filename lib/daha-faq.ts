@@ -106,9 +106,9 @@ export const FAQ_TOPICS: FaqTopic[] = [
       "pri ka chanje", "kijan pri a kalkile", "konbyen pri a",
       "price change", "how is the price calculated", "how much does it cost", "pricing"],
     answer: {
-      fr: "Le prix correspond au poids du colis × le tarif de votre ville. Un petit colis a un prix fixe selon votre configuration. À partir de 6,5 lb au total, une taxe fixe de 10 $ s'applique. Certains articles (téléphone, ordinateur, caméra…) ont un prix forfaitaire, sans rapport au poids. Le prix affiché dans l'app est une estimation, le prix final est fixé après la pesée réelle à l'entrepôt.",
-      ht: "Pri a se pwa koli a × tarif vil ou. Yon ti koli gen yon pri fiks selon konfigirasyon an. Apati 6.5 lb antou, yon taks fiks $10 aplike. Sèten atik (telefòn, òdinatè, kamera...) gen yon pri fòfè, pwa a pa konte. Pri ki afiche nan app la se yon estimasyon, pri final la fikse apre vrè pwa a pran nan depo a.",
-      en: "The price is the package's weight × your city's rate. A small package gets a fixed price under your plan. From 6.5 lb total, a fixed $10 tax applies. Some items (phone, laptop, camera…) have a flat price regardless of weight. The price shown in the app is an estimate, the final price is set after the real weight is taken at the warehouse."
+      fr: "Le prix correspond au poids du colis × le tarif de votre ville. Un petit colis a un prix fixe selon votre configuration. À partir de 6,5 lb au total, une taxe fixe de 10 $ s'applique. Certains articles (téléphone, ordinateur, caméra…) ont un prix forfaitaire, sans rapport au poids. Le prix affiché dans l'app est une estimation · le prix final est fixé après la pesée réelle à l'entrepôt.",
+      ht: "Pri a se pwa koli a × tarif vil ou. Yon ti koli gen yon pri fiks selon konfigirasyon an. Apati 6.5 lb antou, yon taks fiks $10 aplike. Sèten atik (telefòn, òdinatè, kamera...) gen yon pri fòfè, pwa a pa konte. Pri ki afiche nan app la se yon estimasyon · pri final la fikse apre vrè pwa a pran nan depo a.",
+      en: "The price is the package's weight × your city's rate. A small package gets a fixed price under your plan. From 6.5 lb total, a fixed $10 tax applies. Some items (phone, laptop, camera…) have a flat price regardless of weight. The price shown in the app is an estimate · the final price is set after the real weight is taken at the warehouse."
     }
   },
   {
@@ -139,9 +139,9 @@ export const FAQ_TOPICS: FaqTopic[] = [
       "atik entèdi", "sa ki entèdi",
       "forbidden items", "prohibited items", "what can't i ship", "banned items"],
     answer: {
-      fr: "Les compagnies aériennes et la douane interdisent : armes et munitions, produits inflammables, explosifs, produits corrosifs, batteries au lithium séparées, drogues, contenu pornographique, animaux vivants, espèces, produits périssables. Vous êtes responsable du contenu de votre colis, en cas de doute, contactez STANDA sur WhatsApp avant votre achat.",
-      ht: "Konpayi avyon ak douàn entèdi: zam ak minisyon, pwodwi enflamab, eksplozif, pwodwi kowozif, batri lityòm apa, dwòg, kontni pònografik, bèt vivan, lajan likid, pwodwi perisab. Ou responsab sa ki nan koli w, si w gen dout, ekri nou sou WhatsApp anvan ou achte.",
-      en: "Airlines and customs prohibit: weapons and ammunition, flammable products, explosives, corrosive products, separated lithium batteries, drugs, pornographic content, live animals, cash, perishable goods. You're responsible for your package's contents, if unsure, message us on WhatsApp before you buy."
+      fr: "Les compagnies aériennes et la douane interdisent : armes et munitions, produits inflammables, explosifs, produits corrosifs, batteries au lithium séparées, drogues, contenu pornographique, animaux vivants, espèces, produits périssables. Vous êtes responsable du contenu de votre colis · en cas de doute, contactez STANDA sur WhatsApp avant votre achat.",
+      ht: "Konpayi avyon ak douàn entèdi: zam ak minisyon, pwodwi enflamab, eksplozif, pwodwi kowozif, batri lityòm apa, dwòg, kontni pònografik, bèt vivan, lajan likid, pwodwi perisab. Ou responsab sa ki nan koli w · si w gen dout, ekri nou sou WhatsApp anvan ou achte.",
+      en: "Airlines and customs prohibit: weapons and ammunition, flammable products, explosives, corrosive products, separated lithium batteries, drugs, pornographic content, live animals, cash, perishable goods. You're responsible for your package's contents · if unsure, message us on WhatsApp before you buy."
     }
   },
 ];
@@ -155,9 +155,9 @@ export const GREETING: Localized = {
 };
 
 export const FALLBACK: Localized = {
-  fr: "Je n'ai pas de réponse toute prête pour cette question précise. Écrivez à STANDA sur WhatsApp, notre équipe vous répondra directement.",
-  ht: "Mwen pa gen yon repons tou pare pou kesyon presi sa a. Ekri nou sou WhatsApp, ekip nou ap reponn ou dirèkteman.",
-  en: "I don't have a ready answer for that exact question. Message us on WhatsApp, our team will answer you directly."
+  fr: "Je n'ai pas de réponse toute prête pour cette question précise. Écrivez à STANDA sur WhatsApp · notre équipe vous répondra directement.",
+  ht: "Mwen pa gen yon repons tou pare pou kesyon presi sa a. Ekri nou sou WhatsApp · ekip nou ap reponn ou dirèkteman.",
+  en: "I don't have a ready answer for that exact question. Message us on WhatsApp · our team will answer you directly."
 };
 
 /** Mo-kle ki di nou kliyan an ap mande sou PWÒP done l yo (pa yon FAQ jeneral). */

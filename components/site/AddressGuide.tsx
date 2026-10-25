@@ -117,7 +117,7 @@ export default function AddressGuide({ code = "MC-XXXXX", fullName }: { code?: s
             <Field n={1} label="Country/Region" value="United States" select />
             <Field n={2} label="Full name (First and Last name)" value={nameExample} />
             <Field n={3} label="Phone number" value={phoneDigits} hint="May be used to assist delivery" />
-            <div className="rounded-full border border-slate-400 py-2 text-center text-[13px] text-slate-500">Use my location, ne pas toucher</div>
+            <div className="rounded-full border border-slate-400 py-2 text-center text-[13px] text-slate-500">Use my location · ne pas toucher</div>
             <Field n={4} label="Street address" value={street} />
             <Field n={5} label="Unit or suite number" empty="Laisser vide" />
             <Field n={6} label="City" value={DEPOT.city} />

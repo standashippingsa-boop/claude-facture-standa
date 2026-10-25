@@ -80,7 +80,7 @@ export default function Dashboard() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="h-page">Dashboard</h1>
-          <p className="text-sm text-mute mt-0.5">Vue d&apos;ensemble, colis, clients &amp; facturation</p>
+          <p className="text-sm text-mute mt-0.5">Vue d&apos;ensemble · colis, clients &amp; facturation</p>
         </div>
         <RefreshButton onRefresh={load} />
       </div>
@@ -122,7 +122,7 @@ export default function Dashboard() {
                     {[c.city, c.phone || c.whatsapp].filter(Boolean).join(" · ")}
                     {c.created_at ? " · " + dateFr(c.created_at) : ""}
                   </p>
-                  <p className="text-xs text-amber-600 mt-1">En attente d&apos;activation, klike pou ouvri dosye a</p>
+                  <p className="text-xs text-amber-600 mt-1">En attente d&apos;activation · klike pou ouvri dosye a</p>
                 </div>
               </Link>
             ))}
@@ -136,7 +136,7 @@ export default function Dashboard() {
                     {r.package_count} colis · {Number(r.total_weight).toFixed(2)} lb
                     {r.ville ? " · " + r.ville : ""} · {dateFr(r.created_at)}
                   </p>
-                  <p className="text-xs text-blue-600 mt-1">En attente, klike pou prepare koli yo</p>
+                  <p className="text-xs text-blue-600 mt-1">En attente · klike pou prepare koli yo</p>
                 </div>
               </Link>
             ))}
@@ -167,7 +167,7 @@ export default function Dashboard() {
           {pkgPeak ? (
             <p className="text-xs text-mute mb-3">
               {pkgGranularity === "month" ? "Mois" : "Jour"} avec le plus de colis reçus :{" "}
-              <span className="font-bold text-ink">{pkgPeak.label}</span>  <span className="font-bold text-ink">{pkgPeak.value} colis</span>
+              <span className="font-bold text-ink">{pkgPeak.label}</span> · <span className="font-bold text-ink">{pkgPeak.value} colis</span>
             </p>
           ) : <p className="text-xs text-mute mb-3">Pas encore de colis sur cette période.</p>}
           {charts ? <TimeSeriesBarChart series={pkgSeries} color="#122B5C" /> : <Loader inline size={40} />}
@@ -201,7 +201,7 @@ export default function Dashboard() {
         </div>
         {stats?.lastImport ? (
           <p className="text-sm text-slate-600">
-            <span className="font-semibold">{dateFr(stats.lastImport.created_at)}</span>  {stats.lastImport.filename} :{" "}
+            <span className="font-semibold">{dateFr(stats.lastImport.created_at)}</span> · {stats.lastImport.filename} :{" "}
             {stats.lastImport.new_packages} nouveaux colis, {stats.lastImport.existing_packages} existants,{" "}
             {stats.lastImport.new_clients} nouveaux clients, {stats.lastImport.errors} erreurs.
           </p>
