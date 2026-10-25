@@ -3,7 +3,8 @@ import { use, useEffect, useRef, useState } from "react";
 import Loader, { BusyButton, Spinner } from "@/components/Loader";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Calculator, FileText, PackageCheck, Upload, X, Trash2, Printer } from "lucide-react";
+import { ArrowLeft, Calculator, FileText, PackageCheck, Pencil, Upload, X, Trash2, Printer } from "lucide-react";
+import ClientEditDialog from "@/components/ClientEditDialog";
 import StatusBadge from "@/components/StatusBadge";
 import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
@@ -39,6 +40,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   const router = useRouter();
   const backHref = returnToOr(searchParams.get("returnTo"), "/clients");
   const [client, setClient] = useState<Client | null>(null);
+  const [editingClient, setEditingClient] = useState(false);
   const [pkgs, setPkgs] = useState<SelPkg[]>([]);
   const [invs, setInvs] = useState<Invoice[]>([]);
   /** Nimewo Conduce pa id — pou montre nan ki Conduce chak koli ye. */
@@ -324,7 +326,19 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
           ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
           {client.account_status ?? "Actif"}</span>
         <span className="badge bg-slate-100 text-slate-600">{client.account_type}</span>
+        <button type="button" className="btn btn-ghost border border-line !px-2.5" title="Modifier les informations du client"
+          onClick={() => setEditingClient(true)}><Pencil size={15} /> Modifier</button>
       </div>
+      {editingClient && (
+        <ClientEditDialog client={client} onClose={() => setEditingClient(false)}
+          onSaved={(newCode, message) => {
+            setEditingClient(false);
+            setNotice(message);
+            if (newCode && newCode !== client.customer_code) {
+              router.replace(withReturnTo(`/clients/${encodeURIComponent(newCode)}`, backHref));
+            } else void load();
+          }} />
+      )}
 
       {/* ===== Enfòmasyon + estatistik ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

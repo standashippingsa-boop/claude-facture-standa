@@ -71,7 +71,7 @@ export async function buildAgentReportPdf(input: AgentReportInput) {
   doc.setFillColor(...MIST);
   doc.roundedRect(14, 52, W - 28, 22, 2, 2, "F");
   doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(...NAVY);
-  doc.text("CAISSE À REMETTRE (hors Zelle)", 20, 60);
+  doc.text("TOTAL À VERSER À STANDA (espèces, MonCash, NatCash)", 20, 60);
   doc.setFontSize(15);
   doc.text(`${usd(cash.usd)}   ·   ${htg(cash.htg)}`, 20, 69);
 
@@ -98,11 +98,36 @@ export async function buildAgentReportPdf(input: AgentReportInput) {
   ]), [1, 2, 3]);
 
   section(`Paiements reçus (${input.payments.length})`);
-  table(["Date", "Client", "Facture", "Moyen", "Référence", "Montant"], input.payments.map((payment) => [
-    when(payment.created_at), `${payment.customer_code}${payment.customer_name ? " · " + payment.customer_name : ""}`,
-    payment.invoice_number || "", methodLabel(payment.payment_method), payment.payment_reference || "",
-    payment.currency === "HTG" ? htg(payment.amount) : usd(payment.amount)
-  ]), [5]);
+  {
+    const sorted = [...input.payments].sort((a, b) => String(a.invoice_number).localeCompare(String(b.invoice_number)));
+    const sumUsd = sorted.reduce((s, p) => s + (p.currency === "HTG" ? 0 : Number(p.amount || 0)), 0);
+    const sumHtg = sorted.reduce((s, p) => s + (p.currency === "HTG" ? Number(p.amount || 0) : 0), 0);
+    const body = sorted.map((p) => [
+      p.invoice_number || "", p.customer_code || "", p.customer_name || "",
+      methodLabel(p.payment_method) + (p.payment_reference ? `
+Réf. ${p.payment_reference}` : ""),
+      when(p.created_at),
+      p.currency === "HTG" ? "" : usd(p.amount), p.currency === "HTG" ? htg(p.amount) : ""
+    ]);
+    autoTable(doc, {
+      startY: y,
+      head: [["N° facture", "Code", "Nom du client", "Paiement", "Date", "USD", "HTG"]],
+      body: body.length ? body : [[{ content: "Aucun paiement", colSpan: 7, styles: { halign: "center", textColor: 120 } } as never]],
+      foot: body.length ? [
+        [{ content: "Total encaissé (tous moyens)", colSpan: 5, styles: { halign: "right" } } as never, usd(sumUsd), htg(sumHtg)],
+        [{ content: "Dont Zelle (déjà sur le compte STANDA)", colSpan: 5, styles: { halign: "right", fontStyle: "normal" } } as never,
+          usd(byMethod.get("Zelle")?.usd ?? 0), htg(byMethod.get("Zelle")?.htg ?? 0)],
+        [{ content: "TOTAL À VERSER À STANDA", colSpan: 5, styles: { halign: "right" } } as never, usd(cash.usd), htg(cash.htg)],
+      ] : undefined,
+      theme: "grid", headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold" },
+      footStyles: { fillColor: MIST, textColor: NAVY, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: MIST }, styles: { fontSize: 8, cellPadding: 1.8, overflow: "linebreak" },
+      columnStyles: { 0: { cellWidth: 26 }, 1: { cellWidth: 20 }, 4: { cellWidth: 26 }, 5: { halign: "right", cellWidth: 20 }, 6: { halign: "right", cellWidth: 26 } },
+      margin: { left: 14, right: 14 }, showFoot: "lastPage"
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    y = (doc as any).lastAutoTable.finalY + 9;
+  }
 
   section(`Colis remis (${input.deliveries.length})`);
   table(["Date de remise", "Client", "Tracking", "Facture"], input.deliveries.map((item) => [
@@ -115,7 +140,15 @@ export async function buildAgentReportPdf(input: AgentReportInput) {
     usd(balance.balance_usd), htg(balance.balance_htg)
   ]), [2, 3]);
 
-  if (y > 255) { doc.addPage(); y = 30; }
+  if (y > 235) { doc.addPage(); y = 20; }
+  doc.setFillColor(...NAVY);
+  doc.roundedRect(14, y, W - 28, 18, 2, 2, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+  doc.text("MONTANT QUE L'AGENCE DOIT VERSER À STANDA", 20, y + 7);
+  doc.setFontSize(14);
+  doc.text(`${usd(cash.usd)}   ·   ${htg(cash.htg)}`, 20, y + 14.5);
+  y += 24;
+
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
   doc.text("Signature de l'agent :", 14, y + 8);
   doc.text("Reçu par l'administration :", W / 2 + 2, y + 8);

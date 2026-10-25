@@ -20,6 +20,7 @@ import { getAgences, type Agence } from "@/lib/agences";
 import { pickupLabel, pickupLocationForCity } from "@/lib/pickup-location";
 import { clientZoneFix, type ZoneFix } from "@/lib/client-zone";
 import { supabase } from "@/lib/supabase";
+import ClientEditDialog from "@/components/ClientEditDialog";
 const schema = z.object({
   customer_code: z.string().min(1, "Kòd obligatwa"),
   fullname: z.string().min(1, "Non obligatwa"),
@@ -47,6 +48,7 @@ export default function ClientsPage() {
   const [zoneFixes, setZoneFixes] = useState<ZoneFix[] | null>(null);
   const [zoneBusy, setZoneBusy] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
+  const [editDialog, setEditDialog] = useState<Client | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [cityF, setCityF] = useState("");
@@ -107,7 +109,8 @@ export default function ClientsPage() {
   useEffect(() => { load(); }, []);
 
   const openNew = () => { setEditing(null); reset({ customer_code: "", fullname: "", whatsapp: "", pickup_location: "", email: "", ville_id: "", account_type: "Personnel", vip_price_per_lb: "" }); setShowForm(true); };
-  const openEdit = (c: Client) => { setEditing(c); reset({ ...c, email: c.email ?? "", ville_id: c.ville_id ?? "", account_type: c.account_type ?? "Personnel", vip_price_per_lb: c.vip_price_per_lb ? String(c.vip_price_per_lb) : "" }); setShowForm(true); };
+  // Modification : fenêtre complète, recopie côté serveur dans colis, factures, retraits, connexion.
+  const openEdit = (c: Client) => { if (c.id) { setShowForm(false); setEditDialog(c); return; } setEditing(c); reset({ ...c, email: c.email ?? "", ville_id: c.ville_id ?? "", account_type: c.account_type ?? "Personnel", vip_price_per_lb: c.vip_price_per_lb ? String(c.vip_price_per_lb) : "" }); setShowForm(true); };
 
   const onSubmit = async (f: Form) => {
     try {
@@ -248,6 +251,11 @@ export default function ClientsPage() {
           { key: "from", label: "Créé à partir du", type: "date", value: fromF, onChange: setFromF },
           { key: "to", label: "Créé jusqu'au", type: "date", value: toF, onChange: setToF },
         ]} />
+
+      {editDialog && (
+        <ClientEditDialog client={editDialog} onClose={() => setEditDialog(null)}
+          onSaved={(_code, message) => { setEditDialog(null); setNotice(message); void load(); }} />
+      )}
 
       {showForm && (
         <form onSubmit={handleSubmit(onSubmit)} className="card p-5">

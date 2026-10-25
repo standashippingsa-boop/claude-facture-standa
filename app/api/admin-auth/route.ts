@@ -10,6 +10,7 @@ import { buildAffiliateOverview } from "@/lib/affiliate-overview";
 import { SITE_URL } from "@/lib/branding";
 import { ensureClientAuthAccount } from "@/lib/client-auth-server";
 import { signedStaffDocUrl } from "@/lib/staff-docs";
+import { updateClientEverywhere } from "@/lib/client-update-server";
 
 // Kontra afilye atik 6: komisyon peye SÈLMAN an goud, pa MonCash oswa NatCash.
 const PAYOUT_METHODS = new Set<string>(AFFILIATE_PAYOUT_METHODS);
@@ -262,6 +263,17 @@ export async function POST(req: Request) {
       if (!linked.ok) return NextResponse.json({ ok: false, reason: linked.reason });
       await auditCaller(req, "Compte client activé", `Kòd MC ${code}`, code);
       return NextResponse.json({ ok: true, password: pass, username: code });
+    }
+
+    // ---------- update_client (admin, employé) : fiche + recopie partout ----------
+    if (action === "update_client") {
+      if (role !== "admin" && role !== "employe") return NextResponse.json({ ok: false, reason: "Accès refusé." });
+      const clientId = String(body.client_id ?? "");
+      const r = await updateClientEverywhere(svc, clientId, body.client ?? {}, { isAdmin: role === "admin" });
+      if (!r.ok) return NextResponse.json(r);
+      const code = String(body.client?.customer_code ?? "");
+      if (r.changes.length) await auditCaller(req, "Modification client", r.changes.join(" · "), code);
+      return NextResponse.json(r);
     }
 
     // ---------- reset_client_password ----------
