@@ -122,7 +122,7 @@ export async function POST(req: Request) {
       if ((count ?? 0) > 0) return NextResponse.json({ ok: false, reason: "Sistèm nan deja gen yon administratè." });
       const username = String(body.username ?? "").trim();
       const password = String(body.password ?? "");
-      if (!username || password.length < 6) return NextResponse.json({ ok: false, reason: "Username + modpas 6 karaktè minimòm obligatwa." });
+      if (!username || password.length < 10) return NextResponse.json({ ok: false, reason: "Username + modpas 10 karaktè minimòm obligatwa." });
       const { data: u, error } = await svc.auth.admin.createUser({
         email: staffEmail(username), password, email_confirm: true
       });
@@ -157,7 +157,7 @@ export async function POST(req: Request) {
         : body.role === "agent_retrait" ? "agent_retrait"
         : body.role === "agent_reception" ? "agent_reception" : "employe";
       const pickupVilleId = String(body.pickup_ville_id ?? "").trim();
-      if (!username || password.length < 6) return NextResponse.json({ ok: false, reason: "Username + modpas 6 karaktè minimòm obligatwa." });
+      if (!username || password.length < 10) return NextResponse.json({ ok: false, reason: "Username + modpas 10 karaktè minimòm obligatwa." });
       if (newRole === "agent_retrait" && !pickupVilleId) {
         return NextResponse.json({ ok: false, reason: "Chwazi zòn/pwen rekiperasyon ajan an." });
       }
@@ -184,8 +184,8 @@ export async function POST(req: Request) {
       if (role !== "admin") return NextResponse.json({ ok: false, reason: "Accès refusé." });
       const staffId = String(body.staff_id ?? "");
       const password = String(body.password ?? "");
-      if (!staffId || password.length < 6) {
-        return NextResponse.json({ ok: false, reason: "Mot de passe 6 karaktè minimòm obligatwa." });
+      if (!staffId || password.length < 10) {
+        return NextResponse.json({ ok: false, reason: "Mot de passe 10 karaktè minimòm obligatwa." });
       }
       const { data: member } = await svc.from("staff").select("auth_user_id, username").eq("id", staffId).maybeSingle();
       if (!member?.auth_user_id) return NextResponse.json({ ok: false, reason: "Compte employé introuvable." });
@@ -212,7 +212,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, reason: "Nom d'utilisateur : 3 à 40 caractères, lettres, chiffres, point, tiret." });
       }
       const password = String(body.password ?? "");
-      if (password && password.length < 6) return NextResponse.json({ ok: false, reason: "Mot de passe : 6 caractères minimum." });
+      if (password && password.length < 10) return NextResponse.json({ ok: false, reason: "Mot de passe : 10 caractères minimum." });
       const pickupVilleId = String(body.pickup_ville_id ?? "").trim();
       if (member.role === "agent_retrait" && !pickupVilleId) return NextResponse.json({ ok: false, reason: "Chwazi zòn/pwen rekiperasyon ajan an." });
       if (usernameChanged) {

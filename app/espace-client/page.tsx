@@ -322,7 +322,7 @@ export default function EspaceClientPage() {
 
   const changePassword = async () => {
     setPwdMsg(null);
-    if (pwd1.length < 6) { setPwdMsg("Le mot de passe doit contenir au moins 6 caractères."); return; }
+    if (pwd1.length < 8) { setPwdMsg("Le mot de passe doit contenir au moins 8 caractères."); return; }
     if (pwd1 !== pwd2) { setPwdMsg("Les deux mots de passe ne correspondent pas."); return; }
     setPwdBusy(true);
     try {
