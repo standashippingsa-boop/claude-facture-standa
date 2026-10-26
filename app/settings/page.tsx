@@ -576,8 +576,8 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
     setF({ ...f, [k]: e.target.value });
 
   const save = async () => {
-    if (!f.nom || !f.prenom || !f.username || f.password.length < 6) {
-      onNotice("Nom, prénom, nom d’utilisateur et mot de passe (6 caractères minimum) obligatoires."); return;
+    if (!f.nom || !f.prenom || !f.username || f.password.length < 10) {
+      onNotice("Nom, prénom, nom d’utilisateur et mot de passe (10 caractères minimum) obligatoires."); return;
     }
     if (f.role === "agent_retrait" && !f.pickup_ville_id) {
       onNotice("Chwazi zòn/pwen rekiperasyon ajan an."); return;
@@ -616,8 +616,8 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
 
   const resetPassword = async () => {
     if (!resetting) return;
-    if (newPassword.length < 6) {
-      onNotice("Le mot de passe doit contenir au moins 6 caractères."); return;
+    if (newPassword.length < 10) {
+      onNotice("Le mot de passe doit contenir au moins 10 caractères."); return;
     }
     setBusy(true);
     try {
@@ -640,7 +640,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
   const saveEdit = async () => {
     if (!editing) return;
     if (!ef.username.trim()) { onNotice("Nom d'utilisateur obligatoire."); return; }
-    if (ef.password && ef.password.length < 6) { onNotice("Le mot de passe doit contenir au moins 6 caractères."); return; }
+    if (ef.password && ef.password.length < 10) { onNotice("Le mot de passe doit contenir au moins 10 caractères."); return; }
     if (editing.role === "agent_retrait" && !ef.pickup_ville_id) { onNotice("Chwazi zòn/pwen rekiperasyon ajan an."); return; }
     setBusy(true);
     try {
@@ -693,7 +693,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
                 onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>
             <label className="block"><span className="text-xs font-medium text-slate-500">Nom d&apos;utilisateur *</span>
               <input className="input mt-1" value={f.username} onChange={set("username")} placeholder="Ex. jean.baptiste" autoCapitalize="none" /></label>
-            <label className="block"><span className="text-xs font-medium text-slate-500">Mot de passe * (6+)</span>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Mot de passe * (10+)</span>
               <span className="mt-1 flex gap-2"><input type="text" className="input min-w-0 flex-1 font-mono" value={f.password} onChange={set("password")} autoComplete="new-password" autoCapitalize="none" />
                 <button type="button" className="btn btn-ghost shrink-0" onClick={() => setF({ ...f, password: generatePassword() })}>Générer</button></span></label>
             <label className="block"><span className="text-xs font-medium text-slate-500">Rôle</span>
@@ -760,7 +760,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
               </select></label>}
             <label className="block"><span className="text-xs font-medium text-slate-500">Nom d&apos;utilisateur (connexion) *</span>
               <input className="input mt-1 font-mono" value={ef.username} onChange={setE("username")} autoCapitalize="none" /></label>
-            <label className="block md:col-span-2"><span className="text-xs font-medium text-slate-500">Nouveau mot de passe (optionnel, 6+)</span>
+            <label className="block md:col-span-2"><span className="text-xs font-medium text-slate-500">Nouveau mot de passe (optionnel, 10+)</span>
               <span className="mt-1 flex gap-2"><input type="text" className="input min-w-0 flex-1 font-mono" value={ef.password} onChange={setE("password")} autoComplete="new-password" autoCapitalize="none" placeholder="Laisser vide pour ne pas changer" />
                 <button type="button" className="btn btn-ghost shrink-0" onClick={() => setEf({ ...ef, password: generatePassword() })}>Générer</button></span></label>
           </div>
@@ -781,7 +781,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
             <input type="text" className="input flex-1 font-mono" value={newPassword} autoComplete="new-password" autoCapitalize="none"
               placeholder="Nouveau mot de passe" onChange={(event) => setNewPassword(event.target.value)} />
             <button type="button" className="btn btn-ghost" onClick={() => setNewPassword(generatePassword())} disabled={busy}>Générer</button>
-            <BusyButton className="btn" onClick={resetPassword} busy={busy} disabled={newPassword.length < 6}
+            <BusyButton className="btn" onClick={resetPassword} busy={busy} disabled={newPassword.length < 10}
               busyLabel="Mise à jour…">
               Enregistrer le mot de passe
             </BusyButton>
