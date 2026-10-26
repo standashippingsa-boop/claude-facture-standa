@@ -1242,6 +1242,40 @@ export default function EspaceClientPage() {
               <span><MapPin size={19} /> Comment entrer mon adresse sur SHEIN et Amazon</span><ChevronRight size={17} />
             </button>
 
+            {/* Kòd MC a — kisa li ye, poukisa li enpòtan */}
+            <div className="card p-5">
+              <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+                <KeyRound size={15} /> Votre code client MC
+              </h2>
+              {client.customer_code && (
+                <p className="mt-3 rounded-xl bg-navy/5 px-3 py-2.5 text-center">
+                  <span className="block text-[11px] text-mute">Votre code</span>
+                  <span className="block font-mono text-xl font-extrabold tracking-wide text-navy">{client.customer_code}</span>
+                </p>
+              )}
+              <p className="text-[12px] text-mute mt-3 leading-relaxed">
+                Le code MC (par exemple MC-37335) est le <b>numéro unique de votre compte</b>. Il vous est attribué à l&apos;activation de votre compte et ne change jamais. C&apos;est aussi votre <b>identifiant de connexion</b> à l&apos;application.
+              </p>
+              <h3 className="mt-3 text-[13px] font-bold text-ink">Pourquoi il est si important</h3>
+              <ul className="mt-1.5 space-y-2">
+                {([
+                  ["Il relie le colis à votre compte", "À Miami, notre entrepôt reçoit des centaines de colis par jour. Le code MC écrit sur l'adresse est la seule façon de savoir que le colis est à vous."],
+                  ["Sans code, le colis est bloqué", "Un colis sans code (ou avec un code faux) ne peut pas être enregistré à votre nom : il faut ouvrir une réclamation avant de l'envoyer en Haïti, ce qui retarde la livraison."],
+                  ["Où l'écrire", "Devant votre nom (« Full Name ») et dans « Address 2 » — sur Amazon, sur la même ligne que la rue. Écrivez-le exactement : MC, un tiret, puis les chiffres."],
+                  ["Au retrait en agence", "Donnez votre code MC et présentez une pièce d'identité : l'agent ouvre votre dossier et vous remet vos colis."],
+                  ["Ne le prêtez pas", "Tout colis qui arrive avec votre code est enregistré et facturé sur votre compte. Ne donnez pas votre code à une autre personne pour ses achats."]
+                ] as const).map(([t, d]) => (
+                  <li key={t} className="flex gap-2.5">
+                    <CircleCheck size={15} className="mt-0.5 shrink-0 text-accent" />
+                    <div className="min-w-0">
+                      <p className="text-[12.5px] font-bold text-ink leading-tight">{t}</p>
+                      <p className="text-[12px] text-mute leading-relaxed mt-0.5">{d}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             {/* Kijan sa mache */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
