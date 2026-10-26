@@ -16,7 +16,7 @@ export default function NouveauMotDePassePage() {
 
   const submit = async () => {
     setErr(null);
-    if (password.length < 6) { setErr("Le mot de passe doit contenir au moins 6 caractères."); return; }
+    if (password.length < 8) { setErr("Le mot de passe doit contenir au moins 8 caractères."); return; }
     if (password !== confirm) { setErr("Les deux mots de passe ne correspondent pas."); return; }
     setBusy(true);
     try {
