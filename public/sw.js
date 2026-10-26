@@ -73,9 +73,20 @@ function isMutableAsset(url) {
   );
 }
 
+/*
+ * v5 : INSTALLATION QUI NE PEUT PLUS ÉCHOUER
+ * Avant, cache.addAll() faisait échouer toute l'installation si UN seul fichier
+ * ne se téléchargeait pas (réseau faible) : le service worker ne démarrait
+ * jamais et les notifications ne pouvaient pas s'activer (« timeout »).
+ * Maintenant le service worker démarre tout de suite ; les fichiers sont mis
+ * en cache un par un, sans bloquer, et un échec est simplement ignoré.
+ */
 self.addEventListener("install", (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => cache.addAll(PRECACHE)).then(() => self.skipWaiting())
+    caches.open(SHELL_CACHE)
+      .then((cache) => Promise.all(PRECACHE.map((url) => cache.add(url).catch(() => undefined))))
+      .catch(() => undefined)
   );
 });
 

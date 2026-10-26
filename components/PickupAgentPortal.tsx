@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, Banknote, Bell, BellRing, Check, CheckCircle2, ChevronRight, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, Printer, RefreshCw, Search, Settings, Truck, Users, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { autoEnablePush, getPushPermissionState, isPushSupported, reportPushFailure, subscribeStaffToPush } from "@/lib/push";
+import { autoEnablePush, getPushPermissionState, isPushSupported, pushFailureMessage, reportPushFailure, subscribeStaffToPush } from "@/lib/push";
 import { openSecureDocument } from "@/lib/secure-document";
 import { packageProgressPriority, sortPackagesAvailableFirst } from "@/lib/utils";
 import Loader, { Spinner } from "@/components/Loader";
@@ -198,7 +198,7 @@ export default function PickupAgentPortal() {
       const r = await subscribeStaffToPush(data.agent.id);
       if (r.ok) { setPushPermission("granted"); setMessage({ type: "ok", text: "Notifications activées sur cet appareil." }); dismissPushBanner(); }
       else if (r.reason === "denied") { setPushPermission("denied"); setMessage({ type: "error", text: "Notifications refusées · activez les notifications depuis les réglages de l'application si vous changez d'avis." }); dismissPushBanner(); }
-      else { setMessage({ type: "error", text: "Impossible d'activer les notifications pour le moment." }); void reportPushFailure(r.reason ?? "inconnu"); }
+      else { setMessage({ type: "error", text: pushFailureMessage(r.reason) }); void reportPushFailure(r.reason ?? "inconnu"); }
     } finally { setPushBusy(false); }
   };
   const packages = data?.packages ?? [];

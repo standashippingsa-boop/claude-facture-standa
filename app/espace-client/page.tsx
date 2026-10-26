@@ -37,7 +37,7 @@ import {
   getClientRetraits, getSmallParcelConfig
 } from "@/lib/db";
 import { Agence, getAgences } from "@/lib/agences";
-import { autoEnablePush, isPushSupported, reportPushFailure, subscribeToPush } from "@/lib/push";
+import { autoEnablePush, isPushSupported, pushFailureMessage, reportPushFailure, subscribeToPush } from "@/lib/push";
 import { Client, Invoice, INTERNAL_STATUSES, Pkg, Retrait } from "@/lib/types";
 import { DEPOT } from "@/lib/depot";
 import { SUPPORT_PHONE } from "@/lib/branding";
@@ -282,10 +282,8 @@ export default function EspaceClientPage() {
       const r = await subscribeToPush(client.customer_code);
       if (r.ok) { setToast("Notifications activées."); setPushState("on"); dismissPushBanner(); }
       else if (r.reason === "denied") { setPushState("denied"); setToast("Notifications refusées · activez les notifications depuis les réglages de votre navigateur si vous changez d'avis."); dismissPushBanner(); }
-      // "timeout" (réseau lent, service worker pas encore prêt) : la bannière
-      // reste affichée pour que le client puisse simplement réessayer.
-      else if (r.reason === "timeout") setToast("La demande a pris trop de temps. Vérifiez votre connexion et réessayez.");
-      else { setToast("Impossible d'activer les notifications pour le moment."); void reportPushFailure(r.reason ?? "inconnu"); }
+      // La bannière reste affichée : le client peut simplement réessayer.
+      else { setToast(pushFailureMessage(r.reason)); void reportPushFailure(r.reason ?? "inconnu"); }
     } finally { setPushBusy(false); }
   };
 

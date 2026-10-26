@@ -81,58 +81,105 @@ export async function subscribeToPush(customerCode: string): Promise<{ ok: boole
       return { error };
     });
   }
-  return subscribeWebPush(async ({ endpoint, p256dh, auth }) => {
-    const { error } = await supabase.from("push_subscriptions").upsert(
-      { customer_code: customerCode, endpoint, p256dh, auth }, { onConflict: "endpoint" }
-    );
-    return { error };
-  });
+  void customerCode; // le serveur retrouve le code à partir de la session
+  return subscribeWebPush("client");
 }
 
 type WebPushSubscriptionData = { endpoint: string; p256dh: string; auth: string };
 
+/** Laisse tourner une promesse au plus `ms` millisecondes. */
+function withTimeout<T>(promise: Promise<T>, ms: number, reason: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(reason)), ms);
+    promise.then((v) => { clearTimeout(timer); resolve(v); }, (e) => { clearTimeout(timer); reject(e); });
+  });
+}
+
+/** Portée du service worker pour la page actuelle (mêmes règles que PwaManager). */
+function pushScope(): string {
+  const p = window.location.pathname;
+  if (p === "/point-retrait" || p.startsWith("/espace-remise")) return "/espace-remise";
+  if (p.startsWith("/reception")) return "/reception";
+  if (p.startsWith("/espace-affilie")) return "/espace-affilie";
+  return "/espace-client";
+}
+
+/**
+ * Service worker actif pour cette page. S'il n'est pas encore enregistré
+ * (première visite, réseau lent), on l'enregistre nous-mêmes au lieu
+ * d'attendre indéfiniment `navigator.serviceWorker.ready`.
+ */
+async function activeRegistration(): Promise<ServiceWorkerRegistration> {
+  const scope = pushScope();
+  let reg = await navigator.serviceWorker.getRegistration(scope);
+  if (!reg) reg = await navigator.serviceWorker.register("/sw.js", { scope, updateViaCache: "none" });
+  if (reg.active) return reg;
+  const worker = reg.installing ?? reg.waiting;
+  if (worker) {
+    worker.postMessage("SKIP_WAITING");
+    await withTimeout(new Promise<void>((resolve) => {
+      if (worker.state === "activated") return resolve();
+      worker.addEventListener("statechange", () => { if (worker.state === "activated") resolve(); });
+    }), 30000, "timeout:sw");
+  }
+  if (!reg.active) throw new Error("timeout:sw");
+  return reg;
+}
+
+/** Envoie l'abonnement au serveur (qui l'attribue à la personne connectée). */
+async function saveOnServer(kind: "client" | "staff", data: WebPushSubscriptionData): Promise<void> {
+  const { data: session } = await supabase.auth.getSession();
+  const token = session.session?.access_token;
+  if (!token) throw new Error("session");
+  const res = await withTimeout(fetch("/api/push-subscribe", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, kind, ...data })
+  }), 20000, "timeout:save");
+  const j = await res.json().catch(() => ({ ok: false, reason: "save" }));
+  if (!j.ok) throw new Error("save:" + (j.reason ?? res.status));
+}
+
 /**
  * Enregistre un abonnement Web Push, client ou membre du personnel.
- *
- * ⚠️ `navigator.serviceWorker.ready` ne se résout JAMAIS si le service worker
- * n'atteint pas l'état "activated" pour cette page (enregistrement encore en
- * cours via components/PwaManager.tsx, réseau lent, bug du navigateur) — sans
- * garde-fou, le bouton restait bloqué sur "Activation…" indéfiniment.
- * subscribeNative() a déjà sa propre limite (10 s) ; celle-ci couvre
- * l'équivalent Web Push, qui n'en avait aucune jusqu'ici.
+ *  1. Autorisation : on attend la réponse de la personne, sans limite.
+ *  2. Service worker : enregistré au besoin, 30 s maximum.
+ *  3. Abonnement : réutilisé s'il existe ; sinon créé, avec un second essai.
+ *  4. Enregistrement côté serveur.
+ * En cas d'échec, la raison indique l'étape (timeout:sw, timeout:subscribe…).
  */
-async function subscribeWebPush(
-  saveSubscription: (subscription: WebPushSubscriptionData) => Promise<{ error: { message: string } | null }>
-): Promise<{ ok: boolean; reason?: string }> {
+async function subscribeWebPush(kind: "client" | "staff"): Promise<{ ok: boolean; reason?: string }> {
   if (!isPushSupported()) return { ok: false, reason: "unsupported" };
   try {
-    return await Promise.race([
-      (async (): Promise<{ ok: boolean; reason?: string }> => {
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") return { ok: false, reason: permission };
+    const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+    if (permission !== "granted") return { ok: false, reason: permission };
 
-        const reg = await navigator.serviceWorker.ready;
-        let sub = await reg.pushManager.getSubscription();
-        if (!sub) {
-          sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource
-          });
-        }
-        const json = sub.toJSON();
-        if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-          return { ok: false, reason: "invalid_subscription" };
-        }
-        const { error } = await saveSubscription({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
-        if (error) throw error;
-        return { ok: true };
-      })(),
-      new Promise<{ ok: boolean; reason?: string }>((resolve) =>
-        setTimeout(() => resolve({ ok: false, reason: "timeout" }), 15000))
-    ]);
+    const reg = await activeRegistration();
+    const key = urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource;
+    let sub = await withTimeout(reg.pushManager.getSubscription(), 15000, "timeout:subscribe");
+    if (!sub) {
+      try {
+        sub = await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }), 30000, "timeout:subscribe");
+      } catch {
+        // Second essai : un ancien abonnement abîmé peut bloquer le premier.
+        const stale = await reg.pushManager.getSubscription().catch(() => null);
+        if (stale) await stale.unsubscribe().catch(() => undefined);
+        sub = await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }), 30000, "timeout:subscribe");
+      }
+    }
+    const json = sub.toJSON();
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return { ok: false, reason: "invalid_subscription" };
+    await saveOnServer(kind, { endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
+    return { ok: true };
   } catch (e) {
-    return { ok: false, reason: e instanceof Error ? e.message : "error" };
+    const msg = e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String((e as { message: unknown }).message) : "error";
+    const name = e instanceof Error && e.name && e.name !== "Error" ? e.name + ": " : "";
+    return { ok: false, reason: (name + msg).slice(0, 180) || "error" };
   }
+}
+
+/** Le navigateur Samsung Internet n'a souvent pas de service de notification : conseiller Chrome. */
+export function isSamsungBrowser(): boolean {
+  return typeof navigator !== "undefined" && /SamsungBrowser/i.test(navigator.userAgent);
 }
 
 /**
@@ -197,12 +244,8 @@ export async function subscribeStaffToPush(staffId: string): Promise<{ ok: boole
       return { error };
     });
   }
-  return subscribeWebPush(async ({ endpoint, p256dh, auth }) => {
-    const { error } = await supabase.from("staff_push_subscriptions").upsert(
-      { staff_id: staffId, endpoint, p256dh, auth }, { onConflict: "endpoint" }
-    );
-    return { error };
-  });
+  void staffId; // le serveur retrouve le membre du personnel à partir de la session
+  return subscribeWebPush("staff");
 }
 
 /** Dezabòne aparèy la (kliyan mande sa espresyèman). */
@@ -214,8 +257,8 @@ export async function unsubscribeFromPush(): Promise<void> {
   }
   if (!isPushSupported()) return;
   try {
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
+    const reg = await navigator.serviceWorker.getRegistration(pushScope());
+    const sub = reg ? await reg.pushManager.getSubscription() : null;
     if (!sub) return;
     const endpoint = sub.endpoint;
     await sub.unsubscribe();
@@ -233,7 +276,7 @@ export async function reportPushFailure(reason: string): Promise<void> {
     if (!token) return;
     await fetch("/api/push-report", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, reason, platform: isNative() ? "android-app" : "navigateur" })
+      body: JSON.stringify({ token, reason, platform: isNative() ? "android-app" : isSamsungBrowser() ? "navigateur Samsung" : "navigateur" })
     });
   } catch { /* rapò a pa kritik */ }
 }
@@ -254,9 +297,17 @@ export async function autoEnablePush(subscribe: () => Promise<{ ok: boolean; rea
   if (before === "unsupported") return "unsupported";
   const result = await subscribe();
   if (result.ok) return "ok";
-  if (result.reason === "denied") return "denied";
+  if (result.reason === "denied" || result.reason === "default") return result.reason === "denied" ? "denied" : "prompt-needed";
   const after = await getPushPermissionState();
   if (after === "default") return "prompt-needed";
   void reportPushFailure(result.reason ?? "inconnu");
   return "failed";
+}
+
+/** Phrase claire pour la personne, selon la raison de l'échec. */
+export function pushFailureMessage(reason?: string): string {
+  if (isSamsungBrowser()) return "Le navigateur Samsung Internet bloque souvent les notifications. Ouvrez STANDA dans Google Chrome, puis réessayez.";
+  if (String(reason ?? "").startsWith("timeout")) return "Connexion trop lente pour activer les notifications. Réessayez avec un meilleur réseau (Wi-Fi ou 4G).";
+  if (String(reason ?? "").startsWith("session")) return "Votre session a expiré. Veuillez vous reconnecter, puis réessayez.";
+  return "Impossible d'activer les notifications pour le moment. Réessayez dans quelques minutes.";
 }
