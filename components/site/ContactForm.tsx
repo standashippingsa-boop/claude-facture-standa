@@ -29,7 +29,7 @@ const SUBJECTS = [
 ];
 
 const FLD =
-  "w-full rounded-xl border border-line bg-mist px-3.5 text-[14.5px] text-ink placeholder:text-mute focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent focus:bg-white transition";
+  "w-full rounded-2xl border border-transparent bg-[#f4f5f7] px-4 text-[14.5px] text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-ink/80 focus:bg-white transition";
 
 type Status = "idle" | "sending" | "sent" | "error" | "skipped";
 
@@ -118,7 +118,7 @@ export default function ContactForm() {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-lift ring-1 ring-line p-5 sm:p-6">
+    <div className="bg-white rounded-[20px] p-5 sm:p-6">
       <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
         {/* Pyèj bot — envizib pou moun */}
         <input
@@ -159,7 +159,7 @@ export default function ContactForm() {
 
 
         <div className="flex flex-col sm:flex-row gap-3 pt-1">
-          <button type="button" onClick={sendByEmail} disabled={status === "sending"} className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-accent hover:bg-accent-dark disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-[15px] transition">
+          <button type="button" onClick={sendByEmail} disabled={status === "sending"} className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full bg-ink hover:bg-navy disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold text-[15px] transition">
             {status === "sending" ? (
               <>
                 <span className="inline-block h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
@@ -168,7 +168,7 @@ export default function ContactForm() {
             ) : "Envoyer par courriel"}
           </button>
 
-          <button type="button" onClick={sendByWhatsApp} className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-[#25D366] hover:bg-[#1fb857] text-white font-bold text-[15px] transition">
+          <button type="button" onClick={sendByWhatsApp} className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full bg-[#25D366] hover:bg-[#1fb857] text-white font-semibold text-[15px] transition">
             <WhatsAppIcon size={18} className="shrink-0" />
             Envoyer sur WhatsApp
           </button>
@@ -181,7 +181,7 @@ export default function ContactForm() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-[12.5px] font-bold text-navy mb-1.5">{label}</span>
+      <span className="block text-[13px] font-medium text-ink/70 mb-1.5">{label}</span>
       {children}
     </label>
   );

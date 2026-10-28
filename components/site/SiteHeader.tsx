@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import Logo from "@/components/Logo";
 import { SITE } from "@/lib/site";
 
@@ -12,23 +13,19 @@ import { SITE } from "@/lib/site";
  * Konpozan PATAJE. Tout paj piblik yo (Accueil, Contact, Nos agences)
  * sèvi ak menm youn nan. Chanje yon lyen isit = li chanje toupatou.
  *
- * ⚠️ Konpozan sa a se pou SIT PIBLIK la sèlman.
- *    Li pa gen okenn rapò ak Shell.tsx / Sidebar.tsx (zouti admin yo).
- *    Pa mele yo — se de sistèm apa.
+ * Style : barre claire et sobre (fond gris très clair, texte encre), lien actif
+ * marqué d'un point, bouton principal noir arrondi — même langage que l'accueil.
  *
- * ⚠️ SITE a (imèl/telefòn/WhatsApp/Instagram) vinn nan lib/site.ts kounye a
- *    (PA defini isit ankò) — paske yon paj SÈVÈ (app/contact/page.tsx) pa
- *    ka li yon valè ki soti nan yon fichye "use client" san danje.
- *    Nou re-ekspòte SITE isit la pou ansyen enpòtasyon yo (ContactForm,
- *    SiteFooter) kontinye mache san chanjman.
+ * ⚠️ Konpozan sa a se pou SIT PIBLIK la sèlman (pa Shell.tsx / Sidebar.tsx).
+ * ⚠️ SITE (imèl/telefòn/WhatsApp/Instagram) vinn nan lib/site.ts ; nou
+ *    re-ekspòte l isit la pou ansyen enpòtasyon yo kontinye mache.
  */
 export { SITE };
 
-/* Lyen meni an — 5 antre, nan lòd yo parèt */
 const NAV = [
   { label: "Accueil", href: "/accueil" },
-  { label: "Contact", href: "/contact" },
   { label: "Nos agences", href: "/agences" },
+  { label: "Contact", href: "/contact" },
   { label: "Mon compte", href: "/login" }
 ];
 
@@ -38,191 +35,85 @@ export default function SiteHeader() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
-  /* Fèmen barre a chak fwa vizitè a chanje paj */
   useEffect(() => { setOpen(false); }, [pathname]);
 
-  /* Bloke defilman paj la pandan barre a louvri + fèmen ak Escape */
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => { document.body.style.overflow = prev; window.removeEventListener("keydown", onKey); };
   }, [open]);
 
-  const isActive = (href: string) => {
-    const base = href.split("?")[0];
-    return pathname === base;
-  };
+  const isActive = (href: string) => pathname === href.split("?")[0];
 
   return (
     <>
-      {/* ══════════ BARRE ANLÈ A ══════════ */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-navy/95 text-white shadow-soft backdrop-blur-xl">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10 xl:px-6">
-          <div className="flex h-[4.5rem] items-center justify-between gap-3">
+      <header className="sticky top-0 z-40 border-b border-black/[.06] bg-[#eef0f3]/90 text-ink backdrop-blur-xl">
+        <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between gap-4 px-5 sm:px-8 lg:px-10 xl:px-6">
+          <Link href="/accueil" className="flex min-w-0 items-center gap-2.5">
+            <Logo size={34} />
+            <span className="leading-none">
+              <span className="block text-[15px] font-extrabold tracking-tight text-ink">STANDA</span>
+              <span className="mt-0.5 block text-[9.5px] font-semibold tracking-[0.2em] text-mute">COMMERCIAL</span>
+            </span>
+          </Link>
 
-            {/* Logo + non */}
-            <Link href="/accueil" className="flex items-center gap-2.5 min-w-0">
-              <Logo size={36} tone="light" />
-              <span className="font-black tracking-tight leading-none truncate">
-                <span className="block text-[15px]">STANDA</span>
-                <span className="block text-[10px] font-semibold text-white/70 tracking-[0.18em]">
-                  COMMERCIAL
-                </span>
-              </span>
-            </Link>
-
-            {/* ── Meni òdinatè (kache sou telefòn) ── */}
-            <nav className="hidden md:flex items-center gap-1">
-              {NAV.map((l) => (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition
-                    ${isActive(l.href)
-                      ? "text-accent bg-white/10"
-                      : "text-white/80 hover:text-white hover:bg-white/10"}`}
-                >
-                  {l.label}
-                </Link>
-              ))}
-              <Link
-                href={SIGNUP.href}
-                className="ml-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-accent
-                           hover:bg-accent-dark text-white transition shadow-card"
-              >
-                {SIGNUP.label}
+          <nav className="hidden items-center gap-7 md:flex" aria-label="Navigation principale">
+            {NAV.map((l) => (
+              <Link key={l.href} href={l.href} aria-current={isActive(l.href) ? "page" : undefined}
+                className={`relative py-2 text-[14px] transition ${isActive(l.href) ? "font-semibold text-ink" : "text-ink/70 hover:text-ink"}`}>
+                {l.label}
+                {isActive(l.href) && <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-ink" />}
               </Link>
-            </nav>
+            ))}
+          </nav>
 
-            {/* ── Bouton ☰ (telefòn sèlman) ── */}
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              aria-label="Ouvrir le menu"
-              aria-expanded={open}
-              className="md:hidden grid place-items-center h-11 w-11 rounded-lg
-                         hover:bg-white/10 active:bg-white/20 transition"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                <line x1="4" y1="7" x2="20" y2="7" />
-                <line x1="4" y1="12" x2="20" y2="12" />
-                <line x1="4" y1="17" x2="20" y2="17" />
-              </svg>
-            </button>
+          <div className="hidden items-center gap-5 md:flex">
+            <a href={`https://wa.me/${SITE.whatsapp}`} target="_blank" rel="noopener noreferrer" className="hidden text-right leading-tight lg:block">
+              <span className="block text-[14px] font-semibold text-ink">{SITE.phone}</span>
+              <span className="block text-[11.5px] text-mute">Lun–ven 9h00–17h00</span>
+            </a>
+            <Link href={SIGNUP.href} className="inline-flex h-11 items-center gap-2 rounded-full bg-ink pl-5 pr-4 text-[14px] font-semibold text-white transition hover:bg-navy">
+              {SIGNUP.label} <ArrowRight size={16} />
+            </Link>
           </div>
-        </div>
-      </header>
 
-      {/* ══════════ FON FONSE DÈYÈ BARRE A ══════════ */}
-      <div
-        onClick={() => setOpen(false)}
-        className={`md:hidden fixed inset-0 z-50 bg-black/60 transition-opacity duration-200
-          ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-        aria-hidden="true"
-      />
-
-      {/* ══════════ BARRE LATERAL (TELEFÒN) ══════════ */}
-      <aside
-        className={`md:hidden fixed top-0 right-0 z-50 h-full w-[82%] max-w-[320px]
-          bg-navy-dark text-white shadow-lift flex flex-col
-          transition-transform duration-250 ease-out
-          ${open ? "translate-x-0" : "translate-x-full"}`}
-        role="dialog"
-        aria-modal="true"
-      >
-        {/* Tèt barre a */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-white/10 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <Logo size={32} tone="light" />
-            <span className="font-black text-sm tracking-tight">STANDA</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Fermer le menu"
-            className="grid place-items-center h-10 w-10 rounded-lg hover:bg-white/10 transition"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-              <line x1="6" y1="6" x2="18" y2="18" />
-              <line x1="18" y1="6" x2="6" y2="18" />
+          <button type="button" onClick={() => setOpen(true)} aria-label="Ouvrir le menu" aria-expanded={open}
+            className="grid h-11 w-11 place-items-center rounded-full bg-white text-ink shadow-[0_1px_2px_rgba(0,0,0,.06)] md:hidden">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <line x1="4" y1="8" x2="20" y2="8" /><line x1="4" y1="16" x2="20" y2="16" />
             </svg>
           </button>
         </div>
+      </header>
 
-        {/* Lyen yo */}
+      {/* Menu téléphone */}
+      <div onClick={() => setOpen(false)} aria-hidden="true"
+        className={`fixed inset-0 z-50 bg-black/40 transition-opacity duration-200 md:hidden ${open ? "opacity-100" : "pointer-events-none opacity-0"}`} />
+      <aside role="dialog" aria-modal="true" aria-label="Menu"
+        className={`fixed right-0 top-0 z-50 flex h-full w-[84%] max-w-[330px] flex-col bg-white text-ink shadow-2xl transition-transform duration-200 ease-out md:hidden ${open ? "translate-x-0" : "translate-x-full"}`}>
+        <div className="flex h-[4.5rem] shrink-0 items-center justify-between border-b border-line px-5">
+          <div className="flex items-center gap-2.5"><Logo size={30} /><span className="text-[14px] font-extrabold tracking-tight">STANDA</span></div>
+          <button type="button" onClick={() => setOpen(false)} aria-label="Fermer le menu" className="grid h-10 w-10 place-items-center rounded-full bg-[#eef0f3]">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" /></svg>
+          </button>
+        </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           {NAV.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={`flex items-center px-4 py-3.5 rounded-xl mb-1 text-[15px] font-semibold transition
-                ${isActive(l.href)
-                  ? "bg-accent/15 text-accent"
-                  : "text-white/85 hover:bg-white/10 hover:text-white"}`}
-            >
-              {l.label}
+            <Link key={l.href} href={l.href} className={`mb-1 flex items-center justify-between rounded-2xl px-4 py-3.5 text-[16px] transition ${isActive(l.href) ? "bg-[#eef0f3] font-semibold" : "text-ink/80 hover:bg-[#f5f6f8]"}`}>
+              {l.label}<ArrowRight size={16} className="text-ink/40" />
             </Link>
           ))}
-
-          <Link
-            href={SIGNUP.href}
-            className="mt-3 flex items-center justify-center px-4 py-3.5 rounded-xl
-                       bg-accent hover:bg-accent-dark text-white text-[15px] font-bold transition"
-          >
-            {SIGNUP.label}
+          <Link href={SIGNUP.href} className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-ink text-[15px] font-semibold text-white">
+            {SIGNUP.label} <ArrowRight size={16} />
           </Link>
         </nav>
-
-        {/* ── Anba: imèl · telefòn · Instagram ── */}
-        <div className="shrink-0 border-t border-white/10 px-4 py-4 space-y-1">
-          <a
-            href={`mailto:${SITE.email}`}
-            className="flex items-center gap-3 px-2 py-2.5 rounded-lg text-white/75
-                       hover:text-white hover:bg-white/10 transition text-[13px] break-all"
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" className="shrink-0">
-              <rect x="2" y="4" width="20" height="16" rx="2" />
-              <path d="m2 7 10 6 10-6" />
-            </svg>
-            {SITE.email}
-          </a>
-
-          <a
-            href={`tel:${SITE.whatsapp}`}
-            className="flex items-center gap-3 px-2 py-2.5 rounded-lg text-white/75
-                       hover:text-white hover:bg-white/10 transition text-[13px]"
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" className="shrink-0">
-              <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" />
-            </svg>
-            {SITE.phone}
-          </a>
-
-          <a
-            href={`https://instagram.com/${SITE.instagram}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 px-2 py-2.5 rounded-lg text-white/75
-                       hover:text-white hover:bg-white/10 transition text-[13px]"
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" className="shrink-0">
-              <rect x="2" y="2" width="20" height="20" rx="5" />
-              <circle cx="12" cy="12" r="4" />
-              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-            </svg>
-            Instagram
-          </a>
+        <div className="shrink-0 space-y-1 border-t border-line px-5 py-4 text-[13px] text-mute">
+          <a href={`tel:${SITE.whatsapp}`} className="block py-1.5 font-semibold text-ink">{SITE.phone}</a>
+          <a href={`mailto:${SITE.email}`} className="block break-all py-1.5 hover:text-ink">{SITE.email}</a>
+          <a href={`https://instagram.com/${SITE.instagram}`} target="_blank" rel="noopener noreferrer" className="block py-1.5 hover:text-ink">Instagram</a>
         </div>
       </aside>
     </>

@@ -351,3 +351,6 @@ body { @apply bg-mist text-slate-700 antialiased; }
   .client-enter { animation: none !important; }
   .client-route-progress::after { transition: none; }
 }
+
+/* Sit piblik : menm polis Inter ak app kliyan an (chaje nan app/layout.tsx). */
+.site-font { font-family: var(--font-client), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }

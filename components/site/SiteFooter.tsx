@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import Logo from "@/components/Logo";
 import { SITE } from "@/lib/site";
 import { DEPOT } from "@/lib/depot";
@@ -8,136 +9,76 @@ import { FacebookIcon, InstagramIcon, TikTokIcon, WhatsAppIcon } from "./BrandIc
 
 /**
  * STANDA COMMERCIAL — FOOTER SIT PIBLIK LA
- * ═════════════════════════════════════════
- * Konpozan PATAJE — tout paj piblik yo sèvi ak menm youn nan.
- *
- * ⚠️ NÒT ENPÒTAN SOU DONE YO:
- *   • Kontak yo (imèl/telefòn/Instagram) soti nan SITE — components/site/SiteHeader.tsx
- *   • Adrès depo a soti nan DEPOT — lib/depot.ts
- *   Nou PA retape yo nan men isit la. Konsa lè yon adrès oswa yon nimewo
- *   chanje, li chanje toupatou an menm tan (WhatsApp, sit la, PDF yo).
- *   Se sa ki anpeche de vèsyon diferan ap sikile an menm tan.
+ * Konpozan PATAJE. Kontak yo soti nan SITE (lib/site.ts) ak adrès depo a nan
+ * DEPOT (lib/depot.ts) : yo pa retape isit la, konsa yo chanje toupatou ansanm.
  */
+const NAV = [
+  { label: "Accueil", href: "/accueil" },
+  { label: "Nos agences", href: "/agences" },
+  { label: "Contact", href: "/contact" },
+  { label: "Mon compte", href: "/login" }
+];
 
 export default function SiteFooter() {
   const year = new Date().getFullYear();
-
+  const socials = [
+    { label: "WhatsApp", href: `https://wa.me/${SITE.whatsapp}`, icon: WhatsAppIcon },
+    { label: "Instagram", href: SITE.instagramUrl, icon: InstagramIcon },
+    { label: "Facebook", href: SITE.facebookUrl, icon: FacebookIcon },
+    { label: "TikTok", href: SITE.tiktokUrl, icon: TikTokIcon }
+  ];
   return (
-    <footer className="bg-navy-dark text-white">
-      <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10 xl:px-6">
-
-        <div className="grid items-start gap-10 md:grid-cols-2 lg:grid-cols-4">
-
-          {/* ── Kolòn 1: mak la ── */}
-          <div className="order-1 md:col-span-1 lg:order-none">
-            <div className="flex items-center gap-2.5 mb-4">
-              <Logo size={40} tone="light" />
-              <span className="font-black tracking-tight leading-none">
-                <span className="block text-[15px]">STANDA</span>
-                <span className="block text-[10px] font-semibold text-white/60 tracking-[0.18em]">
-                  COMMERCIAL
-                </span>
-              </span>
+    <footer className="bg-[#eef0f3] px-3 pb-3 sm:px-4 sm:pb-4">
+      <div className="mx-auto max-w-[88rem] rounded-[28px] bg-ink px-6 py-12 text-white sm:px-10 lg:px-14">
+        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1.1fr]">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <Logo size={38} tone="light" />
+              <span className="leading-none"><span className="block text-[15px] font-extrabold tracking-tight">STANDA</span><span className="mt-0.5 block text-[9.5px] font-semibold tracking-[0.2em] text-white/55">COMMERCIAL</span></span>
             </div>
-            <p className="text-[13px] leading-relaxed text-white/65">
-              Expédition et livraison de colis entre les USA et Haïti.
-              Rapide, fiable, suivi de bout en bout.
-            </p>
+            <p className="mt-4 max-w-xs text-[14px] leading-relaxed text-white/60">Vos achats aux USA, reçus à Miami et livrés dans votre agence en Haïti, avec un suivi à chaque étape.</p>
+            <Link href="/inscription" className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-white pl-5 pr-4 text-[14px] font-semibold text-ink transition hover:bg-[#eef0f3]">
+              Créer mon compte <ArrowRight size={16} />
+            </Link>
           </div>
 
-          {/* ── Kolòn 2: aplikasyon ak navigasyon ── */}
-          <div className="order-4 lg:order-none">
-            <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50 mb-4">
-              Navigation
-            </h3>
-            <ul className="space-y-2.5 text-[14px]">
-              <li><Link href="/accueil" className="text-white/80 hover:text-accent transition">Accueil</Link></li>
-              <li><Link href="/contact" className="text-white/80 hover:text-accent transition">Contact</Link></li>
-              <li><Link href="/agences" className="text-white/80 hover:text-accent transition">Nos agences</Link></li>
-              <li><Link href="/login" className="text-white/80 hover:text-accent transition">Mon compte</Link></li>
-              <li><Link href="/inscription" className="text-accent font-semibold hover:text-white transition">S&apos;inscrire</Link></li>
+          <div>
+            <h3 className="text-[13px] text-white/45">Navigation</h3>
+            <ul className="mt-4 space-y-2.5 text-[14px]">
+              {NAV.map((item) => <li key={item.href}><Link href={item.href} className="text-white/80 transition hover:text-white">{item.label}</Link></li>)}
+              <li><Link href="/inscription" className="text-white/80 transition hover:text-white">S&apos;inscrire</Link></li>
             </ul>
           </div>
 
-          {/* ── Kolòn 3: kontak ── */}
-          <div className="order-2 lg:order-none">
-            <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50 mb-4">
-              Contact
-            </h3>
-            <ul className="space-y-2.5 text-[14px]">
-              <li>
-                <a href={`mailto:${SITE.email}`}
-                  className="text-white/80 hover:text-accent transition break-all">
-                  {SITE.email}
-                </a>
-              </li>
-              <li>
-                <a href={`tel:${SITE.whatsapp}`}
-                  className="text-white/80 hover:text-accent transition">
-                  {SITE.phone}
-                </a>
-              </li>
-              <li>
-                <a href={`https://wa.me/${SITE.whatsapp}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-white/80 hover:text-accent transition">
-                  <WhatsAppIcon size={16} /> WhatsApp
-                </a>
-              </li>
-              <li>
-                <a href={SITE.instagramUrl}
-                  target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-white/80 hover:text-accent transition">
-                  <InstagramIcon size={16} /> Instagram
-                </a>
-              </li>
-              <li>
-                <a href={SITE.facebookUrl}
-                  target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-white/80 hover:text-accent transition">
-                  <FacebookIcon size={16} /> Facebook
-                </a>
-              </li>
-              <li>
-                <a href={SITE.tiktokUrl}
-                  target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-white/80 hover:text-accent transition">
-                  <TikTokIcon size={16} /> TikTok
-                </a>
-              </li>
+          <div>
+            <h3 className="text-[13px] text-white/45">Contact</h3>
+            <ul className="mt-4 space-y-2.5 text-[14px]">
+              <li><a href={`tel:${SITE.whatsapp}`} className="text-white/80 transition hover:text-white">{SITE.phone}</a></li>
+              <li><a href={`mailto:${SITE.email}`} className="break-all text-white/80 transition hover:text-white">{SITE.email}</a></li>
             </ul>
+            <div className="mt-5 flex gap-2">
+              {socials.map(({ label, href, icon: Icon }) => (
+                <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}
+                  className="grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white/85 transition hover:bg-white hover:text-ink">
+                  <Icon size={17} />
+                </a>
+              ))}
+            </div>
           </div>
 
-          {/* ── Kolòn 4: depo Miami ── */}
-          <div className="order-3 lg:order-none">
-            <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50 mb-4">
-              Notre dépôt
-            </h3>
-            <address className="not-italic text-[14px] leading-relaxed text-white/80">
-              {DEPOT.address1}<br />
-              {DEPOT.city}, {DEPOT.state}<br />
-              {DEPOT.zip}<br />
-              <a href={`tel:${DEPOT.phone.replace(/[^\d+]/g, "")}`}
-                className="hover:text-accent transition">
-                {DEPOT.phone}
-              </a>
+          <div>
+            <h3 className="text-[13px] text-white/45">Notre dépôt à Miami</h3>
+            <address className="mt-4 not-italic text-[14px] leading-relaxed text-white/80">
+              {DEPOT.address1}<br />{DEPOT.city}, {DEPOT.state} {DEPOT.zip}<br />
+              <a href={`tel:${DEPOT.phone.replace(/[^\d+]/g, "")}`} className="transition hover:text-white">{DEPOT.phone}</a>
             </address>
-            <p className="mt-3 text-[12px] leading-relaxed text-accent/90 font-semibold">
-              N&apos;oubliez jamais votre code MC sur chaque colis.
-            </p>
+            <p className="mt-4 rounded-2xl bg-white/[.07] px-4 py-3 text-[13px] leading-relaxed text-white/75">N&apos;oubliez jamais votre <b className="text-white">code MC</b> sur chaque colis.</p>
           </div>
         </div>
 
-          {/* ── Ba anba a ── */}
-        <div className="mt-10 pt-6 border-t border-white/10
-                        flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-[12px] text-white/50 text-center sm:text-left">
-            © {year} {SITE.name}. Tous droits réservés.
-          </p>
-          <Link href="/confidentialite"
-            className="text-[12px] text-white/50 hover:text-white/85 transition">
-            Politique de confidentialité
-          </Link>
+        <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 sm:flex-row">
+          <p className="text-[12.5px] text-white/45">© {year} {SITE.name}. Tous droits réservés.</p>
+          <Link href="/confidentialite" className="text-[12.5px] text-white/45 transition hover:text-white/80">Politique de confidentialité</Link>
         </div>
       </div>
     </footer>
