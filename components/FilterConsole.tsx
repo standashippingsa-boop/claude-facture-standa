@@ -1,6 +1,6 @@
 "use client";
 
-import { Filter, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
+import { Filter, RotateCcw, Search, SlidersHorizontal } from "@/components/icons";
 
 export type FilterField = {
   key: string;

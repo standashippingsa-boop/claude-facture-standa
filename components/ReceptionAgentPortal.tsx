@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ClipboardList, LogOut, MapPin, PackagePlus, Search, User } from "lucide-react";
+import { ClipboardList, LogOut, MapPin, PackagePlus, Search, User } from "@/components/icons";
 import { supabase } from "@/lib/supabase";
 import Logo from "@/components/Logo";
 

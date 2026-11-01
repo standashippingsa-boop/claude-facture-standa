@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FileDown, LoaderCircle, Printer, Scissors, X } from "lucide-react";
+import { ArrowLeft, FileDown, LoaderCircle, Printer, Scissors, X } from "@/components/icons";
 import { supabase } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
 import { printDocument, printUnsupported } from "@/lib/print";

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type Inp
 import {
   ArrowRight, BarChart3, Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, CreditCard, Link2, MapPin,
   Loader2, Mail, MessageCircle, Phone, ShieldCheck, UserRound, X, type LucideIcon
-} from "lucide-react";
+} from "@/components/icons";
 import Logo from "@/components/Logo";
 
 import { useNoticeToast } from "@/lib/notify";

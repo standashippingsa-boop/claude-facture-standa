@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Banknote, BarChart3, CalendarDays, ChevronDown, CheckCircle2, CircleDollarSign, Download, FileText, History, Landmark, RefreshCw, Scale, UsersRound, WalletCards } from "lucide-react";
+import { ArrowLeft, Banknote, BarChart3, CalendarDays, ChevronDown, CheckCircle2, CircleDollarSign, Download, FileText, History, Landmark, RefreshCw, Scale, UsersRound, WalletCards } from "@/components/icons";
 import Loader, { Spinner } from "@/components/Loader";
 import ClientPaymentForm, { PaymentModal, type ClientPaymentSubmit } from "@/components/ClientPaymentForm";
 import { invoiceStatusLines } from "@/lib/payment-allocation";

@@ -4,7 +4,7 @@ import Link from "next/link";
 import {
   CalendarClock, CheckCircle2, Clock3, Copy, Eye, HandCoins, Inbox, KeyRound,
   Loader2, RefreshCw, RotateCcw, Search, ShieldOff, UserCheck, Users, Wallet, XCircle
-} from "lucide-react";
+} from "@/components/icons";
 import { adminApi } from "@/lib/authx";
 import { getAffiliateApplications, getAffiliateCommissions, getAffiliates } from "@/lib/db";
 import { Affiliate, AffiliateApplication, AffiliateCommission } from "@/lib/types";

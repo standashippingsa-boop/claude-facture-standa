@@ -16,7 +16,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, ExternalLink, CheckCircle2, Clock } from "lucide-react";
+import { ClipboardList, ExternalLink, CheckCircle2, Clock } from "@/components/icons";
 import { BusyButton } from "@/components/Loader";
 import { createPendingConduces } from "@/lib/db";
 import { useRole } from "@/lib/authx";

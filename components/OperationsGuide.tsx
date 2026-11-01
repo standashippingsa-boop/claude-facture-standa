@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, BookOpen, CheckCircle2, CircleDollarSign, FileText, Package, ScanLine, ShieldCheck, Truck, Users } from "lucide-react";
+import { ArrowLeft, BookOpen, CheckCircle2, CircleDollarSign, FileText, Package, ScanLine, ShieldCheck, Truck, Users } from "@/components/icons";
 
 export type GuideRole = "admin" | "employe" | "agent_retrait";
 

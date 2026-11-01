@@ -10,7 +10,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User } from "lucide-react";
+import { User } from "@/components/icons";
 import { isSupabaseConfigured, setAuthRealm, supabase } from "@/lib/supabase";
 import { getMyStaff, staffEmail } from "@/lib/authx";
 import type { StaffRole } from "@/lib/types";

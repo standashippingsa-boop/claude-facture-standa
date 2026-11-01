@@ -28,7 +28,7 @@ import {
   AlertTriangle, Ban, Bell, BellRing, Megaphone, BookOpen, Calculator, ChevronDown, CircleCheck,
   ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
   MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, Search, ShieldCheck, Store, Trash2, Truck, X
-} from "lucide-react";
+} from "@/components/icons";
 import DeleteAccountModal from "@/components/DeleteAccountModal";
 import { supabase } from "@/lib/supabase";
 import { safeMessage } from "@/lib/safeerror";

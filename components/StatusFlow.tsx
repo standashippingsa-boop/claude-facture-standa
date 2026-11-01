@@ -1,5 +1,5 @@
 "use client";
-import { Check, Truck } from "lucide-react";
+import { Check, Truck } from "@/components/icons";
 import { INTERNAL_STATUSES } from "@/lib/types";
 
 /**

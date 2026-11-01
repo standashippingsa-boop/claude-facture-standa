@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Check, CircleDollarSign, Plus, Trash2, X } from "lucide-react";
+import { Check, CircleDollarSign, Plus, Trash2, X } from "@/components/icons";
 import { parsePaymentAmount } from "@/lib/invoice-payable";
 import { MAX_PAYMENT_LINES, PAYMENT_METHODS, outstandingOf, planPaymentLines, type PaymentInvoice, type PaymentLine } from "@/lib/payment-allocation";
 import { Spinner } from "@/components/Loader";

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, CircleDollarSign, LoaderCircle, RotateCcw } from "lucide-react";
+import { CheckCircle2, CircleDollarSign, LoaderCircle, RotateCcw } from "@/components/icons";
 import { useState } from "react";
 import { useRole } from "@/lib/authx";
 import { setConducePaymentStatus } from "@/lib/db";

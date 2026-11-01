@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Download, EllipsisVertical, Share, SquarePlus, X } from "lucide-react";
+import { Download, EllipsisVertical, Share, SquarePlus, X } from "@/components/icons";
 import { Capacitor } from "@capacitor/core";
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };

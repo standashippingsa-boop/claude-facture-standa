@@ -3,7 +3,7 @@ import { use, useEffect, useRef, useState } from "react";
 import Loader, { BusyButton, Spinner } from "@/components/Loader";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Calculator, FileText, PackageCheck, Pencil, Upload, X, Trash2, Printer } from "lucide-react";
+import { ArrowLeft, Calculator, FileText, PackageCheck, Pencil, Upload, X, Trash2, Printer } from "@/components/icons";
 import ClientEditDialog from "@/components/ClientEditDialog";
 import ClientSendPanel from "@/components/ClientSendPanel";
 import StatusBadge from "@/components/StatusBadge";

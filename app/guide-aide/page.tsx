@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, Ban, ChevronRight, Clock, HelpCircle, MapPin, Phone, ShieldCheck, Store, Truck, Calculator, PackageX } from "lucide-react";
+import { AlertTriangle, Ban, ChevronRight, Clock, HelpCircle, MapPin, Phone, ShieldCheck, Store, Truck, Calculator, PackageX } from "@/components/icons";
 import Logo from "@/components/Logo";
 import AddressGuide from "@/components/site/AddressGuide";
 import PublicTarifs from "@/components/site/PublicTarifs";

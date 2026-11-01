@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil, Trash2, Plus, UserPlus, X } from "lucide-react";
+import { Pencil, Trash2, Plus, UserPlus, X } from "@/components/icons";
 import { DupGroup, deleteClient, findDuplicateGroups, getClients, getVilles, logAction, mergeClients, upsertClient } from "@/lib/db";
 import { adminApi, useRole } from "@/lib/authx";
 import { Client, Ville } from "@/lib/types";

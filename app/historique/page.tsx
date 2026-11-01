@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Camera, Printer } from "lucide-react";
+import { CheckCircle2, Camera, Printer } from "@/components/icons";
 import StatusBadge from "@/components/StatusBadge";
 import Pagination from "@/components/Pagination";
 import RefreshButton from "@/components/RefreshButton";

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Trash2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Trash2, X } from "@/components/icons";
 import { supabase } from "@/lib/supabase";
 import { BusyButton } from "@/components/Loader";
 

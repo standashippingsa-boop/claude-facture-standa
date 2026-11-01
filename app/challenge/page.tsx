@@ -6,7 +6,7 @@
  * base ; cet écran ne fait qu'appeler les fonctions sécurisées.
  */
 import { useEffect, useState } from "react";
-import { Download, Plus, Trophy, UserPlus } from "lucide-react";
+import { Download, Plus, Trophy, UserPlus } from "@/components/icons";
 import Loader, { BusyButton } from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
 import { supabase } from "@/lib/supabase";

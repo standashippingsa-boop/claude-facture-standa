@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BadgeDollarSign, CheckCircle2, Clock3, Copy, HandCoins, LogOut, PackageCheck, Settings, UserPlus, Users } from "lucide-react";
+import { BadgeDollarSign, CheckCircle2, Clock3, Copy, HandCoins, LogOut, PackageCheck, Settings, UserPlus, Users } from "@/components/icons";
 import Logo from "@/components/Logo";
 import { formatHtg, toPayoutHtg, type AffiliatePayoutMethod } from "@/lib/affiliate-terms";
 import { ContractSection, PayoutSection, dateFr } from "@/components/affiliate/AffiliateAccountCards";

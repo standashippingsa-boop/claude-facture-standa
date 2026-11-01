@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Check, Copy, Gift, Smartphone, Users } from "lucide-react";
+import { Check, Copy, Gift, Smartphone, Users } from "@/components/icons";
 import { CLAIM_STATUS_LABEL, claimChallengeReward, requestChallengeEnrollment, type ChallengeMe } from "@/lib/challenge";
 
 const lb = (value: number | undefined | null) => `${Number(value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} lb`;

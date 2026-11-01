@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Settings, UserRound } from "lucide-react";
+import { ArrowLeft, Loader2, Settings, UserRound } from "@/components/icons";
 import Logo from "@/components/Logo";
 import type { AffiliatePayoutMethod } from "@/lib/affiliate-terms";
 import { ContractSection, PayoutSection, dateFr, portal } from "@/components/affiliate/AffiliateAccountCards";

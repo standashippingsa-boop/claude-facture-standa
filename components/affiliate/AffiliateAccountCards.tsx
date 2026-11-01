@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { Download, Eye, FileSignature, Loader2, Upload, Wallet } from "lucide-react";
+import { Download, Eye, FileSignature, Loader2, Upload, Wallet } from "@/components/icons";
 import { useNoticeToast } from "@/lib/notify";
 import {
   AFFILIATE_PAYOUT_METHODS, AFFILIATE_PAYOUT_RATE_HTG, SIGNED_CONTRACT_MAX_BYTES, resolveSignedContractExt, signedContractMime,

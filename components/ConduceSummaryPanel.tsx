@@ -17,7 +17,7 @@
 import { useEffect, useState } from "react";
 import {
   CheckCircle2, Clock, DollarSign, FileText, Lock, Package, Receipt, TrendingUp, Truck, Users
-} from "lucide-react";
+} from "@/components/icons";
 import { getConduceStats, getConduceSummary } from "@/lib/db";
 import { MCPACK_COST_PER_LB, PROFIT_PER_LB, estimateProfit } from "@/lib/pricing";
 import { usd } from "@/lib/utils";

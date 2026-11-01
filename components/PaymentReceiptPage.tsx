@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, LoaderCircle, Printer, ReceiptText, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, LoaderCircle, Printer, ReceiptText, ShieldCheck } from "@/components/icons";
 import Logo from "@/components/Logo";
 import { supabase } from "@/lib/supabase";
 

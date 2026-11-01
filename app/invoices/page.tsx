@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Banknote, Eye, Download, Printer, Send, XCircle, Scale } from "lucide-react";
+import { Banknote, Eye, Download, Printer, Send, XCircle, Scale } from "@/components/icons";
 import { cancelInvoice, closeInvoicePayments, getInvoiceItems, getInvoices, getSettings, getUnsettledAgentPaymentIdsByInvoice, saveInvoicePdfPath } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import RefreshButton from "@/components/RefreshButton";

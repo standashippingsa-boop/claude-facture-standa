@@ -16,7 +16,7 @@
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FileText, Inbox, Loader2 } from "lucide-react";
+import { FileText, Inbox, Loader2 } from "@/components/icons";
 import RefreshButton from "@/components/RefreshButton";
 import { SavedToast, Spinner } from "@/components/Loader";
 import FilterConsole from "@/components/FilterConsole";

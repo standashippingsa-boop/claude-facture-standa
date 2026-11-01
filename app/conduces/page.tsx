@@ -26,7 +26,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft, Boxes, CheckCircle2, ClipboardList, FileDown, Folder, FolderOpen, Trash2,
   TrendingUp, Plus, Sparkles, MapPin
-} from "lucide-react";
+} from "@/components/icons";
 import Loader, { BusyButton } from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";

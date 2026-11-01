@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Loader from "@/components/Loader";
-import { History, Trash2, Eye } from "lucide-react";
+import { History, Trash2, Eye } from "@/components/icons";
 import RefreshButton from "@/components/RefreshButton";
 import Pagination from "@/components/Pagination";
 import FilterConsole from "@/components/FilterConsole";

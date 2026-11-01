@@ -10,7 +10,7 @@
  */
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CheckSquare, X, Trash2, ChevronUp, ChevronDown, FileText } from "lucide-react";
+import { CheckSquare, X, Trash2, ChevronUp, ChevronDown, FileText } from "@/components/icons";
 import { usePackageSelection } from "@/lib/selection";
 import { withReturnTo } from "@/lib/list-context";
 

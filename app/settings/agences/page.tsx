@@ -5,7 +5,7 @@ import Loader, { BusyButton } from "@/components/Loader";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Pencil, MapPin, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, Pencil, MapPin, ArrowLeft } from "@/components/icons";
 import { useRole } from "@/lib/authx";
 import { Agence, blankAgence, deleteAgence, getAllAgences, toggleAgence, upsertAgence } from "@/lib/agences";
 

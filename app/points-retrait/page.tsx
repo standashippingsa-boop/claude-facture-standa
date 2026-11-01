@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Banknote, CheckCircle2, CircleDollarSign, ClipboardList, PackageCheck, Printer, RefreshCw, Truck } from "lucide-react";
+import { Banknote, CheckCircle2, CircleDollarSign, ClipboardList, PackageCheck, Printer, RefreshCw, Truck } from "@/components/icons";
 import { getClients, getInvoices, getPackages, getVilles } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Client, Invoice, Pkg, Ville } from "@/lib/types";

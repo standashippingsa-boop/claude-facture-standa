@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, LogIn } from "lucide-react";
+import { ArrowLeft, Loader2, LogIn } from "@/components/icons";
 import Logo from "@/components/Logo";
 
 import { useNoticeToast } from "@/lib/notify";

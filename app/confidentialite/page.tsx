@@ -6,7 +6,7 @@
  * Ekri an fransè — se lang dokiman ofisyèl kliyan yo.
  */
 import Link from "next/link";
-import { ArrowLeft, MessageCircle } from "lucide-react";
+import { ArrowLeft, MessageCircle } from "@/components/icons";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 import { DEPOT } from "@/lib/depot";
 

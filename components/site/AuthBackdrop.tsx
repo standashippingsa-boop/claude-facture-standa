@@ -1,4 +1,4 @@
-import { PackageCheck } from "lucide-react";
+import { PackageCheck } from "@/components/icons";
 
 /** Décor commun des pages d'authentification publiques. */
 export default function AuthBackdrop() {

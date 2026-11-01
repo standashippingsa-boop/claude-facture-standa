@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, MessageSquareText, Star } from "lucide-react";
+import { Eye, EyeOff, MessageSquareText, Star } from "@/components/icons";
 import Loader, { Spinner } from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
 import { supabase } from "@/lib/supabase";

@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   ChevronLeft, ChevronRight, CircleCheck, Clipboard, Clock, MessageCircle,
   Navigation, Package, Receipt, Store, Warehouse
-} from "lucide-react";
+} from "@/components/icons";
 import type { Pkg } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
 

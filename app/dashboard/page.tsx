@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Loader from "@/components/Loader";
 import Link from "next/link";
-import { Users, Package, FileText, DollarSign, RefreshCw, CheckCircle2, Bell, Inbox, UserPlus, TrendingUp, UserCheck } from "lucide-react";
+import { Users, Package, FileText, DollarSign, RefreshCw, CheckCircle2, Bell, Inbox, UserPlus, TrendingUp, UserCheck } from "@/components/icons";
 import { ChartsData, getChartsData, getClients, getRetraits, getStats } from "@/lib/db";
 import { Client, DashboardStats, Retrait } from "@/lib/types";
 import RefreshButton from "@/components/RefreshButton";

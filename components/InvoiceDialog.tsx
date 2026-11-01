@@ -1,19 +1,19 @@
 "use client";
 import { createBonRemiseNumber } from "@/lib/bonremise";
 import { useEffect, useState } from "react";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, X } from "@/components/icons";
 import { cancelInvoice, createBonRemiseRecord, createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, notifyEmail, saveInvoicePdfPath } from "@/lib/db";
 import { computeInvoice, invoiceLineContent, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { FixedPriceMap, OrderFeeTier, SpecialArticle, TAX_THRESHOLD_LB } from "@/lib/pricing";
 import { Invoice, InvoiceItem, InvoiceKind, Ville } from "@/lib/types";
-import { MapPin } from "lucide-react";
+import { MapPin } from "@/components/icons";
 import { generateUploadDownload } from "@/lib/pdf";
 import { sendInvoicePdfWhatsApp } from "@/lib/whatsapp";
 import { Client, Pkg } from "@/lib/types";
 import { htg, usd } from "@/lib/utils";
 import { specialPackageInfo } from "@/lib/special-package";
-import { Package } from "lucide-react";
-import { ShoppingBag } from "lucide-react";
+import { Package } from "@/components/icons";
+import { ShoppingBag } from "@/components/icons";
 import { BusyButton } from "@/components/Loader";
 
 import { useNoticeToast } from "@/lib/notify";

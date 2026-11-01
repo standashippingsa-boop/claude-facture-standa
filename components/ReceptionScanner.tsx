@@ -9,7 +9,7 @@
  * SEKIRITE: modifye SÈLMAN statut + verified. JANM pri/pwa/tracking/kliyan.
  */
 import { useEffect, useRef, useState } from "react";
-import { Camera, CameraOff, CheckCircle2, Search, X, ScanLine, Package } from "lucide-react";
+import { Camera, CameraOff, CheckCircle2, Search, X, ScanLine, Package } from "@/components/icons";
 import { findPackageByScan, verifyPackageReception, logReceptionSession, ScanResult } from "@/lib/db";
 import { validateUpload } from "@/lib/upload";
 import { useRole } from "@/lib/authx";

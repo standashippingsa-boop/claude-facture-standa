@@ -20,12 +20,11 @@
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Eye, EyeOff, Lock, MessageCircle, User } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Lock, MessageCircle, User } from "@/components/icons";
 import { clientSignInErrorMessage, signInClientWithCode } from "@/lib/authx";
 import { setAuthRealm } from "@/lib/supabase";
 import { normalizeMcCode } from "@/lib/utils";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
-import AuthBackdrop from "@/components/site/AuthBackdrop";
 
 import { useNoticeToast } from "@/lib/notify";
 const WA = `https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`;
@@ -63,103 +62,75 @@ export default function AppConnexionPage() {
   };
 
   return (
-    <div className="login-compact login-client relative min-h-screen flex flex-col overflow-hidden">
-      <AuthBackdrop />
-
-      <div className="relative flex-1 flex flex-col justify-center px-5 py-10 w-full max-w-sm mx-auto">
+    <div className="login-compact login-client site-font relative flex min-h-screen flex-col bg-[#eef2f8] text-navy">
+      <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-5 py-10">
 
         {/* Logo + akèy */}
-        <div className="text-center mb-8 sd-rise">
-          <div className="w-24 h-24 mx-auto rounded-[28px] bg-white grid place-items-center
-                          shadow-[0_18px_50px_-12px_rgba(0,0,0,.6)]">
+        <div className="text-center">
+          <div className="mx-auto grid h-20 w-20 place-items-center rounded-[24px] bg-white shadow-[0_12px_30px_-16px_rgba(18,43,92,.45)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-16 object-contain" />
+            <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-14 object-contain" />
           </div>
-          <h1 className="text-[28px] font-extrabold text-white mt-6 tracking-tight">Byenvini</h1>
-          <p className="text-sm text-white/55 mt-1.5">Konekte pou w wè koli ou yo</p>
+          <p className="mt-6 text-[12px] font-medium tracking-[0.14em] text-accent-dark">ESPAS KLIYAN</p>
+          <h1 className="mt-2 text-[32px] font-semibold leading-tight tracking-[-0.03em]">Byenvini <span className="text-accent">ankò</span></h1>
+          <p className="mt-2 text-[14px] text-navy/60">Konekte pou w wè koli ak fakti ou yo</p>
         </div>
 
-        {/* Kat vè depoli */}
-        <form onSubmit={(e) => { e.preventDefault(); submit(); }}
-          className="rounded-[26px] bg-white/[0.07] backdrop-blur-xl border border-white/15
-                     shadow-[0_24px_70px_-20px_rgba(0,0,0,.7)] p-6 space-y-4 sd-rise sd-d2">
-
+        <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="mt-8 space-y-4 rounded-[28px] bg-white p-6">
           <label className="block">
-            <span className="sd-label">Kòd kliyan</span>
-            <div className="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/15 px-4
-                            focus-within:border-white/50 focus-within:bg-white/15 transition">
-              <User size={18} className="text-white/40 shrink-0" />
+            <span className="mb-1.5 block text-[13px] font-medium text-navy/70">Kòd kliyan</span>
+            <div className="flex items-center gap-3 rounded-2xl bg-[#f2f5fa] px-4 transition focus-within:bg-white focus-within:ring-2 focus-within:ring-navy/80">
+              <User size={18} className="shrink-0 text-navy/45" />
               <input
                 name="username" autoComplete="username" autoCapitalize="characters"
                 autoCorrect="off" spellCheck={false} enterKeyHint="next"
                 placeholder="MC-XXXXX"
-                className="w-full bg-transparent py-3.5 text-[15px] text-white placeholder:text-white/30
-                           focus:outline-none uppercase tracking-wide"
+                className="w-full bg-transparent py-3.5 text-[15px] font-semibold uppercase tracking-wide text-navy placeholder:font-normal placeholder:text-navy/35 focus:outline-none"
                 value={username} onChange={(e) => setUsername(e.target.value)} />
             </div>
           </label>
 
           <label className="block">
-            <span className="sd-label">Modpas</span>
-            <div className="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/15 px-4
-                            focus-within:border-white/50 focus-within:bg-white/15 transition">
-              <Lock size={18} className="text-white/40 shrink-0" />
+            <span className="mb-1.5 block text-[13px] font-medium text-navy/70">Modpas</span>
+            <div className="flex items-center gap-3 rounded-2xl bg-[#f2f5fa] px-4 transition focus-within:bg-white focus-within:ring-2 focus-within:ring-navy/80">
+              <Lock size={18} className="shrink-0 text-navy/45" />
               <input
                 type={show ? "text" : "password"} name="password" autoComplete="current-password"
                 autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="go"
                 placeholder="••••••••"
-                className="w-full bg-transparent py-3.5 text-[15px] text-white placeholder:text-white/30 focus:outline-none"
+                className="w-full bg-transparent py-3.5 text-[15px] text-navy placeholder:text-navy/35 focus:outline-none"
                 value={password} onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void submit(); } }} />
               <button type="button" onClick={() => setShow((v) => !v)}
                 aria-label={show ? "Kache modpas la" : "Montre modpas la"}
-                className="text-white/40 hover:text-white shrink-0 p-1">
+                className="shrink-0 p-1 text-navy/45 hover:text-navy">
                 {show ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
           </label>
 
-
           <button type="submit" disabled={busy}
-            className={`w-full rounded-2xl py-4 text-[15px] font-bold text-white transition
-                        shadow-[0_14px_34px_-10px_rgba(99,102,241,.9)] disabled:opacity-60
-                        ${busy ? "sd-sheen" : ""}`}
-            style={{
-              backgroundImage: busy
-                ? "linear-gradient(90deg,#4F46E5,#7C6CF7,#4F46E5)"
-                : "linear-gradient(135deg,#4F46E5 0%,#6D5BF5 50%,#0E9488 100%)"
-            }}>
-            {busy ? "Ap konekte…" : "Konekte"}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent text-[15px] font-semibold text-white transition hover:bg-accent-dark disabled:opacity-60">
+            {busy ? "Ap konekte…" : <>Konekte <ArrowRight size={17} /></>}
           </button>
 
           <a href={WA} target="_blank" rel="noreferrer"
-            className="block text-center text-[12px] text-white/45 hover:text-white/75 transition pt-1">
-            Ou bliye modpas ou? Ekri nou sou WhatsApp
+            className="flex items-center justify-center gap-1.5 pt-1 text-center text-[12.5px] text-navy/55 transition hover:text-navy">
+            <MessageCircle size={14} /> Ou bliye modpas ou? Ekri nou sou WhatsApp
           </a>
         </form>
 
         {/* KREYE KONT — sou SIT WÈB la sèlman */}
-        <div className="mt-7 text-center sd-rise sd-d4">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="h-px flex-1 bg-white/15" />
-            <span className="text-[11px] text-white/35 tracking-wider">POKO GEN KONT?</span>
-            <span className="h-px flex-1 bg-white/15" />
-          </div>
+        <div className="mt-6 text-center">
           <a href={SITE_INSCRIPTION} target="_blank" rel="noreferrer"
-            className="inline-flex items-center justify-center gap-2 w-full rounded-2xl
-                       border border-white/25 bg-white/[0.06] hover:bg-white/[0.12]
-                       text-white font-bold py-3.5 text-[14px] transition">
-            Kreye yon kont <ArrowRight size={16} />
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-full border border-navy/15 bg-white text-[14px] font-medium text-navy transition hover:border-navy">
+            Poko gen kont? <b className="font-semibold">Kreye yon kont</b> <ArrowRight size={15} />
           </a>
-          <p className="text-[11px] text-white/30 mt-2.5 leading-relaxed">
-            Enskripsyon fèt sou sit standacommercialsa.com
-          </p>
+          <p className="mt-2.5 text-[12px] text-navy/45">Enskripsyon fèt sou sit standacommercialsa.com</p>
         </div>
       </div>
 
-      <p className="relative text-center text-[10px] text-white/20 pb-6 tracking-[.2em]">
-        STANDA COMMERCIAL
-      </p>
+      <p className="pb-6 text-center text-[10.5px] tracking-[.2em] text-navy/30">STANDA COMMERCIAL</p>
     </div>
   );
 }

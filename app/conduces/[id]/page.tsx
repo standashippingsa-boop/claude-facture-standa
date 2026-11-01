@@ -8,7 +8,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Truck, Package, Receipt, Clock, CheckCircle2, Sparkles } from "lucide-react";
+import { ArrowLeft, Truck, Package, Receipt, Clock, CheckCircle2, Sparkles } from "@/components/icons";
 import PackagesEngine from "@/components/PackagesEngine";
 import ConduceSummaryPanel from "@/components/ConduceSummaryPanel";
 import ConduceManualPaste from "@/components/ConduceManualPaste";

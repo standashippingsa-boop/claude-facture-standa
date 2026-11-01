@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bell, Download, MapPin, PackageSearch, Settings, ShieldCheck } from "lucide-react";
+import { Bell, Download, MapPin, PackageSearch, Settings, ShieldCheck } from "@/components/icons";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
 import StoreBadges from "@/components/site/StoreBadges";

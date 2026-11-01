@@ -4,7 +4,7 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 import {
   AlertCircle, CheckCircle2, CircleDollarSign, FileSearch, FileText,
   LoaderCircle, ReceiptText, Upload,
-} from "lucide-react";
+} from "@/components/icons";
 import { extractFacture } from "@/lib/factureimport";
 import {
   analyzeMcpackInvoiceTrackings, createMcpackInvoice, getMcpackInvoices,

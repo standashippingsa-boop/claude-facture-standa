@@ -7,7 +7,7 @@
  * clients du public reçoivent une notification.
  */
 import { useEffect, useState } from "react";
-import { ImagePlus, Megaphone, Send, Trash2, Video, X } from "lucide-react";
+import { ImagePlus, Megaphone, Send, Trash2, Video, X } from "@/components/icons";
 import { supabase } from "@/lib/supabase";
 import { BusyButton } from "@/components/Loader";
 import { getVilles } from "@/lib/db";

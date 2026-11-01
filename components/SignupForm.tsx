@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, MapPin } from "lucide-react";
+import { CheckCircle2, MapPin } from "@/components/icons";
 import { BusyButton } from "@/components/Loader";
 import { registerClientProfile, RegistrationError } from "@/lib/db";
 import { safeMessage } from "@/lib/safeerror";

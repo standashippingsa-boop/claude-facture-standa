@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Megaphone } from "lucide-react";
+import { Megaphone } from "@/components/icons";
 import { announcementImageUrl, announcementMedia, type Announcement, type AnnouncementMedia } from "@/lib/announcements";
 
 type Slide = { key: string; announcement: Announcement; kind: "image" | "video" | "text"; url?: string };

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { Download } from "@/components/icons";
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 

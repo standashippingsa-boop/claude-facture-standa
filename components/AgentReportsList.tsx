@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { FileText, RefreshCw } from "lucide-react";
+import { FileText, RefreshCw } from "@/components/icons";
 import { supabase } from "@/lib/supabase";
 import { openSecureDocument } from "@/lib/secure-document";
 import { notify } from "@/lib/notify";

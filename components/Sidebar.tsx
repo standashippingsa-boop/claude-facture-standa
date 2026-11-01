@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {  Inbox, LayoutDashboard, LogOut, Users, Package, FileText, History,
   RefreshCw, Settings, ClipboardList, Truck, FileDown, MessageSquareText, MapPinned, ChartNoAxesCombined,
   HandCoins, Megaphone, Trophy
-} from "lucide-react";
+} from "@/components/icons";
 import Logo from "./Logo";
 import { supabase } from "@/lib/supabase";
 import { getPendingRetraitsCount } from "@/lib/db";

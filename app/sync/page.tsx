@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Upload, CheckCircle2, RefreshCw, FileText, X, Image } from "lucide-react";
+import { Upload, CheckCircle2, RefreshCw, FileText, X, Image } from "@/components/icons";
 import { BusyButton } from "@/components/Loader";
 import { parseMcpackWorkbook } from "@/lib/xlsx";
 import { validateUpload } from "@/lib/upload";

@@ -12,7 +12,7 @@
  * Single Source of Truth: yon Package pa janm dwaplike (match pa Guía).
  */
 import { useRef, useState } from "react";
-import { Upload, ClipboardList, CheckCircle2, FileSpreadsheet } from "lucide-react";
+import { Upload, ClipboardList, CheckCircle2, FileSpreadsheet } from "@/components/icons";
 import { BusyButton } from "@/components/Loader";
 import { matchConduceCodes, linkPackagesToConduce, importConduceExcelRows, ConduceMatch } from "@/lib/db";
 import { validateUpload } from "@/lib/upload";

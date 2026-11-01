@@ -13,7 +13,7 @@
  *   chwazi a. Konsa yon bon Port-de-Paix ak yon bon Gonaïves toude ka genyen l.
  */
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, FileDown, Search, Truck, X } from "lucide-react";
+import { ClipboardList, FileDown, Search, Truck, X } from "@/components/icons";
 import Loader, { BusyButton, SavedToast } from "@/components/Loader";
 import RefreshButton from "@/components/RefreshButton";
 import {

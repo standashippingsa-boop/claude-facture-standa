@@ -3,14 +3,13 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, MapPin, PackageCheck, ShieldCheck, User } from "lucide-react";
+import { ArrowLeft, MapPin, PackageCheck, ShieldCheck, User } from "@/components/icons";
 import { clientSignInErrorMessage, signInClientWithCode } from "@/lib/authx";
 import { setAuthRealm } from "@/lib/supabase";
 import { normalizeMcCode } from "@/lib/utils";
 import { SUPPORT_PHONE } from "@/lib/branding";
 import PasswordInput from "@/components/PasswordInput";
 import Logo from "@/components/Logo";
-import AuthBackdrop from "@/components/site/AuthBackdrop";
 import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import StoreBadges from "@/components/site/StoreBadges";
 import ClientInstallCard from "@/components/ClientInstallCard";
@@ -63,39 +62,46 @@ function LoginInner() {
   };
 
   return (
-    <div className="login-compact login-client relative min-h-screen overflow-hidden bg-[#061937] text-white">
-      <AuthBackdrop />
-      <div className="relative mx-auto max-w-5xl px-5 py-6 sm:px-8 sm:py-9">
+    <div className="login-compact login-client site-font relative min-h-screen bg-[#eef2f8] text-navy">
+      <div className="mx-auto max-w-5xl px-5 py-6 sm:px-8 sm:py-8">
         <header className="flex items-center justify-between gap-4">
-          <Link href="/accueil" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-white/75 transition hover:text-white"><ArrowLeft size={15} /> Retour au site</Link>
-          <div className="inline-flex items-center gap-2.5"><Logo size={38} rounded="rounded-xl" tone="light" /><span className="leading-none"><b className="block text-[13px] tracking-[.08em]">STANDA</b><span className="block mt-1 text-[8px] font-bold tracking-[.2em] text-accent">COMMERCIAL</span></span></div>
+          <Link href="/accueil" className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[13px] font-medium text-navy/80 shadow-[0_1px_2px_rgba(0,0,0,.05)] transition hover:text-navy"><ArrowLeft size={15} /> Retour au site</Link>
+          <Link href="/accueil" className="inline-flex items-center gap-2.5"><Logo size={34} /><span className="leading-none"><b className="block text-[14px] font-extrabold tracking-tight">STANDA</b><span className="mt-0.5 block text-[9px] font-semibold tracking-[.2em] text-accent">COMMERCIAL</span></span></Link>
         </header>
 
-        <main className="mx-auto mt-16 max-w-md pb-10 sm:mt-20">
-          <section className="relative rounded-[2rem] border border-white/40 bg-white/[.13] p-3 pt-14 shadow-[0_32px_90px_-35px_rgba(0,0,0,.8)] backdrop-blur-2xl sm:p-5 sm:pt-14">
-            <div className="absolute left-1/2 top-0 grid h-20 w-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[5px] border-[#dbeafa] bg-navy shadow-[0_15px_35px_-10px_rgba(0,0,0,.65)]"><Logo size={56} rounded="rounded-xl" tone="light" /></div>
-            <div className="pb-5 text-center"><p className="text-[11px] font-bold uppercase tracking-[.18em] text-orange-200">Espace personnel</p><h1 className="mt-3 text-[31px] font-black tracking-[-.04em] text-white">Veuillez vous connecter</h1><p className="mt-2 text-[14px] leading-relaxed text-white/72">Retrouvez vos colis et vos factures en toute simplicité.</p></div>
+        <main className="mx-auto mt-12 max-w-md pb-10 sm:mt-16">
+          <div className="text-center">
+            <p className="text-[12px] font-medium tracking-[0.14em] text-accent-dark">ESPACE CLIENT</p>
+            <h1 className="mt-4 text-[34px] font-semibold leading-[1.05] tracking-[-0.035em] sm:text-[40px]">Bon retour <span className="text-accent">parmi nous</span></h1>
+            <p className="mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-navy/65">Connectez-vous pour suivre vos colis et voir vos factures.</p>
+          </div>
 
-            <form onSubmit={(event) => { event.preventDefault(); void submit(); }} className="rounded-[1.5rem] bg-white p-5 text-ink shadow-[0_24px_60px_-36px_rgba(8,30,67,.55)] sm:p-7">
-              <label className="block">
-                <span className="text-xs font-semibold text-slate-600">Code client MC</span>
-                <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-line bg-mist px-3 transition focus-within:border-accent focus-within:bg-white focus-within:ring-2 focus-within:ring-accent/15"><User size={16} className="shrink-0 text-navy" /><input name="username" autoComplete="username" inputMode="text" autoCapitalize="characters" autoCorrect="off" spellCheck={false} enterKeyHint="next" className="w-full bg-transparent py-3 text-sm font-semibold text-ink placeholder:text-slate-400 focus:outline-none uppercase" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="MC-XXXXX" /></div>
-              </label>
+          <form onSubmit={(event) => { event.preventDefault(); void submit(); }} className="mt-8 rounded-[28px] bg-white p-6 sm:p-8">
+            <label className="block">
+              <span className="text-[13px] font-medium text-navy/70">Code client MC</span>
+              <div className="mt-1.5 flex items-center gap-2.5 rounded-2xl bg-[#f2f5fa] px-4 transition focus-within:bg-white focus-within:ring-2 focus-within:ring-navy/80"><User size={18} className="shrink-0 text-navy/45" /><input name="username" autoComplete="username" inputMode="text" autoCapitalize="characters" autoCorrect="off" spellCheck={false} enterKeyHint="next" className="w-full bg-transparent py-3.5 text-[15px] font-semibold uppercase tracking-wide text-navy placeholder:font-normal placeholder:text-navy/35 focus:outline-none" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="MC-XXXXX" /></div>
+            </label>
 
-              <div className="mt-4"><PasswordInput label="Mot de passe" value={password} onChange={setPassword} onEnter={submit} /></div>
+            <div className="mt-4"><PasswordInput label="Mot de passe" value={password} onChange={setPassword} onEnter={submit} /></div>
 
-              {needHelp && <a href={WA} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#1fb857]"><WhatsAppIcon size={14} /> Demander de l&apos;aide sur WhatsApp</a>}
+            {needHelp && <a href={WA} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#1fb857]"><WhatsAppIcon size={14} /> Demander de l&apos;aide sur WhatsApp</a>}
 
-              <BusyButton type="submit" busy={busy} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3.5 text-sm font-bold text-white shadow-[0_14px_26px_-14px_rgba(228,101,10,.95)] transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
-                busyLabel="Connexion en cours…">Se connecter</BusyButton>
-              <p className="mt-4 text-center text-[11.5px] leading-relaxed text-slate-500">Mot de passe oublié ? Contactez STANDA sur WhatsApp pour recevoir un nouveau mot de passe.</p>
-            </form>
+            <BusyButton type="submit" busy={busy} className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent text-[15px] font-semibold text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
+              busyLabel="Connexion en cours…">Se connecter</BusyButton>
+            <p className="mt-4 text-center text-[12.5px] leading-relaxed text-navy/55">Mot de passe oublié ? <a href={WA} target="_blank" rel="noreferrer" className="font-semibold text-navy underline underline-offset-2">Écrivez à STANDA sur WhatsApp</a> pour en recevoir un nouveau.</p>
+          </form>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">{[{ icon: MapPin, label: "Adresse à Miami" }, { icon: PackageCheck, label: "Suivi des colis" }, { icon: ShieldCheck, label: "Compte protégé" }].map(({ icon: Icon, label }) => <div key={label} className="flex flex-col items-center gap-1.5 rounded-2xl bg-white px-2 py-3 text-center text-[11.5px] text-navy/70"><Icon size={18} className="text-accent" />{label}</div>)}</div>
+
+          <Link href="/inscription" className="mt-4 flex h-12 w-full items-center justify-center rounded-full border border-navy/15 bg-white text-[14px] font-medium text-navy transition hover:border-navy">Pas encore de compte ? <b className="ml-1 font-semibold">Créer mon compte</b></Link>
+
+          <section className="mt-6 border-t border-navy/10 pt-6 text-center">
+            <p className="text-[12px] font-medium tracking-[0.14em] text-accent-dark">APPLICATION MOBILE</p>
+            <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-navy/60">Téléchargez l&apos;application STANDA dès sa publication officielle.</p>
+            <StoreBadges className="mt-4 justify-center" />
+            <ClientInstallCard className="mt-4" />
           </section>
-
-          <div className="mt-5 grid grid-cols-3 gap-2.5">{[{ icon: MapPin, label: "Miami" }, { icon: PackageCheck, label: "Suivi" }, { icon: ShieldCheck, label: "Sécurité" }].map(({ icon: Icon, label }) => <div key={label} className="flex items-center justify-center gap-1.5 rounded-2xl border border-white/15 bg-navy/35 px-2 py-3 text-[11px] font-semibold text-white/80 backdrop-blur-md"><Icon size={14} className="text-orange-300" />{label}</div>)}</div>
-          <Link href="/inscription" className="mt-5 flex w-full items-center justify-center rounded-xl border border-white/25 bg-white/[.08] py-3.5 text-sm font-bold text-white transition hover:bg-white/[.16]">Vous n&apos;avez pas encore de compte ? Créez votre compte</Link>
-          <section className="mt-5 border-t border-white/15 pt-5 text-center"><p className="text-[11px] font-bold uppercase tracking-[.16em] text-white/60">Application mobile</p><p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-white/65">Téléchargez l&apos;application STANDA dès sa publication officielle.</p><StoreBadges className="mt-4 justify-center" /><ClientInstallCard className="mt-4 ring-1 ring-white/25" /></section>
-          <p className="mt-5 text-center text-[11px] text-white/45"><Link href="/confidentialite" className="transition hover:text-white/80">Politique de confidentialité</Link></p>
+          <p className="mt-5 text-center text-[12px] text-navy/45"><Link href="/confidentialite" className="transition hover:text-navy/80">Politique de confidentialité</Link></p>
         </main>
       </div>
     </div>

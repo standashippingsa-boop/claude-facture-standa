@@ -9,7 +9,7 @@
  * pou pa gen pou chèche chak dosye kliyan apa.
  */
 import { useEffect, useState } from "react";
-import { X, MessageCircle, CheckCircle2 } from "lucide-react";
+import { X, MessageCircle, CheckCircle2 } from "@/components/icons";
 import { getClientsByCodes, logAction } from "@/lib/db";
 import { openPackagesWhatsApp } from "@/lib/whatsapp";
 import { Pkg, Client } from "@/lib/types";

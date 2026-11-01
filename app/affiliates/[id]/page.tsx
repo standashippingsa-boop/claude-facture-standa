@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import {
   ArrowLeft, BadgeDollarSign, Bell, CheckCircle2, Clock3, Eye, FileSignature, HandCoins, History, IdCard, Loader2,
   LogIn, PackageCheck, UserPlus, Users, Wallet
-} from "lucide-react";
+} from "@/components/icons";
 import { adminApi } from "@/lib/authx";
 import { dateFr, usd } from "@/lib/utils";
 import { formatHtg, toPayoutHtg } from "@/lib/affiliate-terms";

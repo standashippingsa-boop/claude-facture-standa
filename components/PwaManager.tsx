@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { RefreshCw, X } from "lucide-react";
+import { RefreshCw, X } from "@/components/icons";
 
 const CLIENT_PWA_SCOPE = "/espace-client";
 const AGENT_PWA_SCOPE = "/espace-remise";

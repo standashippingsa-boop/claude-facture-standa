@@ -7,7 +7,7 @@
  * connexion du client.
  */
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { X } from "@/components/icons";
 import { adminApi, useRole } from "@/lib/authx";
 import { getVilles } from "@/lib/db";
 import { getAgences, type Agence } from "@/lib/agences";

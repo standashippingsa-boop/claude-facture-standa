@@ -9,7 +9,7 @@
  * SÈLMAN nan memwa navigatè a (pa gen anrejistreman nan Supabase).
  */
 import { useId, useRef, useState } from "react";
-import { Send, Sparkles, X } from "lucide-react";
+import { Send, Sparkles, X } from "@/components/icons";
 import { supabase } from "@/lib/supabase";
 import { Spinner } from "@/components/Loader";
 

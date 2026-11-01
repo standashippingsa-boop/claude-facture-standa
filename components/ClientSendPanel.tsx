@@ -6,7 +6,7 @@
  *  3. Nouveau mot de passe (l'ancien cesse de fonctionner).
  */
 import { useState } from "react";
-import { KeyRound, MapPin, RefreshCw } from "lucide-react";
+import { KeyRound, MapPin, RefreshCw } from "@/components/icons";
 import { adminApi } from "@/lib/authx";
 import { openCredentialsWhatsApp, openDepotWhatsApp } from "@/lib/whatsapp";
 import type { Client } from "@/lib/types";

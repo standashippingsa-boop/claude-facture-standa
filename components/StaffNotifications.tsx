@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Bell, BellRing, CheckCheck, HandCoins, LoaderCircle, ReceiptText, Truck, X } from "lucide-react";
+import { Bell, BellRing, CheckCheck, HandCoins, LoaderCircle, ReceiptText, Truck, X } from "@/components/icons";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 

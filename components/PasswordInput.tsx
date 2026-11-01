@@ -11,7 +11,7 @@
  *   sa yo obligatwa — se poutèt sa yo pa opsyonèl isit la.
  */
 import { useState } from "react";
-import { Eye, EyeOff, Lock } from "lucide-react";
+import { Eye, EyeOff, Lock } from "@/components/icons";
 
 export default function PasswordInput({
   value, onChange, onEnter, label = "Mot de passe",
