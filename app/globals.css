@@ -176,7 +176,8 @@ body { @apply bg-mist text-slate-700 antialiased; }
 .login-compact.login-client { --login-zoom: .6; }
 .client-app-font .login-compact.login-client { --login-zoom: .75; }
 .login-compact.login-client.min-h-screen, .client-app-font .login-compact.login-client.min-h-screen { min-height: calc(100vh / .6); }
-.login-compact.login-client input, .login-compact.login-client select, .login-compact.login-client textarea { font-size: calc(16px / .6) !important; }
+/* Connexion client : champs à 13 px réels, proportionnés au reste de la page. */
+.login-compact.login-client input, .login-compact.login-client select, .login-compact.login-client textarea { font-size: calc(13px / .6) !important; }
 
 .client-app {
   background-color: #f8faff;

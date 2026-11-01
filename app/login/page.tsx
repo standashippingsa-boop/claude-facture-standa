@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, MapPin, PackageCheck, ShieldCheck, User } from "@/components/icons";
+import { ArrowLeft, User } from "@/components/icons";
 import { clientSignInErrorMessage, signInClientWithCode } from "@/lib/authx";
 import { setAuthRealm } from "@/lib/supabase";
 import { normalizeMcCode } from "@/lib/utils";
@@ -90,8 +90,6 @@ function LoginInner() {
               busyLabel="Connexion en cours…">Se connecter</BusyButton>
             <p className="mt-4 text-center text-[12.5px] leading-relaxed text-navy/55">Mot de passe oublié ? <a href={WA} target="_blank" rel="noreferrer" className="font-semibold text-navy underline underline-offset-2">Écrivez à STANDA sur WhatsApp</a> pour en recevoir un nouveau.</p>
           </form>
-
-          <div className="mt-4 grid grid-cols-3 gap-2">{[{ icon: MapPin, label: "Adresse à Miami" }, { icon: PackageCheck, label: "Suivi des colis" }, { icon: ShieldCheck, label: "Compte protégé" }].map(({ icon: Icon, label }) => <div key={label} className="flex flex-col items-center gap-1.5 rounded-2xl bg-white px-2 py-3 text-center text-[11.5px] text-navy/70"><Icon size={18} className="text-accent" />{label}</div>)}</div>
 
           <Link href="/inscription" className="mt-4 flex h-12 w-full items-center justify-center rounded-full border border-navy/15 bg-white text-[14px] font-medium text-navy transition hover:border-navy">Pas encore de compte ? <b className="ml-1 font-semibold">Créer mon compte</b></Link>
 
