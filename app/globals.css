@@ -154,6 +154,9 @@ body { @apply bg-mist text-slate-700 antialiased; }
   --client-zoom: .8;
   zoom: var(--client-zoom);
 }
+/* Images de l'app client (logo du bouton Accueil, flyers…) : pas de menu « Télécharger / Enregistrer
+   l'image » au toucher prolongé. Le toucher passe au bouton qui contient l'image. */
+.client-app-font img { -webkit-touch-callout: none; -webkit-user-drag: none; user-select: none; pointer-events: none; }
 /* Le zoom réduit aussi les hauteurs « plein écran » : on compense pour garder tout l'écran. */
 .client-app-font .min-h-screen { min-height: calc(100vh / var(--client-zoom)); }
 

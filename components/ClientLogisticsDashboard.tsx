@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import {
-  ChevronLeft, ChevronRight, CircleCheck, Clipboard, Clock, MessageCircle,
+  ChevronLeft, ChevronRight, CircleCheck, Copy as Clipboard, Clock, MessageCircle,
   Navigation, Package, Receipt, Store, Warehouse
 } from "@/components/icons";
 import type { Pkg } from "@/lib/types";
+import { RouteStrip, notchMask } from "@/components/ClientParcelUI";
 import { dateFr } from "@/lib/utils";
 
 export type ClientDashboardDestination = "adresse" | "disponibles" | "colisFactures" | "receptions" | "historique" | "retraits" | "factures" | "calc" | "notifications";
@@ -95,9 +96,21 @@ function activeTrackingStep(pkg: Pkg) {
   return 0;
 }
 
+/** Date lisible du colis : la première date valide (MCPACK, réception, création). Jamais « Invalid Date ». */
+function parcelDate(pkg: Pkg): string {
+  const candidates = [pkg.created_date, pkg.received_at, (pkg as Pkg & { created_at?: string }).created_at];
+  for (const value of candidates) {
+    if (!value) continue;
+    const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? value + "T12:00:00" : value);
+    if (!Number.isNaN(d.getTime())) return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+  }
+  return "·";
+}
+
 export function ClientTrackingDetails({ pkg, customerName, destination, onClose, onContact }: { pkg: Pkg; customerName: string; destination: string; onClose: () => void; onContact: () => void }) {
   const [copiedField, setCopiedField] = useState<"guia" | "manual" | null>(null);
   const current = activeTrackingStep(pkg);
+  const weight = Number(pkg.weight) || 0;
 
   const copyValue = async (value: string, field: "guia" | "manual") => {
     try {
@@ -109,18 +122,77 @@ export function ClientTrackingDetails({ pkg, customerName, destination, onClose,
     }
   };
 
+  const Field = ({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) => <div className={`min-w-0 ${wide ? "col-span-2" : ""}`}>
+    <p className="text-[9.5px] font-medium tracking-[.16em] text-navy/40">{label}</p>
+    <p className={`mt-1 text-[13.5px] font-semibold leading-snug text-navy ${wide ? "" : "truncate"}`}>{value}</p>
+  </div>;
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-b from-sky-100 to-white p-3 sm:grid sm:place-items-center sm:p-5">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-[#eef2f8] p-3 sm:grid sm:place-items-center sm:p-5">
       <div className="mx-auto w-full max-w-md pb-5">
-        <header className="flex items-center justify-between py-3"><button type="button" onClick={onClose} aria-label="Retour" className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-slate-700 shadow-sm"><ChevronLeft size={21} /></button><h2 className="text-base font-black text-slate-900">Détails du suivi</h2><span className="w-10" /></header>
-        <section className="rounded-3xl bg-white p-5 shadow-md ring-1 ring-slate-100">
-          <div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><p className="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Tracking ID</p><div className="mt-1 flex items-center gap-2"><h3 className="truncate font-mono text-lg font-black text-slate-900">#{pkg.tracking_number || "·"}</h3>{pkg.tracking_number && <button type="button" onClick={() => void copyValue(pkg.tracking_number, "guia")} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600" aria-label="Copier le Tracking ID"><Clipboard size={14} /></button>}</div>{pkg.tracking_manual && <><p className="mt-3 text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Tracking Number</p><div className="mt-1 flex items-center gap-2"><h4 className="truncate font-mono text-sm font-bold text-slate-700">#{pkg.tracking_manual}</h4><button type="button" onClick={() => void copyValue(pkg.tracking_manual, "manual")} className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600" aria-label="Copier le Tracking Number"><Clipboard size={13} /></button></div></>}{copiedField && <p className="mt-2 text-xs font-bold text-emerald-700">{copiedField === "guia" ? "Tracking ID copié." : "Tracking Number copié."}</p>}</div><span className="shrink-0 rounded-full bg-violet-100 px-2.5 py-1 text-[10px] font-black text-violet-700">{shipmentLabel(pkg)}</span></div>
-          <div className="mt-6"><div className="flex justify-between text-xs font-bold text-slate-500"><span>Miami</span><span>{destination || "Agence"}</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-sky-100"><span className="block h-full rounded-full bg-blue-600 transition-all duration-700" style={{ width: `${Math.max(14, ((current + 1) / trackingSteps.length) * 100)}%` }} /></div></div>
-          <div className="mt-5 grid grid-cols-2 gap-3 text-xs"><div className="rounded-2xl bg-sky-50 p-3"><p className="text-slate-400">Créé</p><b className="mt-1 block text-slate-700">{pkg.created_date ? dateFr(pkg.created_date) : "·"}</b></div><div className="rounded-2xl bg-sky-50 p-3"><p className="text-slate-400">Statut</p><b className="mt-1 block text-slate-700">{pkg.status || "En cours"}</b></div></div>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-xs"><div><p className="text-slate-400">Expéditeur</p><b className="mt-1 block text-slate-700">STANDA Miami</b></div><div><p className="text-slate-400">Destinataire</p><b className="mt-1 block truncate text-slate-700">{customerName}</b></div><div><p className="text-slate-400">Facture</p><b className="mt-1 block text-slate-700">{pkg.invoice_id ? "Émise" : "À venir"}</b></div></div>
+        <header className="flex items-center justify-between py-3">
+          <button type="button" onClick={onClose} aria-label="Retour" className="grid h-11 w-11 place-items-center rounded-full bg-white text-navy shadow-[0_1px_2px_rgba(0,0,0,.05)]"><ChevronLeft size={20} /></button>
+          <h2 className="text-[15px] font-semibold text-navy">Détails du suivi</h2>
+          <span className="w-11" />
+        </header>
+
+        {/* Étiquette du colis */}
+        <section className="overflow-hidden rounded-[26px] bg-white ring-1 ring-[#122B5C]/[.07]" style={notchMask(150)}>
+          <div className="bg-navy px-5 pb-5 pt-5 text-white">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-[10.5px] font-medium tracking-[.18em] text-[#ffb27a]">N° DE SUIVI</p>
+              <span className="shrink-0 rounded-full bg-white/12 px-2.5 py-1 text-[11px] font-semibold">{shipmentLabel(pkg)}</span>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <h3 className="min-w-0 truncate font-mono text-[20px] font-semibold tracking-tight">{pkg.tracking_number || "·"}</h3>
+              {pkg.tracking_number && <button type="button" onClick={() => void copyValue(pkg.tracking_number, "guia")} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/12 text-white" aria-label="Copier le numéro de suivi"><Clipboard size={14} /></button>}
+            </div>
+            {pkg.tracking_manual && <div className="mt-1 flex items-center gap-2">
+              <p className="min-w-0 truncate font-mono text-[12.5px] text-white/60">{pkg.tracking_manual}</p>
+              <button type="button" onClick={() => void copyValue(pkg.tracking_manual, "manual")} className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/12 text-white" aria-label="Copier le numéro du transporteur"><Clipboard size={12} /></button>
+            </div>}
+            {copiedField && <p className="mt-2 text-[12px] font-medium text-[#ffb27a]">{copiedField === "guia" ? "Numéro de suivi copié." : "Numéro du transporteur copié."}</p>}
+            <div className="mt-5"><RouteStrip status={pkg.status} onDark /></div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-4 px-5 py-5">
+            <Field label="DE" value="STANDA · Miami" />
+            <Field label="POUR" value={customerName} />
+            <Field label="AGENCE DE RETRAIT" value={destination || "Votre agence"} wide />
+          </div>
+          <div className="mx-3 border-t border-dashed border-navy/15" />
+          <div className="grid h-[150px] grid-cols-2 content-center gap-x-4 gap-y-4 px-5">
+            <Field label="REÇU LE" value={parcelDate(pkg)} />
+            <Field label="POIDS" value={weight > 0 ? `${weight.toFixed(2)} lb` : "·"} />
+            <Field label="CONTENU" value={pkg.content || "Non précisé"} />
+            <Field label="FACTURE" value={pkg.invoice_id ? "Émise" : "À venir"} />
+          </div>
         </section>
-        <section className="relative mt-4 overflow-hidden rounded-3xl bg-blue-600 p-5 text-white shadow-md"><div className="relative z-10"><h3 className="text-base font-black">Parcours du colis</h3><ol className="mt-5 space-y-4">{trackingSteps.map((step, index) => { const delivered = step === "Livré" && current === index; return <li key={step} className="flex gap-3"><div className="flex flex-col items-center"><span className={`grid h-6 w-6 place-items-center rounded-full ${index < current ? "bg-white text-blue-600" : delivered ? "bg-emerald-400 text-emerald-950 ring-4 ring-emerald-100/25" : index === current ? "bg-amber-300 text-blue-900 ring-4 ring-white/20" : "border border-white/35 bg-transparent text-white/70"}`}>{delivered ? <CircleCheck size={15} strokeWidth={2.5} /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}</span>{index < trackingSteps.length - 1 && <span className={`mt-1 h-7 w-px ${index < current ? "bg-white/80" : "bg-white/25"}`} />}</div><div className="pt-0.5"><b className="block text-sm">{step}</b><small className="mt-0.5 block text-xs text-white/75">{delivered ? "Livraison terminée" : index < current ? "Étape terminée" : index === current ? "Étape en cours" : "À venir"}</small></div></li>; })}</ol></div><div className="absolute -bottom-6 -right-5 grid h-28 w-28 rotate-[-12deg] place-items-center rounded-3xl bg-amber-300/90 text-amber-800 shadow-lg"><Package size={52} strokeWidth={1.5} /></div></section>
-        <button type="button" onClick={onContact} className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-blue-600 bg-white text-sm font-black text-blue-600 transition hover:bg-blue-50"><Navigation size={17} />Suivi en direct</button>
+
+        {/* Parcours */}
+        <section className="mt-3 rounded-[26px] bg-white p-5 ring-1 ring-[#122B5C]/[.07]">
+          <h3 className="text-[15px] font-semibold text-navy">Parcours du colis</h3>
+          <ol className="mt-4">
+            {trackingSteps.map((step, index) => {
+              const done = index < current || (step === "Livré" && current === index);
+              const now = index === current && step !== "Livré";
+              return <li key={step} className="flex gap-3.5">
+                <div className="flex flex-col items-center">
+                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${done ? (step === "Livré" ? "bg-emerald-600 text-white" : "bg-navy text-white") : now ? "bg-[#E4650A] text-white ring-4 ring-[#E4650A]/20" : "border-2 border-navy/15 bg-white"}`}>
+                    {done ? <CircleCheck size={13} /> : now ? <span className="h-2 w-2 rounded-full bg-white" /> : null}
+                  </span>
+                  {index < trackingSteps.length - 1 && <span className={`my-1 w-[2px] flex-1 rounded-full ${index < current ? "bg-navy" : "bg-navy/10"}`} style={{ minHeight: 22 }} />}
+                </div>
+                <div className={`pb-4 ${index < trackingSteps.length - 1 ? "" : "pb-0"}`}>
+                  <p className={`text-[14px] leading-6 ${done || now ? "font-semibold text-navy" : "text-navy/40"}`}>{step}</p>
+                  <p className={`text-[12px] ${now ? "font-medium text-[#c2410c]" : "text-navy/45"}`}>{step === "Livré" && current === index ? "Livraison terminée" : done ? "Étape terminée" : now ? "Étape en cours" : "À venir"}</p>
+                </div>
+              </li>;
+            })}
+          </ol>
+        </section>
+
+        <button type="button" onClick={onContact} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-navy text-[14.5px] font-semibold text-white transition hover:bg-navy-dark"><MessageCircle size={17} />Une question sur ce colis ? WhatsApp</button>
       </div>
     </div>
   );

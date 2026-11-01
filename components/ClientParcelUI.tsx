@@ -67,7 +67,7 @@ export function RouteStrip({ status, onDark = false }: { status: string; onDark?
 }
 
 /** Encoches latérales à `fromBottom` px du bas (masque CSS : vraiment découpées). */
-function notchMask(fromBottom: number) {
+export function notchMask(fromBottom: number) {
   const m = `radial-gradient(circle 8px at 0 calc(100% - ${fromBottom}px), transparent 98%, #000 100%) left / 51% 100% no-repeat, radial-gradient(circle 8px at 100% calc(100% - ${fromBottom}px), transparent 98%, #000 100%) right / 51% 100% no-repeat`;
   return { WebkitMask: m, mask: m } as const;
 }
