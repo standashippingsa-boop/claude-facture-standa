@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Shell from "@/components/Shell";
+import QueryProvider from "@/components/QueryProvider";
 import PwaManager from "@/components/PwaManager";
 import Toaster from "@/components/Toaster";
 import SelectionBar from "@/components/SelectionBar";
@@ -137,10 +138,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className={clientFont.variable}>
-        <SelectionProvider>
-          <Shell>{children}</Shell>
-          <SelectionBar />
-        </SelectionProvider>
+        <QueryProvider>
+          <SelectionProvider>
+            <Shell>{children}</Shell>
+            <SelectionBar />
+          </SelectionProvider>
+        </QueryProvider>
         <PwaManager />
         <Toaster />
       </body>

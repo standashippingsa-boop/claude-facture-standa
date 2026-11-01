@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
+import { anyObject, readJsonBody } from "@/lib/validation/request";
 
 /**
  * Rapò echèk aktivasyon notifikasyon — pou ekip la wè POUKISA yon telefòn
@@ -14,7 +15,9 @@ export async function POST(req: Request) {
   try {
     const config = getSupabaseAdminConfig();
     if (!config) return NextResponse.json({ ok: false }, { status: 503 });
-    const body = await req.json().catch(() => null);
+    const read = await readJsonBody(req, anyObject, 6_000);
+    if (!read.ok) return read.response;
+    const body: Record<string, any> = read.data;
     const token = String(body?.token ?? "").trim();
     if (!token) return NextResponse.json({ ok: false }, { status: 401 });
     const db: any = createClient(config.url, config.key, { auth: { persistSession: false, autoRefreshToken: false } });

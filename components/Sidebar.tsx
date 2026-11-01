@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {  Inbox, LayoutDashboard, LogOut, Users, Package, FileText, History,
@@ -61,16 +61,13 @@ export default function Sidebar({ staff, open = false, onClose }: { staff?: Staf
   const badges = useSectionBadges(staff, path);
 
   /** Badge "Retraits" — demann kliyan an "En attente" k ap tann yon anplwaye. */
-  const [pendingRetraits, setPendingRetraits] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    const check = () => getPendingRetraitsCount().then((n) => { if (!cancelled) setPendingRetraits(n); }).catch(() => undefined);
-    const onVisible = () => { if (document.visibilityState === "visible") check(); };
-    check();
-    const timer = setInterval(() => { if (document.visibilityState === "visible") check(); }, 30000);
-    document.addEventListener("visibilitychange", onVisible);
-    return () => { cancelled = true; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
-  }, []);
+  // TanStack Query : relu toutes les 30 s seulement quand l'écran est visible,
+  // une seule requête à la fois, valeur gardée en cache entre les pages.
+  const { data: pendingRetraits = 0 } = useQuery({
+    queryKey: ["pending-retraits-count"],
+    queryFn: getPendingRetraitsCount,
+    refetchInterval: 30_000,
+  });
 
   return (
     <>

@@ -9,6 +9,7 @@ import PublicPortalRedirect from "./PublicPortalRedirect";
 import { getMyStaff } from "@/lib/authx";
 import { getClientByAuthId } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
+import { useUiStore } from "@/lib/ui-store";
 import { Staff } from "@/lib/types";
 import { isOffline, rememberedAgent } from "@/lib/reception-offline";
 import { AppRole, isClientPath, isPublicPath, isPickupAgentPath, isReceptionAgentPath, resolveAccess } from "@/lib/access";
@@ -28,9 +29,11 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const [staff, setStaff] = useState<Staff | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [ready, setReady] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const menuOpen = useUiStore((s) => s.staffMenuOpen);
+  const openMenu = useUiStore((s) => s.openStaffMenu);
+  const closeMenu = useUiStore((s) => s.closeStaffMenu);
   // Changer de page ferme le menu (tablette, téléphone).
-  useEffect(() => { setMenuOpen(false); }, [path]);
+  useEffect(() => { closeMenu(); }, [path, closeMenu]);
 
   const publicPath = isPublicPath(path);
 
@@ -85,10 +88,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   // Staff: sidebar + kontni
   return (
     <PortalHistoryBoundary realm={role === "employe" ? "employe" : "admin"} homePath="/dashboard"><div className="flex min-h-screen">
-      <Sidebar staff={staff} open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <Sidebar staff={staff} open={menuOpen} onClose={closeMenu} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-white/95 px-4 backdrop-blur lg:hidden">
-          <button type="button" onClick={() => setMenuOpen(true)} aria-label="Ouvrir le menu" className="grid h-10 w-10 place-items-center rounded-lg border border-line text-navy">
+          <button type="button" onClick={openMenu} aria-label="Ouvrir le menu" className="grid h-10 w-10 place-items-center rounded-lg border border-line text-navy">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /></svg>
           </button>
           <span className="text-sm font-extrabold text-navy">STANDA</span>

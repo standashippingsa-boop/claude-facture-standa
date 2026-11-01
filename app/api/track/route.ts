@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
+import { anyObject, readJsonBody } from "@/lib/validation/request";
 
 /**
  * STANDA COMMERCIAL — TRACKING PIBLIK (/api/track)
@@ -71,8 +72,9 @@ export async function POST(req: Request) {
     }
 
     // ── 2. Li ak netwaye antre a ───────────────────────────────────
-    let body: any = {};
-    try { body = await req.json(); } catch { body = {}; }
+    const read = await readJsonBody(req, anyObject, 2_000);
+    if (!read.ok) return read.response;
+    const body: any = read.data;
 
     const q = cleanTracking(body.tracking);
 

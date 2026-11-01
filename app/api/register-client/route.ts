@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { encryptPII } from "@/lib/pii-crypto";
 import { clientShippingSchema } from "@/lib/validation/shipping";
 import { pickupLabel, pickupLocationForCity } from "@/lib/pickup-location";
+import { anyObject, readJsonBody } from "@/lib/validation/request";
 
 /** Valè cookie ?ref= mete pa middleware.ts (parse manyèl — evite soud Next.js sou cookies() async). */
 function refCookie(req: Request): string {
@@ -43,7 +44,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "Configuration serveur incomplète." }, { status: 500 });
     }
     const svc = createClient(config.url, config.key, { auth: { persistSession: false } });
-    const body = await req.json().catch(() => ({}));
+    const read = await readJsonBody(req, anyObject, 16_000);
+    if (!read.ok) return read.response;
+    const body: Record<string, any> = read.data;
 
     // ---- Sesyon OPSYONÈL ----
     // Enskripsyon piblik la PA kreye kont Auth (admin aktive kliyan an apre,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
+import { contactSchema, readJsonBody } from "@/lib/validation/request";
 
 /**
  * FÒM KONTAK SIT PIBLIK LA — /contact
@@ -91,7 +92,9 @@ export async function POST(req: Request) {
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {
-    const body = (await req.json()) as ContactBody;
+    const read = await readJsonBody(req, contactSchema, 16_000);
+    if (!read.ok) return read.response;
+    const body: ContactBody = read.data;
 
     // Chan "honeypot" plen -> se yon bot, nou fè tankou tout mache byen
     // san nou pa voye anyen (pa gaspiye kredi Resend, pa alète moun pou anyen).

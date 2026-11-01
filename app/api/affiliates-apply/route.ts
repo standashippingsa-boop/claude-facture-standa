@@ -3,6 +3,7 @@ import { rateLimit, tooMany, clientIp } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 import { pickupLocationForCity } from "@/lib/pickup-location";
+import { anyObject, readJsonBody } from "@/lib/validation/request";
 
 /**
  * Candidature au programme Affiliation — CÔTÉ SERVEUR.
@@ -32,7 +33,9 @@ export async function POST(req: Request) {
     const config = getSupabaseAdminConfig();
     if (!config) return NextResponse.json({ ok: false, reason: "Configuration serveur incomplète." }, { status: 500 });
     const svc = createClient(config.url, config.key, { auth: { persistSession: false } });
-    const body = await req.json().catch(() => ({}));
+    const read = await readJsonBody(req, anyObject, 16_000);
+    if (!read.ok) return read.response;
+    const body: Record<string, any> = read.data;
 
     // Honeypot anti-bot (chan envizib nan fòm lan)
     if (clean(body.website)) return NextResponse.json({ ok: true });

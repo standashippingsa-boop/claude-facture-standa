@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
+import { anyObject, readJsonBody } from "@/lib/validation/request";
 
 /**
  * ENREGISTREMENT D'UN APPAREIL POUR LES NOTIFICATIONS (Web Push)
@@ -18,7 +19,9 @@ export async function POST(req: Request) {
   try {
     const config = getSupabaseAdminConfig();
     if (!config) return NextResponse.json({ ok: false, reason: "config" }, { status: 503 });
-    const body = await req.json().catch(() => null);
+    const read = await readJsonBody(req, anyObject, 6_000);
+    if (!read.ok) return read.response;
+    const body: Record<string, any> = read.data;
     const token = String(body?.token ?? "").trim();
     const endpoint = String(body?.endpoint ?? "").trim();
     const p256dh = String(body?.p256dh ?? "").trim();

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
 import { getSupabaseAdminConfig, getSupabasePublishableKey, getSupabaseUrl } from "@/lib/supabase-server";
+import { anyObject, readJsonBody } from "@/lib/validation/request";
 
 const PUBLIC_COLUMNS = "id, author_name, rating, message, created_at";
 
@@ -46,7 +47,9 @@ export async function POST(request: NextRequest) {
   if (!details) return json({ error: "Le service de commentaires est temporairement indisponible." }, { status: 503 });
 
   let payload: { name?: unknown; rating?: unknown; message?: unknown; website?: unknown };
-  try { payload = await request.json() as typeof payload; } catch { return json({ error: "Le commentaire est invalide." }, { status: 400 }); }
+  const read = await readJsonBody(request, anyObject, 8_000);
+  if (!read.ok) return json({ error: "Le commentaire est invalide." }, { status: 400 });
+  payload = read.data as typeof payload;
 
   // Champ invisible rempli principalement par des robots de formulaires.
   if (String(payload.website ?? "").trim()) return json({ error: "La publication n'a pas pu être envoyée." }, { status: 400 });
