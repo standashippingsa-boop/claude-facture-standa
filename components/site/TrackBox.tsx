@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { RotateCcw, X } from "lucide-react";
+import { ArrowLeft as RotateCcw, Cross as X } from "@getpapillon/papicons";
 import { dateFr } from "@/lib/utils";
 
 import { useNoticeToast } from "@/lib/notify";

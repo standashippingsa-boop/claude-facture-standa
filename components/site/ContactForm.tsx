@@ -29,7 +29,7 @@ const SUBJECTS = [
 ];
 
 const FLD =
-  "w-full rounded-2xl border border-transparent bg-[#f4f5f7] px-4 text-[14.5px] text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-ink/80 focus:bg-white transition";
+  "w-full rounded-2xl border border-transparent bg-[#f2f5fa] px-4 text-[14.5px] text-navy placeholder:text-navy/40 focus:outline-none focus:ring-2 focus:ring-navy/80 focus:bg-white transition";
 
 type Status = "idle" | "sending" | "sent" | "error" | "skipped";
 
@@ -159,7 +159,7 @@ export default function ContactForm() {
 
 
         <div className="flex flex-col sm:flex-row gap-3 pt-1">
-          <button type="button" onClick={sendByEmail} disabled={status === "sending"} className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full bg-ink hover:bg-navy disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold text-[15px] transition">
+          <button type="button" onClick={sendByEmail} disabled={status === "sending"} className="flex-1 inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full bg-navy hover:bg-navy-dark disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold text-[15px] transition">
             {status === "sending" ? (
               <>
                 <span className="inline-block h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
@@ -181,7 +181,7 @@ export default function ContactForm() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-[13px] font-medium text-ink/70 mb-1.5">{label}</span>
+      <span className="block text-[13px] font-medium text-navy/70 mb-1.5">{label}</span>
       {children}
     </label>
   );

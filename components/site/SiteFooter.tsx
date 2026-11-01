@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@getpapillon/papicons";
 import Logo from "@/components/Logo";
 import { SITE } from "@/lib/site";
 import { DEPOT } from "@/lib/depot";
@@ -28,8 +28,8 @@ export default function SiteFooter() {
     { label: "TikTok", href: SITE.tiktokUrl, icon: TikTokIcon }
   ];
   return (
-    <footer className="bg-[#eef0f3] px-3 pb-3 sm:px-4 sm:pb-4">
-      <div className="mx-auto max-w-[88rem] rounded-[28px] bg-ink px-6 py-12 text-white sm:px-10 lg:px-14">
+    <footer className="bg-[#eef2f8] px-3 pb-3 sm:px-4 sm:pb-4">
+      <div className="mx-auto max-w-[88rem] rounded-[28px] bg-navy-dark px-6 py-12 text-white sm:px-10 lg:px-14">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1.1fr]">
           <div>
             <div className="flex items-center gap-2.5">
@@ -37,7 +37,7 @@ export default function SiteFooter() {
               <span className="leading-none"><span className="block text-[15px] font-extrabold tracking-tight">STANDA</span><span className="mt-0.5 block text-[9.5px] font-semibold tracking-[0.2em] text-white/55">COMMERCIAL</span></span>
             </div>
             <p className="mt-4 max-w-xs text-[14px] leading-relaxed text-white/60">Vos achats aux USA, reçus à Miami et livrés dans votre agence en Haïti, avec un suivi à chaque étape.</p>
-            <Link href="/inscription" className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-white pl-5 pr-4 text-[14px] font-semibold text-ink transition hover:bg-[#eef0f3]">
+            <Link href="/inscription" className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-white pl-5 pr-4 text-[14px] font-semibold text-navy transition hover:bg-[#eef2f8]">
               Créer mon compte <ArrowRight size={16} />
             </Link>
           </div>
@@ -59,7 +59,7 @@ export default function SiteFooter() {
             <div className="mt-5 flex gap-2">
               {socials.map(({ label, href, icon: Icon }) => (
                 <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}
-                  className="grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white/85 transition hover:bg-white hover:text-ink">
+                  className="grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white/85 transition hover:bg-white hover:text-navy">
                   <Icon size={17} />
                 </a>
               ))}
