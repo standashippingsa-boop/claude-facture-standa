@@ -63,7 +63,7 @@ export default async function AccueilPage() {
   const cards = [
     { title: "Inscription", href: "/inscription", cta: "Créer un compte", image: img.inscription },
     { title: "Suivi de colis", href: "#suivi", cta: "Suivre un colis", image: img.suivi },
-    { title: "Nos agences", href: "/agences", cta: "Voir les agences", image: img.agences },
+    { title: "Nos agences", href: "/agences", cta: "Voir les agences", image: img.agences, position: "50% 22%" },
   ];
 
   return (
@@ -106,7 +106,7 @@ export default async function AccueilPage() {
           {cards.map((card) => (
             <Link key={card.title} href={card.href} className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5 transition hover:ring-navy/30">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={card.image} alt="" className="h-28 w-full object-cover" />
+              <img src={card.image} alt="" className="h-28 w-full object-cover" style={"position" in card ? { objectPosition: card.position } : undefined} />
               <div className="flex items-center justify-between gap-2 p-4">
                 <span className="text-[15px] font-bold">{card.title}</span>
                 <span className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-accent-dark">{card.cta} <ArrowRight size={14} /></span>
