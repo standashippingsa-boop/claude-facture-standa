@@ -500,7 +500,6 @@ export default function EspaceClientPage() {
     if (!dispoEst || isSpecialPkg(pkg)) return null;
     const w = Number(pkg.weight) || 0;
     if (w <= 0) return null;
-    if (!sumsWeights(client.account_type) && isSmallParcel(w, smallCfg)) return round2(smallCfg.price);
     return round2(w * dispoEst.perLb);
   };
   const trackQueryNorm = trackQuery.trim().toLowerCase();
@@ -1313,8 +1312,6 @@ export default function EspaceClientPage() {
                 <li className="flex gap-2"><span className="text-navy">•</span>
                   <span>Le prix correspond au <b>poids du colis × tarif de votre ville</b>{client.ville?.name ? <> ({client.ville.name})</> : null}.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span>Petit colis entre <b>{smallCfg.min} et {smallCfg.max} lb</b> : prix fixe de <b>{usd(smallCfg.price)}</b>.</span></li>
-                <li className="flex gap-2"><span className="text-navy">•</span>
                   <span>À partir de <b>{TAX_THRESHOLD_LB} lb</b> au total, une taxe fixe de <b>{usd(TAX_FIXED_USD)}</b> s&apos;applique.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
                   <span>Certains articles comme les téléphones, ordinateurs portables et appareils photo ont un <b>prix forfaitaire</b> · le poids ne s&apos;applique pas.</span></li>
@@ -1460,7 +1457,7 @@ export default function EspaceClientPage() {
                 <div className="rounded-xl border border-line divide-y divide-line">
                   <div className="flex justify-between px-4 py-2.5 text-sm">
                     <span className="text-mute">
-                      Transport {calcRes.smallCount > 0 ? "· petit colis" : `· ${calcRes.totalWeight.toFixed(2)} lb`}
+                      Transport · {calcRes.totalWeight.toFixed(2)} lb
                     </span>
                     <span className="font-semibold text-ink">{usd(calcRes.subtotal)}</span>
                   </div>
@@ -1479,7 +1476,6 @@ export default function EspaceClientPage() {
 
               <p className="text-[11px] text-mute">
                 Une taxe fixe de {usd(TAX_FIXED_USD)} s&apos;applique à partir de {TAX_THRESHOLD_LB} lb au total.
-                Petit colis {smallCfg.min} à {smallCfg.max} lb : {usd(smallCfg.price)}.
                 Il s&apos;agit d&apos;une <b>estimation</b> · le prix final est fixé après la pesée à l&apos;entrepôt.
               </p>
             </div>

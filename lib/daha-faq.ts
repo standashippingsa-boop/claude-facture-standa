@@ -106,9 +106,9 @@ export const FAQ_TOPICS: FaqTopic[] = [
       "pri ka chanje", "kijan pri a kalkile", "konbyen pri a",
       "price change", "how is the price calculated", "how much does it cost", "pricing"],
     answer: {
-      fr: "Le prix correspond au poids du colis × le tarif de votre ville. Un petit colis a un prix fixe selon votre configuration. À partir de 6,5 lb au total, une taxe fixe de 10 $ s'applique. Certains articles (téléphone, ordinateur, caméra…) ont un prix forfaitaire, sans rapport au poids. Le prix affiché dans l'app est une estimation · le prix final est fixé après la pesée réelle à l'entrepôt.",
-      ht: "Pri a se pwa koli a × tarif vil ou. Yon ti koli gen yon pri fiks selon konfigirasyon an. Apati 6.5 lb antou, yon taks fiks $10 aplike. Sèten atik (telefòn, òdinatè, kamera...) gen yon pri fòfè, pwa a pa konte. Pri ki afiche nan app la se yon estimasyon · pri final la fikse apre vrè pwa a pran nan depo a.",
-      en: "The price is the package's weight × your city's rate. A small package gets a fixed price under your plan. From 6.5 lb total, a fixed $10 tax applies. Some items (phone, laptop, camera…) have a flat price regardless of weight. The price shown in the app is an estimate · the final price is set after the real weight is taken at the warehouse."
+      fr: "Le prix correspond au poids du colis × le tarif de votre ville. Un petit colis suit la même règle : son poids × le tarif de votre ville. À partir de 6,5 lb au total, une taxe fixe de 10 $ s'applique. Certains articles (téléphone, ordinateur, caméra…) ont un prix forfaitaire, sans rapport au poids. Le prix affiché dans l'app est une estimation · le prix final est fixé après la pesée réelle à l'entrepôt.",
+      ht: "Pri a se pwa koli a × tarif vil ou. Yon ti koli swiv menm règ la : pwa li × tarif vil ou. Apati 6.5 lb antou, yon taks fiks $10 aplike. Sèten atik (telefòn, òdinatè, kamera...) gen yon pri fòfè, pwa a pa konte. Pri ki afiche nan app la se yon estimasyon · pri final la fikse apre vrè pwa a pran nan depo a.",
+      en: "The price is the package's weight × your city's rate. A small package follows the same rule: its weight × your city's rate. From 6.5 lb total, a fixed $10 tax applies. Some items (phone, laptop, camera…) have a flat price regardless of weight. The price shown in the app is an estimate · the final price is set after the real weight is taken at the warehouse."
     }
   },
   {

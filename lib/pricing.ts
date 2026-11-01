@@ -151,9 +151,8 @@ export interface EstimateResult {
  * ESTIMASYON POU YON ANSANM KOLI (app kliyan an + apèsi admin).
  *
  * Business : TOUT pwa yo adisyone ANVAN, epi miltipliye pa pri/lb Business la.
- * Lòt kont: chak koli apa —
- *            0.10 ≤ pwa ≤ 0.99 lb  -> pri fiks ti koli (Paramètres)
- *            sinon                 -> pwa × pri/lb Personnel
+ * Lòt kont: chak koli apa, pwa × pri/lb (ti koli yo tou : pa gen pri fiks
+ *            bò kliyan, menm règ ak fakti a).
  * Nan toude ka: si pwa TOTAL ≥ 6.50 lb -> + 10 USD taxe fiks (yon sèl fwa).
  *
  * Retounen null si vil kliyan an pa konfigire/aktif — nou pa devine okenn pri.
@@ -177,10 +176,9 @@ export function estimateForPackages(
     // Adisyone tout pwa yo ANVAN, apre sa miltipliye pa pri/lb la.
     subtotal = round2(totalWeight * perLb);
   } else {
-    for (const w of ws) {
-      if (isSmallParcel(w, cfg)) { subtotal += round2(cfg.price); smallCount++; }
-      else subtotal += round2(w * perLb);
-    }
+    // Ti koli yo kalkile tankou lòt yo : pwa × pri/lb (pa gen pri fiks).
+    void cfg;
+    for (const w of ws) subtotal += round2(w * perLb);
     subtotal = round2(subtotal);
   }
 
