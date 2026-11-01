@@ -45,7 +45,7 @@ const MODIL_BAZDONE = ["@/lib/supabase", "@/lib/db", "@/lib/authx", "@/lib/acces
  * Modil bazdone yon paj SÈVÈ piblik gen dwa itilize.
  * Chak youn revize: li fè yon SELECT ak lis blanch kolòn, pa select("*").
  */
-const MODIL_SÈVÈ_OTORIZE = ["@/lib/agences"];
+const MODIL_SÈVÈ_OTORIZE = ["@/lib/agences", "@/lib/site-images"];
 
 const EXT = [".ts", ".tsx", ".js", ".jsx", ".mjs"];
 

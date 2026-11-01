@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft as RotateCcw, Cross as X } from "@getpapillon/papicons";
 import { dateFr } from "@/lib/utils";
 
@@ -57,8 +57,15 @@ export default function TrackBox() {
   const [message, setMessage] = useState("");
   useNoticeToast(message, setMessage, { tone: "error", title: "Suivi indisponible" });
 
-  async function search() {
-    const q = value.trim();
+  // Lien direct : /accueil?suivi=NUMERO#suivi ouvre le résultat.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("suivi")?.trim();
+    if (q) { setValue(q); void search(q); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function search(direct?: string) {
+    const q = (direct ?? value).trim();
     if (!q || busy) return;
 
     setBusy(true);
@@ -112,15 +119,14 @@ export default function TrackBox() {
       {/* ══════════ FÒM LAN — menm prensip ak USPS: yon chan, yon bouton ══════════ */}
       <form
         onSubmit={(e) => { e.preventDefault(); void search(); }}
-        className="bg-white p-5 sm:p-6"
+        className="bg-white p-4 sm:p-5"
       >
-        <label htmlFor="track-input" className="block text-[22px] font-bold leading-tight text-navy">
+        <label htmlFor="track-input" className="block text-[17px] font-bold leading-tight text-navy">
           Suivre un colis
         </label>
-        <p className="mt-1 text-[14px] text-ink">Encodez votre numéro de suivi.</p>
 
         {/* Sou telefòn: anpile. Sou òdinatè: kòt a kòt. */}
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <div className="mt-3 flex flex-col gap-2.5 sm:flex-row">
           <div className="relative flex-1">
             <input
               ref={input}
@@ -132,7 +138,8 @@ export default function TrackBox() {
               spellCheck={false}
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              className="h-12 w-full border border-slate-500 bg-white pl-3 pr-11
+              placeholder="Numéro de suivi"
+              className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-3 pr-11
                          font-mono text-[15px] text-ink
                          focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/30"
             />
@@ -152,8 +159,8 @@ export default function TrackBox() {
           <button
             type="submit"
             disabled={busy || !value.trim()}
-            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 bg-navy px-8
-                       text-[15px] font-bold text-white transition-colors hover:bg-navy-dark
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-navy px-6
+                       text-[14px] font-bold text-white transition-colors hover:bg-navy-dark
                        disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             {busy ? (
@@ -166,9 +173,6 @@ export default function TrackBox() {
           </button>
         </div>
 
-        <p className="mt-2.5 text-[12px] leading-relaxed text-mute">
-          Numéro Standa ou numéro du transporteur.
-        </p>
       </form>
 
       {/* ══════════ REZILTA ══════════ */}
@@ -189,7 +193,7 @@ function ResultCard({ result, onClose, onNewSearch }: { result: Found; onClose: 
     <div className="mt-px bg-white">
 
       {/* Tèt: nimewo a + bouton pou fèmen */}
-      <div className="flex items-start justify-between gap-3 border-t border-line px-5 pt-5 sm:px-6">
+      <div className="flex items-start justify-between gap-3 border-t border-line px-4 pt-4 sm:px-5">
         <div className="min-w-0">
           <p className="text-[13px] text-mute">Numéro de suivi :</p>
           <p className="mt-0.5 break-all font-mono text-[15px] font-bold text-ink">{result.tracking_number || "·"}</p>
@@ -204,10 +208,9 @@ function ResultCard({ result, onClose, onNewSearch }: { result: Found; onClose: 
       </div>
 
       {/* Statut aktyèl la an gwo + sa l vle di */}
-      <div className="px-5 pb-5 pt-4 sm:px-6">
-        <p className="text-[13px] text-mute">Dernier statut</p>
-        <p className={`mt-1 text-[26px] font-bold leading-tight ${delivered ? "text-green-700" : "text-navy"}`}>{label}</p>
-        {current >= 0 && <p className="mt-2 text-[14px] leading-relaxed text-ink">{STEPS[current].text}</p>}
+      <div className="px-4 pb-4 pt-3 sm:px-5">
+        <p className="text-[12px] text-mute">Dernier statut</p>
+        <p className={`mt-0.5 text-[20px] font-bold leading-tight ${delivered ? "text-green-700" : "text-navy"}`}>{label}</p>
 
         {/* Ba pwogrè: yon segman pa etap, soti Miami rive nan remiz */}
         {current >= 0 && (
@@ -227,17 +230,16 @@ function ResultCard({ result, onClose, onNewSearch }: { result: Found; onClose: 
 
       {/* Istorik: etap ki fèt yo, pi resan an anlè */}
       {history.length > 0 && (
-        <div className="border-t border-line px-5 py-5 sm:px-6">
-          <h3 className="text-[16px] font-bold text-navy">Historique du suivi</h3>
-          <ol className="mt-4">
+        <div className="border-t border-line px-4 py-4 sm:px-5">
+          <h3 className="text-[14px] font-bold text-navy">Historique</h3>
+          <ol className="mt-3">
             {history.map((step, i) => (
               <li key={step.status} className="relative flex gap-3 pb-4 last:pb-0">
                 {i < history.length - 1 && <span aria-hidden="true" className="absolute left-[5px] top-4 h-full w-0.5 bg-slate-300" />}
                 <span className={`relative z-10 mt-1 h-3 w-3 shrink-0 rounded-full ${i === 0 ? (delivered ? "bg-green-700" : "bg-navy") : "bg-slate-400"}`} />
                 <div className="min-w-0">
-                  <p className={`text-[14px] text-ink ${i === 0 ? "font-bold" : "font-semibold"}`}>{step.status}</p>
-                  <p className="text-[13px] leading-relaxed text-mute">{step.text}</p>
-                  {step.status === "Reçu à Miami" && receivedDate && <p className="text-[13px] text-mute">{receivedDate}</p>}
+                  <p className={`text-[13.5px] text-ink ${i === 0 ? "font-bold" : "font-semibold"}`}>{step.status}</p>
+                  {step.status === "Reçu à Miami" && receivedDate && <p className="text-[12px] text-mute">{receivedDate}</p>}
                 </div>
               </li>
             ))}
@@ -257,20 +259,16 @@ function ResultCard({ result, onClose, onNewSearch }: { result: Found; onClose: 
       </dl>
 
       {/* Aksyon yo */}
-      <div className="border-t border-line bg-mist px-5 py-4 sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-mist px-4 py-3 sm:px-5">
         <button
           type="button"
           onClick={onNewSearch}
-          className="inline-flex h-11 items-center justify-center gap-2 border border-navy bg-white px-5
-                     text-[14px] font-bold text-navy transition-colors hover:bg-navy hover:text-white"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-navy bg-white px-4
+                     text-[13px] font-bold text-navy transition-colors hover:bg-navy hover:text-white"
         >
-          <RotateCcw size={15} /> Nouvelle recherche
+          <RotateCcw size={14} /> Nouvelle recherche
         </button>
-        <p className="mt-3 text-[13px] leading-relaxed text-ink">
-          <span className="font-bold">Pas encore de compte ?</span>{" "}
-          Créez votre compte gratuitement pour recevoir votre adresse à Miami et suivre tous vos colis au même endroit.{" "}
-          <Link href="/inscription" className="font-bold text-navy underline underline-offset-2">Créer mon compte</Link>
-        </p>
+        <Link href="/inscription" className="text-[13px] font-bold text-navy underline underline-offset-2">Créer un compte</Link>
       </div>
     </div>
   );
@@ -279,9 +277,9 @@ function ResultCard({ result, onClose, onNewSearch }: { result: Found; onClose: 
 /** Yon liy detay nan kat rezilta a */
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="px-5 sm:px-6 py-3 flex items-start justify-between gap-4">
-      <dt className="text-[13px] text-mute shrink-0">{label}</dt>
-      <dd className={`text-[14px] font-semibold text-ink text-right break-all ${mono ? "font-mono text-[13px]" : ""}`}>
+    <div className="px-4 sm:px-5 py-2.5 flex items-start justify-between gap-4">
+      <dt className="text-[12.5px] text-mute shrink-0">{label}</dt>
+      <dd className={`text-[13px] font-semibold text-ink text-right break-all ${mono ? "font-mono text-[13px]" : ""}`}>
         {value}
       </dd>
     </div>

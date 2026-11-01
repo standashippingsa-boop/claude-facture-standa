@@ -25,7 +25,7 @@ const SOCIALS = [
 const MAP_QUERY = encodeURIComponent(`${DEPOT.address1}, ${DEPOT.city}, ${DEPOT.state} ${DEPOT.zip}`);
 
 export default function ContactPage() {
-  return <div className="site-font min-h-screen bg-[#eef2f8] text-navy"><SiteHeader /><main>
+  return <div className="site-font min-h-screen bg-[#eef2f8] text-navy"><SiteHeader /><main className="site-compact">
 
     <section className={`${WRAP} pb-20 pt-10 sm:pt-14`}>
       <p className="text-[12px] font-medium tracking-[0.14em] text-accent-dark">CONTACT</p>

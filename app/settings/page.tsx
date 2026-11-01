@@ -151,6 +151,20 @@ export default function SettingsPage() {
 
       <PlatformLinksSection />
 
+      <Link href="/settings/site-images"
+        className="card p-5 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand/40 transition">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0">
+            <Building2 size={18} />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-navy">Images du site</h2>
+            <p className="text-xs text-slate-500">Changer les photos du site public.</p>
+          </div>
+        </div>
+        <ChevronRight size={18} className="text-slate-400 shrink-0" />
+      </Link>
+
       {/* ===== Ajans / Pwen retrait (sit piblik /agences) ===== */}
       <Link href="/settings/agences"
         className="card p-5 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand/40 transition">

@@ -25,7 +25,7 @@ export default async function AgencesPage() {
   let loadError = false;
   try { agences = await getAgences(); } catch { loadError = true; }
 
-  return <div className="site-font min-h-screen bg-[#eef2f8] text-navy"><SiteHeader /><main>
+  return <div className="site-font min-h-screen bg-[#eef2f8] text-navy"><SiteHeader /><main className="site-compact">
 
     <section className={`${WRAP} grid gap-8 pb-20 pt-10 sm:pt-14 lg:grid-cols-[1fr_1fr] lg:items-center`}>
       <div>
