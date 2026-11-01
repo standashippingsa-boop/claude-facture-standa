@@ -150,8 +150,8 @@ body { @apply bg-mist text-slate-700 antialiased; }
    scope volontairement limité à /espace-client, le reste de l'app garde la police système. */
 .client-app-font {
   font-family: var(--font-client), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  /* Échelle de l'app client : textes et éléments 20 % plus petits (demande client). */
-  --client-zoom: .8;
+  /* Échelle de l'app client : textes et éléments 40 % plus petits (demande client). */
+  --client-zoom: .6;
   zoom: var(--client-zoom);
 }
 /* Images de l'app client (logo du bouton Accueil, flyers…) : pas de menu « Télécharger / Enregistrer
@@ -159,6 +159,9 @@ body { @apply bg-mist text-slate-700 antialiased; }
 .client-app-font img { -webkit-touch-callout: none; -webkit-user-drag: none; user-select: none; pointer-events: none; }
 /* Le zoom réduit aussi les hauteurs « plein écran » : on compense pour garder tout l'écran. */
 .client-app-font .min-h-screen { min-height: calc(100vh / var(--client-zoom)); }
+/* iPhone agrandit la page quand on touche un champ dont le texte fait moins de 16 px réels :
+   les champs de l'app gardent donc 16 px réels malgré l'échelle réduite. */
+.client-app-font input, .client-app-font select, .client-app-font textarea { font-size: calc(16px / var(--client-zoom)); }
 
 /* App point de retrait (components/PickupAgentPortal.tsx) : même échelle réduite que l'app client.
    Le ticket de remise est rendu HORS de .agent-app : l'impression garde la vraie largeur du papier. */
@@ -167,17 +170,17 @@ body { @apply bg-mist text-slate-700 antialiased; }
 @media print { .agent-app { zoom: 1; } }
 
 /* Pages de connexion (personnel, client, affilié) : tout 30 % plus petit.
-   La connexion client est déjà dans .client-app-font (0,8) : 0,875 × 0,8 = 0,7. */
+   Une connexion dans .client-app-font (0,6) : 1,1667 × 0,6 = 0,7. */
 .login-compact { --login-zoom: .7; zoom: var(--login-zoom); }
 .login-compact.min-h-screen { min-height: calc(100vh / .7); }
-.client-app-font .login-compact { --login-zoom: .875; }
+.client-app-font .login-compact { --login-zoom: 1.1667; }
 .client-app-font .login-compact.min-h-screen { min-height: calc(100vh / .7); }
 /* iPhone agrandit la page si le texte d'un champ fait moins de 16 px : on garde 16 px réels. */
 .login-compact input, .login-compact select, .login-compact textarea { font-size: calc(16px / .7) !important; }
 /* Connexion CLIENT (code MC + mot de passe) : 60 % de la taille d'origine.
-   App : 0,75 × 0,8 (.client-app-font) = 0,6 · Site (/login) : 0,6. */
+   App : 1 × 0,6 (.client-app-font) = 0,6 · Site (/login) : 0,6. */
 .login-compact.login-client { --login-zoom: .6; }
-.client-app-font .login-compact.login-client { --login-zoom: .75; }
+.client-app-font .login-compact.login-client { --login-zoom: 1; }
 .login-compact.login-client.min-h-screen, .client-app-font .login-compact.login-client.min-h-screen { min-height: calc(100vh / .6); }
 /* Connexion client : champs à 13 px réels, proportionnés au reste de la page. */
 .login-compact.login-client input, .login-compact.login-client select, .login-compact.login-client textarea { font-size: calc(13px / .6) !important; }
