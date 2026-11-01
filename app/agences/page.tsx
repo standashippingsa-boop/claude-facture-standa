@@ -6,6 +6,7 @@ import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
 import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import { getAgences, type Agence } from "@/lib/agences";
+import { getSiteImages } from "@/lib/site-images";
 
 export const metadata: Metadata = {
   title: "Nos agences · STANDA COMMERCIAL",
@@ -24,6 +25,7 @@ export default async function AgencesPage() {
   let agences: Agence[] = [];
   let loadError = false;
   try { agences = await getAgences(); } catch { loadError = true; }
+  const images = await getSiteImages();
 
   return <div className="site-font min-h-screen bg-[#eef2f8] text-navy"><SiteHeader /><main className="site-compact">
 
@@ -35,7 +37,7 @@ export default async function AgencesPage() {
         <a href="#liste" className="mt-8 inline-flex h-12 items-center gap-2 rounded-full bg-navy pl-6 pr-5 text-[15px] font-semibold text-white transition hover:bg-navy-dark">Voir les agences <ArrowRight size={17} /></a>
       </div>
       <div className="overflow-hidden rounded-[32px] bg-white shadow-[0_30px_60px_-30px_rgba(15,23,42,.35)]">
-        <Image src="/site/agent.webp" alt="Agent STANDA dans une agence" width={1100} height={587} priority unoptimized className="h-[260px] w-full object-cover sm:h-[380px]" />
+        <Image src={images.agences} alt="Agent STANDA remettant un colis à une cliente" width={1400} height={933} priority unoptimized className="h-[260px] w-full object-cover sm:h-[380px]" />
       </div>
     </section>
 

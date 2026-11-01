@@ -2,8 +2,8 @@
 export const SITE_IMAGE_SLOTS = [
   { key: "hero", label: "Accueil, grande image", fallback: "/site/hero-scale.webp" },
   { key: "inscription", label: "Carte Inscription", fallback: "/site/account.webp" },
-  { key: "suivi", label: "Carte Suivi", fallback: "/site/laptop.webp" },
-  { key: "agences", label: "Carte Agences", fallback: "/site/agent.webp" },
+  { key: "suivi", label: "Carte Suivi", fallback: "/site/suivi-colis.webp" },
+  { key: "agences", label: "Carte Agences et page Nos agences", fallback: "/site/agence-remise.webp" },
   { key: "depot", label: "Dépôt de Miami", fallback: "/site/warehouse.webp" },
   { key: "final", label: "Bandeau du bas", fallback: "/site/shopping.webp" },
 ] as const;
