@@ -57,6 +57,7 @@ import ClientInstallCard from "@/components/ClientInstallCard";
 import { announcementImageUrl, announcementMedia, getActiveAnnouncements, type Announcement } from "@/lib/announcements";
 import AnnouncementCarousel, { AnnouncementMediaSlider } from "@/components/AnnouncementCarousel";
 import ChallengeView from "@/components/ChallengeView";
+import { ManifestCard, ParcelCard, PickupPass } from "@/components/ClientParcelUI";
 import { getChallengeMe, type ChallengeMe } from "@/lib/challenge";
 import AddressGuide from "@/components/site/AddressGuide";
 import { ClientLogisticsDashboard, ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
@@ -774,56 +775,12 @@ export default function EspaceClientPage() {
 
   const PkgCard = ({ p, check, price }: { p: Pkg; check?: boolean; price?: number | null }) => {
     const facture = Number(p.total_usd) > 0 && isInvoiced(p);
-    const special = specialPackageInfo(p);
     // Un colis déjà facturé reste visible dans "Disponible" (il attend d'être
-    // payé et retiré), mais ne peut pas entrer dans une NOUVELLE demande de
-    // retrait — la demande existante ou le règlement s'en occupe déjà.
+    // payé et retiré), mais ne peut pas entrer dans une NOUVELLE demande de retrait.
     const selectable = !check || p.status === "Disponible";
-    return (
-      <div className="relative border-b border-line py-3.5 last:border-0">
-        {check && (
-          <input type="checkbox" aria-label="Chwazi koli a"
-            className="absolute top-3.5 right-0 z-10 h-[18px] w-[18px] accent-emerald-600 disabled:opacity-30"
-            checked={sel.has(p.id)} disabled={!selectable}
-            title={selectable ? undefined : "Colis déjà facturé · réglez la facture pour le retirer."}
-            onChange={() => toggleSel(p.id)} />
-        )}
-        <button onClick={() => setDetail(p)} className={`w-full text-left ${check ? "pr-7" : ""}`}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="font-mono text-[13px] font-bold text-ink truncate">{p.tracking_number || "·"}</p>
-              {p.tracking_manual && <p className="font-mono text-[11px] text-mute truncate mt-0.5">{p.tracking_manual}</p>}
-              <div className="mt-1 flex flex-wrap gap-1">
-                {check && isInvoiced(p) && <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">Facturé</span>}
-                {check && !isInvoiced(p) && <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Disponible</span>}
-                {special.isSpecial && <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800" title="Traitement particulier appliqué à ce colis">Colis spécial</span>}
-              </div>
-            </div>
-            {!check && <StatusBadge status={p.status} />}
-          </div>
-          <div className="mt-2.5"><StatusTimeline status={p.status} compact /></div>
-          {p.status === "Livré" && (
-            <div className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
-              <CircleCheck size={15} strokeWidth={2.4} /> Livraison terminée
-            </div>
-          )}
-          <div className="flex items-center justify-between gap-2 mt-2.5">
-            <span className="text-xs text-mute truncate">{p.content || "·"}</span>
-            <span className="flex shrink-0 items-baseline gap-2">
-              <span className="text-xs font-semibold text-ink">{Number(p.weight) > 0 ? `${Number(p.weight).toFixed(2)} lb` : "·"}</span>
-              {price != null && <span className="text-base font-extrabold text-accent-dark">{usd(price)}</span>}
-              {price == null && check && special.isSpecial && !facture && <span className="text-xs font-bold text-amber-700">Prix à confirmer</span>}
-            </span>
-          </div>
-          {facture && (
-            <div className="mt-2.5 flex items-center justify-between">
-              <span className="text-[11px] text-mute">Prix facturé</span>
-              <span className="text-base font-extrabold text-navy">{usd(p.total_usd)}</span>
-            </div>
-          )}
-        </button>
-      </div>
-    );
+    return <ParcelCard p={p} onOpen={() => setDetail(p)} price={price} invoicedPrice={facture ? Number(p.total_usd) : null}
+      special={specialPackageInfo(p).isSpecial}
+      selector={check ? { selected: sel.has(p.id), disabled: !selectable, title: selectable ? undefined : "Colis déjà facturé · réglez la facture pour le retirer.", onToggle: () => toggleSel(p.id) } : undefined} />;
   };
 
   const Empty = ({ t }: { t: string }) => (
@@ -1046,28 +1003,10 @@ export default function EspaceClientPage() {
           <>
             {disponiblesOnly.length === 0 ? <AvailableEmpty /> : (
               <>
-                {dispoEst || dispoSpecialCount > 0 ? (
-                  <section className="rounded-3xl bg-accent p-5 text-white shadow-[0_14px_30px_-16px_rgba(228,101,10,.7)]">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-white/85">Total</p>
-                        <p className="mt-1 text-[32px] font-extrabold leading-none tracking-tight">{dispoEst ? usd(dispoEst.total) : "·"}</p>
-                      </div>
-                      <span className="shrink-0 rounded-full bg-white px-3.5 py-2 text-sm font-extrabold text-accent-dark">{dispoWeight.toFixed(2)} lb</span>
-                    </div>
-                    <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/25 pt-3 text-[13px]">
-                      <div><p className="text-white/80">Frais d'expédition</p><p className="mt-0.5 text-base font-extrabold">{dispoEst ? usd(dispoEst.subtotal) : "·"}</p></div>
-                      <div><p className="text-white/80">Taxe fixe</p><p className="mt-0.5 text-base font-extrabold">{dispoEst && dispoEst.fixedTax > 0 ? usd(dispoEst.fixedTax) : "·"}</p></div>
-                    </div>
-                    {dispoSpecialCount > 0 && (
-                      <p className="mt-3 rounded-xl bg-white/15 px-3 py-2 text-[12px] font-semibold leading-relaxed">
-                        + {dispoSpecialCount} colis spécial{dispoSpecialCount > 1 ? "aux" : ""} : prix communiqué sur votre facture.
-                      </p>
-                    )}
-                  </section>
-                ) : (
-                  <p className="px-1 text-xs text-amber-700">Le tarif de votre ville n&apos;est pas encore configuré. Contactez STANDA sur WhatsApp.</p>
-                )}
+                <PickupPass agency={client.pickup_location || client.ville?.name || client.city || "Votre agence"} code={client.customer_code}
+                  count={disponiblesOnly.length} weight={dispoWeight} total={dispoEst ? dispoEst.total : null}
+                  shipping={dispoEst ? dispoEst.subtotal : null} fixedTax={dispoEst ? dispoEst.fixedTax : null} specialCount={dispoSpecialCount}
+                  footer={!dispoEst && dispoSpecialCount === 0 ? <p className="border-t border-line px-5 py-3 text-xs text-amber-700">Le tarif de votre ville n&apos;est pas encore configuré. Contactez STANDA sur WhatsApp.</p> : undefined} />
                 <div>
                   {disponiblesOnly.map((p) => <PkgCard key={p.id} p={p} check price={pkgEstimate(p)} />)}
                 </div>
@@ -1075,8 +1014,9 @@ export default function EspaceClientPage() {
             )}
             {sel.size > 0 && (
               <div className="sticky bottom-24 z-20">
-                <button className="btn btn-brand w-full justify-center shadow-lift" onClick={notifierRetrait} disabled={busy}>
-                  {busy ? <Spinner size={15} /> : <Bell size={15} />} {busy ? "Envoi…" : `Préparer mon retrait (${sel.size})`}
+                <button className="flex h-14 w-full items-center justify-between gap-3 rounded-full bg-navy pl-6 pr-2 text-white shadow-[0_16px_34px_-14px_rgba(18,43,92,.7)] disabled:opacity-60" onClick={notifierRetrait} disabled={busy}>
+                  <span className="text-left leading-tight"><span className="block text-[15px] font-semibold">{busy ? "Envoi…" : "Préparer mon retrait"}</span><span className="block text-[12px] text-white/65">{sel.size} colis sélectionné{sel.size > 1 ? "s" : ""}</span></span>
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-accent">{busy ? <Spinner size={15} /> : <Bell size={16} />}</span>
                 </button>
               </div>
             )}
@@ -1129,10 +1069,7 @@ export default function EspaceClientPage() {
           <>
             {autres.length === 0 ? <Empty t="Aucun colis reçu à Miami ou en acheminement pour le moment." /> : (
               <>
-                <div className="flex flex-wrap gap-2 px-1">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">{autres.length} colis</span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3.5 py-2 text-sm font-bold text-sky-900">{poidsDe(autres).toFixed(2)} lb</span>
-                </div>
+                <ManifestCard list={autres} />
                 <div>
                   {autres.map((p) => <PkgCard key={p.id} p={p} />)}
                 </div>
