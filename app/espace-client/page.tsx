@@ -1011,8 +1011,10 @@ export default function EspaceClientPage() {
                 </div>
               </>
             )}
+            {/* Bouton flottant : visible dès qu'un colis est coché, sans descendre en bas de la liste. */}
+            {sel.size > 0 && <div className="h-20" aria-hidden="true" />}
             {sel.size > 0 && (
-              <div className="sticky bottom-24 z-20">
+              <div className="retrait-floating fixed inset-x-0 bottom-24 z-40 mx-auto w-full max-w-[34rem] px-4 sm:px-5">
                 <button className="flex h-14 w-full items-center justify-between gap-3 rounded-full bg-navy pl-6 pr-2 text-white shadow-[0_16px_34px_-14px_rgba(18,43,92,.7)] disabled:opacity-60" onClick={notifierRetrait} disabled={busy}>
                   <span className="text-left leading-tight"><span className="block text-[15px] font-semibold">{busy ? "Envoi…" : "Préparer mon retrait"}</span><span className="block text-[12px] text-white/65">{sel.size} colis sélectionné{sel.size > 1 ? "s" : ""}</span></span>
                   <span className="grid h-10 w-10 place-items-center rounded-full bg-accent">{busy ? <Spinner size={15} /> : <Bell size={16} />}</span>

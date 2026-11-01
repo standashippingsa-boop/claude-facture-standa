@@ -12,7 +12,7 @@ export default function InscriptionPage() {
   const router = useRouter();
 
   return (
-    <div className="site-font min-h-screen bg-[#eef2f8] text-navy">
+    <div className="login-compact login-client site-font min-h-screen bg-[#eef2f8] text-navy">
       <div className="mx-auto max-w-6xl px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
         <header className="flex items-center justify-between gap-4">
           <Link href="/accueil" className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[13px] font-medium text-navy/80 shadow-[0_1px_2px_rgba(0,0,0,.05)] transition hover:text-navy">

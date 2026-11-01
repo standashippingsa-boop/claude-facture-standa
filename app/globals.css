@@ -373,3 +373,6 @@ select.input, select.select-classic {
 /* Aucune valeur choisie : texte gris comme une indication. */
 select.input:has(option[value=""]:checked) { color: #94a3b8; }
 select.input option { color: #0f172a; }
+
+/* Bouton « Préparer mon retrait » affiché : le bouton haut de page passe au dessus. */
+main:has(.retrait-floating) > button[title="Haut de page"] { bottom: 10.5rem; }
