@@ -357,3 +357,16 @@ body { @apply bg-mist text-slate-700 antialiased; }
 .site-font { font-family: var(--font-client), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
 /* Pages publiques plus compactes (agences, contact). */
 .site-compact { zoom: 0.8; }
+
+/* Listes déroulantes : même aspect partout (téléphone, tablette, ordinateur).
+   Android et iPhone dessinent sinon leur propre bouton, avec une autre police. */
+select { font-family: inherit; }
+select.input, select.select-classic {
+  -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right .8rem center; background-size: 16px;
+  padding-right: 2.5rem;
+}
+/* Aucune valeur choisie : texte gris comme une indication. */
+select.input:has(option[value=""]:checked) { color: #94a3b8; }
+select.input option { color: #0f172a; }

@@ -50,7 +50,7 @@ const groups: { title: string; items: { href: string; label: string; icon: typeo
   }
 ];
 
-export default function Sidebar({ staff }: { staff?: Staff | null }) {
+export default function Sidebar({ staff, open = false, onClose }: { staff?: Staff | null; open?: boolean; onClose?: () => void }) {
   const path = usePathname();
   const router = useRouter();
   const logout = async () => { await supabase.auth.signOut(); router.replace("/admin-login"); };
@@ -73,7 +73,10 @@ export default function Sidebar({ staff }: { staff?: Staff | null }) {
   }, []);
 
   return (
-    <aside className="w-64 shrink-0 bg-navy text-white min-h-screen flex flex-col">
+    <>
+    {/* Tablette et téléphone : le menu s'ouvre par-dessus la page. */}
+    {open && <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onClose} aria-hidden="true" />}
+    <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col overflow-y-auto bg-navy text-white transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 h-16">
         <Logo size={34} tone="light" />
@@ -141,5 +144,6 @@ export default function Sidebar({ staff }: { staff?: Staff | null }) {
         </button>
       </div>
     </aside>
+    </>
   );
 }

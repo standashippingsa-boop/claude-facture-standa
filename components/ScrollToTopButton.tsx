@@ -24,10 +24,10 @@ export default function ScrollToTopButton() {
       type="button"
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
       aria-label="Retourner en haut de la page"
-      className="fixed bottom-20 right-3 z-40 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0b3270] px-4 text-sm font-black text-white shadow-lg shadow-blue-950/25 transition hover:bg-[#154b91] focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200 sm:right-6 md:bottom-6"
+      title="Haut de page"
+      className="fixed bottom-20 right-3 z-40 grid h-11 w-11 place-items-center rounded-full bg-[#0b3270] text-white shadow-lg shadow-blue-950/25 transition hover:bg-[#154b91] focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200 sm:right-6 md:bottom-6"
     >
-      <ChevronUp size={18} aria-hidden="true" />
-      Haut de page
+      <ChevronUp size={20} aria-hidden="true" />
     </button>
   );
 }

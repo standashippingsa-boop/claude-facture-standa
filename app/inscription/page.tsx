@@ -2,17 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, MapPin, Check as PackageCheck, Lock as ShieldCheck } from "@getpapillon/papicons";
+import { ArrowLeft } from "@getpapillon/papicons";
 import SignupForm from "@/components/SignupForm";
 import Logo from "@/components/Logo";
 import { WhatsAppIcon } from "@/components/site/BrandIcons";
 import { SITE } from "@/lib/site";
-
-const REASSURANCES = [
-  { icon: MapPin, label: "Adresse à Miami gratuite" },
-  { icon: PackageCheck, label: "Suivi de chaque colis" },
-  { icon: ShieldCheck, label: "Données protégées" }
-];
 
 export default function InscriptionPage() {
   const router = useRouter();
@@ -41,9 +35,6 @@ export default function InscriptionPage() {
             <SignupForm onGoLogin={() => router.push("/login")} />
           </section>
 
-          <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
-            {REASSURANCES.map(({ icon: Icon, label }) => <div key={label} className="flex items-center justify-center gap-2 rounded-full bg-white px-4 py-3 text-[13px] text-navy/70"><Icon size={16} className="text-navy" />{label}</div>)}
-          </div>
 
           <p className="mt-6 text-center text-[13px] leading-relaxed text-navy/60">Une question ? <a href={`https://wa.me/${SITE.whatsapp}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-navy underline underline-offset-2"><WhatsAppIcon size={15} />Écrivez à STANDA sur WhatsApp</a>.</p>
           <p className="mt-4 text-center text-[12px] text-accent"><Link href="/confidentialite" className="transition hover:text-navy/80">Politique de confidentialité</Link></p>
