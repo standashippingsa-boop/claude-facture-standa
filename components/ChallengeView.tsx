@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Check, Copy, Gift, Smartphone, Users } from "@/components/icons";
+import { toast } from "sonner";
 import { CLAIM_STATUS_LABEL, claimChallengeReward, requestChallengeEnrollment, type ChallengeMe } from "@/lib/challenge";
 
 const lb = (value: number | undefined | null) => `${Number(value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} lb`;
@@ -49,7 +50,7 @@ export default function ChallengeView({ data, onChanged }: { data: ChallengeMe; 
 
   const copyLink = async () => {
     if (!data.affiliate) return;
-    try { await navigator.clipboard.writeText(data.affiliate.referral_link); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* noop */ }
+    try { await navigator.clipboard.writeText(data.affiliate.referral_link); setCopied(true); toast.success("Lien copié"); setTimeout(() => setCopied(false), 1800); } catch { /* noop */ }
   };
 
   return (

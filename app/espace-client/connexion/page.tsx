@@ -27,6 +27,8 @@ import { normalizeMcCode } from "@/lib/utils";
 import { SITE_URL, SUPPORT_PHONE } from "@/lib/branding";
 
 import { useNoticeToast } from "@/lib/notify";
+import { buttonVariants } from "@/components/ui/Button";
+import { cn } from "@/lib/cn";
 const WA = `https://wa.me/${SUPPORT_PHONE.replace(/\D/g, "")}`;
 /** Adrès ABSOLI: fòse sòti nan app la epi louvri navigatè a. */
 const SITE_INSCRIPTION = `${SITE_URL}/inscription`;
@@ -110,7 +112,7 @@ export default function AppConnexionPage() {
           </label>
 
           <button type="submit" disabled={busy}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent text-[15px] font-semibold text-white transition hover:bg-accent-dark disabled:opacity-60">
+            className={buttonVariants({ variant: "accent", size: "lg", block: true })}>
             {busy ? "Ap konekte…" : <>Konekte <ArrowRight size={17} /></>}
           </button>
 
@@ -123,7 +125,7 @@ export default function AppConnexionPage() {
         {/* KREYE KONT — sou SIT WÈB la sèlman */}
         <div className="mt-6 text-center">
           <a href={SITE_INSCRIPTION} target="_blank" rel="noreferrer"
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full border border-navy/15 bg-white text-[14px] font-medium text-navy transition hover:border-navy">
+            className={cn(buttonVariants({ variant: "outline", size: "lg", block: true }), "font-medium")}>
             Poko gen kont? <b className="font-semibold">Kreye yon kont</b> <ArrowRight size={15} />
           </a>
           <p className="mt-2.5 text-[12px] text-navy/45">Enskripsyon fèt sou sit standacommercialsa.com</p>

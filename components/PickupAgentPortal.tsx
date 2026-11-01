@@ -14,6 +14,7 @@ import { invoiceStatusLines } from "@/lib/payment-allocation";
 import { notify, useNoticeToast } from "@/lib/notify";
 import type { PaymentInvoice } from "@/lib/payment-allocation";
 import Logo from "@/components/Logo";
+import { cn } from "@/lib/cn";
 import StaffNotifications from "@/components/StaffNotifications";
 
 import { MessageScreen } from "@/components/Toaster";
@@ -71,7 +72,6 @@ const toPaymentInvoice = (invoice: ZoneInvoice): PaymentInvoice => ({
   exchange_rate_used: invoice.exchange_rate, order_deposit: 0, balance_due: invoice.amount_due_usd, has_pdf: invoice.has_pdf,
   payment_paid_usd: invoice.payment_paid_usd, payment_paid_htg: invoice.payment_paid_htg, created_at: invoice.created_at
 });
-const cn = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" ");
 const dateTimestamp = (value: string) => {
   const parsed = value ? Date.parse(value) : 0;
   return Number.isFinite(parsed) ? parsed : 0;

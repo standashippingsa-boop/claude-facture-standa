@@ -7,7 +7,9 @@
  * Présentation seulement : toutes les données et actions viennent des props.
  */
 import type { ReactNode } from "react";
+import { motion } from "motion/react";
 import { Check } from "@/components/icons";
+import { cn } from "@/lib/cn";
 import type { Pkg } from "@/lib/types";
 
 const STOPS = ["Miami", "Transit", "Haïti", "Agence"] as const;
@@ -87,7 +89,8 @@ export function ParcelCard({ p, onOpen, price, invoicedPrice, special, selector 
 }) {
   const weight = Number(p.weight) || 0;
   const shown = invoicedPrice ?? price ?? null;
-  return <article className={`relative mb-3 overflow-hidden rounded-[22px] bg-white transition ${selector?.selected ? "ring-2 ring-[#E4650A]" : "ring-1 ring-[#122B5C]/[.07]"}`} style={notchMask(54)}>
+  return <motion.article layout="position" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.985 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+    className={cn("relative mb-3 overflow-hidden rounded-[22px] bg-white transition-shadow", selector?.selected ? "ring-2 ring-[#E4650A]" : "ring-1 ring-[#122B5C]/[.07]")} style={notchMask(54)}>
     <button type="button" onClick={onOpen} className="block w-full text-left">
       <div className="px-4 pb-4 pt-4">
         <div className="flex items-start justify-between gap-3">
@@ -117,7 +120,7 @@ export function ParcelCard({ p, onOpen, price, invoicedPrice, special, selector 
       className={`absolute right-3.5 top-3.5 grid h-7 w-7 place-items-center rounded-full border-2 transition disabled:opacity-30 ${selector.selected ? "border-[#E4650A] bg-[#E4650A] text-white" : "border-navy/20 bg-white text-transparent"}`}>
       <Check size={14} />
     </button>}
-  </article>;
+  </motion.article>;
 }
 
 /** Écran « Miami » : manifeste façon tableau des départs, à la place des deux pastilles. */
@@ -127,7 +130,7 @@ export function ManifestCard({ list }: { list: Pkg[] }) {
   for (const p of list) { counts[stageOf(p.status)]++; weight += Number(p.weight) || 0; }
   const max = Math.max(1, ...counts.slice(0, 3));
   const rows: Array<[string, number]> = [["Reçus à Miami", counts[0]], ["En transit", counts[1]], ["Arrivés en Haïti", counts[2]]];
-  return <section className="mb-4 overflow-hidden rounded-[26px] bg-navy text-white">
+  return <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }} className="mb-4 overflow-hidden rounded-[26px] bg-navy text-white">
     <div className="flex items-end justify-between gap-4 px-5 pb-4 pt-5">
       <div>
         <p className="text-[10.5px] font-medium tracking-[.18em] text-[#ffb27a]">MANIFESTE · EN ROUTE VERS VOUS</p>
@@ -141,11 +144,11 @@ export function ManifestCard({ list }: { list: Pkg[] }) {
     <div className="divide-y divide-white/10 border-t border-white/10">
       {rows.map(([label, n]) => <div key={label} className="flex items-center gap-3 px-5 py-2.5">
         <span className="w-[118px] shrink-0 text-[12.5px] text-white/70">{label}</span>
-        <span className="h-[6px] flex-1 overflow-hidden rounded-full bg-white/10"><span className="block h-full rounded-full bg-white" style={{ width: `${(n / max) * 100}%`, opacity: n ? 1 : 0 }} /></span>
+        <span className="h-[6px] flex-1 overflow-hidden rounded-full bg-white/10"><motion.span className="block h-full rounded-full bg-white" initial={{ width: 0 }} animate={{ width: `${(n / max) * 100}%` }} transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }} style={{ opacity: n ? 1 : 0 }} /></span>
         <span className="w-7 shrink-0 text-right font-mono text-[15px] font-semibold">{String(n).padStart(2, "0")}</span>
       </div>)}
     </div>
-  </section>;
+  </motion.section>;
 }
 
 /** Écran « Disponible » : pass de retrait (façon carte d'embarquement). */
@@ -156,7 +159,7 @@ export function PickupPass({ agency, code, count, weight, total, shipping, fixed
     <p className="text-[9.5px] font-medium tracking-[.16em] text-navy/40">{label}</p>
     <p className={`mt-1 truncate ${strong ? "text-[17px] font-semibold text-navy" : "font-mono text-[14px] font-semibold text-navy"}`}>{value}</p>
   </div>;
-  return <section className="mb-4 overflow-hidden rounded-[26px] bg-white ring-1 ring-[#122B5C]/[.07]" style={notchMask(118)}>
+  return <motion.section initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="mb-4 overflow-hidden rounded-[26px] bg-white ring-1 ring-[#122B5C]/[.07]" style={notchMask(118)}>
     <div className="bg-navy px-5 pb-6 pt-5 text-white">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[10.5px] font-medium tracking-[.18em] text-[#ffb27a]">PASS DE RETRAIT</p>
@@ -184,5 +187,5 @@ export function PickupPass({ agency, code, count, weight, total, shipping, fixed
       </div>
     </div>
     {footer}
-  </section>;
+  </motion.section>;
 }

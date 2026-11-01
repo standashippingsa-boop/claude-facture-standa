@@ -5,6 +5,9 @@ import {
   ChevronLeft, ChevronRight, CircleCheck, Copy as Clipboard, Clock, MessageCircle,
   Navigation, Package, Receipt, Store, Warehouse
 } from "@/components/icons";
+import { motion } from "motion/react";
+import { toast } from "sonner";
+import Button from "@/components/ui/Button";
 import type { Pkg } from "@/lib/types";
 import { RouteStrip, notchMask } from "@/components/ClientParcelUI";
 import { dateFr } from "@/lib/utils";
@@ -116,6 +119,7 @@ export function ClientTrackingDetails({ pkg, customerName, destination, onClose,
     try {
       await navigator.clipboard?.writeText(value);
       setCopiedField(field);
+      toast.success(field === "guia" ? "Numéro de suivi copié" : "Numéro du transporteur copié");
       window.setTimeout(() => setCopiedField(null), 1500);
     } catch {
       setCopiedField(null);
@@ -129,7 +133,7 @@ export function ClientTrackingDetails({ pkg, customerName, destination, onClose,
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[#eef2f8] p-3 sm:grid sm:place-items-center sm:p-5">
-      <div className="mx-auto w-full max-w-md pb-5">
+      <motion.div initial={{ opacity: 0, x: 28 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }} className="mx-auto w-full max-w-md pb-5">
         <header className="flex items-center justify-between py-3">
           <button type="button" onClick={onClose} aria-label="Retour" className="grid h-11 w-11 place-items-center rounded-full bg-white text-navy shadow-[0_1px_2px_rgba(0,0,0,.05)]"><ChevronLeft size={20} /></button>
           <h2 className="text-[15px] font-semibold text-navy">Détails du suivi</h2>
@@ -151,7 +155,6 @@ export function ClientTrackingDetails({ pkg, customerName, destination, onClose,
               <p className="min-w-0 truncate font-mono text-[12.5px] text-white/60">{pkg.tracking_manual}</p>
               <button type="button" onClick={() => void copyValue(pkg.tracking_manual, "manual")} className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/12 text-white" aria-label="Copier le numéro du transporteur"><Clipboard size={12} /></button>
             </div>}
-            {copiedField && <p className="mt-2 text-[12px] font-medium text-[#ffb27a]">{copiedField === "guia" ? "Numéro de suivi copié." : "Numéro du transporteur copié."}</p>}
             <div className="mt-5"><RouteStrip status={pkg.status} onDark /></div>
           </div>
 
@@ -192,8 +195,8 @@ export function ClientTrackingDetails({ pkg, customerName, destination, onClose,
           </ol>
         </section>
 
-        <button type="button" onClick={onContact} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-navy text-[14.5px] font-semibold text-white transition hover:bg-navy-dark"><MessageCircle size={17} />Une question sur ce colis ? WhatsApp</button>
-      </div>
+        <Button onClick={onContact} size="lg" block className="mt-3"><MessageCircle size={17} />Une question sur ce colis ? WhatsApp</Button>
+      </motion.div>
     </div>
   );
 }
