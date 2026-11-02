@@ -16,9 +16,6 @@ const config: Config = {
         // la). Itilize SÈLMAN nan app/accueil, app/contact, app/agences ak
         // components/site/*. Pa gen okenn lòt fichye ki itilize "accent".
         accent: { DEFAULT: "#E4650A", light: "#FBE8DA", dark: "#B65108" },
-        // Charte du SITE PUBLIC (refonte corporate). Utilisée seulement dans
-        // app/accueil et components/site/* : aucun effet sur l'application.
-        std: { navy: "#10213D", navy2: "#172F52", orange: "#F28C28", orangeDark: "#D9741A", bg: "#F4F6FA", ink: "#182235", mute: "#6B7280" },
         // Neutre pwòp
         ink: "#0F172A",
         mute: "#64748B",
