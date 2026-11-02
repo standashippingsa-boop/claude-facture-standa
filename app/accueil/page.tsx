@@ -72,14 +72,14 @@ export default async function AccueilPage() {
         {/* Haut de page */}
         <section className="hero-stage relative isolate overflow-hidden bg-navy">
           {/* Diaporama : trois photos en fondu, zoom lent (CSS seulement) */}
-          <div className="absolute inset-0 -z-10" aria-hidden="true">
-            {[{ src: img.hero, pos: "50% 50%" }, { src: img.depot, pos: "50% 60%" }, { src: img.agences, pos: "50% 25%" }].map((slide, i) => (
+          <div className="absolute inset-0 -z-10 overflow-hidden sm:left-[36%]" aria-hidden="true">
+            {[{ src: img.hero, pos: "50% 18%" }, { src: img.depot, pos: "50% 60%" }, { src: img.agences, pos: "50% 25%" }].map((slide, i) => (
               <div key={i} className="hero-slide">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={slide.src} alt="" className="h-full w-full object-cover" style={{ objectPosition: slide.pos }} />
               </div>
             ))}
-            <div className="absolute inset-0 bg-gradient-to-r from-navy/90 via-navy/70 to-navy/30" />
+            <div className="absolute inset-0 bg-navy/60 sm:bg-gradient-to-r sm:from-navy sm:via-navy/40 sm:to-transparent" />
           </div>
           <div className={`${WRAP} py-16 text-center text-white sm:py-24 sm:text-left`}>
             <h1 className="hero-in max-w-xl text-[30px] font-bold leading-[1.1] tracking-[-0.02em] sm:text-[44px]">
