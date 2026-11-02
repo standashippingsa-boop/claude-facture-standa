@@ -28,12 +28,12 @@ export const metadata: Metadata = {
 };
 
 const STEPS = [
-  "Créez votre compte",
-  "Recevez votre code MC",
-  "Achetez en ligne",
-  "Indiquez votre code MC",
-  "Suivez votre colis",
-  "Payez et récupérez",
+  { title: "Créez votre compte", text: "Inscrivez vous gratuitement sur notre site en quelques minutes." },
+  { title: "Recevez votre code MC", text: "Après vérification, vous recevez sur WhatsApp votre code MC, votre mot de passe et votre adresse à Miami." },
+  { title: "Achetez en ligne", text: "Commandez sur Amazon, SHEIN, Temu, eBay ou toute autre boutique, et faites livrer à notre adresse de Miami." },
+  { title: "Indiquez votre code MC", text: "Écrivez votre code MC à la ligne Address Line 2 de chaque commande. Sans ce code, nous ne pouvons pas identifier votre colis." },
+  { title: "Suivez votre colis", text: "Vous êtes averti à chaque étape : reçu à Miami, en route vers Haïti, puis disponible dans votre agence." },
+  { title: "Payez et récupérez", text: "Réglez en espèces, MonCash, NatCash ou Zelle, puis récupérez votre colis à l'agence de votre ville." },
 ];
 
 const SHOPS = [
@@ -124,12 +124,15 @@ export default async function AccueilPage() {
 
         {/* Comment ça marche */}
         <section id="comment" className={`${WRAP} mt-10 scroll-mt-20`}>
-          <h2 className="text-center text-[20px] font-bold sm:text-[22px]">Comment ça marche</h2>
-          <ol className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <h2 className="text-center text-[20px] font-bold sm:text-[22px]">Comment ça marche ?</h2>
+          <ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {STEPS.map((step, i) => (
-              <li key={step} className="flex items-center gap-3 rounded-xl bg-white p-3.5 shadow-sm ring-1 ring-black/5">
+              <li key={step.title} className="flex gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-navy text-[13px] font-bold text-white">{i + 1}</span>
-                <span className="text-[13.5px] font-semibold leading-snug">{step}</span>
+                <span>
+                  <span className="block text-[14px] font-bold leading-snug">{step.title}</span>
+                  <span className="mt-1 block text-[13px] leading-relaxed text-navy/65">{step.text}</span>
+                </span>
               </li>
             ))}
           </ol>
@@ -137,7 +140,7 @@ export default async function AccueilPage() {
 
         {/* Boutiques */}
         <section className={`${WRAP} mt-10`}>
-          <h2 className="text-center text-[20px] font-bold sm:text-[22px]">Vos boutiques préférées</h2>
+          <h2 className="text-center text-[20px] font-bold sm:text-[22px]">Achetez sur vos boutiques préférées</h2>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-x-7 gap-y-4">
             {SHOPS.map(([name, file]) => (
               // eslint-disable-next-line @next/next/no-img-element
