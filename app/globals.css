@@ -379,3 +379,8 @@ select.input option { color: #0f172a; }
 
 /* Bouton « Préparer mon retrait » affiché : le bouton haut de page passe au dessus. */
 main:has(.retrait-floating) > button[title="Haut de page"] { bottom: 10.5rem; }
+
+/* Bann pwogrè navigasyon (components/RouteProgress.tsx) — zoranj Standa */
+#nprogress { pointer-events: none; }
+#nprogress .bar { background: #e4650a; position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 3px; }
+#nprogress .peg { display: block; position: absolute; right: 0; width: 100px; height: 100%; box-shadow: 0 0 10px #e4650a, 0 0 5px #e4650a; opacity: 1; transform: rotate(3deg) translate(0, -4px); }

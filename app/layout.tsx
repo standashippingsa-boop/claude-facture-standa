@@ -4,6 +4,7 @@ import "./globals.css";
 import Shell from "@/components/Shell";
 import QueryProvider from "@/components/QueryProvider";
 import PwaManager from "@/components/PwaManager";
+import RouteProgress from "@/components/RouteProgress";
 import Toaster from "@/components/Toaster";
 import SelectionBar from "@/components/SelectionBar";
 import { SelectionProvider } from "@/lib/selection";
@@ -146,6 +147,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </QueryProvider>
         <PwaManager />
         <Toaster />
+        <RouteProgress />
       </body>
     </html>
   );
