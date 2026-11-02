@@ -1,22 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "@getpapillon/papicons";
+import { ArrowRight, Mail, MapPin, Phone } from "lucide-react";
 import Logo from "@/components/Logo";
 import { SITE } from "@/lib/site";
 import { DEPOT } from "@/lib/depot";
 import { FacebookIcon, InstagramIcon, TikTokIcon, WhatsAppIcon } from "./BrandIcons";
 
 /**
- * STANDA COMMERCIAL — FOOTER SIT PIBLIK LA
- * Konpozan PATAJE. Kontak yo soti nan SITE (lib/site.ts) ak adrès depo a nan
- * DEPOT (lib/depot.ts) : yo pa retape isit la, konsa yo chanje toupatou ansanm.
+ * STANDA COMMERCIAL · PIED DE PAGE DU SITE PUBLIC (partagé).
+ * Contacts : SITE (lib/site.ts) ; adresse du dépôt : DEPOT (lib/depot.ts).
  */
 const NAV = [
   { label: "Accueil", href: "/accueil" },
+  { label: "Comment ça marche ?", href: "/accueil#comment" },
   { label: "Nos agences", href: "/agences" },
   { label: "Contact", href: "/contact" },
-  { label: "Mon compte", href: "/login" }
+  { label: "Mon compte", href: "/login" },
+  { label: "S'inscrire", href: "/inscription" },
+];
+const SERVICES = [
+  { label: "Achat en ligne", href: "/accueil#services" },
+  { label: "Adresse gratuite à Miami", href: "/accueil#services" },
+  { label: "Expédition USA vers Haïti", href: "/accueil#services" },
+  { label: "Suivi de colis", href: "/accueil#suivi" },
+  { label: "Retrait en agence", href: "/agences" },
 ];
 
 export default function SiteFooter() {
@@ -25,58 +33,55 @@ export default function SiteFooter() {
     { label: "WhatsApp", href: `https://wa.me/${SITE.whatsapp}`, icon: WhatsAppIcon },
     { label: "Instagram", href: SITE.instagramUrl, icon: InstagramIcon },
     { label: "Facebook", href: SITE.facebookUrl, icon: FacebookIcon },
-    { label: "TikTok", href: SITE.tiktokUrl, icon: TikTokIcon }
+    { label: "TikTok", href: SITE.tiktokUrl, icon: TikTokIcon },
   ];
+  const col = "text-[12px] font-semibold uppercase tracking-[0.14em] text-white/45";
+  const link = "text-[13.5px] text-white/75 transition hover:text-std-orange focus:outline-none focus-visible:text-std-orange";
+
   return (
-    <footer className="bg-[#eef2f8] px-3 pb-3 sm:px-4 sm:pb-4">
-      <div className="mx-auto max-w-5xl rounded-2xl bg-navy-dark px-5 py-8 text-white sm:px-8">
-        <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-4">
+    <footer className="bg-std-navy text-white">
+      <div className="mx-auto max-w-6xl px-4 pb-8 pt-14 sm:px-6">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.3fr]">
           <div>
-            <div className="flex items-center gap-2.5">
-              <Logo size={30} tone="light" />
-              <span className="leading-none"><span className="block text-[15px] font-extrabold tracking-tight">STANDA</span><span className="mt-0.5 block text-[9.5px] font-semibold tracking-[0.2em] text-white/55">COMMERCIAL</span></span>
-            </div>
-            <Link href="/inscription" className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3.5 text-[13px] font-semibold text-navy transition hover:bg-[#eef2f8]">
-              Créer un compte <ArrowRight size={15} />
+            <Link href="/accueil" className="inline-flex items-center gap-2.5" aria-label="STANDA COMMERCIAL, accueil">
+              <Logo size={32} tone="light" />
+              <span className="leading-none"><span className="block text-[15px] font-extrabold tracking-tight">STANDA</span><span className="mt-0.5 block text-[8.5px] font-semibold tracking-[0.22em] text-std-orange">COMMERCIAL S.A.</span></span>
             </Link>
-          </div>
-
-          <div>
-            <h3 className="text-[12px] text-white/45">Navigation</h3>
-            <ul className="mt-3 space-y-2 text-[13px]">
-              {NAV.map((item) => <li key={item.href}><Link href={item.href} className="text-white/80 transition hover:text-white">{item.label}</Link></li>)}
-              <li><Link href="/inscription" className="text-white/80 transition hover:text-white">S&apos;inscrire</Link></li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-[12px] text-white/45">Contact</h3>
-            <ul className="mt-3 space-y-2 text-[13px]">
-              <li><a href={`tel:${SITE.whatsapp}`} className="text-white/80 transition hover:text-white">{SITE.phone}</a></li>
-              <li><a href={`mailto:${SITE.email}`} className="break-all text-white/80 transition hover:text-white">{SITE.email}</a></li>
-            </ul>
+            <p className="mt-4 max-w-xs text-[13.5px] leading-relaxed text-white/60">Expédition de colis des USA vers Haïti : adresse gratuite à Miami, suivi de vos colis et retrait dans nos agences.</p>
             <div className="mt-5 flex gap-2">
               {socials.map(({ label, href, icon: Icon }) => (
                 <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}
-                  className="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-white/85 transition hover:bg-white hover:text-navy">
-                  <Icon size={15} />
+                  className="grid h-9 w-9 place-items-center rounded-full bg-white/10 text-white/85 transition hover:bg-std-orange hover:text-std-navy focus:outline-none focus-visible:ring-2 focus-visible:ring-std-orange">
+                  <Icon size={16} />
                 </a>
               ))}
             </div>
           </div>
 
           <div>
-            <h3 className="text-[12px] text-white/45">Notre dépôt à Miami</h3>
-            <address className="mt-3 not-italic text-[13px] leading-relaxed text-white/80">
-              {DEPOT.address1}<br />{DEPOT.city}, {DEPOT.state} {DEPOT.zip}<br />
-              <a href={`tel:${DEPOT.phone.replace(/[^\d+]/g, "")}`} className="transition hover:text-white">{DEPOT.phone}</a>
-            </address>
+            <h3 className={col}>Navigation</h3>
+            <ul className="mt-4 space-y-2.5">{NAV.map((i) => <li key={i.label}><Link href={i.href} className={link}>{i.label}</Link></li>)}</ul>
+          </div>
+
+          <div>
+            <h3 className={col}>Services</h3>
+            <ul className="mt-4 space-y-2.5">{SERVICES.map((i) => <li key={i.label}><Link href={i.href} className={link}>{i.label}</Link></li>)}</ul>
+          </div>
+
+          <div>
+            <h3 className={col}>Contact</h3>
+            <ul className="mt-4 space-y-3 text-[13.5px] text-white/75">
+              <li><a href={`tel:${SITE.whatsapp}`} className="flex items-center gap-2.5 transition hover:text-std-orange"><Phone size={15} className="shrink-0 text-std-orange" aria-hidden="true" />{SITE.phone}</a></li>
+              <li><a href={`mailto:${SITE.email}`} className="flex items-center gap-2.5 break-all transition hover:text-std-orange"><Mail size={15} className="shrink-0 text-std-orange" aria-hidden="true" />{SITE.email}</a></li>
+              <li className="flex gap-2.5"><MapPin size={15} className="mt-0.5 shrink-0 text-std-orange" aria-hidden="true" /><span>Dépôt de Miami<br />{DEPOT.address1}, {DEPOT.city}, {DEPOT.state} {DEPOT.zip}</span></li>
+            </ul>
+            <Link href="/agences" className="mt-5 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-std-orange hover:underline">Trouver une agence <ArrowRight size={14} aria-hidden="true" /></Link>
           </div>
         </div>
 
-        <div className="mt-7 flex flex-col items-center justify-between gap-2 border-t border-white/10 pt-4 sm:flex-row">
-          <p className="text-[11.5px] text-white/45">© {year} {SITE.name}. Tous droits réservés.</p>
-          <Link href="/confidentialite" className="text-[11.5px] text-white/45 transition hover:text-white/80">Politique de confidentialité</Link>
+        <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-[12px] text-white/45 sm:flex-row">
+          <p>© {year} {SITE.name}, Standa Shipping S.A. Tous droits réservés.</p>
+          <Link href="/confidentialite" className="transition hover:text-white/80">Politique de confidentialité</Link>
         </div>
       </div>
     </footer>
