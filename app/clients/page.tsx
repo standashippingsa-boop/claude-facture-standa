@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import RefreshButton from "@/components/RefreshButton";
 import FilterConsole from "@/components/FilterConsole";
@@ -12,6 +12,7 @@ import { DupGroup, deleteClient, findDuplicateGroups, getClients, getVilles, log
 import { adminApi, useRole } from "@/lib/authx";
 import { Client, Ville } from "@/lib/types";
 import { dateFr } from "@/lib/utils";
+import { fuzzyClientIds } from "@/lib/fuzzy";
 import { openDepotWhatsApp } from "@/lib/whatsapp";
 import { useRememberListContext, withReturnTo } from "@/lib/list-context";
 
@@ -179,6 +180,8 @@ export default function ClientsPage() {
   };
 
   const q = search.trim().toLowerCase();
+  // Rechèch flou (fòt òtograf, aksan) : s'ajoute sou rechèch egzak la, li pa ranplase l.
+  const fuzzyHits = useMemo(() => fuzzyClientIds(clients, q), [clients, q]);
   const filtered = clients.filter((c) => {
     const date = String(c.created_at ?? "").slice(0, 10);
     const status = c.account_status ?? "Actif";
@@ -190,7 +193,7 @@ export default function ClientsPage() {
     return !q || (c.customer_code ?? "").toLowerCase().includes(q) ||
       c.fullname.toLowerCase().includes(q) || (c.surname ?? "").toLowerCase().includes(q) ||
       (c.email ?? "").toLowerCase().includes(q) || (c.phone ?? "").toLowerCase().includes(q) ||
-      c.whatsapp.toLowerCase().includes(q);
+      c.whatsapp.toLowerCase().includes(q) || (c.id ? fuzzyHits.has(c.id) : false);
   });
   const clearFilters = () => { setSearch(""); setCityF(""); setAccountTypeF(""); setAccountStatusF(""); setFromF(""); setToF(""); };
 
