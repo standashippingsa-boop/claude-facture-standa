@@ -164,7 +164,8 @@ export default function EspaceClientPage() {
   // Historique : période choisie (dates AAAA-MM-JJ), 30 derniers jours par défaut.
   const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const todayIso = isoDay(new Date());
-  const [histRange, setHistRange] = useState(() => ({ from: isoDay(new Date(Date.now() - 30 * 86400000)), to: isoDay(new Date()) }));
+  // null = aucune recherche encore : aucun colis n'est affiché tant que le client n'a pas choisi ses dates.
+  const [histRange, setHistRange] = useState<{ from: string; to: string } | null>(null);
   // L'onglet Factures n'existe plus : un ancien état de navigation y menant ouvre l'historique.
   useEffect(() => { if (view === "factures") setView("historique"); }, [view]);
   const [busy, setBusy] = useState(false);
@@ -1086,22 +1087,22 @@ export default function EspaceClientPage() {
 
         {/* ═══════════ HISTORIQUE ═══════════ */}
         {view === "historique" && (() => {
-          // Tous les colis arrivés à Miami pendant la période choisie (du plus récent au plus ancien).
-          const from = new Date(histRange.from + "T00:00:00");
-          const to = new Date(histRange.to + "T23:59:59");
-          const inRange = pkgs
-            .filter((p) => { const d = arrivalDateOf(p); return d !== null && d >= from && d <= to; })
-            .sort((x, y) => (arrivalDateOf(y)?.getTime() ?? 0) - (arrivalDateOf(x)?.getTime() ?? 0));
+          // Colis arrivés pendant la période choisie (du plus récent au plus ancien) — seulement après la recherche.
+          const inRange = histRange ? pkgs
+            .filter((p) => { const d = arrivalDateOf(p); return d !== null && d >= new Date(histRange.from + "T00:00:00") && d <= new Date(histRange.to + "T23:59:59"); })
+            .sort((x, y) => (arrivalDateOf(y)?.getTime() ?? 0) - (arrivalDateOf(x)?.getTime() ?? 0)) : [];
           return <>
-            <form onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); const nf = String(f.get("from") || histRange.from); const nt = String(f.get("to") || histRange.to); setHistRange(nf <= nt ? { from: nf, to: nt } : { from: nt, to: nf }); }}
+            <form onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); const nf = String(f.get("from") || todayIso); const nt = String(f.get("to") || todayIso); setHistRange(nf <= nt ? { from: nf, to: nt } : { from: nt, to: nf }); }}
               className="mb-4 flex items-end gap-2 rounded-[22px] bg-white p-3 ring-1 ring-navy/[.07]">
               <label className="min-w-0 flex-1"><span className="block px-1 text-[10px] font-medium tracking-[.16em] text-navy/45">DEPUIS</span>
-                <input type="date" name="from" defaultValue={histRange.from} max={todayIso} className="mt-1 h-11 w-full rounded-xl bg-[#f2f5fa] px-3 font-semibold text-navy focus:outline-none focus:ring-2 focus:ring-navy/70" /></label>
+                <input type="date" name="from" defaultValue={histRange?.from ?? todayIso} max={todayIso} className="mt-1 h-11 w-full rounded-xl bg-[#f2f5fa] px-3 font-semibold text-navy focus:outline-none focus:ring-2 focus:ring-navy/70" /></label>
               <label className="min-w-0 flex-1"><span className="block px-1 text-[10px] font-medium tracking-[.16em] text-navy/45">JUSQU'AU</span>
-                <input type="date" name="to" defaultValue={histRange.to} max={todayIso} className="mt-1 h-11 w-full rounded-xl bg-[#f2f5fa] px-3 font-semibold text-navy focus:outline-none focus:ring-2 focus:ring-navy/70" /></label>
+                <input type="date" name="to" defaultValue={histRange?.to ?? todayIso} max={todayIso} className="mt-1 h-11 w-full rounded-xl bg-[#f2f5fa] px-3 font-semibold text-navy focus:outline-none focus:ring-2 focus:ring-navy/70" /></label>
               <button type="submit" aria-label="Rechercher" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-navy text-white"><Search size={18} /></button>
             </form>
-            {inRange.length === 0
+            {!histRange
+              ? <div className="rounded-[22px] bg-white px-6 py-12 text-center ring-1 ring-navy/[.07]"><p className="text-[15px] font-semibold text-navy">Choisissez une période</p><p className="mx-auto mt-1.5 max-w-xs text-[13px] leading-relaxed text-navy/55">Indiquez les dates « Depuis » et « Jusqu&apos;au », puis touchez la loupe pour voir les colis arrivés pendant cette période.</p></div>
+              : inRange.length === 0
               ? <Empty t="Aucun colis arrivé pendant cette période. Choisissez d'autres dates." />
               : <>
                   <p className="mb-3 px-1 text-[13px] text-navy/60"><b className="text-navy">{inRange.length}</b> colis arrivé{inRange.length > 1 ? "s" : ""} · {poidsDe(inRange).toFixed(2)} lb</p>
