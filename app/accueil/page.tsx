@@ -61,7 +61,7 @@ export default async function AccueilPage() {
   const img = await getSiteImages();
   const cards = [
     { title: "Inscription", href: "/inscription", cta: "Créer un compte", image: img.inscription },
-    { title: "Suivez vos colis sur votre smartphone", href: "#suivi", cta: "Suivre un colis", image: img.suivi },
+    { title: "Suivez vos colis sur votre smartphone", href: "#suivi", cta: "Suivre un colis", image: img.suivi, position: "50% 22%" },
     { title: "Nos agences", href: "/agences", cta: "Voir les agences", image: img.agences, position: "50% 22%" },
   ];
 
