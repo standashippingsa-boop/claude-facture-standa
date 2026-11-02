@@ -16,9 +16,13 @@ const STOPS = ["Miami", "Transit", "Haïti", "Agence"] as const;
 const usd = (n: number) => "$" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const lb = (n: number) => `${Number(n || 0).toFixed(2)} lb`;
 
-/** Date d'arrivée du colis à Miami (réception, sinon date MCPACK, sinon création) — null si aucune date valide. */
+/**
+ * Date d'arrivée du colis dans le système STANDA = création de la ligne (premier passage de
+ * l'extension ou de l'import). Elle ne change jamais, contrairement à received_at que chaque
+ * nouveau passage de l'extension remet à « maintenant ». Repli : date MCPACK, puis received_at.
+ */
 export function arrivalDateOf(p: Pkg): Date | null {
-  for (const value of [p.received_at, p.created_date, (p as Pkg & { created_at?: string }).created_at]) {
+  for (const value of [(p as Pkg & { created_at?: string }).created_at, p.created_date, p.received_at]) {
     if (!value) continue;
     const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? value + "T12:00:00" : value);
     if (!Number.isNaN(d.getTime())) return d;

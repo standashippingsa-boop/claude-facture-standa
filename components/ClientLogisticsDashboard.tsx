@@ -101,7 +101,8 @@ function activeTrackingStep(pkg: Pkg) {
 
 /** Date lisible du colis : la première date valide (MCPACK, réception, création). Jamais « Invalid Date ». */
 function parcelDate(pkg: Pkg): string {
-  const candidates = [pkg.created_date, pkg.received_at, (pkg as Pkg & { created_at?: string }).created_at];
+  // Même règle que les étiquettes : date d'entrée dans STANDA (created_at), qui ne change jamais.
+  const candidates = [(pkg as Pkg & { created_at?: string }).created_at, pkg.created_date, pkg.received_at];
   for (const value of candidates) {
     if (!value) continue;
     const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? value + "T12:00:00" : value);
