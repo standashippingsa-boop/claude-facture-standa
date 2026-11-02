@@ -248,7 +248,7 @@ export default async function AccueilPage() {
                       <span className="grid h-10 w-10 place-items-center rounded-xl bg-std-orange/15 text-std-orangeDark"><MapPin size={18} aria-hidden="true" /></span>
                       <h3 className="text-[16px] font-bold text-std-navy">{a.nom}</h3>
                     </div>
-                    {a.adresse && <p className="mt-3 text-[13.5px] leading-relaxed text-std-mute">{a.adresse.replace(/s+[—–]s+/g, ", ")}</p>}
+                    {a.adresse && <p className="mt-3 text-[13.5px] leading-relaxed text-std-mute">{a.adresse.replace(/\s+[—–]\s+/g, ", ")}</p>}
                     <div className="mt-3 space-y-1.5 text-[13px] text-std-ink/80">
                       {a.telephone && <a href={`tel:${a.telephone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-2 hover:text-std-orangeDark"><Phone size={14} aria-hidden="true" />{a.telephone}</a>}
                       {a.horaire_1 && <p className="flex items-center gap-2"><Clock size={14} aria-hidden="true" />{plainHours(a.horaire_1)}</p>}
