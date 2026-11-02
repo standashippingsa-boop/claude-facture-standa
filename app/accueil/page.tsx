@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Cross as X } from "@getpapillon/papicons";
 import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
 import StoreBadges from "@/components/site/StoreBadges";
@@ -14,14 +13,14 @@ import { getSiteImages } from "@/lib/site-images";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "STANDA COMMERCIAL · Vos colis des USA vers Haïti",
+  title: "STANDA COMMERCIAL, vos colis des USA vers Haïti",
   description: "Une adresse à Miami, le suivi de vos colis et le retrait dans votre agence en Haïti.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/accueil" },
   keywords: ["standa commercial", "shipping Haïti", "colis USA Haïti", "adresse Miami Haïti", "envoi colis Ayiti"],
   openGraph: {
     type: "website", url: "/accueil", siteName: "STANDA COMMERCIAL", locale: "fr_HT",
-    title: "STANDA COMMERCIAL · Vos colis des USA vers Haïti",
+    title: "STANDA COMMERCIAL, vos colis des USA vers Haïti",
     description: "Une adresse à Miami, le suivi de vos colis et le retrait dans votre agence en Haïti.",
     images: [{ url: "/hero-shopping.jpg", width: 1600, height: 1067, alt: "Colis STANDA COMMERCIAL" }]
   }
@@ -62,7 +61,7 @@ export default async function AccueilPage() {
   const img = await getSiteImages();
   const cards = [
     { title: "Inscription", href: "/inscription", cta: "Créer un compte", image: img.inscription },
-    { title: "Suivi de colis", href: "#suivi", cta: "Suivre un colis", image: img.suivi },
+    { title: "Suivez vos colis sur votre smartphone", href: "#suivi", cta: "Suivre un colis", image: img.suivi },
     { title: "Nos agences", href: "/agences", cta: "Voir les agences", image: img.agences, position: "50% 22%" },
   ];
 
@@ -71,16 +70,24 @@ export default async function AccueilPage() {
       <SiteHeader />
       <main>
         {/* Haut de page */}
-        <section className="relative isolate overflow-hidden bg-navy">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={img.hero} alt="" className="absolute inset-0 -z-10 h-full w-full object-cover opacity-35" />
-          <div className={`${WRAP} py-12 text-center text-white sm:py-16`}>
-            <h1 className="mx-auto max-w-xl text-[26px] font-bold leading-tight sm:text-[34px]">
-              Vos achats aux USA, livrés en Haïti.
+        <section className="hero-stage relative isolate overflow-hidden bg-navy">
+          {/* Diaporama : trois photos en fondu, zoom lent (CSS seulement) */}
+          <div className="absolute inset-0 -z-10" aria-hidden="true">
+            {[{ src: img.hero, pos: "50% 50%" }, { src: img.depot, pos: "50% 60%" }, { src: img.agences, pos: "50% 25%" }].map((slide, i) => (
+              <div key={i} className="hero-slide">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={slide.src} alt="" className="h-full w-full object-cover" style={{ objectPosition: slide.pos }} />
+              </div>
+            ))}
+            <div className="absolute inset-0 bg-gradient-to-r from-navy/90 via-navy/70 to-navy/30" />
+          </div>
+          <div className={`${WRAP} py-16 text-center text-white sm:py-24 sm:text-left`}>
+            <h1 className="hero-in max-w-xl text-[30px] font-bold leading-[1.1] tracking-[-0.02em] sm:text-[44px]">
+              Vos achats aux USA, <span className="text-accent-light">livrés en Haïti.</span>
             </h1>
-            <p className="mt-3 text-[14px] text-white/80">Adresse à Miami gratuite · Retrait dans votre agence</p>
-            <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-              <Link href="/inscription" className={`${BTN} bg-accent text-white hover:bg-accent-dark`}>Créer un compte <ArrowRight size={15} /></Link>
+            <p className="hero-in hero-in-2 mt-4 max-w-md text-[15px] leading-relaxed text-white/85 sm:text-[16px]">Une adresse gratuite à Miami, le suivi de vos colis sur votre téléphone et le retrait dans votre agence.</p>
+            <div className="hero-in hero-in-3 mt-7 flex flex-wrap justify-center gap-2.5 sm:justify-start">
+              <Link href="/inscription" className={`${BTN} bg-accent text-white hover:bg-accent-dark`}>Créer un compte</Link>
               <a href="#suivi" className={`${BTN} border border-white/40 text-white hover:bg-white/10`}>Suivre un colis</a>
             </div>
           </div>
@@ -94,7 +101,7 @@ export default async function AccueilPage() {
             <div className="relative px-5 py-6 text-center">
               <p className="text-[13px] font-semibold uppercase tracking-wider text-white/85">Votre adresse à Miami</p>
               <p className="mt-2 text-[15px] font-bold leading-relaxed">
-                Votre nom + votre code MC<br />
+                Votre nom et votre code MC<br />
                 {DEPOT.address1}, {DEPOT.city.charAt(0) + DEPOT.city.slice(1).toLowerCase()}, {DEPOT.state} {DEPOT.zip}, USA
               </p>
             </div>
@@ -107,9 +114,9 @@ export default async function AccueilPage() {
             <Link key={card.title} href={card.href} className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5 transition hover:ring-navy/30">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={card.image} alt="" className="h-28 w-full object-cover" style={"position" in card ? { objectPosition: card.position } : undefined} />
-              <div className="flex items-center justify-between gap-2 p-4">
-                <span className="text-[15px] font-bold">{card.title}</span>
-                <span className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-accent-dark">{card.cta} <ArrowRight size={14} /></span>
+              <div className="flex items-center justify-between gap-3 p-4">
+                <span className="text-[15px] font-bold leading-snug">{card.title}</span>
+                <span className="shrink-0 text-[12.5px] font-semibold text-accent-dark group-hover:underline">{card.cta}</span>
               </div>
             </Link>
           ))}
@@ -155,7 +162,7 @@ export default async function AccueilPage() {
             <h2 className="text-[17px] font-bold">Articles non acceptés</h2>
             <ul className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
               {INTERDITS.map((item) => (
-                <li key={item} className="flex items-center gap-2 text-[13px] text-navy/80"><X size={14} className="shrink-0 text-red-600" />{item}</li>
+                <li key={item} className="border-b border-line py-1.5 text-[13px] text-navy/80">{item}</li>
               ))}
             </ul>
           </div>
@@ -168,7 +175,7 @@ export default async function AccueilPage() {
             <img src={img.final} alt="" className="absolute inset-0 h-full w-full object-cover opacity-25" />
             <div className="relative flex flex-col items-center gap-4 px-5 py-8 text-center">
               <h2 className="text-[20px] font-bold sm:text-[24px]">Prêt pour votre prochaine commande ?</h2>
-              <Link href="/inscription" className={`${BTN} bg-white text-navy hover:bg-[#eef2f8]`}>Créer un compte <ArrowRight size={15} /></Link>
+              <Link href="/inscription" className={`${BTN} bg-white text-navy hover:bg-[#eef2f8]`}>Créer un compte</Link>
               <div>
                 <p className="text-[12px] text-white/70">Application mobile bientôt disponible</p>
                 <StoreBadges className="mt-2 justify-center" />

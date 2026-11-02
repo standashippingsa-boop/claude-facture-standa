@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowRight } from "@getpapillon/papicons";
 import Logo from "@/components/Logo";
 import { SITE } from "@/lib/site";
 
@@ -73,10 +72,10 @@ export default function SiteHeader() {
           <div className="hidden items-center gap-5 md:flex">
             <a href={`https://wa.me/${SITE.whatsapp}`} target="_blank" rel="noopener noreferrer" className="hidden text-right leading-tight lg:block">
               <span className="block text-[12.5px] font-semibold text-navy">{SITE.phone}</span>
-              <span className="block text-[10.5px] text-mute">Lun. au ven. · 9h à 17h</span>
+              <span className="block text-[10.5px] text-mute">Du lundi au vendredi, 9h à 17h</span>
             </a>
             <Link href={SIGNUP.href} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[13px] font-semibold text-white transition hover:bg-accent-dark">
-              {SIGNUP.label} <ArrowRight size={16} />
+              {SIGNUP.label}
             </Link>
           </div>
 
@@ -103,11 +102,11 @@ export default function SiteHeader() {
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           {NAV.map((l) => (
             <Link key={l.href} href={l.href} className={`mb-1 flex items-center justify-between rounded-xl px-4 py-2.5 text-[14px] transition ${isActive(l.href) ? "bg-[#eef2f8] font-semibold" : "text-navy/80 hover:bg-[#f2f5fa]"}`}>
-              {l.label}<ArrowRight size={16} className="text-navy/40" />
+              {l.label}
             </Link>
           ))}
           <Link href={SIGNUP.href} className="mt-4 flex h-10 items-center justify-center gap-2 rounded-lg bg-accent text-[14px] font-semibold text-white">
-            {SIGNUP.label} <ArrowRight size={16} />
+            {SIGNUP.label}
           </Link>
         </nav>
         <div className="shrink-0 space-y-1 border-t border-line px-5 py-4 text-[13px] text-mute">

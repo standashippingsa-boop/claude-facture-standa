@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "@getpapillon/papicons";
 import Logo from "@/components/Logo";
 import { SITE } from "@/lib/site";
 import { DEPOT } from "@/lib/depot";
@@ -37,7 +36,7 @@ export default function SiteFooter() {
               <span className="leading-none"><span className="block text-[15px] font-extrabold tracking-tight">STANDA</span><span className="mt-0.5 block text-[9.5px] font-semibold tracking-[0.2em] text-white/55">COMMERCIAL</span></span>
             </div>
             <Link href="/inscription" className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3.5 text-[13px] font-semibold text-navy transition hover:bg-[#eef2f8]">
-              Créer un compte <ArrowRight size={15} />
+              Créer un compte
             </Link>
           </div>
 

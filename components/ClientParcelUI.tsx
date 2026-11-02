@@ -166,7 +166,7 @@ export function PickupPass({ agency, code, count, weight, total, shipping, fixed
         <p className="font-mono text-[12px] text-white/70">{code}</p>
       </div>
       <p className="mt-3 text-[10.5px] tracking-[.16em] text-white/45">À RETIRER À</p>
-      <p className="mt-1 text-[22px] font-semibold leading-tight tracking-[-0.02em]">{agency}</p>
+      <p className="mt-1 text-[22px] font-semibold leading-tight tracking-[-0.02em]">{agency.replace(/\s+[—–]\s+/g, ", ")}</p>
     </div>
     <div className="grid grid-cols-4 gap-3 px-5 py-4">
       <Field label="COLIS" value={String(count).padStart(2, "0")} />
