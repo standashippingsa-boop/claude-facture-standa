@@ -57,7 +57,7 @@ import ClientInstallCard from "@/components/ClientInstallCard";
 import { announcementImageUrl, announcementMedia, getActiveAnnouncements, type Announcement } from "@/lib/announcements";
 import AnnouncementCarousel, { AnnouncementMediaSlider } from "@/components/AnnouncementCarousel";
 import ChallengeView from "@/components/ChallengeView";
-import { ManifestCard, ParcelCard, PickupPass } from "@/components/ClientParcelUI";
+import { ManifestCard, ParcelCard, PickupPass, arrivalDateOf } from "@/components/ClientParcelUI";
 import { getChallengeMe, type ChallengeMe } from "@/lib/challenge";
 import AddressGuide from "@/components/site/AddressGuide";
 import { ClientLogisticsDashboard, ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
@@ -161,6 +161,12 @@ export default function EspaceClientPage() {
   // Détail des paiements (montant, devise, moyen) — lu par /api/client-payments.
   const [payments, setPayments] = useState<Array<{ id: string; invoice_id: string; amount: number; currency: "USD" | "HTG"; method: string; created_at: string }>>([]);
   const [sel, setSel] = useState<Set<string>>(new Set());
+  // Historique : période choisie (dates AAAA-MM-JJ), 30 derniers jours par défaut.
+  const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const todayIso = isoDay(new Date());
+  const [histRange, setHistRange] = useState(() => ({ from: isoDay(new Date(Date.now() - 30 * 86400000)), to: isoDay(new Date()) }));
+  // L'onglet Factures n'existe plus : un ancien état de navigation y menant ouvre l'historique.
+  useEffect(() => { if (view === "factures") setView("historique"); }, [view]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   useNoticeToast(msg, setMsg);
@@ -549,7 +555,7 @@ export default function EspaceClientPage() {
       title: "Facture disponible",
       description: invoice.invoice_number ? `Facture ${invoice.invoice_number} disponible dans votre espace.` : "Une facture est disponible dans votre espace.",
       stamp: invoice.created_at ? dateFr(invoice.created_at) : "Récemment",
-      to: "factures",
+      to: "colisFactures",
       kind: "invoice"
     });
   }
@@ -1028,14 +1034,13 @@ export default function EspaceClientPage() {
         {view === "colisFactures" && (
           <>
             {outstandingBalanceUsd > 0 && (
-              <button type="button" onClick={() => setView("factures")} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left transition hover:bg-amber-100">
+              <div className="flex w-full items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left">
                 <div className="min-w-0">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">Solde de factures</p>
                   <p className="mt-1 text-xl font-black text-amber-800">{usd(outstandingBalanceUsd)}</p>
                   <p className="mt-0.5 text-[11px] text-amber-700">Montant restant à régler</p>
                 </div>
-                <ChevronRight size={18} className="shrink-0 text-amber-500" />
-              </button>
+              </div>
             )}
             {facturesOnly.length === 0 ? <Empty t="Aucun colis facturé en attente de remise." /> : (
               <div>
@@ -1080,74 +1085,30 @@ export default function EspaceClientPage() {
         )}
 
         {/* ═══════════ HISTORIQUE ═══════════ */}
-        {view === "historique" && (
-          <>
-            {historique.length === 0 ? <Empty t="Aucun colis dans votre historique." /> : (
-              <>
-                <Totaux list={historique} reel />
-                <div>{historique.map((p) => <PkgCard key={p.id} p={p} />)}</div>
-              </>
-            )}
-          </>
-        )}
-
-        {/* ═══════════ FACTURES ═══════════ */}
-        {view === "factures" && (
-          <>
-            {invs.length === 0 ? <Empty t="Aucune facture pour le moment." /> : (
-              <div>
-                {invs.map((f) => {
-                  const open = openInvoiceId === f.id;
-                  const invoicePackages = pkgs.filter((p) => p.invoice_id === f.id);
-                  const payable = invoicePayableAmounts(f);
-                  const paymentStatus = paymentStatusFromAmounts(f);
-                  const invoicePayments = payments.filter((payment) => payment.invoice_id === f.id);
-                  const rest = invoiceRemainingAmounts(f);
-                  const deliveredCount = invoicePackages.filter(isDelivered).length;
-                  const paymentTone = paymentStatus === "Payé" ? "bg-emerald-100 text-emerald-700" : paymentStatus === "Payé partiel" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-700";
-                  return <div key={f.id} className="border-b border-line py-1 last:border-0">
-                    <button type="button" onClick={() => setOpenInvoiceId(open ? null : f.id)} className="flex w-full items-center justify-between gap-3 py-3 text-left">
-                      <span className="min-w-0">
-                        <span className="block text-sm font-bold text-navy">{f.invoice_number}</span>
-                        <span className="mt-0.5 block text-xs text-mute">{dateFr(f.created_at)} · {f.package_count} koli · {Number(f.total_weight).toFixed(2)} lb</span>
-                      </span>
-                      <span className="flex shrink-0 items-center gap-2">
-                        <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${paymentTone}`}>{paymentStatus}</span>
-                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
-                      </span>
-                    </button>
-                    <div className="flex items-center justify-between gap-3 pb-3">
-                      <div><p className="text-[11px] text-mute">Total de la facture</p><p className="text-base font-extrabold text-ink">{usd(payable.grandTotalUsd)}</p></div>
-                      {f.has_pdf || f.pdf_path || f.pdf_url
-                        ? <button type="button" onClick={() => void openSecureDocument("invoice", f.id).catch(() => setToast("PDF indisponible. Réessayez plus tard."))} className="text-xs text-navy underline font-semibold">Télécharger le PDF</button>
-                        : <span className="text-xs text-slate-400">PDF en préparation</span>}
-                    </div>
-                    {open && <div className="border-l-2 border-sky-200 pl-3.5 pb-3">
-                      <div className="flex flex-wrap gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-900">Solde à payer <b className="font-black">{usd(payable.payableUsd)}</b></span>
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${deliveredCount === invoicePackages.length && invoicePackages.length ? "bg-emerald-50 text-emerald-800" : "bg-orange-50 text-orange-800"}`}>Remise {deliveredCount}/{invoicePackages.length} livré{deliveredCount > 1 ? "s" : ""}</span>
-                      </div>
-                      {invoicePayments.length > 0 && <>
-                        <p className="mb-1 mt-4 text-xs font-bold uppercase tracking-wide text-slate-500">Paiements reçus</p>
-                        <ul>
-                          {invoicePayments.map((payment) => (
-                            <li key={payment.id} className="flex items-center justify-between gap-3 border-b border-line py-2 text-sm last:border-0">
-                              <span className="min-w-0"><span className="block font-semibold text-ink">{payment.method}</span><span className="block text-xs text-mute">{dateFr(payment.created_at)}</span></span>
-                              <b className="shrink-0 text-ink">{payment.currency === "HTG" ? htg(payment.amount) : usd(payment.amount)}</b>
-                            </li>
-                          ))}
-                        </ul>
-                        {paymentStatus !== "Payé" && <p className="mt-2 text-sm font-bold text-amber-800">Reste à payer : {usd(rest.remainingUsd)} · {htg(rest.remainingHtg)}</p>}
-                      </>}
-                      <p className="mb-1 mt-4 text-xs font-bold uppercase tracking-wide text-slate-500">Colis facturés dans cette facture</p>
-                      {invoicePackages.length ? <div>{invoicePackages.map((p) => <PkgCard key={p.id} p={p} />)}</div> : <p className="py-2 text-sm text-slate-500">Les colis de cette facture seront affichés ici après la synchronisation.</p>}
-                    </div>}
-                  </div>;
-                })}
-              </div>
-            )}
-          </>
-        )}
+        {view === "historique" && (() => {
+          // Tous les colis arrivés à Miami pendant la période choisie (du plus récent au plus ancien).
+          const from = new Date(histRange.from + "T00:00:00");
+          const to = new Date(histRange.to + "T23:59:59");
+          const inRange = pkgs
+            .filter((p) => { const d = arrivalDateOf(p); return d !== null && d >= from && d <= to; })
+            .sort((x, y) => (arrivalDateOf(y)?.getTime() ?? 0) - (arrivalDateOf(x)?.getTime() ?? 0));
+          return <>
+            <form onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); const nf = String(f.get("from") || histRange.from); const nt = String(f.get("to") || histRange.to); setHistRange(nf <= nt ? { from: nf, to: nt } : { from: nt, to: nf }); }}
+              className="mb-4 flex items-end gap-2 rounded-[22px] bg-white p-3 ring-1 ring-navy/[.07]">
+              <label className="min-w-0 flex-1"><span className="block px-1 text-[10px] font-medium tracking-[.16em] text-navy/45">DEPUIS</span>
+                <input type="date" name="from" defaultValue={histRange.from} max={todayIso} className="mt-1 h-11 w-full rounded-xl bg-[#f2f5fa] px-3 font-semibold text-navy focus:outline-none focus:ring-2 focus:ring-navy/70" /></label>
+              <label className="min-w-0 flex-1"><span className="block px-1 text-[10px] font-medium tracking-[.16em] text-navy/45">JUSQU'AU</span>
+                <input type="date" name="to" defaultValue={histRange.to} max={todayIso} className="mt-1 h-11 w-full rounded-xl bg-[#f2f5fa] px-3 font-semibold text-navy focus:outline-none focus:ring-2 focus:ring-navy/70" /></label>
+              <button type="submit" aria-label="Rechercher" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-navy text-white"><Search size={18} /></button>
+            </form>
+            {inRange.length === 0
+              ? <Empty t="Aucun colis arrivé pendant cette période. Choisissez d'autres dates." />
+              : <>
+                  <p className="mb-3 px-1 text-[13px] text-navy/60"><b className="text-navy">{inRange.length}</b> colis arrivé{inRange.length > 1 ? "s" : ""} · {poidsDe(inRange).toFixed(2)} lb</p>
+                  <div>{inRange.map((p) => <PkgCard key={p.id} p={p} />)}</div>
+                </>}
+          </>;
+        })()}
 
         {/* ═══════════ NOTIFICATIONS ═══════════ */}
         {view === "notifications" && (
@@ -1547,7 +1508,7 @@ export default function EspaceClientPage() {
       {/* ══ BARE NAVIGASYON ANBA ══ */}
       <nav className="client-bottom-nav fixed bottom-0 inset-x-0 z-40 border-t">
         <div className="max-w-3xl mx-auto flex items-stretch px-2 pb-[env(safe-area-inset-bottom)]">
-          <NavBtn icon={FileText} label="Factures" to="factures" />
+          <NavBtn icon={Clock} label="Historique" to="historique" />
           <NavBtn icon={MapPin} label="Adresse" to="adresse" />
           <button onClick={() => setView("home")} aria-label="Accueil"
             className="flex-1 flex flex-col items-center -mt-5">

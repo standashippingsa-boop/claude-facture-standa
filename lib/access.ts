@@ -122,7 +122,8 @@ export function resolveAccess(path: string, role: AppRole | null): {
     if (isClientPath(path)) return { allowed: false, redirect: "/login" };
     if (isPickupAgentPath(path)) return { allowed: false, redirect: "/point-retrait" };
     if (isReceptionAgentPath(path)) return { allowed: false, redirect: "/reception-login" };
-    return { allowed: false, redirect: "/admin-login" };
+    // Jamais la porte administrateur pour un visiteur : seule l'URL /admin-login tapée à la main y mène.
+    return { allowed: false, redirect: "/login" };
   }
 
   // Kliyan

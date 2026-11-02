@@ -16,6 +16,20 @@ const STOPS = ["Miami", "Transit", "Haïti", "Agence"] as const;
 const usd = (n: number) => "$" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const lb = (n: number) => `${Number(n || 0).toFixed(2)} lb`;
 
+/** Date d'arrivée du colis à Miami (réception, sinon date MCPACK, sinon création) — null si aucune date valide. */
+export function arrivalDateOf(p: Pkg): Date | null {
+  for (const value of [p.received_at, p.created_date, (p as Pkg & { created_at?: string }).created_at]) {
+    if (!value) continue;
+    const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? value + "T12:00:00" : value);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return null;
+}
+export const arrivalLabel = (p: Pkg) => {
+  const d = arrivalDateOf(p);
+  return d ? d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "";
+};
+
 /** Position du colis sur le trajet : 0 = Miami … 3 = Agence (valeurs intermédiaires = entre deux arrêts). */
 export function routePosition(status: string): number {
   switch (status) {
@@ -99,7 +113,10 @@ export function ParcelCard({ p, onOpen, price, invoicedPrice, special, selector 
             <p className="mt-0.5 truncate font-mono text-[15px] font-semibold tracking-tight text-navy">{p.tracking_number || "·"}</p>
             {p.tracking_manual && <p className="truncate font-mono text-[11px] text-navy/45">{p.tracking_manual}</p>}
           </div>
-          {!selector && <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${stageTone(p.status)}`}>{p.status}</span>}
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {!selector && <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${stageTone(p.status)}`}>{p.status}</span>}
+            {arrivalLabel(p) && <span className={`text-[11px] text-navy/50 ${selector ? "mr-9 mt-1" : ""}`}>Reçu le {arrivalLabel(p)}</span>}
+          </div>
         </div>
         {(special || selector) && <div className="mt-2 flex flex-wrap gap-1">
           {selector && <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${stageTone(p.status)}`}>{p.status}</span>}
