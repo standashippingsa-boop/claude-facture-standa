@@ -84,6 +84,36 @@ const reDate = /(\d{4})-(\d{2})-(\d{2})[ T]+(\d{1,2}:\d{2}(?::\d{2})?)/;   // 20
 const reDateAlt = /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})[ T]*(\d{1,2}:\d{2}(?::\d{2})?)?/; // 15/07/2026
 
 const compact = (s: string) => String(s ?? "").replace(/\s+/g, "").toUpperCase();
+const trimEdges = (s: string) => s.replace(/^[^A-Z0-9]+|[^A-Z0-9]+$/g, "");
+
+/** Totaux imprimés en bas d'une facture commerciale MCPACK (contrôle de lecture). */
+export interface McpackInvoiceTotals { lbs: number | null; usd: number | null; }
+
+const num = (s: string) => { const n = Number.parseFloat(String(s).replace(/,/g, "")); return Number.isFinite(n) ? n : null; };
+
+/** Lit « Pwa Total : 808.65 liv » et « Total pou Peye : USD $2425.95 » (ou la ligne TOTAL du tableau). */
+export function parseMcpackInvoiceTotals(rows: TextItem[][]): McpackInvoiceTotals {
+  let lbs: number | null = null, usd: number | null = null;
+  for (const row of rows) {
+    const full = row.map((cell) => cell.s).join(" ");
+    const pwa = /pwa\s+total\s*:?\s*([\d.,]+)/i.exec(full);
+    if (pwa) lbs = num(pwa[1]);
+    const pay = /total\s+pou\s+peye\s*:?\s*(?:usd)?\s*\$?\s*([\d.,]+)/i.exec(full);
+    if (pay) usd = num(pay[1]);
+    // Repli : ligne « TOTAL 808.65 2425.95 » du tableau.
+    const line = /^\s*total\s+([\d.,]+)\s+([\d.,]+)\s*$/i.exec(full);
+    if (line) { if (lbs === null) lbs = num(line[1]); if (usd === null) usd = num(line[2]); }
+  }
+  return { lbs, usd };
+}
+
+/** Lignes + totaux imprimés de la facture commerciale, en une seule lecture du PDF. */
+export async function parseMcpackCommercialInvoiceDetailed(
+  buf: ArrayBuffer
+): Promise<{ rows: McpackCommercialInvoiceRow[]; totals: McpackInvoiceTotals }> {
+  const rows = groupRows(await extractItems(buf));
+  return { rows: parseMcpackCommercialInvoiceRows(rows), totals: parseMcpackInvoiceTotals(rows) };
+}
 
 /**
  * Fakti MCPACK yo pa sèvi ak menm tablo ak exports MCPACK òdinè yo:
@@ -151,15 +181,17 @@ export function parseMcpackCommercialInvoiceRows(rows: TextItem[][]): McpackComm
 
     // Tracking yo kapab GFUS…, TBA…, 1Z…, oswa yon long nimewo Amazon/USPS.
     // Yo toujou sou bò gòch kolòn Kontni an epi yo gen omwen 3 chif.
+    // MCPACK entoure les longs numéros USPS/FedEx de points (« .4203318….»).
+    // On retire la ponctuation des bords, sinon ces colis disparaissent de la facture lue.
     const candidates = row.filter((cell) => {
-      const value = compact(cell.s);
+      const value = trimEdges(compact(cell.s));
       return cell.x < contentX - 18
         && /^[A-Z0-9-]{8,64}$/.test(value)
         && (value.match(/\d/g)?.length ?? 0) >= 3;
     });
     const trackingCell = candidates.sort((a, b) => a.x - b.x)[0];
     if (!trackingCell) continue;
-    const tracking = compact(trackingCell.s);
+    const tracking = trimEdges(compact(trackingCell.s));
     if (seen.has(tracking)) continue;
 
     const content = row

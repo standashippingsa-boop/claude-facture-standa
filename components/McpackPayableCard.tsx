@@ -36,7 +36,7 @@ const SHARES: Array<{ key: ShareKey; label: string; color: string; onNavy: strin
   { key: "blic", label: "Blic Express", color: "#0f9f8f", onNavy: "#0f9f8f", match: /\bblic\b/i }
 ];
 type Lbs = Record<ShareKey, number>;
-type ParcelRow = { conduce_id: string; customer_code: string | null; customer_name: string | null; weight: number | string | null; mcpack_billed_lbs?: number | string | null; archived?: boolean | null };
+type ParcelRow = { id?: string; tracking_number?: string | null; conduce_id: string; customer_code: string | null; customer_name: string | null; weight: number | string | null; mcpack_billed_lbs?: number | string | null; archived?: boolean | null };
 type ConduceLine = { conduce: Conduce; day: string; lbs: Lbs; total: number; invoiced: boolean; invoiceId: string | null };
 type HistoryEntry = { key: string; label: string; paidAt: string; lines: ConduceLine[]; lbs: Lbs };
 
@@ -61,7 +61,7 @@ async function loadConduceParcels(conduceIds: string[]): Promise<ParcelRow[]> {
     const chunk = conduceIds.slice(i, i + 100);
     for (let from = 0; ; from += 1000) {
       const { data, error } = await supabase.from("packages")
-        .select("id, conduce_id, customer_code, customer_name, weight, mcpack_billed_lbs, archived")
+        .select("id, tracking_number, conduce_id, customer_code, customer_name, weight, mcpack_billed_lbs, archived")
         .in("conduce_id", chunk).order("id", { ascending: true }).range(from, from + 999);
       if (error) throw error;
       out.push(...((data ?? []) as ParcelRow[]));
@@ -176,7 +176,24 @@ export default function McpackPayableCard() {
     const periodLbs = pendingLbs;
     const nextLbs = sumLbs(nextLot.map((line) => line.lbs));
     const invoiced = pending.filter((line) => line.invoiced);
+
+    // 5) CONTRÔLE avec la facture MCPACK du lot : total imprimé vs nos Conduces,
+    // et chaque colis dont le poids facturé diffère de celui de la Conduce.
+    const lotInvoices = state.invoices.filter((invoice) => lotInvoiceIds.includes(invoice.id));
+    const printedLbs = lotInvoices.reduce((sum, invoice) => sum + (Number(invoice.invoice_total_lbs) || 0), 0);
+    const printedUsd = lotInvoices.reduce((sum, invoice) => sum + (Number(invoice.invoice_total_usd) || 0), 0);
+    const lotConduceIds = new Set(invoicedPending.map((line) => line.conduce.id));
+    const numberOfConduce = new Map(state.conduces.map((conduce) => [conduce.id, conduce.conduce_number]));
+    const weightDiffs = state.parcels
+      .filter((parcel) => lotConduceIds.has(parcel.conduce_id) && !parcel.archived && parcel.mcpack_billed_lbs !== null && parcel.mcpack_billed_lbs !== undefined && parcel.mcpack_billed_lbs !== "")
+      .map((parcel) => ({ parcel, billed: Number(parcel.mcpack_billed_lbs), weight: Number(parcel.weight) || 0 }))
+      .filter((row) => Math.abs(row.billed - row.weight) > 0.004)
+      .map((row) => ({ ...row, conduce: numberOfConduce.get(row.parcel.conduce_id) ?? "" }));
+    const control = lotInvoices.length && lotInvoices.every((invoice) => invoice.invoice_total_lbs != null)
+      ? { printedLbs, printedUsd, conduceLbs: totalOf(sumLbs(invoicedPending.map((line) => line.lbs))), weightDiffs }
+      : lotInvoices.length ? { printedLbs: null, printedUsd: null, conduceLbs: totalOf(sumLbs(invoicedPending.map((line) => line.lbs))), weightDiffs } : null;
     return {
+      control,
       rate: settings.rate, period: settings.period, receipt: settings.receipts[lotKey] ?? null, lotKey, lotInvoiced: invoicedPending.length > 0,
       pending, pendingLbs, periodLbs, paidInPeriod, nextLot, nextLbs,
       invoicedLbs: totalOf(sumLbs(invoiced.map((line) => line.lbs))), invoicedCount: invoiced.length,
@@ -335,6 +352,28 @@ ${rows.map((line) => `<tr><td>${esc(line.conduce.conduce_number)}</td><td>${esc(
           <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{fmtDate(line.day)} · STANDA {fmtLb(line.lbs.standa)} · Ergens {fmtLb(line.lbs.dokasav + line.lbs.blic)}</span>
           <span className="shrink-0 font-semibold tabular-nums text-slate-900">{fmtUsd(line.total * view.rate)}</span>
         </div>)}</div>
+      </div>;
+    })()}
+
+    {/* Contrôle : facture MCPACK vs Conduces */}
+    {view?.control && (() => {
+      const c = view.control;
+      const gap = c.printedLbs == null ? null : c.conduceLbs - c.printedLbs;
+      const ok = gap !== null && Math.abs(gap) < 0.005 && c.weightDiffs.length === 0;
+      return <div className={`rounded-2xl px-4 py-3 ring-1 ${ok ? "bg-emerald-50 ring-emerald-200 text-emerald-900" : "bg-red-50 ring-red-200 text-red-900"}`} role="status">
+        <p className="flex items-center gap-1.5 text-sm font-semibold">{ok ? <CheckCircle2 size={16} /> : <FileText size={16} />} Contrôle facture MCPACK</p>
+        {c.printedLbs == null
+          ? <p className="mt-1 text-xs">Le total imprimé de cette facture n&apos;a pas été enregistré : rechargez le PDF dans Conduces pour le contrôler.</p>
+          : <p className="mt-1 text-xs tabular-nums">
+              Facture MCPACK : <b>{fmtLb(c.printedLbs)}</b> · <b>{fmtUsd(c.printedUsd ?? 0)}</b> — Conduces STANDA : <b>{fmtLb(c.conduceLbs)}</b> · <b>{fmtUsd(c.conduceLbs * view.rate)}</b>
+              {ok ? " · identiques" : <> · écart <b>{gap! > 0 ? "+" : ""}{fmtLb(gap!)}</b> ({fmtUsd(gap! * view.rate)})</>}
+            </p>}
+        {c.weightDiffs.length > 0 && <>
+          <p className="mt-2 text-xs font-semibold">Colis au poids différent ({c.weightDiffs.length}) — à vérifier avec MCPACK avant de payer :</p>
+          <ul className="mt-1 space-y-0.5 text-[11.5px] tabular-nums">{c.weightDiffs.map((d) => <li key={String(d.parcel.id ?? d.parcel.tracking_number)}>
+            <span className="font-mono">{d.parcel.tracking_number}</span> · Conduce {d.conduce} · {d.parcel.customer_code} : Conduce <b>{fmtLb(d.weight)}</b> / facture MCPACK <b>{fmtLb(d.billed)}</b>
+          </li>)}</ul>
+        </>}
       </div>;
     })()}
 

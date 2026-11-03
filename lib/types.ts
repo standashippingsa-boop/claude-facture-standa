@@ -134,6 +134,9 @@ export interface McpackInvoice {
   created_at: string;
   paid_by?: string | null;
   paid_at?: string | null;
+  /** Totaux imprimés sur la facture MCPACK (contrôle). */
+  invoice_total_lbs?: number | null;
+  invoice_total_usd?: number | null;
   conduces: McpackInvoiceConduce[];
 }
 

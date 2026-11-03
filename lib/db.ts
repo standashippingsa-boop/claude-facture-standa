@@ -984,7 +984,7 @@ export async function getMcpackInvoices(): Promise<McpackInvoice[]> {
  * ka antre de fwa nan de fakti MCPACK — constraint SQL la se dènye gad la.
  */
 export async function createMcpackInvoice(
-  input: McpackInvoiceAnalysis & { fileName: string }, who = ""
+  input: McpackInvoiceAnalysis & { fileName: string; readCheck?: { totals: { lbs: number | null; usd: number | null } | null } }, who = ""
 ): Promise<McpackInvoice> {
   if (!input.conduces.length) throw new Error("Aucune Conduce n'a été détectée dans cette facture MCPACK.");
   const conduceIds = input.conduces.map((line) => line.conduce.id);
@@ -1006,6 +1006,9 @@ export async function createMcpackInvoice(
     unlinked_package_count: input.unlinkedPackageCount,
     status: "Facturée",
     created_by: who,
+    // Totaux imprimés par MCPACK : le tableau de bord les compare à nos Conduces.
+    invoice_total_lbs: input.readCheck?.totals?.lbs ?? null,
+    invoice_total_usd: input.readCheck?.totals?.usd ?? null,
   }).select("*").single();
   if (error) throw error;
 

@@ -5,7 +5,7 @@ import {
   AlertCircle, CheckCircle2, CircleDollarSign, FileSearch, FileText,
   LoaderCircle, ReceiptText, Upload,
 } from "@/components/icons";
-import { extractFacture } from "@/lib/factureimport";
+import { extractFactureDetailed } from "@/lib/factureimport";
 import {
   analyzeMcpackInvoiceTrackings, createMcpackInvoice, getMcpackInvoices,
   McpackInvoiceAnalysis, payMcpackInvoice,
@@ -16,6 +16,12 @@ import type { McpackInvoice } from "@/lib/types";
 import { useNoticeToast } from "@/lib/notify";
 import { Spinner } from "@/components/Loader";
 type Notice = { tone: "ok" | "error" | "info"; text: string } | null;
+/** Contrôle de lecture : ce que STANDA a lu dans le PDF vs les totaux imprimés par MCPACK. */
+type ReadCheck = { readLbs: number; readCount: number; totals: { lbs: number | null; usd: number | null } | null };
+/** La lecture est sûre seulement si la somme des lignes lues = « Pwa Total » imprimé (au centime de livre). */
+export function readCheckOk(check: ReadCheck | undefined): boolean {
+  return !!check?.totals?.lbs && Math.abs(check.readLbs - check.totals.lbs) < 0.005;
+}
 
 /**
  * Registre fakti MCPACK. PDF a parse sou aparèy staff la; se lis Conduce yo
@@ -30,7 +36,7 @@ export default function McpackInvoiceWorkspace({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [invoices, setInvoices] = useState<McpackInvoice[]>([]);
-  const [analysis, setAnalysis] = useState<(McpackInvoiceAnalysis & { fileName: string }) | null>(null);
+  const [analysis, setAnalysis] = useState<(McpackInvoiceAnalysis & { fileName: string; readCheck?: ReadCheck }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -51,9 +57,9 @@ export default function McpackInvoiceWorkspace({
   };
   useEffect(() => { void load(); }, []);
 
-  const analyzeAllConduces = async (trackings: { value: string; weight?: number }[], fileName: string) => {
+  const analyzeAllConduces = async (trackings: { value: string; weight?: number }[], fileName: string, readCheck?: ReadCheck) => {
     const result = await analyzeMcpackInvoiceTrackings(trackings);
-    setAnalysis({ ...result, fileName });
+    setAnalysis({ ...result, fileName, readCheck });
     setNotice(result.conduces.length
       ? { tone: "info", text: `${result.conduces.length} Conduce${result.conduces.length > 1 ? "s" : ""} prête${result.conduces.length > 1 ? "s" : ""} à facturer.${result.alreadyRecordedConduces.length ? ` ${result.alreadyRecordedConduces.length} déjà enregistrée${result.alreadyRecordedConduces.length > 1 ? "s" : ""} est/sont mise(s) à part.` : ""}` }
       : result.alreadyRecordedConduces.length
@@ -70,12 +76,12 @@ export default function McpackInvoiceWorkspace({
 
     setParsing(true); setAnalysis(null); setNotice(null);
     try {
-      const trackings = await extractFacture(file);
+      const { trackings, readLbs, readCount, totals } = await extractFactureDetailed(file);
       if (!trackings.length) {
         setNotice({ tone: "error", text: "Le PDF ne contient aucune référence lisible. Utilisez le PDF MCPACK original, avec le tableau « Nimewo Tracking » visible." });
         return;
       }
-      await analyzeAllConduces(trackings, check.filename);
+      await analyzeAllConduces(trackings, check.filename, { readLbs, readCount, totals });
     } catch (error) {
       setNotice({ tone: "error", text: error instanceof Error ? error.message : "Analyse du PDF impossible." });
     } finally {
@@ -85,6 +91,11 @@ export default function McpackInvoiceWorkspace({
 
   const saveInvoice = async () => {
     if (!analysis?.conduces.length) return;
+    // Garde-fou : jamais de facture enregistrée sur une lecture incomplète du PDF.
+    if (!readCheckOk(analysis.readCheck)) {
+      setNotice({ tone: "error", text: "Lecture du PDF incomplète : la somme des colis lus ne correspond pas au « Pwa Total » imprimé par MCPACK. Rien n'a été enregistré." });
+      return;
+    }
     setSaving(true);
     try {
       await createMcpackInvoice(analysis, staffName);
@@ -170,6 +181,20 @@ export default function McpackInvoiceWorkspace({
               </div>
             )}
 
+            {(() => {
+              const rc = analysis.readCheck;
+              const ok = readCheckOk(rc);
+              return <div className={`rounded-xl border px-3 py-2.5 text-[11px] ${ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-red-200 bg-red-50 text-red-800"}`}>
+                <p className="font-extrabold flex items-center gap-1.5">{ok ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />} Contrôle de lecture du PDF</p>
+                <p className="mt-1">
+                  Imprimé par MCPACK : <b>{rc?.totals?.lbs != null ? rc.totals.lbs.toFixed(2) + " lb" : "total introuvable"}</b>
+                  {rc?.totals?.usd != null && <> · <b>${rc.totals.usd.toFixed(2)}</b></>}
+                  {" "}· Lu par STANDA : <b>{(rc?.readLbs ?? 0).toFixed(2)} lb</b> sur {rc?.readCount ?? 0} ligne{(rc?.readCount ?? 0) > 1 ? "s" : ""}
+                </p>
+                {!ok && <p className="mt-1 font-bold">Enregistrement bloqué : une partie de la facture n&apos;a pas été lue. Vérifiez que c&apos;est bien le PDF MCPACK original (non modifié, non scanné).</p>}
+              </div>;
+            })()}
+
             {analysis.reconciliation.invoiceLbs > 0 && (() => {
               const rec = analysis.reconciliation;
               const gap = rec.systemLbs - rec.invoiceLbs;
@@ -216,7 +241,7 @@ export default function McpackInvoiceWorkspace({
 
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-1">
               <button type="button" className="btn btn-ghost justify-center" disabled={saving} onClick={() => setAnalysis(null)}>Annuler</button>
-              <button type="button" className="btn btn-brand justify-center" disabled={saving || !analysis.conduces.length} onClick={saveInvoice}>
+              <button type="button" className="btn btn-brand justify-center" disabled={saving || !analysis.conduces.length || !readCheckOk(analysis.readCheck)} onClick={saveInvoice}>
                 {saving ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
                 {saving ? "Enregistrement…" : `Facturer ${analysis.conduces.length} Conduce${analysis.conduces.length > 1 ? "s" : ""}`}
               </button>
@@ -255,7 +280,10 @@ function InvoiceCard({ invoice, paying, onPay }: { invoice: McpackInvoice; payin
       <div className="flex flex-col sm:flex-row sm:items-start gap-2.5">
         <div className="min-w-0 flex-1">
           <p className="font-bold text-sm text-ink truncate"><FileText size={14} className="inline mr-1.5 text-amber-700" />{invoice.file_name || "Facture MCPACK"}</p>
-          <p className="text-[11px] text-mute mt-0.5">Enregistrée le {date} · {invoice.matched_package_count} colis associés</p>
+          <p className="text-[11px] text-mute mt-0.5">Enregistrée le {date} · {invoice.matched_package_count} colis associés
+            {invoice.invoice_total_lbs != null && <> · <b className="text-ink">{Number(invoice.invoice_total_lbs).toFixed(2)} lb</b></>}
+            {invoice.invoice_total_usd != null && <> · <b className="text-ink">${Number(invoice.invoice_total_usd).toFixed(2)}</b></>}
+          </p>
           <p className="text-[11px] text-navy font-semibold mt-1.5">
             {invoice.conduces.map((line) => line.conduce?.conduce_number ?? "·").join(" · ")}
           </p>

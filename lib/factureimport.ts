@@ -11,8 +11,10 @@
  */
 import {
   extractFirstMcpackCommercialInvoiceTracking,
+  parseMcpackCommercialInvoiceDetailed,
   parseMcpackCommercialInvoicePdf,
   parseMcpackPdf,
+  type McpackInvoiceTotals,
 } from "./pdfimport";
 import { cleanTracking } from "./utils";
 
@@ -73,6 +75,41 @@ export async function extractFromPdf(buf: ArrayBuffer): Promise<FactureTracking[
     out.push({ value: v, weight: r.weight || undefined, source: "pdf", raw: r.tracking_number });
   }
   return out;
+}
+
+/**
+ * Facture MCPACK + CONTRÔLE DE LECTURE : renvoie les lignes lues, la somme de
+ * leurs poids et les totaux imprimés sur le PDF (« Pwa Total », « Total pou Peye »).
+ * Si la somme lue ≠ total imprimé, une ligne a été mal lue : l'appelant doit bloquer.
+ */
+export async function extractFactureDetailed(file: File): Promise<{
+  trackings: FactureTracking[];
+  readLbs: number;
+  readCount: number;
+  totals: McpackInvoiceTotals | null;
+}> {
+  const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  if (!isPdf) {
+    const trackings = await extractFromImage(file);
+    return { trackings, readLbs: 0, readCount: trackings.length, totals: null };
+  }
+  const buf = await file.arrayBuffer();
+  const detailed = await parseMcpackCommercialInvoiceDetailed(copyPdfBuffer(buf));
+  if (!detailed.rows.length) {
+    const trackings = await extractFromPdf(buf);
+    return { trackings, readLbs: 0, readCount: trackings.length, totals: null };
+  }
+  const trackings: FactureTracking[] = [];
+  const seen = new Set<string>();
+  let readLbs = 0;
+  for (const r of detailed.rows) {
+    readLbs += Number(r.weight) || 0;
+    const v = cleanTracking(r.tracking_number);
+    if (!v || seen.has(v)) continue;
+    seen.add(v);
+    trackings.push({ value: v, weight: r.weight || undefined, source: "pdf", raw: r.tracking_number });
+  }
+  return { trackings, readLbs: Math.round(readLbs * 100) / 100, readCount: detailed.rows.length, totals: detailed.totals };
 }
 
 /** Ekstrè depi yon IMAJ / screenshot (OCR). */
