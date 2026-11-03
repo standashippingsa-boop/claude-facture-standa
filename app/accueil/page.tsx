@@ -94,21 +94,6 @@ export default async function AccueilPage() {
           </div>
         </section>
 
-        {/* Adresse à Miami */}
-        <section className={`${WRAP} -mt-6`}>
-          <div className="relative overflow-hidden rounded-2xl bg-accent text-white shadow-lg">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={img.depot} alt="" className="absolute inset-0 h-full w-full object-cover opacity-15" />
-            <div className="relative px-5 py-6 text-center">
-              <p className="text-[13px] font-semibold uppercase tracking-wider text-white/85">Votre adresse à Miami</p>
-              <p className="mt-2 text-[15px] font-bold leading-relaxed">
-                Votre nom et votre code MC<br />
-                {DEPOT.address1}, {DEPOT.city.charAt(0) + DEPOT.city.slice(1).toLowerCase()}, {DEPOT.state} {DEPOT.zip}, USA
-              </p>
-            </div>
-          </div>
-        </section>
-
         {/* Inscription, suivi, agences */}
         <section className={`${WRAP} mt-6 grid gap-3 sm:grid-cols-3`}>
           {cards.map((card) => (

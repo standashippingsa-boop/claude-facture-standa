@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { SITE } from "@/lib/site";
+import { DEPOT } from "@/lib/depot";
+import { MapPin } from "@/components/icons";
 
 /**
  * STANDA COMMERCIAL — MENI SIT PIBLIK LA
@@ -50,6 +52,13 @@ export default function SiteHeader() {
 
   return (
     <>
+      {/* Adresse du dépôt à Miami, tout en haut du site */}
+      <div className="bg-navy text-white">
+        <p className="mx-auto flex max-w-5xl items-center justify-center gap-1.5 px-4 py-1.5 text-center text-[12px] font-semibold leading-snug sm:px-6 sm:text-[12.5px]">
+          <MapPin size={14} className="shrink-0 text-accent-light" aria-hidden="true" />
+          <span>{DEPOT.address1}, {DEPOT.city.charAt(0) + DEPOT.city.slice(1).toLowerCase()}, {DEPOT.state} {DEPOT.zip}, USA</span>
+        </p>
+      </div>
       <header className="sticky top-0 z-40 border-b border-black/[.06] bg-[#eef2f8]/90 text-navy backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
           <Link href="/accueil" className="flex min-w-0 items-center gap-2.5">
