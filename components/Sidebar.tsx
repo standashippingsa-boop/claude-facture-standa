@@ -8,6 +8,7 @@ import {  Inbox, LayoutDashboard, LogOut, Users, Package, FileText, History,
 } from "@/components/icons";
 import Logo from "./Logo";
 import { supabase } from "@/lib/supabase";
+import ThemeToggle from "@/components/ThemeToggle";
 import { getPendingRetraitsCount } from "@/lib/db";
 import { Staff } from "@/lib/types";
 import { isAdminOnlyPath } from "@/lib/access";
@@ -135,6 +136,7 @@ export default function Sidebar({ staff, open = false, onClose }: { staff?: Staf
             <p className="text-[11px] text-white/50">{isAdmin ? "Administrateur" : "Employé"}</p>
           </div>
         </div>
+        <ThemeToggle withLabel className="w-full rounded-lg px-3 py-2 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white" />
         <button onClick={logout}
           className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/75 hover:bg-white/10 hover:text-white transition-colors">
           <LogOut size={17} /> Dekonekte

@@ -97,8 +97,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ht" translate="no" className="notranslate">
+    <html lang="ht" translate="no" className="notranslate" suppressHydrationWarning>
       <head>
+        {/* MODE SOMBRE — appliqué avant l'affichage (pas de flash blanc). Réglage : localStorage « standa:theme »
+            = auto (suit le téléphone, par défaut) | dark | light. Les couleurs sombres sont générées par
+            scripts/postcss-dark-mode.cjs. */}
+        <script dangerouslySetInnerHTML={{ __html: "(function(){try{var m=window.matchMedia('(prefers-color-scheme: dark)');var apply=function(){var t='auto';try{t=localStorage.getItem('standa:theme')||'auto'}catch(e){}var d=t==='dark'||(t==='auto'&&m.matches);document.documentElement.classList.toggle('dark',d);};apply();window.__standaApplyTheme=apply;if(m.addEventListener)m.addEventListener('change',apply);}catch(e){}})();" }} />
         {/*
           FRONTIÈRE SITE / APPLICATION — kouri trè bonè, anvan React monte,
           pou anpeche yon lyen piblik melanje ak yon sesyon deja konekte.

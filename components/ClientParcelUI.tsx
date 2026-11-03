@@ -66,14 +66,15 @@ export function RouteStrip({ status, onDark = false }: { status: string; onDark?
   const done = status === "Livré";
   const pct = (pos / 3) * 100;
   return <div className="pt-1" aria-label={`Trajet : ${status}`}>
-    <div className="relative mx-[5px] h-[3px] rounded-full" style={{ background: onDark ? "rgba(255,255,255,.18)" : "rgba(18,43,92,.10)" }}>
-      <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: done ? "#059669" : onDark ? "#fff" : "#122B5C" }} />
+    <div className={`relative mx-[5px] h-[3px] rounded-full ${onDark ? "" : "text-navy"}`} style={{ background: onDark ? "rgba(255,255,255,.18)" : undefined }}>
+      {!onDark && <span aria-hidden="true" className="absolute inset-0 rounded-full bg-current opacity-[.12]" />}
+      <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: done ? "#059669" : onDark ? "#fff" : "currentColor" }} />
       {STOPS.map((stop, i) => {
         const reached = pos >= i;
         const current = !done && Math.floor(pos) === i && (pos === i || i === 3);
         return <span key={stop} className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{
           left: `${(i / 3) * 100}%`, width: current ? 11 : 7, height: current ? 11 : 7,
-          background: reached ? (done ? "#059669" : onDark ? "#fff" : "#122B5C") : onDark ? "#3b5384" : "#d6dde9",
+          background: reached ? (done ? "#059669" : onDark ? "#fff" : "currentColor") : onDark ? "#3b5384" : "rgb(148 163 184 / .45)",
           boxShadow: current ? "0 0 0 4px rgba(228,101,10,.22)" : undefined,
           outline: current ? "2px solid #E4650A" : undefined
         }} />;
@@ -93,7 +94,7 @@ export function notchMask(fromBottom: number) {
 }
 
 /** Code-barres décoratif, stable pour un même texte. */
-export function Barcode({ value, className = "", color = "#122B5C" }: { value: string; className?: string; color?: string }) {
+export function Barcode({ value, className = "", color = "currentColor" }: { value: string; className?: string; color?: string }) {
   const bars: number[] = [];
   for (const ch of (value || "STANDA").repeat(3).slice(0, 36)) { const c = ch.charCodeAt(0); bars.push(1 + (c % 3), 1 + ((c >> 2) % 2)); }
   let x = 0;
@@ -203,7 +204,7 @@ export function PickupPass({ agency, code, count, weight, total, shipping, fixed
         {specialCount > 0 && <p className="mt-2 text-[11.5px] font-medium text-amber-700">+ {specialCount} colis spécial{specialCount > 1 ? "aux" : ""} : prix sur la facture</p>}
       </div>
       <div className="w-[38%] shrink-0 text-right">
-        <Barcode value={code} className="h-12 w-full" />
+        <Barcode value={code} className="h-12 w-full text-navy" />
         <p className="mt-1 font-mono text-[10px] tracking-[.2em] text-navy/50">{code}</p>
       </div>
     </div>

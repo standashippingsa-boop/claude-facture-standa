@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import Logo from "@/components/Logo";
+import ThemeToggle from "@/components/ThemeToggle";
 import { SITE } from "@/lib/site";
 
 /**
@@ -74,6 +75,7 @@ export default function SiteHeader() {
               <span className="block text-[12.5px] font-semibold text-navy">{SITE.phone}</span>
               <span className="block text-[10.5px] text-mute">Du lundi au vendredi, 9h à 17h</span>
             </a>
+            <ThemeToggle className="grid h-9 w-9 place-items-center rounded-lg text-navy transition hover:bg-navy/5" />
             <Link href={SIGNUP.href} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[13px] font-semibold text-white transition hover:bg-accent-dark">
               {SIGNUP.label}
             </Link>
@@ -113,6 +115,7 @@ export default function SiteHeader() {
           <a href={`tel:${SITE.whatsapp}`} className="block py-1.5 font-semibold text-navy">{SITE.phone}</a>
           <a href={`mailto:${SITE.email}`} className="block break-all py-1.5 hover:text-navy">{SITE.email}</a>
           <a href={`https://instagram.com/${SITE.instagram}`} target="_blank" rel="noopener noreferrer" className="block py-1.5 hover:text-navy">Instagram</a>
+          <ThemeToggle withLabel className="py-1.5 font-semibold text-navy" />
         </div>
       </aside>
     </>

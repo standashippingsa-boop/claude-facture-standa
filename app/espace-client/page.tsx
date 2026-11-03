@@ -57,6 +57,7 @@ import ClientInstallCard from "@/components/ClientInstallCard";
 import { announcementImageUrl, announcementMedia, getActiveAnnouncements, type Announcement } from "@/lib/announcements";
 import AnnouncementCarousel, { AnnouncementMediaSlider } from "@/components/AnnouncementCarousel";
 import ChallengeView from "@/components/ChallengeView";
+import ThemeToggle from "@/components/ThemeToggle";
 import { ManifestCard, ParcelCard, PickupPass, arrivalDateOf } from "@/components/ClientParcelUI";
 import { getChallengeMe, type ChallengeMe } from "@/lib/challenge";
 import AddressGuide from "@/components/site/AddressGuide";
@@ -880,6 +881,9 @@ export default function EspaceClientPage() {
 
             <p className="mb-1.5 mt-6 px-1 text-xs font-bold text-mute">Notifications</p>
             <NotificationButton compact />
+
+            <p className="mb-1.5 mt-5 px-1 text-xs font-bold text-mute">Affichage</p>
+            <ThemeToggle withLabel className="min-h-[52px] w-full rounded-2xl bg-mist px-4 text-left text-[15px] font-bold text-ink" />
 
             <p className="mb-1.5 mt-5 px-1 text-xs font-bold text-mute">Sécurité</p>
             <button className="flex min-h-[60px] w-full items-center gap-3 rounded-2xl bg-mist px-4 text-left"
