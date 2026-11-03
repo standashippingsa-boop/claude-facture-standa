@@ -24,8 +24,10 @@ import { notify } from "@/lib/notify";
  *    la place du lot dès que la facture est payée.
  *  - Comptes Ergens : codes réglés dans Paramètres ; sans réglage, reconnaissance par le nom
  *    (fiche client ou nom MCPACK du colis). Tous les autres clients sont à STANDA.
- *  - Montant = livres × tarif (Paramètres, 3 $ par défaut). Livres = poids de la facture
- *    MCPACK (packages.mcpack_billed_lbs) dès qu'elle est enregistrée, sinon notre pesée.
+ *  - Montant = livres × tarif (Paramètres, 3 $ par défaut). Livres = POIDS DES COLIS DE LA
+ *    CONDUCE (packages.weight, décimales comprises) : c'est le poids que MCPACK facture.
+ *    (L'ancien « poids facturé » issu du rapprochement de facture n'est plus utilisé :
+ *    il était incomplet, p. ex. conduce 15907 à 65,6 lb au lieu de 108,30 lb.)
  */
 type ShareKey = "standa" | "dokasav" | "blic";
 const SHARES: Array<{ key: ShareKey; label: string; color: string; onNavy: string; match?: RegExp }> = [
@@ -41,7 +43,7 @@ type HistoryEntry = { key: string; label: string; paidAt: string; lines: Conduce
 const zero = (): Lbs => ({ standa: 0, dokasav: 0, blic: 0 });
 const sumLbs = (rows: Lbs[]) => rows.reduce((acc, row) => ({ standa: acc.standa + row.standa, dokasav: acc.dokasav + row.dokasav, blic: acc.blic + row.blic }), zero());
 const totalOf = (lbs: Lbs) => lbs.standa + lbs.dokasav + lbs.blic;
-const fmtLb = (value: number) => `${value.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} lb`;
+const fmtLb = (value: number) => `${(Math.round(value * 100) / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} lb`;
 const fmtUsd = (value: number) => "$" + value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 // Une date seule (« 2026-10-20 ») se lit en heure locale : sinon Haïti (UTC-4) affiche la veille.
 const fmtDate = (value: string, withYear = true) => value
@@ -124,9 +126,8 @@ export default function McpackPayableCard() {
     for (const parcel of state.parcels) {
       if (parcel.archived) continue;
       const lbs = byConduce.get(parcel.conduce_id) ?? zero();
-      // Poids facturé par MCPACK quand sa facture est enregistrée ; sinon notre pesée.
-      const billed = parcel.mcpack_billed_lbs;
-      const weight = billed !== null && billed !== undefined && billed !== "" ? Number(billed) : Number(parcel.weight);
+      // Poids du colis tel qu'il figure sur la Conduce (décimales comprises).
+      const weight = Number(parcel.weight);
       lbs[accountOf.get(String(parcel.customer_code ?? "").trim().toUpperCase()) ?? "standa"] += weight || 0;
       byConduce.set(parcel.conduce_id, lbs);
     }
@@ -345,13 +346,14 @@ ${rows.map((line) => `<tr><td>${esc(line.conduce.conduce_number)}</td><td>${esc(
       </button>
       {showDetail && <div className="overflow-x-auto border-t border-slate-100">
         <table className="w-full text-sm">
-          <thead><tr className="text-left text-[11px] text-slate-500">{["Conduce", "État", "STANDA", "Dokasav", "Blic", "Montant"].map((head) => <th key={head} className={`px-4 py-2 font-medium ${head === "Conduce" || head === "État" ? "" : "text-right"}`}>{head}</th>)}</tr></thead>
+          <thead><tr className="text-left text-[11px] text-slate-500">{["Conduce", "État", "STANDA", "Dokasav", "Blic", "Total lb", "Montant"].map((head) => <th key={head} className={`px-4 py-2 font-medium ${head === "Conduce" || head === "État" ? "" : "text-right"}`}>{head}</th>)}</tr></thead>
           <tbody className="divide-y divide-slate-100">{view.pending.map((line) => <tr key={line.conduce.id}>
             <td className="px-4 py-2.5"><Link href={`/conduces/${line.conduce.id}`} className="font-mono font-semibold text-navy hover:underline">{line.conduce.conduce_number}</Link><span className="block text-[11px] text-slate-400">{fmtDate(line.day)}</span></td>
             <td className="px-4 py-2.5"><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${line.invoiced ? "bg-amber-50 text-amber-800" : "bg-slate-100 text-slate-600"}`}>{line.invoiced ? "Facturée" : "Non facturée"}</span></td>
             <td className="px-4 py-2.5 text-right tabular-nums">{fmtLb(line.lbs.standa)}</td>
             <td className="px-4 py-2.5 text-right tabular-nums">{fmtLb(line.lbs.dokasav)}</td>
             <td className="px-4 py-2.5 text-right tabular-nums">{fmtLb(line.lbs.blic)}</td>
+            <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-slate-900">{fmtLb(line.total)}</td>
             <td className="px-4 py-2.5 text-right font-semibold tabular-nums">{fmtUsd(line.total * view.rate)}</td>
           </tr>)}</tbody>
         </table>
