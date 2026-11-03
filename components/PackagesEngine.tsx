@@ -564,14 +564,18 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
     try {
       const targets = selected.length ? selected : filtered.filter((p) => p.status === "Disponible");
       let n = 0, sans = 0;
+      let speciaux = 0;
       for (const p of targets) {
+        // Colis spécial : jamais de tarif automatique, le prix se met à la main sur la facture.
+        if (specialPackageInfo(p).isSpecial) { speciaux++; continue; }
         const info = tarifMap.get(p.customer_code);
         const r = info ? computePrice(p.weight, info.account_type, info.ville) : null;
         if (r) { await savePrice(p, r.price, 0); n++; } else sans++;
       }
       setNotice(
         `Tarification appliquée sur ${n} colis${selected.length ? " sélectionnés" : " disponibles"}.` +
-        (sans ? ` ${sans} colis ignoré(s): kliyan san vil aktif oswa ki pa nan bazdone a.` : "")
+        (sans ? ` ${sans} colis ignoré(s): kliyan san vil aktif oswa ki pa nan bazdone a.` : "") +
+        (speciaux ? ` ${speciaux} colis spécial(aux) sans tarif automatique : prix à saisir sur la facture.` : "")
       );
     } finally { setBusy(false); }
   };

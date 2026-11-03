@@ -54,9 +54,10 @@ export function stageOf(status: string): 0 | 1 | 2 | 3 {
 }
 
 function stageTone(status: string) {
-  if (status === "Livré") return "bg-emerald-50 text-emerald-700";
+  if (status === "Disponible") return "bg-emerald-50 text-emerald-700";
+  if (status === "En attente") return "bg-amber-50 text-amber-800";
+  if (status === "Livré") return "bg-slate-100 text-slate-700";
   if (status === "Facturé") return "bg-blue-50 text-blue-700";
-  if (status === "Disponible") return "bg-orange-50 text-[#c2410c]";
   if (stageOf(status) === 2) return "bg-violet-50 text-violet-700";
   return "bg-sky-50 text-sky-800";
 }
@@ -107,7 +108,11 @@ export function ParcelCard({ p, onOpen, price, invoicedPrice, special, selector 
   selector?: { selected: boolean; disabled: boolean; title?: string; onToggle: () => void };
 }) {
   const weight = Number(p.weight) || 0;
-  const shown = invoicedPrice ?? price ?? null;
+  // Colis spécial : pas de tarif automatique. Tant que STANDA n'a pas fixé le prix
+  // (facture), il reste « En attente » côté client, sans prix affiché.
+  const pricePending = !!special && invoicedPrice == null;
+  const shown = invoicedPrice ?? (pricePending ? null : price) ?? null;
+  const shownStatus = pricePending && p.status === "Disponible" ? "En attente" : p.status;
   return <motion.article layout="position" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.985 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
     className={cn("relative mb-3 overflow-hidden rounded-[22px] bg-white transition-shadow", selector?.selected ? "ring-2 ring-[#E4650A]" : "ring-1 ring-[#122B5C]/[.07]")} style={notchMask(54)}>
     <button type="button" onClick={onOpen} className="block w-full text-left">
@@ -119,12 +124,12 @@ export function ParcelCard({ p, onOpen, price, invoicedPrice, special, selector 
             {p.tracking_manual && <p className="truncate font-mono text-[11px] text-navy/45">{p.tracking_manual}</p>}
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
-            {!selector && <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${stageTone(p.status)}`}>{p.status}</span>}
+            {!selector && <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${stageTone(shownStatus)}`}>{shownStatus}</span>}
             {arrivalLabel(p) && <span className={`text-[11px] text-navy/50 ${selector ? "mr-9 mt-1" : ""}`}>Reçu le {arrivalLabel(p)}</span>}
           </div>
         </div>
         {(special || selector) && <div className="mt-2 flex flex-wrap gap-1">
-          {selector && <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${stageTone(p.status)}`}>{p.status}</span>}
+          {selector && <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${stageTone(shownStatus)}`}>{shownStatus}</span>}
           {special && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">Colis spécial</span>}
         </div>}
         <div className="mt-4"><RouteStrip status={p.status} /></div>
@@ -135,7 +140,7 @@ export function ParcelCard({ p, onOpen, price, invoicedPrice, special, selector 
         <span className="min-w-0 truncate text-[12.5px] text-navy/55">{p.content || "Contenu non précisé"} · <span className="font-mono text-navy/70">{weight > 0 ? lb(weight) : "·"}</span></span>
         {shown != null
           ? <span className={`shrink-0 text-[17px] font-semibold tracking-tight ${invoicedPrice != null ? "text-navy" : "text-[#E4650A]"}`}>{usd(shown)}</span>
-          : special && selector ? <span className="shrink-0 text-[11.5px] font-semibold text-amber-700">Prix à confirmer</span> : null}
+          : pricePending ? <span className="shrink-0 text-[11.5px] font-semibold text-amber-700">Prix en attente</span> : null}
       </div>
     </button>
     {selector && <button type="button" role="checkbox" aria-checked={selector.selected} aria-label="Choisir ce colis" disabled={selector.disabled} title={selector.title} onClick={selector.onToggle}

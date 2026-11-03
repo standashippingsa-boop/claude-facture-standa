@@ -784,10 +784,13 @@ export default function EspaceClientPage() {
     const facture = Number(p.total_usd) > 0 && isInvoiced(p);
     // Un colis déjà facturé reste visible dans "Disponible" (il attend d'être
     // payé et retiré), mais ne peut pas entrer dans une NOUVELLE demande de retrait.
-    const selectable = !check || p.status === "Disponible";
+    // Un colis spécial attend son prix (fixé par STANDA sur la facture) avant de pouvoir être retiré.
+    const special = specialPackageInfo(p).isSpecial;
+    const specialPending = special && !facture;
+    const selectable = !check || (p.status === "Disponible" && !specialPending);
     return <ParcelCard p={p} onOpen={() => setDetail(p)} price={price} invoicedPrice={facture ? Number(p.total_usd) : null}
-      special={specialPackageInfo(p).isSpecial}
-      selector={check ? { selected: sel.has(p.id), disabled: !selectable, title: selectable ? undefined : "Colis déjà facturé · réglez la facture pour le retirer.", onToggle: () => toggleSel(p.id) } : undefined} />;
+      special={special}
+      selector={check ? { selected: sel.has(p.id), disabled: !selectable, title: selectable ? undefined : specialPending ? "Colis spécial · en attente du prix fixé par STANDA." : "Colis déjà facturé · réglez la facture pour le retirer.", onToggle: () => toggleSel(p.id) } : undefined} />;
   };
 
   const Empty = ({ t }: { t: string }) => (
