@@ -72,9 +72,9 @@ export default async function AccueilPage() {
       <main>
         {/* Haut de page */}
         <section className="hero-stage relative isolate overflow-hidden bg-navy">
-          {/* Diaporama : trois photos en fondu, zoom lent (CSS seulement) */}
+          {/* Diaporama : cinq photos en fondu, zoom lent (CSS seulement). Deux photos réelles du dépôt de Miami (1926 NW 135th Ave). */}
           <div className="absolute inset-0 -z-10 overflow-hidden sm:left-[36%]" aria-hidden="true">
-            {[{ src: img.hero, pos: "50% 18%" }, { src: img.depot, pos: "50% 60%" }, { src: img.agences, pos: "50% 25%" }].map((slide, i) => (
+            {[{ src: img.hero, pos: "50% 18%" }, { src: "/site/depot-porte-1926.webp", pos: "50% 38%" }, { src: img.depot, pos: "50% 60%" }, { src: "/site/depot-interieur.webp", pos: "50% 55%" }, { src: img.agences, pos: "50% 25%" }].map((slide, i) => (
               <div key={i} className="hero-slide">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={slide.src} alt="" className="h-full w-full object-cover" style={{ objectPosition: slide.pos }} />
