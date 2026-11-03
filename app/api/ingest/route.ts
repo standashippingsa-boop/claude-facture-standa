@@ -126,6 +126,8 @@ export async function POST(req: Request) {
         if (p.status_raw?.trim()) patch.status_mcpack = p.status_raw.trim();
         if (p.weight != null) patch.weight = p.weight;
         if (p.content) patch.content = p.content;
+        // Date « Creado » MCPACK (arrivée à l'adresse de Miami) : corrigée à chaque passage si elle est valide.
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(String(p.created_date ?? "").trim())) patch.created_date = String(p.created_date).trim();
         if (tnum) {
           // Ranpli tracking_manual SÈLMAN si li vid nan baz la (pa efase sa admin mete)
           const { data: cur } = await db.from("packages")

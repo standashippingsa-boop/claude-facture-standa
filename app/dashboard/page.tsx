@@ -170,6 +170,12 @@ export default function Dashboard() {
               <span className="font-bold text-ink">{pkgPeak.label}</span> · <span className="font-bold text-ink">{pkgPeak.value} colis</span>
             </p>
           ) : <p className="text-xs text-mute mb-3">Pas encore de colis sur cette période.</p>}
+          <p className="text-[11px] text-mute -mt-2 mb-3">
+            Date d&apos;arrivée à Miami (« Creado » MCPACK).
+            {pkgGranularity === "month" && pkgSeries.length > 0 && (
+              <> Le mois en cours ({pkgSeries[pkgSeries.length - 1].label}) n&apos;est pas terminé : son total augmente jusqu&apos;à la fin du mois.</>
+            )}
+          </p>
           {charts ? <TimeSeriesBarChart series={pkgSeries} color="#122B5C" /> : <Loader inline size={40} />}
         </div>
 

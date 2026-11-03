@@ -200,6 +200,17 @@ export async function getPackagesPage(
   return { rows, total: count ?? rows.length };
 }
 
+/** Nombre de colis par statut (non archivés), pour les compteurs en haut de Packages — comme MCPACK. */
+export async function getPackageStatusCounts(statuses: string[], includeArchived = false): Promise<Record<string, number>> {
+  const entries = await Promise.all(statuses.map(async (s) => {
+    let q = supabase.from("packages").select("id", { count: "exact", head: true }).eq("status", s);
+    if (!includeArchived) q = q.eq("archived", false);
+    const { count, error } = await q;
+    return [s, error ? 0 : count ?? 0] as const;
+  }));
+  return Object.fromEntries(entries);
+}
+
 /** Chaje TOUT koli ki matche filtè yo (sou demand — pou seleksyon global/bulk sou anpil paj). */
 export async function getAllPackagesMatching(filters: PackagesQueryFilters, cap = 3000): Promise<Pkg[]> {
   const data = await fetchAllRows<any>(() => applyPackagesFilters(supabase.from("packages").select("*"), filters)
@@ -2454,16 +2465,27 @@ export interface ChartsData {
   packageCustomerCodes: string[];
   clientSignups: { created_at: string; customer_code: string | null }[];
 }
+/** « 30/10/2026 » (Creado MCPACK) -> "2026-10-30T12:00:00", sinon null. */
+export function mcpackDateIso(raw: string | null | undefined): string | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(String(raw ?? "").trim());
+  if (!m) return null;
+  const [, d, mo, y] = m;
+  if (+mo < 1 || +mo > 12 || +d < 1 || +d > 31) return null;
+  return `${y}-${mo}-${d}T12:00:00`;
+}
+
 export async function getChartsData(): Promise<ChartsData> {
   // Lekti paj pa paj: chak koli ajoute (ekstansyon, Excel, alamen) antre nan grafik la.
   const [pkgs, cls] = await Promise.all([
-    fetchAllRows<{ received_at: string | null; created_at: string; customer_code: string | null }>(() =>
-      supabase.from("packages").select("id, received_at, created_at, customer_code").order("id", { ascending: true })),
+    fetchAllRows<{ created_date: string | null; created_at: string; customer_code: string | null }>(() =>
+      supabase.from("packages").select("id, created_date, created_at, customer_code").order("id", { ascending: true })),
     fetchAllRows<{ created_at: string; customer_code: string | null }>(() =>
       supabase.from("clients").select("id, created_at, customer_code").order("id", { ascending: true })),
   ]);
+  // Date d'arrivée réelle à Miami = « Creado » MCPACK (jj/mm/aaaa). received_at est réécrit à
+  // chaque passage de l'extension : l'utiliser gonflait le mois en cours.
   const packageDates = (pkgs ?? [])
-    .map((p: { received_at: string | null; created_at: string }) => p.received_at ?? p.created_at)
+    .map((p: { created_date: string | null; created_at: string }) => mcpackDateIso(p.created_date) ?? p.created_at)
     .filter((d): d is string => !!d);
   const packageCustomerCodes = (pkgs ?? [])
     .map((p: { customer_code: string | null }) => p.customer_code)

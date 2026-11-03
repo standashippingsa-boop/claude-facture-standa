@@ -13,8 +13,21 @@ import { usePackageSelection } from "@/lib/selection";
 import {
   ClientTarifInfo, archivePackage, unarchivePackage, getClient, getClientTarifMap,
   getConduces, getPackages, getPackagesPage, getAllPackagesMatching, detachPackagesFromInvoice, hardDeletePackage, getSettings, getUsdRate,
-  createBonRemiseRecord, deleteBonRemiseRecord, markPackageSpecial, saveBonRemisePdf, saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice, notifyEmail
+  createBonRemiseRecord, deleteBonRemiseRecord, markPackageSpecial, saveBonRemisePdf, saveTrackingManual, setPackagesStatus, logAction, updatePackagePrice, notifyEmail,
+  getPackageStatusCounts
 } from "@/lib/db";
+
+/** Compteurs en haut de Packages (comme MCPACK) : un clic filtre la liste sur ce statut. */
+const STATUS_CHIPS: { status: string; label: string; cls: string; dot: string }[] = [
+  { status: "Reçu à Miami", label: "Reçus à Miami", cls: "bg-sky-50 text-sky-800 ring-sky-200", dot: "bg-sky-500" },
+  { status: "En préparation", label: "En préparation", cls: "bg-amber-50 text-amber-800 ring-amber-200", dot: "bg-amber-500" },
+  { status: "En transit", label: "En transit", cls: "bg-indigo-50 text-indigo-800 ring-indigo-200", dot: "bg-indigo-500" },
+  { status: "Arrivé en Haïti", label: "Arrivés en Haïti", cls: "bg-violet-50 text-violet-800 ring-violet-200", dot: "bg-violet-500" },
+  { status: "En route vers agence", label: "Vers l'agence", cls: "bg-orange-50 text-orange-800 ring-orange-200", dot: "bg-orange-500" },
+  { status: "Disponible", label: "Disponibles", cls: "bg-emerald-50 text-emerald-800 ring-emerald-200", dot: "bg-emerald-500" },
+  { status: "Facturé", label: "Facturés", cls: "bg-teal-50 text-teal-800 ring-teal-200", dot: "bg-teal-600" },
+  { status: "Livré", label: "Livrés", cls: "bg-slate-100 text-slate-700 ring-slate-200", dot: "bg-slate-500" },
+];
 import { computePrice, round2 } from "@/lib/pricing";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { Client, Conduce, INTERNAL_STATUSES, Pkg } from "@/lib/types";
@@ -158,11 +171,15 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
   // ===== Tooltip modèn sou tracking (pwen #2) =====
   const [hover, setHover] = useState<{ p: Pkg; ville: string; x: number; y: number } | null>(null);
   const joursDepot = (p: Pkg): number | null => {
-    const ref = p.received_at || p.created_date;
+    // Comme MCPACK : jours depuis « Creado » (arrivée à l'adresse de Miami). 0 = arrivé aujourd'hui.
+    // received_at n'est qu'un repli : il est réécrit à chaque passage de l'extension.
+    const ref = p.created_date || p.received_at;
     if (!ref) return null;
     const t = parseMcpackDate(ref) || new Date(ref).getTime();
     if (!t || isNaN(t)) return null;
-    const d = Math.floor((Date.now() - t) / 86400000);
+    const start = new Date(t); start.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const d = Math.round((today.getTime() - start.getTime()) / 86400000);
     return d >= 0 ? d : null;
   };
   const showTip = (p: Pkg, e: any) => setHover({
@@ -205,7 +222,14 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
   };
 
   /** Rechaje done yo apre yon aksyon (fakti, elatriye) — respekte mòd aktyèl la. */
-  const refresh = async () => (fullyLoaded ? load() : fetchServerPage(page));
+  const [statusCounts, setStatusCounts] = useState<Record<string, number> | null>(null);
+  const loadStatusCounts = () => {
+    if (conduceId) return;
+    getPackageStatusCounts(STATUS_CHIPS.map((c) => c.status), showArchived).then(setStatusCounts).catch(() => {});
+  };
+  /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  useEffect(() => { loadStatusCounts(); }, [showArchived, conduceId]);
+  const refresh = async () => { loadStatusCounts(); return fullyLoaded ? load() : fetchServerPage(page); };
 
   /** Sou demand: chaje TOUT rezilta ki matche filtè yo, seleksyone yo, pou bulk actions sou anpil paj. */
   const loadAllForSelection = async () => {
@@ -678,6 +702,35 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
         </div>
       </div>
 
+      {!conduceId && (
+        <div className="flex flex-wrap items-center gap-2" aria-label="Colis par statut">
+          {STATUS_CHIPS.map((c) => {
+            const n = statusCounts?.[c.status];
+            const active = status === c.status;
+            const inner = (
+              <>
+                <span className={`h-2 w-2 rounded-full ${c.dot}`} aria-hidden="true" />
+                <span>{c.label}</span>
+                <span className="rounded-md bg-white/70 px-1.5 font-extrabold tabular-nums">{n == null ? "…" : n}</span>
+              </>
+            );
+            const cls = `inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold ring-1 transition ${c.cls} ${
+              active ? "ring-2 !ring-navy shadow-sm" : "hover:shadow-sm"}`;
+            // Les livrés vivent dans l'Historique (la liste Packages ne les montre pas).
+            return c.status === "Livré"
+              ? <Link key={c.status} href="/historique" className={cls} title="Voir les colis livrés dans l'Historique">{inner}</Link>
+              : <button key={c.status} type="button" className={cls} aria-pressed={active}
+                  onClick={() => setStatus(active ? "" : c.status)} title={`Afficher seulement : ${c.status}`}>{inner}</button>;
+          })}
+          {status && (
+            <button type="button" onClick={() => setStatus("")}
+              className="inline-flex h-8 items-center rounded-lg bg-navy px-3 text-xs font-bold text-white hover:bg-navy-light">
+              Voir tout
+            </button>
+          )}
+        </div>
+      )}
+
       <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Tracking, code, nom, téléphone, ville, contenu…"
         resultCount={fullyLoaded ? filtered.length : total} onClear={clearFilters}
         selection={{ selectedCount: filteredSelectedCount, allSelected: allFilteredSelected, onToggleAll: selectAllFiltered, label: fullyLoaded ? "Sélectionner les colis filtrés" : `Charger et sélectionner les ${total} résultats`, disabled: loadingPage || (!fullyLoaded && !total) }}
@@ -763,12 +816,12 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
           <thead><tr>
             <th className="thc"><input type="checkbox" checked={allChecked} onChange={(e) => toggleAll(e.target.checked)} /></th>
             {["Code", "Nom du client", "Ville", "Tracking ID", "Tracking Number", "Lb", "Content", "Price $", "Total $", "Total HTG",
-              ...(hideHeader ? [] : ["Source"]), "Status", ""]
+              ...(hideHeader ? [] : ["Source"]), "Status", "Créé", ""]
               .map((h) => <th key={h} className="thc">{h}</th>)}
           </tr></thead>
           <tbody>
             {pageRows.length === 0 ? (
-              <tr><td colSpan={hideHeader ? 13 : 14} className="text-center py-10 text-mute">
+              <tr><td colSpan={hideHeader ? 14 : 15} className="text-center py-10 text-mute">
                 Aucun colis. Utilisez <a href="/sync" className="text-navy underline font-semibold">Synchronisation MCPACK</a>.
               </td></tr>
             ) : pageRows.map((p, i) => {
@@ -886,6 +939,22 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
                       </a>
                     )}
                   </div>
+                </td>
+                <td className="tdc whitespace-nowrap text-center">
+                  {(() => {
+                    const jrs = joursDepot(p);
+                    return (
+                      <div title="Date d'arrivée à l'adresse de Miami (Creado MCPACK) · jours écoulés">
+                        <p className="text-[11px] text-ink">{p.created_date || "·"}</p>
+                        {jrs != null && (
+                          <span className={`mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                            jrs >= 45 ? "bg-red-100 text-red-700" : jrs >= 20 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>
+                            Jours : {jrs}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td className="tdc whitespace-nowrap">
                   {!p.invoice_id && (
