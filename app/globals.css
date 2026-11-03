@@ -399,3 +399,11 @@ main:has(.retrait-floating) > button[title="Haut de page"] { bottom: 10.5rem; }
   .hero-slide, .hero-slide img, .hero-in { animation: none; }
   .hero-slide:first-child, .hero-in { opacity: 1; }
 }
+
+/* Logos des boutiques (accueil) : à plat, vraies couleurs.
+   Clair : le fond blanc des images disparaît dans la page (multiply).
+   Sombre : on inverse la luminosité en gardant les teintes, puis le fond devenu noir disparaît (screen). */
+.shop-logo { mix-blend-mode: multiply; }
+@media not print {
+  html.dark .shop-logo { filter: invert(1) hue-rotate(180deg); mix-blend-mode: screen; }
+}

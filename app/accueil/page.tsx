@@ -149,12 +149,12 @@ export default async function AccueilPage() {
         {/* Boutiques */}
         <section className={`${WRAP} mt-10`}>
           <h2 className="text-center text-[20px] font-bold sm:text-[22px]">Achetez sur vos boutiques préférées</h2>
-          {/* Logos dans leurs vraies couleurs, sur une pastille blanche (fond blanc gardé aussi en mode sombre). */}
-          <div className="mt-5 grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
+          {/* Logos à plat, dans leurs vraies couleurs : le fond blanc des images se fond dans la page (voir .shop-logo dans globals.css). */}
+          <div className="mt-6 grid grid-cols-3 items-center gap-x-4 gap-y-6 sm:grid-cols-4 lg:grid-cols-6">
             {SHOPS.map(([name, file]) => (
-              <div key={file} className="grid h-16 place-items-center rounded-xl px-3 shadow-sm ring-1 ring-black/5" style={{ background: "#ffffff" }}>
+              <div key={file} className="grid h-12 place-items-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/shop-logos/${file}.jpg`} alt={name} loading="lazy" className="max-h-11 w-auto max-w-full object-contain" />
+                <img src={`/shop-logos/${file}.jpg`} alt={name} loading="lazy" className="shop-logo max-h-12 w-auto max-w-full object-contain" />
               </div>
             ))}
           </div>
