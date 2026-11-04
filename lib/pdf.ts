@@ -6,6 +6,8 @@ import { dateFr, htg, usd } from "./utils";
 
 const NAVY: [number, number, number] = [18, 43, 92];
 const MIST: [number, number, number] = [243, 245, 249];
+/** Hauteur réservée en bas de chaque page pour le pied de page (mm). */
+const FOOTER_ZONE = 18;
 
 /**
  * Logo ofisyèl la: mete fichye a nan /public/logo.png (PNG, fon transparan si posib).
@@ -35,6 +37,7 @@ export function generateInvoicePdf(
 ): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
 
   // ===== Header =====
   doc.setFillColor(...NAVY);
@@ -120,26 +123,18 @@ export function generateInvoicePdf(
     alternateRowStyles: { fillColor: MIST },
     styles: { fontSize: 8, cellPadding: 2, overflow: "linebreak" },
     columnStyles: { 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } },
-    margin: { left: 14, right: 14 }
+    // Marge du bas : le tableau ne descend jamais sur la ligne de pied de page.
+    margin: { left: 14, right: 14, top: 16, bottom: FOOTER_ZONE }
   });
 
-  const yTable = (doc as any).lastAutoTable.finalY;
+  let yTable = (doc as any).lastAutoTable.finalY;
 
   // ===== Rezime pwa (agoch) =====
   const pkgCount = inv.package_count || items.length;
   const totalWeight = inv.total_weight ||
     Math.round(items.reduce((s, k) => s + Number(k.weight), 0) * 100) / 100;
 
-  doc.setFillColor(...MIST);
-  doc.roundedRect(14, yTable + 8, 80, 18, 2, 2, "F");
-  doc.setTextColor(...NAVY);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9.5);
-  doc.text(`Nombre de colis : ${pkgCount}`, 20, yTable + 15);
-  doc.text(`Poids total : ${totalWeight.toFixed(2)} LB`, 20, yTable + 22);
-
   // ===== Totals (adwat): USD + Taux + HTG =====
-  const y = yTable + 8;
   const boxW = 82;
   const x = W - 14 - boxW;
   const rate = Number(inv.exchange_rate_used) || 0;
@@ -170,6 +165,24 @@ export function generateInvoicePdf(
   // Montant en gourdes en petit sous la ligne (Service Order) : 3.5 mm de plus par ligne concernée.
   const noteRows = lines.filter((l) => l.htgNote && rate > 0).length + (deposit > 0 && rate > 0 ? 1 : 0);
   const boxH = 10 + lines.length * 7 + 8 + extraRows * 7 + noteRows * 3.5;
+
+  // ===== GARDE-FOU : le bloc des totaux doit tenir ENTIER sur la page =====
+  // Avant, une facture longue (≈ 27 colis et plus) poussait les totaux hors de
+  // la page A4 : le client ne voyait pas le TOTAL. Si la place manque sous le
+  // tableau, les totaux passent sur une nouvelle page, jamais coupés.
+  const summaryH = 8 + Math.max(18, boxH + 11) + 4;
+  if (yTable + summaryH > H - FOOTER_ZONE) {
+    doc.addPage();
+    yTable = 16;
+  }
+  doc.setFillColor(...MIST);
+  doc.roundedRect(14, yTable + 8, 80, 18, 2, 2, "F");
+  doc.setTextColor(...NAVY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9.5);
+  doc.text(`Nombre de colis : ${pkgCount}`, 20, yTable + 15);
+  doc.text(`Poids total : ${totalWeight.toFixed(2)} LB`, 20, yTable + 22);
+  const y = yTable + 8;
   doc.setFillColor(...MIST);
   doc.roundedRect(x, y, boxW, boxH, 2, 2, "F");
   doc.setFontSize(10);
@@ -231,7 +244,16 @@ export function generateInvoicePdf(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
-  doc.text(footer, 14, 285);
+  // Pied de page + numéro sur CHAQUE page.
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text(footer, 14, H - 10);
+    if (pages > 1) doc.text(`Page ${p}/${pages} · ${inv.invoice_number}`, W - 14, H - 10, { align: "right" });
+  }
 
   return doc;
 }
