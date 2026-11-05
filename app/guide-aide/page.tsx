@@ -11,14 +11,14 @@ import { DEPOT } from "@/lib/depot";
 import { SUPPORT_PHONE } from "@/lib/branding";
 
 /**
- * GUIDE ET AIDE (page publique envoyée aux clients).
- * Souvent le premier contact d'un client avec STANDA : chaque sujet est une
- * question, les unes sous les autres ; on ouvre celle qui nous intéresse.
- * Données : agences (module public autorisé) et /api/public/tarifs.
+ * GID AK ÈD (paj piblik nou voye bay kliyan yo), an kreyòl ayisyen.
+ * Se souvan premye kontak yon kliyan ak STANDA : chak sijè se yon kesyon,
+ * youn anba lòt ; kliyan an louvri sa ki enterese l la.
+ * Done : ajans yo (modil piblik otorize) ak /api/public/tarifs.
  */
 export const metadata: Metadata = {
-  title: "Guide et aide · STANDA COMMERCIAL",
-  description: "Adresse Amazon et SHEIN, fonctionnement de l'expédition Miami vers Haïti, délais, prix par ville, agences et questions fréquentes.",
+  title: "Gid ak èd · STANDA COMMERCIAL",
+  description: "Adrès Amazon ak SHEIN, kijan voye koli soti Miami pou Ayiti, delè, pri pa vil, ajans ak kesyon moun poze souvan.",
   robots: { index: false, follow: false },
 };
 export const revalidate = 300;
@@ -28,30 +28,30 @@ const WA_NUM = SUPPORT_PHONE.replace(/\D/g, "");
 const WA_LINK = `https://wa.me/${WA_NUM}`;
 
 const STEPS = [
-  ["Achetez en ligne", `Sur Amazon, SHEIN, eBay et les autres boutiques, utilisez l'adresse de notre dépôt à Miami avec votre code client (${CODE}) : à côté de votre nom sur Amazon, à la ligne Apt, suite sur SHEIN.`],
-  ["Réception à Miami", "Notre entrepôt enregistre et pèse votre colis. Vous recevez ensuite une notification sur votre téléphone ou par courriel."],
-  ["Acheminement vers Haïti", "Votre colis part de Miami vers Haïti, passe les formalités puis rejoint votre agence."],
-  ["Retrait en agence", "Quand le statut devient « Disponible », touchez « Préparer mon retrait » dans votre espace client : votre colis sera prêt à votre arrivée."],
+  ["Achte sou entènèt", `Sou Amazon, SHEIN, eBay ak lòt boutik yo, sèvi ak adrès depo nou an Miami ansanm ak kòd kliyan ou (${CODE}) : bò kote non w sou Amazon, nan liy Apt, suite sou SHEIN.`],
+  ["Nou resevwa l Miami", "Depo nou an anrejistre koli a epi li peze l. Apre sa, ou resevwa yon notifikasyon sou telefòn ou oswa pa imel."],
+  ["Koli a vwayaje pou Ayiti", "Koli w la kite Miami pou Ayiti, li pase nan ladwàn, epi li rive nan ajans ou a."],
+  ["Ou vin chèche l nan ajans lan", "Lè estati a vin « Disponible », peze « Préparer mon retrait » nan espas kliyan ou : koli w la ap pare lè w rive."],
 ] as const;
 
-const INTERDITS = ["Armes et munitions", "Produits inflammables", "Explosifs", "Produits corrosifs",
-  "Batteries au lithium séparées", "Drogues et stupéfiants", "Contenu pornographique", "Animaux vivants",
-  "Argent liquide", "Produits périssables"];
+const INTERDITS = ["Zam ak bal", "Pwodui ki ka pran dife", "Eksplozif", "Pwodui ki ka boule (asid)",
+  "Batri lityòm ki pou kont yo", "Dwòg", "Bagay pònografi", "Bèt vivan",
+  "Lajan kach", "Manje ki ka gate"];
 
 const FAQ: Array<[string, string]> = [
-  ["Mon colis n'apparaît pas encore : pourquoi ?",
-   "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. Si le transporteur indique « livré », comptez quelques heures pour l'enregistrement. Si le colis n'apparaît toujours pas, c'est souvent que votre code client n'était pas dans l'adresse de la commande. Écrivez à STANDA sur WhatsApp avec votre numéro de suivi pour faire une réclamation."],
-  ["Envoyer plusieurs colis ensemble, c'est possible ?",
-   "Oui. Vous pouvez commander dans plusieurs boutiques : chaque colis est reçu et pesé séparément à Miami, et tous ceux qui portent votre code client sont regroupés dans votre compte. Les colis disponibles en même temps peuvent être réunis sur une seule facture."],
-  ["Que signifie « Préparer mon retrait » ?",
-   "Quand un colis passe au statut « Disponible », ouvrez « Disponibles », cochez les colis que vous viendrez chercher et touchez « Préparer mon retrait ». L'agence prépare vos colis avant votre arrivée. La facture doit être payée avant la remise. Vous avez 15 jours pour retirer un colis disponible ; à partir du 16e jour, des frais d'entreposage de 5 $ US par jour s'appliquent."],
-  ["J'ai oublié mon mot de passe.",
-   "Écrivez à STANDA sur WhatsApp : nous vous envoyons un nouveau mot de passe. Connectez vous avec votre code client et ce mot de passe, puis changez le depuis votre nom en haut de l'écran, « Changer mon mot de passe »."],
-  ["Le prix final peut varier ?",
-   "Oui : le calculateur donne une estimation. Le prix final est celui de votre facture, calculé sur le poids réel pesé à Miami, selon le tarif de votre ville. Un article à tarif spécial (téléphone, ordinateur portable, tablette, caméra, téléviseur) ou des frais d'entreposage après 15 jours peuvent le changer. Le montant en gourdes est calculé au taux du jour de la facture."],
+  ["Koli m nan poko parèt : poukisa ?",
+   "Koli w la parèt depi depo nou an Miami fin resevwa l epi anrejistre l, pa anvan. Si konpayi livrezon an di koli a « livré », tann kèk èdtan pou nou anrejistre l. Si koli a toujou pa parèt, souvan se paske kòd kliyan ou pa t nan adrès kòmand lan. Ekri STANDA sou WhatsApp ak nimewo swivi koli a pou n fè yon reklamasyon."],
+  ["Èske m ka voye plizyè koli ansanm ?",
+   "Wi. Ou ka achte nan plizyè boutik : nou resevwa epi peze chak koli apa nan Miami, epi tout koli ki gen kòd kliyan ou mete ansanm nan kont ou. Koli ki disponib an menm tan ka mete sou yon sèl fakti."],
+  ["Kisa « Préparer mon retrait » vle di ?",
+   "Lè yon koli pase « Disponible », louvri « Disponibles », make koli ou pral vin chèche yo epi peze « Préparer mon retrait ». Ajans lan ap pare koli yo anvan ou rive. Fòk ou peye fakti a anvan yo remèt ou koli a. Ou gen 15 jou pou vin chèche yon koli ki disponib ; apati 16yèm jou a, gen frè depo 5 $ US pa jou."],
+  ["Mwen bliye modpas mwen.",
+   "Ekri STANDA sou WhatsApp : n ap voye yon nouvo modpas ba ou. Konekte ak kòd kliyan ou ak modpas sa a, epi chanje l : peze non w anlè ekran an, apre sa « Changer mon mot de passe »."],
+  ["Èske pri final la ka chanje ?",
+   "Wi : kalkilatè a ba ou yon estimasyon. Pri final la se sa ki sou fakti w la, kalkile sou vrè pwa koli a nan Miami, dapre pri vil ou a. Yon atik ki gen pri espesyal (telefòn, laptop, tablèt, kamera, televizyon) oswa frè depo apre 15 jou ka chanje l. Montan an goud la kalkile ak to jou fakti a."],
 ];
 
-/** Une question qui s'ouvre et se referme (sans JavaScript). */
+/** Yon kesyon ki louvri epi fèmen (san JavaScript). */
 function Question({ id, icon, title, open, children }: { id?: string; icon: ReactNode; title: string; open?: boolean; children: ReactNode }) {
   return (
     <details id={id} open={open} className="group scroll-mt-24 overflow-hidden rounded-2xl border border-line bg-white shadow-sm transition open:shadow-md">
@@ -70,28 +70,28 @@ export default async function GuideAidePage() {
   try { agences = await getAgences(); } catch { agences = []; }
 
   return (
-    <div className="min-h-screen bg-mist">
+    <div lang="ht" className="min-h-screen bg-mist">
       <header className="sticky top-0 z-20 border-b border-line bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3 sm:px-6">
           <Link href="/accueil" aria-label="STANDA COMMERCIAL"><Logo size={34} rounded="rounded-lg" /></Link>
-          <p className="flex-1 text-sm font-extrabold text-navy">Guide et aide</p>
-          <Link href="/login" className="rounded-lg bg-navy px-3 py-2 text-[13px] font-bold text-white">Mon espace</Link>
+          <p className="flex-1 text-sm font-extrabold text-navy">Gid ak èd</p>
+          <Link href="/login" className="rounded-lg bg-navy px-3 py-2 text-[13px] font-bold text-white">Espas mwen</Link>
         </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-4 pb-12 pt-8 sm:px-6">
         <div className="text-center">
-          <h1 className="text-[26px] font-extrabold leading-tight text-navy sm:text-[32px]">Comment pouvons nous vous aider ?</h1>
-          <p className="mx-auto mt-2 max-w-xl text-[14.5px] leading-relaxed text-slate-600">Bienvenue chez STANDA COMMERCIAL. Touchez une question pour voir la réponse.</p>
+          <h1 className="text-[26px] font-extrabold leading-tight text-navy sm:text-[32px]">Kijan nou ka ede w ?</h1>
+          <p className="mx-auto mt-2 max-w-xl text-[14.5px] leading-relaxed text-slate-600">Byenveni lakay STANDA COMMERCIAL. Peze yon kesyon pou w wè repons lan.</p>
         </div>
 
         <div className="mt-8 space-y-3">
-          <Question id="adresse" open icon={<MapPin size={19} />} title="Comment entrer mon adresse sur Amazon et SHEIN ?">
-            <p className="mb-5">Suivez les cases entourées. Remplacez <b>{CODE}</b> par votre propre code client (dans votre espace client, rubrique Adresse).</p>
+          <Question id="adresse" open icon={<MapPin size={19} />} title="Kijan pou m mete adrès mwen sou Amazon ak SHEIN ?">
+            <p className="mb-5">Swiv kaz ki antoure yo. Ranplase <b>{CODE}</b> pa pwòp kòd kliyan pa w (ou jwenn li nan espas kliyan ou, nan pati Adresse).</p>
             <AddressGuide />
           </Question>
 
-          <Question id="fonctionnement" icon={<Truck size={19} />} title="Comment ça marche ?">
+          <Question id="fonctionnement" icon={<Truck size={19} />} title="Kijan sa mache ?">
             <ol className="space-y-4">
               {STEPS.map(([title, text], index) => (
                 <li key={title} className="flex gap-3">
@@ -102,10 +102,10 @@ export default async function GuideAidePage() {
             </ol>
           </Question>
 
-          <Question id="adresse-miami" icon={<MapPin size={19} />} title="Quelle est l'adresse de Miami à utiliser ?">
-            <p>Copiez ces informations exactement lors de vos achats.</p>
+          <Question id="adresse-miami" icon={<MapPin size={19} />} title="Ki adrès Miami pou m sèvi ?">
+            <p>Kopye enfòmasyon sa yo egzakteman jan yo ye lè w ap achte.</p>
             <div className="mt-3 divide-y divide-line rounded-xl border border-line">
-              {([["Full Name", `Votre nom ${CODE}`], ["Address 1", DEPOT.address1], ["Address 2", CODE], ["City", DEPOT.city], ["State", DEPOT.state], ["ZIP Code", DEPOT.zip], ["Phone", DEPOT.phone]] as const).map(([key, value]) => (
+              {([["Full Name", `Non w ${CODE}`], ["Address 1", DEPOT.address1], ["Address 2", CODE], ["City", DEPOT.city], ["State", DEPOT.state], ["ZIP Code", DEPOT.zip], ["Phone", DEPOT.phone]] as const).map(([key, value]) => (
                 <div key={key} className="flex justify-between gap-3 px-3 py-2.5 text-[13.5px]">
                   <span className="shrink-0 text-slate-500">{key}</span>
                   <span className="break-all text-right font-semibold text-ink">{value}</span>
@@ -114,14 +114,14 @@ export default async function GuideAidePage() {
             </div>
           </Question>
 
-          <Question id="prix" icon={<Calculator size={19} />} title="Combien coûte l'envoi de mon colis ?">
+          <Question id="prix" icon={<Calculator size={19} />} title="Konbyen sa koute pou voye koli m ?">
             <PublicTarifs />
           </Question>
 
-          <Question id="agences" icon={<Store size={19} />} title="Où récupérer mon colis ?">
-            <p>Retirez votre colis dans l&apos;agence de votre ville.</p>
+          <Question id="agences" icon={<Store size={19} />} title="Ki kote pou m al chèche koli m ?">
+            <p>Ou vin chèche koli w la nan ajans ki nan vil ou a.</p>
             {agences.length === 0
-              ? <p className="mt-3">Écrivez à STANDA sur WhatsApp pour connaître l&apos;agence la plus proche de vous.</p>
+              ? <p className="mt-3">Ekri STANDA sou WhatsApp pou w konnen ki ajans ki pi pre w.</p>
               : <div className="mt-3 grid gap-2 sm:grid-cols-2">{agences.map((agence) => (
                   <div key={agence.id ?? agence.nom} className="rounded-xl border border-line px-3 py-2.5">
                     <p className="font-bold text-ink">{agence.nom}</p>
@@ -131,30 +131,30 @@ export default async function GuideAidePage() {
                 ))}</div>}
           </Question>
 
-          <Question id="delai" icon={<Clock size={19} />} title="Combien de temps prend mon colis ?">
-            <p>Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement <b>entre 3 et 7 jours ouvrables</b> pour qu&apos;il arrive à votre agence en Haïti. Les samedis et dimanches ne comptent pas.</p>
-            <p className="mt-2">Le délai peut changer selon la douane, ou si votre code client ne figure pas dans l&apos;adresse : une réclamation est alors nécessaire avant l&apos;envoi. Suivez chaque étape dans votre espace client.</p>
+          <Question id="delai" icon={<Clock size={19} />} title="Konbyen tan koli m pran pou l rive ?">
+            <p>Depi depo nou an Miami resevwa koli w la, li pran an jeneral <b>ant 3 ak 7 jou travay</b> pou l rive nan ajans ou an Ayiti. Samdi ak dimanch pa konte.</p>
+            <p className="mt-2">Delè a ka chanje akoz ladwàn, oswa si kòd kliyan ou pa nan adrès la : lè sa a, fòk nou fè yon reklamasyon anvan nou voye koli a. Ou ka swiv chak etap nan espas kliyan ou.</p>
           </Question>
 
-          <Question id="domicile" icon={<PackageX size={19} />} title="Venez vous chercher les colis à domicile ?">
-            <p>Non. STANDA COMMERCIAL ne passe pas prendre de colis chez vous. Nous recevons uniquement les colis livrés à notre dépôt de Miami.</p>
-            <p className="mt-2">Le colis est déjà entre vos mains aux USA ? Envoyez le à notre adresse de Miami avec un transporteur comme <b>FedEx</b>, <b>UPS</b> ou <b>USPS</b>, en écrivant l&apos;adresse avec votre code MC.</p>
+          <Question id="domicile" icon={<PackageX size={19} />} title="Èske nou vin pran koli lakay moun ?">
+            <p>Non. STANDA COMMERCIAL pa vin pran koli lakay ou. Nou resevwa sèlman koli yo livre nan depo nou an Miami.</p>
+            <p className="mt-2">Koli a deja nan men w Ozetazini ? Voye l nan adrès nou an Miami ak yon konpayi tankou <b>FedEx</b>, <b>UPS</b> oswa <b>USPS</b>, epi ekri adrès la ak kòd MC ou.</p>
           </Question>
 
-          <Question id="interdits" icon={<Ban size={19} />} title="Quels articles sont interdits ?">
-            <p>Les compagnies aériennes et la douane interdisent ces articles :</p>
+          <Question id="interdits" icon={<Ban size={19} />} title="Ki atik ki entèdi ?">
+            <p>Konpayi avyon yo ak ladwàn entèdi atik sa yo :</p>
             <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[13.5px] text-ink">
               {INTERDITS.map((item) => <li key={item}>{item}</li>)}
             </ul>
-            <p className="mt-3 text-[13px]">Vous êtes responsable du contenu de votre colis. En cas de doute, écrivez à STANDA sur WhatsApp avant votre achat.</p>
+            <p className="mt-3 text-[13px]">Se ou ki responsab sa ki nan koli w la. Si w gen dout, ekri STANDA sou WhatsApp anvan ou achte.</p>
           </Question>
 
-          <Question id="principes" icon={<ShieldCheck size={19} />} title="Pourquoi choisir STANDA ?">
+          <Question id="principes" icon={<ShieldCheck size={19} />} title="Poukisa pou m chwazi STANDA ?">
             <ul className="space-y-2">
-              <li><b>Transparence</b> : le prix final correspond au poids réel pesé à l&apos;entrepôt.</li>
-              <li><b>Sécurité</b> : chaque colis est suivi de Miami jusqu&apos;à votre agence.</li>
-              <li><b>Rapidité</b> : vos colis partent régulièrement vers Haïti.</li>
-              <li><b>Proximité</b> : une équipe joignable par téléphone et WhatsApp.</li>
+              <li><b>Transparans</b> : pri final la baze sou vrè pwa koli a nou peze nan depo a.</li>
+              <li><b>Sekirite</b> : nou swiv chak koli depi Miami jiskaske l rive nan ajans ou.</li>
+              <li><b>Rapidite</b> : koli yo pati pou Ayiti regilyèman.</li>
+              <li><b>Toupre w</b> : yon ekip ou ka jwenn pa telefòn ak WhatsApp.</li>
             </ul>
             <a href={`tel:${WA_NUM}`} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-[14px] font-bold text-navy"><Phone size={15} /> {SUPPORT_PHONE}</a>
           </Question>
@@ -167,7 +167,7 @@ export default async function GuideAidePage() {
         </div>
 
         <a href={WA_LINK} target="_blank" rel="noreferrer" className="mt-8 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 text-[15px] font-bold text-white">
-          <WhatsAppIcon size={16} /> Une autre question ? Écrivez à STANDA sur WhatsApp
+          <WhatsAppIcon size={16} /> Ou gen yon lòt kesyon ? Ekri STANDA sou WhatsApp
         </a>
       </main>
     </div>

@@ -22,21 +22,21 @@ export default function PublicTarifs() {
       .catch(() => setError(true));
   }, []);
 
-  if (error) return <p className="text-[14px] text-slate-500">Les tarifs sont momentanément indisponibles. Contactez STANDA sur WhatsApp.</p>;
+  if (error) return <p className="text-[14px] text-slate-500">Pri yo pa disponib kounye a. Ekri STANDA sou WhatsApp.</p>;
   if (!state) return <div className="h-40 animate-pulse rounded-2xl bg-slate-100" />;
 
   return (
     <div className="space-y-3">
       <ul className="space-y-2 text-[14px] leading-relaxed text-slate-600">
-        <li>• Le prix correspond au <b>poids du colis × tarif de votre ville</b> (tableau plus bas).</li>
-        <li>• À partir de <b>{TAX_THRESHOLD_LB} lb</b> au total, une taxe fixe de <b>{usd(TAX_FIXED_USD)}</b> s&apos;applique.</li>
-        <li>• Certains articles comme les téléphones, ordinateurs portables et appareils photo ont un <b>prix forfaitaire</b> · le poids ne s&apos;applique pas.</li>
-        <li>• Le prix affiché dans l&apos;application est une <b>estimation</b>. Le prix final est fixé après la pesée du colis à l&apos;entrepôt.</li>
+        <li>• Pri a se <b>pwa koli a × pri vil ou a</b> (gade tablo ki anba a).</li>
+        <li>• Depi total la rive <b>{TAX_THRESHOLD_LB} lb</b>, gen yon taks fiks <b>{usd(TAX_FIXED_USD)}</b>.</li>
+        <li>• Kèk atik tankou telefòn, laptop ak kamera gen yon <b>pri fiks</b> : pwa a pa konte pou yo.</li>
+        <li>• Pri ou wè nan aplikasyon an se yon <b>estimasyon</b>. Pri final la fikse apre nou fin peze koli a nan depo a.</li>
       </ul>
       <div className="overflow-hidden rounded-2xl border border-line">
         <table className="w-full text-left text-[15px]">
           <thead className="bg-navy text-white">
-            <tr><th className="px-4 py-3 font-semibold">Ville (agence de retrait)</th><th className="px-4 py-3 text-right font-semibold">Prix par livre</th></tr>
+            <tr><th className="px-4 py-3 font-semibold">Vil (ajans kote w ap chèche koli)</th><th className="px-4 py-3 text-right font-semibold">Pri pa liv</th></tr>
           </thead>
           <tbody className="divide-y divide-line">
             {state.tarifs.map((row) => (
@@ -46,8 +46,8 @@ export default function PublicTarifs() {
         </table>
       </div>
       <p className="text-[13px] leading-relaxed text-slate-500">
-        Tarifs du <b>compte Personnel</b>. Le prix d&apos;un colis = son poids × le prix par livre de votre ville. Les comptes Business ont des conditions séparées : contactez STANDA.
-        Certains articles (téléphones, ordinateurs…) ou colis spéciaux peuvent avoir un prix fixe ou une taxe, toujours indiqués sur votre facture.
+        Pri sa yo se pou <b>kont Personnel</b>. Pri yon koli = pwa li × pri pa liv vil ou a. Kont Business yo gen lòt kondisyon : kontakte STANDA.
+        Kèk atik (telefòn, laptop…) oswa koli espesyal ka gen yon pri fiks oswa yon taks, epi sa toujou ekri sou fakti w la.
       </p>
     </div>
   );

@@ -8,8 +8,8 @@ import AddressGuide from "@/components/site/AddressGuide";
  * lyen an bay yon kliyan depi Paramètres (gid adrès SHEIN / Amazon).
  */
 export const metadata: Metadata = {
-  title: "Entrer votre adresse sur SHEIN et Amazon · STANDA COMMERCIAL",
-  description: "Comment remplir l'adresse de notre dépôt de Miami sur SHEIN et Amazon, case par case.",
+  title: "Kijan pou mete adrès ou sou SHEIN ak Amazon · STANDA COMMERCIAL",
+  description: "Kijan pou ranpli adrès depo nou an Miami sou SHEIN ak Amazon, kaz pa kaz.",
   robots: { index: false, follow: false }
 };
 
@@ -23,9 +23,9 @@ export default function GuideAdressePage() {
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-        <h1 className="text-[28px] font-extrabold leading-tight text-navy sm:text-[34px]">Entrer votre adresse sur SHEIN et Amazon</h1>
+        <h1 className="text-[28px] font-extrabold leading-tight text-navy sm:text-[34px]">Kijan pou mete adrès ou sou SHEIN ak Amazon</h1>
         <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-slate-600">
-          Suivez les cases entourées. Remplacez <b>MC-XXXXX</b> par votre propre code client (vous le trouvez dans votre espace client, rubrique Adresse).
+          Swiv kaz ki antoure yo. Ranplase <b>MC-XXXXX</b> pa pwòp kòd kliyan pa w (ou jwenn li nan espas kliyan ou, nan pati Adresse).
         </p>
         <div className="mt-8"><AddressGuide /></div>
       </main>

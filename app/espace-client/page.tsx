@@ -987,7 +987,7 @@ export default function EspaceClientPage() {
             <ClientInstallCard />
 
             <button onClick={() => setView("infos")} className="client-help-link client-enter client-enter-d4">
-              <span><BookOpen size={19} /> Guide et aide</span><ChevronRight size={17} />
+              <span><BookOpen size={19} /> Gid ak èd</span><ChevronRight size={17} />
             </button>
 
             {activeRetraits.length > 0 && (
@@ -1146,31 +1146,31 @@ export default function EspaceClientPage() {
         {view === "infos" && (
           <>
             <button type="button" onClick={() => setView("guideAdresse")} className="client-help-link">
-              <span><MapPin size={19} /> Comment entrer mon adresse sur SHEIN et Amazon</span><ChevronRight size={17} />
+              <span><MapPin size={19} /> Kijan pou m mete adrès mwen sou SHEIN ak Amazon</span><ChevronRight size={17} />
             </button>
 
-            {/* Kòd MC a — kisa li ye, poukisa li enpòtan */}
+            {/* Kòd MC a : kisa li ye, poukisa li enpòtan */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
-                <KeyRound size={15} /> Votre code client MC
+                <KeyRound size={15} /> Kòd kliyan MC ou
               </h2>
               {client.customer_code && (
                 <p className="mt-3 rounded-xl bg-navy/5 px-3 py-2.5 text-center">
-                  <span className="block text-[11px] text-mute">Votre code</span>
+                  <span className="block text-[11px] text-mute">Kòd ou</span>
                   <span className="block font-mono text-xl font-extrabold tracking-wide text-navy">{client.customer_code}</span>
                 </p>
               )}
               <p className="text-[12px] text-mute mt-3 leading-relaxed">
-                Le code MC (par exemple MC-37335) est le <b>numéro unique de votre compte</b>. Il vous est attribué à l&apos;activation de votre compte et ne change jamais. C&apos;est aussi votre <b>identifiant de connexion</b> à l&apos;application.
+                Kòd MC a (pa egzanp MC-37335) se <b>nimewo pa w nan sistèm nan</b>. Nou ba ou li lè kont ou aktive, epi li pa janm chanje. Se avè l tou ou <b>konekte</b> nan aplikasyon an.
               </p>
-              <h3 className="mt-3 text-[13px] font-bold text-ink">Pourquoi il est si important</h3>
+              <h3 className="mt-3 text-[13px] font-bold text-ink">Poukisa li enpòtan konsa</h3>
               <ul className="mt-1.5 space-y-2">
                 {([
-                  ["Il relie le colis à votre compte", "À Miami, notre entrepôt reçoit des centaines de colis par jour. Le code MC écrit sur l'adresse est la seule façon de savoir que le colis est à vous."],
-                  ["Sans code, le colis est bloqué", "Un colis sans code (ou avec un code faux) ne peut pas être enregistré à votre nom : il faut ouvrir une réclamation avant de l'envoyer en Haïti, ce qui retarde la livraison."],
-                  ["Où l'écrire", "Devant votre nom (« Full Name ») et dans « Address 2 » — sur Amazon, sur la même ligne que la rue. Écrivez-le exactement : MC, un tiret, puis les chiffres."],
-                  ["Au retrait en agence", "Donnez votre code MC et présentez une pièce d'identité : l'agent ouvre votre dossier et vous remet vos colis."],
-                  ["Ne le prêtez pas", "Tout colis qui arrive avec votre code est enregistré et facturé sur votre compte. Ne donnez pas votre code à une autre personne pour ses achats."]
+                  ["Li konekte koli a ak kont ou", "Nan Miami, depo nou an resevwa plizyè santèn koli chak jou. Kòd MC ki ekri nan adrès la se sèl fason nou konnen koli a se pou ou."],
+                  ["San kòd, koli a bloke", "Yon koli ki pa gen kòd (oswa ki gen yon move kòd) pa ka anrejistre sou non w : fòk nou fè yon reklamasyon anvan nou voye l Ayiti, sa ki fè l pran plis tan."],
+                  ["Ki kote pou w ekri l", "Sou Amazon, mete l bò kote non w (« Full name »). Sou SHEIN, mete l nan liy « Apt, suite ». Ekri l egzakteman : MC, yon tirè, epi chif yo."],
+                  ["Lè w vin chèche koli", "Bay kòd MC ou epi montre yon pyès idantite : ajan an louvri dosye w epi li remèt ou koli yo."],
+                  ["Pa prete l", "Tout koli ki rive ak kòd ou anrejistre epi fakture sou kont ou. Pa bay lòt moun kòd ou pou yo fè acha."]
                 ] as const).map(([t, d]) => (
                   <li key={t} className="flex gap-2.5">
                     <CircleCheck size={15} className="mt-0.5 shrink-0 text-accent" />
@@ -1186,14 +1186,14 @@ export default function EspaceClientPage() {
             {/* Kijan sa mache */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
-                <Truck size={15} /> Comment fonctionne votre expédition
+                <Truck size={15} /> Kijan voyaj koli w la mache
               </h2>
               <ol className="mt-3 space-y-3">
                 {([
-                  ["Achetez en ligne", `Sur Amazon, SHEIN, eBay… utilisez l'adresse de notre dépôt à Miami et ajoutez le code ${client.customer_code} dans le champ « Address 2 ».`],
-                  ["Réception à Miami", "Notre entrepôt enregistre et pèse votre colis. Vous recevez ensuite une notification par courriel ou WhatsApp."],
-                  ["Acheminement du colis", "Votre colis part de Miami vers Haïti, passe les formalités puis rejoint votre agence."],
-                  ["Retrait en agence", "Lorsque le statut devient « Disponible », cliquez sur « Préparer mon retrait » afin que votre colis soit prêt à votre arrivée."]
+                  ["Achte sou entènèt", `Sou Amazon, SHEIN, eBay… sèvi ak adrès depo nou an Miami epi ajoute kòd ${client.customer_code} ou a : bò kote non w sou Amazon, nan liy « Apt, suite » sou SHEIN.`],
+                  ["Nou resevwa l Miami", "Depo nou an anrejistre koli a epi li peze l. Apre sa, ou resevwa yon notifikasyon pa imel oswa WhatsApp."],
+                  ["Koli a vwayaje", "Koli w la kite Miami pou Ayiti, li pase nan ladwàn, epi li rive nan ajans ou a."],
+                  ["Ou vin chèche l nan ajans lan", "Lè estati a vin « Disponible », peze « Préparer mon retrait » pou koli w la ka pare lè w rive."]
                 ] as const).map(([t, d], i) => (
                   <li key={t} className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-navy text-white text-[11px] font-bold grid place-items-center shrink-0">
@@ -1208,32 +1208,32 @@ export default function EspaceClientPage() {
               </ol>
             </div>
 
-            {/* Délai */}
+            {/* Delè */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
-                <Clock size={15} /> Délai de livraison
+                <Clock size={15} /> Konbyen tan koli a pran
               </h2>
               <p className="text-[12px] text-mute mt-2 leading-relaxed">
-                Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement <b>entre 3 et 7 jours ouvrables</b> pour qu&apos;il arrive à votre agence en Haïti.
+                Depi depo nou an Miami resevwa koli w la, li pran an jeneral <b>ant 3 ak 7 jou travay</b> pou l rive nan ajans ou an Ayiti.
               </p>
               <p className="text-[12px] text-mute mt-2 leading-relaxed">
-                Un <b>jour ouvrable</b> va du lundi au vendredi · les samedis et dimanches ne comptent pas dans ce délai. Un colis reçu un vendredi peut donc arriver le mardi ou mercredi suivant sans retard de notre part.
+                Yon <b>jou travay</b> se lendi rive vandredi : samdi ak dimanch pa konte. Kidonk yon koli nou resevwa yon vandredi ka rive madi oswa mèkredi apre a, san li pa an reta.
               </p>
               <p className="text-[11px] text-mute mt-2 leading-relaxed">
-                Ce délai peut varier seulement selon la douane, ou si votre code client ne figure pas dans l&apos;adresse du colis : une réclamation doit alors être faite avant que le colis puisse être envoyé en Haïti, ce qui prend du temps. Suivez chaque étape directement dans l&apos;application, sans avoir à nous contacter.
+                Delè a ka chanje sèlman akoz ladwàn, oswa si kòd kliyan ou pa nan adrès koli a : lè sa a, fòk nou fè yon reklamasyon anvan nou voye koli a Ayiti, sa ki pran tan. Ou ka swiv chak etap dirèkteman nan aplikasyon an, san ou pa bezwen rele nou.
               </p>
             </div>
 
-            {/* Adrès la — jan pou w ekri l */}
+            {/* Adrès la : jan pou w ekri l */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
-                <MapPin size={15} /> Comment renseigner votre adresse
+                <MapPin size={15} /> Kijan pou w ekri adrès ou
               </h2>
               <p className="text-[12px] text-mute mt-2 leading-relaxed">
-                Copiez ces informations <b>exactement</b> lors de vos achats. Votre code client permet d&apos;associer le colis à votre compte.
+                Kopye enfòmasyon sa yo <b>egzakteman</b> jan yo ye lè w ap achte. Se kòd kliyan ou ki pèmèt nou konekte koli a ak kont ou.
               </p>
               <div className="mt-3 rounded-xl border border-line divide-y divide-line">
-                {([["Full Name", `${client.customer_code} ${non || ""}`.trim()],
+                {([["Full Name", `${non || ""} ${client.customer_code}`.trim()],
                    ["Address 1", DEPOT.address1],
                    ["Address 2", client.customer_code],
                    ["City", DEPOT.city],
@@ -1247,20 +1247,20 @@ export default function EspaceClientPage() {
                 ))}
               </div>
               <button onClick={() => setView("adresse")} className="btn btn-ghost border border-line w-full justify-center mt-3 !text-xs">
-                Voir mon adresse complète
+                Wè adrès konplè mwen
               </button>
             </div>
 
-            {/* Nos agences */}
+            {/* Ajans yo */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
-                <Store size={15} /> Nos agences
+                <Store size={15} /> Ajans nou yo
               </h2>
               <p className="text-[12px] text-mute mt-2 leading-relaxed">
-                Retirez votre colis dans le point de retrait le plus proche de vous.
+                Vin chèche koli w la nan ajans ki pi pre w la.
               </p>
               {agences.length === 0 ? (
-                <p className="text-[12px] text-mute mt-3">Contactez STANDA sur WhatsApp pour connaître l&apos;agence la plus proche de vous.</p>
+                <p className="text-[12px] text-mute mt-3">Ekri STANDA sou WhatsApp pou w konnen ki ajans ki pi pre w.</p>
               ) : (
                 <div className="mt-3 divide-y divide-line">
                   {agences.map((a) => (
@@ -1274,40 +1274,40 @@ export default function EspaceClientPage() {
               )}
             </div>
 
-            {/* Tarif */}
+            {/* Pri */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
-                <Calculator size={15} /> Comment le prix est calculé
+                <Calculator size={15} /> Kijan nou kalkile pri a
               </h2>
               <ul className="mt-3 space-y-2 text-[12px] text-mute leading-relaxed">
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span>Le prix correspond au <b>poids du colis × tarif de votre ville</b>{client.ville?.name ? <> ({client.ville.name})</> : null}.</span></li>
+                  <span>Pri a se <b>pwa koli a × pri vil ou a</b>{client.ville?.name ? <> ({client.ville.name})</> : null}.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span>À partir de <b>{TAX_THRESHOLD_LB} lb</b> au total, une taxe fixe de <b>{usd(TAX_FIXED_USD)}</b> s&apos;applique.</span></li>
+                  <span>Depi total la rive <b>{TAX_THRESHOLD_LB} lb</b>, gen yon taks fiks <b>{usd(TAX_FIXED_USD)}</b>.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span>Certains articles comme les téléphones, ordinateurs portables et appareils photo ont un <b>prix forfaitaire</b> · le poids ne s&apos;applique pas.</span></li>
+                  <span>Kèk atik tankou telefòn, laptop ak kamera gen yon <b>pri fiks</b> : pwa a pa konte pou yo.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span>Le prix affiché dans l&apos;application est une <b>estimation</b>. Le prix final est fixé après la pesée du colis à l&apos;entrepôt.</span></li>
+                  <span>Pri ou wè nan aplikasyon an se yon <b>estimasyon</b>. Pri final la fikse apre nou fin peze koli a nan depo a.</span></li>
               </ul>
               <button onClick={() => setView("calc")} className="btn btn-ghost border border-line w-full justify-center mt-3 !text-xs">
-                <Calculator size={14} /> Ouvrir le calculateur
+                <Calculator size={14} /> Louvri kalkilatè a
               </button>
             </div>
 
-            {/* Nos principes */}
+            {/* Prensip nou */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
-                <ShieldCheck size={15} /> Nos principes
+                <ShieldCheck size={15} /> Prensip nou yo
               </h2>
               <ul className="mt-3 space-y-2 text-[12px] text-mute leading-relaxed">
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span><b>Transparence</b> · le prix final correspond toujours au poids réel pesé à l&apos;entrepôt, jamais à une estimation imposée.</span></li>
+                  <span><b>Transparans</b> · pri final la toujou baze sou vrè pwa nou peze nan depo a, pa sou yon estimasyon.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span><b>Sécurité</b> · chaque colis est suivi de sa réception à Miami jusqu&apos;à sa remise à votre agence.</span></li>
+                  <span><b>Sekirite</b> · nou swiv chak koli depi nou resevwa l Miami jiskaske nou remèt li nan ajans ou.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span><b>Rapidité</b> · vos colis sont acheminés régulièrement vers Haïti, sans attendre un plein chargement.</span></li>
+                  <span><b>Rapidite</b> · koli yo pati pou Ayiti regilyèman, nou pa tann pou yon chajman plen.</span></li>
                 <li className="flex gap-2"><span className="text-navy">•</span>
-                  <span><b>Proximité</b> · une équipe joignable par téléphone et WhatsApp pour répondre à vos questions.</span></li>
+                  <span><b>Toupre w</b> · yon ekip ou ka jwenn pa telefòn ak WhatsApp pou reponn kesyon w.</span></li>
               </ul>
               <a href={`tel:${WA_NUM}`} className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-line px-3 py-2.5 text-[13px] font-bold text-navy">
                 <Phone size={15} /> {SUPPORT_PHONE}
@@ -1317,15 +1317,15 @@ export default function EspaceClientPage() {
             {/* Atik entèdi */}
             <div className="card p-5 border-red-200">
               <h2 className="text-sm font-bold text-red-700 uppercase tracking-wide flex items-center gap-2">
-                <Ban size={15} /> Articles interdits
+                <Ban size={15} /> Atik ki entèdi
               </h2>
               <p className="text-[12px] text-mute mt-2 leading-relaxed">
-                Les compagnies aériennes et la douane interdisent les articles suivants. Ils ne peuvent pas être expédiés :
+                Konpayi avyon yo ak ladwàn entèdi atik sa yo. Nou pa ka voye yo :
               </p>
               <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
-                {["Armes et munitions", "Produits inflammables", "Explosifs", "Produits corrosifs",
-                  "Batteries au lithium séparées", "Drogues et stupéfiants", "Contenu pornographique", "Animaux vivants",
-                  "Espèces", "Produits périssables"].map((a) => (
+                {["Zam ak bal", "Pwodui ki ka pran dife", "Eksplozif", "Pwodui ki ka boule (asid)",
+                  "Batri lityòm ki pou kont yo", "Dwòg", "Bagay pònografi", "Bèt vivan",
+                  "Lajan kach", "Manje ki ka gate"].map((a) => (
                   <p key={a} className="text-[12px] text-ink flex gap-1.5">
                     <span className="text-red-500 shrink-0">✕</span>{a}
                   </p>
@@ -1333,33 +1333,33 @@ export default function EspaceClientPage() {
               </div>
               <p className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 mt-3 leading-relaxed">
                 <AlertTriangle size={12} className="inline mr-1" />
-                Vous êtes responsable du contenu de votre colis. Un article interdit peut être saisi par la douane sans recours.
-                En cas de doute, contactez STANDA sur WhatsApp avant votre achat.
+                Se ou ki responsab sa ki nan koli w la. Ladwàn ka sezi yon atik ki entèdi, epi ou pap ka reklame l.
+                Si w gen dout, ekri STANDA sou WhatsApp anvan ou achte.
               </p>
             </div>
 
             {/* Kesyon */}
             <div className="card p-5">
               <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
-                <HelpCircle size={15} /> Questions fréquentes
+                <HelpCircle size={15} /> Kesyon moun poze souvan
               </h2>
               <div className="mt-3 divide-y divide-line">
                 {([
                   // Repons yo reflete règ sistèm nan EGZAKTEMAN (delè pibliye anwo a,
                   // règ antrepozaj /confidentialite, lib/pricing.ts, flux retrait).
                   // Si youn nan règ sa yo chanje, mete repons lan ajou tou.
-                  ["Combien de temps prend mon colis ?",
-                   "Une fois votre colis reçu à notre entrepôt de Miami, comptez généralement entre 3 et 7 jours ouvrables pour qu'il arrive à votre agence en Haïti. Ce délai peut varier seulement selon la douane, ou si votre code client ne figure pas dans l'adresse du colis : une réclamation doit alors être faite avant que le colis puisse être envoyé en Haïti, ce qui prend du temps. Ouvrez le colis dans l'application pour voir son étape : Reçu à Miami, En préparation, En transit, Arrivé en Haïti, En route vers agence, puis Disponible."],
-                  ["Mon colis n'apparaît pas encore : pourquoi ?",
-                   "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. Si le transporteur indique « livré », comptez quelques heures pour l'enregistrement. L'application se met à jour toute seule chaque minute ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. Si votre colis n'apparaît pas, c'est souvent que l'adresse a été mal encodée lors de l'achat ou que votre code client MC-… n'a pas été mis sur la ligne « Address 2 » : sans ce code, nous ne pouvons pas relier le colis à votre compte. Recopiez toujours exactement l'adresse de la page « Mon adresse ». Dans ce cas, écrivez à STANDA sur WhatsApp avec votre numéro de suivi pour faire une réclamation."],
-                  ["Envoyer plusieurs colis ensemble, c'est possible ?",
-                   "Oui. Vous pouvez commander dans plusieurs boutiques : chaque colis est reçu et pesé séparément à Miami, et tous ceux qui portent votre code client sont regroupés dans votre compte. Les colis disponibles en même temps peuvent être réunis sur une seule facture."],
-                  ["Que signifie « Préparer mon retrait » ?",
-                   "Quand un colis passe au statut « Disponible », ouvrez « Disponibles », cochez les colis que vous viendrez chercher et touchez « Préparer mon retrait ». L'agence prépare alors vos colis avant votre arrivée : votre demande passe de « En attente » à « Préparé », puis à « Remis » quand vous les avez récupérés. Les factures impayées doivent être réglées à l'agence avant la remise. Vous disposez de 15 jours pour retirer un colis disponible ; à partir du 16e jour, des frais d'entreposage de 5 $ US par jour s'appliquent."],
-                  ["J'ai oublié mon mot de passe.",
-                   "Écrivez à STANDA sur WhatsApp : nous vous envoyons un nouveau mot de passe. Veuillez vous connecter avec votre code client MC-XXXXX et ce mot de passe. Vous pouvez ensuite le changer : touchez votre nom en haut de l'écran, puis « Changer mon mot de passe »."],
-                  ["Le prix final peut varier ?",
-                   "Oui : le calculateur donne une estimation. Le prix final est celui de votre facture, calculé sur le poids réel pesé à notre entrepôt de Miami, selon le tarif de votre ville. Il peut différer de l'estimation si le poids réel n'est pas celui que vous avez encodé, si le colis contient un article à tarif spécial comme un téléphone, un ordinateur portable, une tablette, une caméra ou un téléviseur, ou si des frais d'entreposage s'ajoutent pour un retrait après 15 jours. Le montant en gourdes est calculé au taux du jour de la facture."]
+                  ["Konbyen tan koli m pran pou l rive ?",
+                   "Depi depo nou an Miami resevwa koli w la, li pran an jeneral ant 3 ak 7 jou travay pou l rive nan ajans ou an Ayiti. Delè a ka chanje sèlman akoz ladwàn, oswa si kòd kliyan ou pa nan adrès koli a : lè sa a, fòk nou fè yon reklamasyon anvan nou voye koli a Ayiti, sa ki pran tan. Louvri koli a nan aplikasyon an pou w wè ki etap li ye : Reçu à Miami, En préparation, En transit, Arrivé en Haïti, En route vers agence, epi Disponible."],
+                  ["Koli m nan poko parèt : poukisa ?",
+                   "Koli w la parèt depi depo nou an Miami fin resevwa l epi anrejistre l, pa anvan. Si konpayi livrezon an di koli a « livré », tann kèk èdtan pou nou anrejistre l. Aplikasyon an mete tèt li ajou chak minit ; ou ka peze bouton ↻ anlè ekran an tou. Si koli w la pa parèt, souvan se paske adrès la pa t byen ekri lè w t ap achte, oswa kòd kliyan MC ou pa t ladan l : san kòd sa a, nou pa ka konekte koli a ak kont ou. Toujou kopye adrès ki nan paj « Mon adresse » la egzakteman. Si sa rive, ekri STANDA sou WhatsApp ak nimewo swivi koli a pou n fè yon reklamasyon."],
+                  ["Èske m ka voye plizyè koli ansanm ?",
+                   "Wi. Ou ka achte nan plizyè boutik : nou resevwa epi peze chak koli apa nan Miami, epi tout koli ki gen kòd kliyan ou mete ansanm nan kont ou. Koli ki disponib an menm tan ka mete sou yon sèl fakti."],
+                  ["Kisa « Préparer mon retrait » vle di ?",
+                   "Lè yon koli pase « Disponible », louvri « Disponibles », make koli ou pral vin chèche yo epi peze « Préparer mon retrait ». Ajans lan ap pare koli yo anvan ou rive : demann ou an pase « En attente », apre sa « Préparé », epi « Remis » lè w fin pran koli yo. Fòk ou peye fakti ki poko peye yo nan ajans lan anvan yo remèt ou koli yo. Ou gen 15 jou pou vin chèche yon koli ki disponib ; apati 16yèm jou a, gen frè depo 5 $ US pa jou."],
+                  ["Mwen bliye modpas mwen.",
+                   "Ekri STANDA sou WhatsApp : n ap voye yon nouvo modpas ba ou. Konekte ak kòd kliyan MC-XXXXX ou a ak modpas sa a. Apre sa ou ka chanje l : peze non w anlè ekran an, epi « Changer mon mot de passe »."],
+                  ["Èske pri final la ka chanje ?",
+                   "Wi : kalkilatè a ba ou yon estimasyon. Pri final la se sa ki sou fakti w la, kalkile sou vrè pwa koli a nan depo nou an Miami, dapre pri vil ou a. Li ka diferan de estimasyon an si vrè pwa a pa sa w te mete a, si koli a gen yon atik ki gen pri espesyal tankou telefòn, laptop, tablèt, kamera oswa televizyon, oswa si gen frè depo paske w vin chèche l apre 15 jou. Montan an goud la kalkile ak to jou fakti a."]
                 ] as const).map(([q, a]) => (
                   <details key={q} className="py-2.5 group">
                     <summary className="text-[13px] font-semibold text-ink cursor-pointer list-none flex items-start gap-2">
@@ -1373,7 +1373,7 @@ export default function EspaceClientPage() {
             </div>
 
             <a href={WA_LINK} target="_blank" rel="noreferrer" className="btn btn-wa w-full justify-center">
-              <WhatsAppIcon size={15} /> Une question ? Écrivez à STANDA sur WhatsApp
+              <WhatsAppIcon size={15} /> Ou gen yon kesyon ? Ekri STANDA sou WhatsApp
             </a>
           </>
         )}
@@ -1388,7 +1388,7 @@ export default function EspaceClientPage() {
         {view === "adresse" && (
           <>
             <button type="button" onClick={() => setView("guideAdresse")} className="client-help-link">
-              <span><MapPin size={19} /> Comment entrer mon adresse sur SHEIN et Amazon</span><ChevronRight size={17} />
+              <span><MapPin size={19} /> Kijan pou m mete adrès mwen sou SHEIN ak Amazon</span><ChevronRight size={17} />
             </button>
 
             <div className="card p-5">
