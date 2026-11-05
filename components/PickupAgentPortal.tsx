@@ -895,7 +895,7 @@ function RemiseOffer({ offer, busy, onRelease, onLater }: { offer: { customerCod
       <div className="sd-pop mx-auto grid h-24 w-24 place-items-center rounded-full bg-emerald-500">
         <svg viewBox="0 0 24 24" className="h-14 w-14" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className="sd-check" d="M5 12.5l4.5 4.5L19 7.5" /></svg>
       </div>
-      <h2 id="remise-offer-title" className="mt-6 text-xl font-semibold text-slate-900">Paiement enregistré{offer.customerCode}</h2>
+      <h2 id="remise-offer-title" className="mt-6 text-xl font-semibold text-slate-900">Paiement enregistré, {offer.customerCode}</h2>
       <p className="mx-auto mt-2 whitespace-pre-line text-[15px] leading-relaxed text-slate-600">{offer.paymentText}</p>
       <p className="mx-auto mt-5 rounded-xl bg-orange-50 px-4 py-3 text-sm font-medium text-[#c2410c]">{count} colis {count > 1 ? "sont prêts" : "est prêt"} à être remis au client.</p>
       <button type="button" autoFocus disabled={busy} onClick={onRelease} className="mx-auto mt-6 flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-[15px] font-semibold text-white outline-none transition hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:opacity-60">{busy ? <Spinner size={18} /> : <Printer size={19} />}{busy ? "Remise en cours…" : "Remettre et voir le ticket"}</button>

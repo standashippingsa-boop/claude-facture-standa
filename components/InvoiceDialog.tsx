@@ -2,7 +2,11 @@
 import { createBonRemiseNumber } from "@/lib/bonremise";
 import { useEffect, useState } from "react";
 import { AlertTriangle, X } from "@/components/icons";
-import { cancelInvoice, createBonRemiseRecord, createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, notifyEmail, saveInvoicePdfPath } from "@/lib/db";
+import { cancelInvoice, createBonRemiseRecord, createInvoiceFromComputation, getCentralAccountCode, getOrderFeeTiers, getSmallParcelConfig, getSpecialArticles, getUsdRate, getVilles, logAction, notifyEmail, saveInvoicePdfPath, setPackagesStatus } from "@/lib/db";
+import ClientPaymentForm, { PaymentModal, type ClientPaymentSubmit } from "@/components/ClientPaymentForm";
+import { invoiceStatusLines, type PaymentInvoice } from "@/lib/payment-allocation";
+import { useRole } from "@/lib/authx";
+import { supabase } from "@/lib/supabase";
 import { computeInvoice, invoiceLineContent, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { FixedPriceMap, OrderFeeTier, SpecialArticle, TAX_THRESHOLD_LB } from "@/lib/pricing";
 import { Invoice, InvoiceItem, InvoiceKind, Ville } from "@/lib/types";
@@ -135,6 +139,17 @@ export default function InvoiceDialog({
    * au lieu du formulaire — les champs ci-dessus ne s'appliquent plus.
    */
   const [pending, setPending] = useState<{ inv: Invoice; items: InvoiceItem[] } | null>(null);
+  /**
+   * ÉTAPE 3 : après l'envoi du PDF, « Les colis sont-ils remis maintenant ? ».
+   * Remis = payé : on enregistre le paiement, puis, si la facture est soldée,
+   * les colis passent « Livré ». Sinon ils restent « Facturé » jusqu'au paiement.
+   */
+  const [askDelivery, setAskDelivery] = useState<{ inv: Invoice; message: string } | null>(null);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payBusy, setPayBusy] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+  const { role } = useRole();
+  const isAdmin = role === "admin";
   useNoticeToast(err, setErr, { tone: "error", title: "Facture non enregistrée" });
 
   // Chaje to + konfigirasyon ti koli (Paramètres)
@@ -322,15 +337,56 @@ export default function InvoiceDialog({
         },
         packages: items.map((it) => ({ tracking_number: it.tracking_number, tracking_manual: it.tracking_manual }))
       }).catch(() => undefined);
-      onDone(
-        `Facture ${inv.invoice_number} créée · ${items.length} colis → Facturé, taux ${rate.toFixed(2)}. ` +
-        (how === "file" ? "PDF pataje sou WhatsApp."
-          : how === "manual" ? "WhatsApp ouvri · telechaje PDF la epi atache li." : "Fakti a nan Invoices.") + centralInfo
-      );
-      onClose();
+      setPending(null);
+      setAskDelivery({
+        inv,
+        message: `Facture ${inv.invoice_number} créée · ${items.length} colis → Facturé, taux ${rate.toFixed(2)}. ` +
+          (how === "file" ? "PDF pataje sou WhatsApp."
+            : how === "manual" ? "WhatsApp ouvri · telechaje PDF la epi atache li." : "Fakti a nan Invoices.") + centralInfo,
+      });
     } catch (e: unknown) {
       setErr((e as Error)?.message ?? "Erreur");
     } finally { setBusy(false); }
+  };
+
+  /** Non : les colis restent « Facturé » jusqu'au paiement. */
+  const keepFactured = () => {
+    if (!askDelivery) return;
+    onDone(askDelivery.message + " Colis gardés en « Facturé » jusqu'au paiement.");
+    onClose();
+  };
+
+  /** Oui : paiement enregistré ; facture soldée = colis « Livré ». */
+  const payAndDeliver = async (payload: ClientPaymentSubmit) => {
+    if (!askDelivery || payBusy) return;
+    setPayBusy(true); setPayError(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token ?? "";
+      const response = await fetch("/api/admin-invoice-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ token, invoice_ids: payload.invoiceIds, lines: payload.lines.map((l) => ({ amount: l.amount, currency: l.currency, payment_method: l.method, payment_reference: l.reference })) }),
+      });
+      const result = await response.json().catch(() => ({ ok: false, reason: "Réponse du serveur illisible. Vérifiez la facture avant de réessayer." }));
+      if (!response.ok || !result.ok) throw new Error(result.reason || "Paiement impossible.");
+      const payments = (result.payments ?? []) as Array<{ invoice_number: string; payment_status: string }>;
+      const last = payments[payments.length - 1];
+      const paidInFull = !!last && /^pay[ée]$/i.test(String(last.payment_status).trim());
+      const statusText = invoiceStatusLines(payments as never);
+      if (!paidInFull) {
+        onDone(`${askDelivery.message} Paiement partiel enregistré (${payload.summary}). Les colis restent « Facturé » jusqu'au solde.\n${statusText}`);
+        onClose();
+        return;
+      }
+      const ids = pkgs.map((p) => p.id);
+      await setPackagesStatus(ids, "Livré");
+      await logAction("Remise colis", `${ids.length} colis remis au client à la facturation (${askDelivery.inv.invoice_number}, payée)`, pkgs[0]?.tracking_number ?? "", client.customer_code);
+      onDone(`${askDelivery.message} Paiement enregistré (${payload.summary}) · ${ids.length} colis → Livré.`);
+      onClose();
+    } catch (e: unknown) {
+      setPayError((e as Error)?.message ?? "Paiement impossible.");
+    } finally { setPayBusy(false); }
   };
 
   /** Annule une facture PAS ENCORE imprimée — colis remis "Disponible". */
@@ -350,7 +406,8 @@ export default function InvoiceDialog({
 
   /** Ferme la fenêtre — demande confirmation si une facture est en attente d'impression. */
   const requestClose = () => {
-    if (busy) return;
+    if (busy || payBusy) return;
+    if (askDelivery) { keepFactured(); return; }
     if (pending && !confirm(
       `Fermer sans imprimer ?\n\nLa facture ${pending.inv.invoice_number} reste enregistrée ` +
       `dans Factures sans PDF. ` +
@@ -368,12 +425,41 @@ export default function InvoiceDialog({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-extrabold text-navy">{pending ? "Facture créée · Livraison" : "Générer la facture · options"}</h2>
+          <h2 className="text-lg font-extrabold text-navy">{askDelivery ? "Remise des colis" : pending ? "Facture créée · Livraison" : "Générer la facture · options"}</h2>
           <button className="text-slate-400 hover:text-slate-600" onClick={requestClose} disabled={busy}><X size={18} /></button>
         </div>
         <p className="text-sm text-slate-600 mb-3">
           <b className="text-navy">{client.customer_code}</b> · {clientName} · {pkgs.length} colis
         </p>
+
+        {askDelivery && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900">
+              <p><b>Facture {askDelivery.inv.invoice_number} envoyée</b> · {pkgs.length} colis, {usd(askDelivery.inv.total_usd)}.</p>
+            </div>
+            <div className="rounded-xl border border-line p-4">
+              <p className="text-[15px] font-bold text-navy">Les colis sont-ils remis au client maintenant ?</p>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-slate-600">
+                <b>Oui</b> : le client paie et repart avec ses colis. Le paiement est enregistré et les colis passent « Livré ».<br />
+                <b>Non</b> : les colis restent « Facturé » tant que le client n&apos;a pas payé.
+              </p>
+              {!isAdmin && <p className="mt-2 text-[12px] text-amber-700">Seul l&apos;administrateur peut enregistrer le paiement. Les colis restent « Facturé ».</p>}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" className="btn flex-1" disabled={!isAdmin || payBusy} onClick={() => { setPayError(null); setPayOpen(true); }}>Oui, remis et payé</button>
+                <button type="button" className="btn btn-ghost flex-1 border border-line" disabled={payBusy} onClick={keepFactured}>Non, garder en Facturé</button>
+              </div>
+            </div>
+            {payOpen && (
+              <PaymentModal onClose={() => { if (!payBusy) setPayOpen(false); }}>
+                <ClientPaymentForm key={askDelivery.inv.id} customerCode={client.customer_code} customerName={clientName}
+                  invoices={[{ ...askDelivery.inv, has_pdf: true } as unknown as PaymentInvoice]} initialSelected={[askDelivery.inv.id]}
+                  title="Paiement à la remise" busy={payBusy} onSubmit={(payload) => void payAndDeliver(payload)}
+                  onClose={() => { if (!payBusy) setPayOpen(false); }} />
+                {payError && <p className="mx-4 mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{payError}</p>}
+              </PaymentModal>
+            )}
+          </div>
+        )}
 
         {pending && (
           <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900">
@@ -386,7 +472,7 @@ export default function InvoiceDialog({
           </div>
         )}
 
-        {!pending && (<>
+        {!pending && !askDelivery && (<>
         {/* TYPE DE FACTURE — Shipping seulement ou Service Order */}
         <div className="border border-line rounded-lg p-3 mb-3">
           <p className="text-xs font-bold text-navy uppercase mb-2 flex items-center gap-1.5">
@@ -718,7 +804,7 @@ export default function InvoiceDialog({
         </div>
         </>)}
 
-        <div className="mt-5 flex gap-3">
+        {!askDelivery && <div className="mt-5 flex gap-3">
           {pending ? (
             <button className="btn flex-1" onClick={imprimer} disabled={busy}>
               {busy ? "..." : "Imprimer / Télécharger"}
@@ -733,7 +819,7 @@ export default function InvoiceDialog({
             onClick={pending ? annulerFacture : requestClose} disabled={busy}>
             {pending ? "Annuler cette facture" : "Annuler"}
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   );
