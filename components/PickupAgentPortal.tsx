@@ -1211,7 +1211,7 @@ function InvoiceDetails({ invoice, packages, onClose, onPay }: { invoice: ZoneIn
   return <Card>
     <div className="flex items-start justify-between gap-3 px-4 py-4">
       <div className="min-w-0">
-        <p className="text-xs text-slate-500">{invoice.is_central_account ? "Compte central STANDA" : `${invoice.customer_code}${invoice.customer_name ? " · " + invoice.customer_name : ""}`}</p>
+        <p className="text-xs text-slate-500">{invoice.is_central_account ? (invoice.customer_name || "Compte central STANDA") : `${invoice.customer_code}${invoice.customer_name ? " · " + invoice.customer_name : ""}`}</p>
         <h3 className="mt-0.5 text-lg font-semibold text-slate-900">{invoice.invoice_number}</h3>
         <div className="mt-1.5 flex flex-wrap gap-1.5"><PaymentChip status={invoice.payment_status} /><DeliveryChip status={invoice.delivery_status} /></div>
         {invoice.payment_details && <p className="mt-1.5 text-xs font-medium text-emerald-700">{invoice.payment_details}</p>}

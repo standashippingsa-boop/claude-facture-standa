@@ -183,6 +183,8 @@ export default function InvoiceDialog({
    * Nou PA touche kliyan an nan bazdone a: se yon ranplasman kalkil sèlman.
    */
   const villeChoisie = villes.find((v) => v.id === villeId) ?? null;
+  /** Compte central : nom du client final, imprimé sur la facture. */
+  const [endClientName, setEndClientName] = useState("");
   const effClient = isCentral && villeChoisie ? { ...client, ville: villeChoisie } : client;
 
   const specialPackages = pkgs.map((pkg) => ({ pkg, info: specialPackageInfo(pkg) }))
@@ -277,7 +279,13 @@ export default function InvoiceDialog({
     if (!verifyTotal(comp)) { setErr("Erreur de calcul détectée. Facture bloquée."); return; }
     setBusy(true); setErr(null);
     try {
-      const inv = await createInvoiceFromComputation(client, comp, rate, calcMode);
+      if (isCentral && endClientName.trim().length < 2) {
+        setErr("Compte central : écrivez le nom du client avant de créer la facture.");
+        return;
+      }
+      // Compte central : la facture porte le nom du client final (le compte ne change pas).
+      const billed = isCentral ? { ...client, fullname: endClientName.trim().slice(0, 80) } : client;
+      const inv = await createInvoiceFromComputation(billed, comp, rate, calcMode);
       const items = comp.lines.map((l) => ({
         invoice_id: inv.id, tracking_number: l.pkg.tracking_number,
         tracking_manual: l.pkg.tracking_manual ?? "",
@@ -548,8 +556,14 @@ export default function InvoiceDialog({
         {isCentral && (
           <div className="border border-brand/40 bg-brand/5 rounded-lg p-3 mb-3">
             <p className="text-xs font-bold text-brand-dark uppercase mb-1 flex items-center gap-1.5">
-              <MapPin size={13} /> Compte central{client.customer_code}
+              <MapPin size={13} /> Compte central, {client.customer_code}
             </p>
+            <label className="mb-3 block">
+              <span className="text-[11px] font-semibold text-slate-700">Nom du client *</span>
+              <input className="input mt-1 !py-1.5 !text-sm" value={endClientName} onChange={(e) => setEndClientName(e.target.value)}
+                placeholder="Nom et prénom du client" maxLength={80} />
+              <span className="mt-0.5 block text-[11px] text-slate-500">Ce nom apparaît sur la facture et chez l&apos;agence, suivi de « (Compte central) ».</span>
+            </label>
             <p className="text-[11px] text-slate-600 mb-2 leading-relaxed">
               Ce compte n&apos;est lié à aucune ville. Choisissez la <b>ville de destination</b> :
               c&apos;est son tarif qui sera appliqué à cette facture.

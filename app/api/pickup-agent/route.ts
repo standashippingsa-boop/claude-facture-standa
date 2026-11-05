@@ -272,7 +272,7 @@ export async function GET(req: Request) {
         parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
           .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       }
-      const invoiceResult = await db.from("invoices").select("id, invoice_number, customer_code, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
+      const invoiceResult = await db.from("invoices").select("id, invoice_number, customer_code, customer_name, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
         .in("customer_code", codes).order("created_at", { ascending: false }).limit(1000);
       if (parcelResult.error) throw parcelResult.error;
       if (invoiceResult.error) throw invoiceResult.error;
@@ -309,7 +309,7 @@ export async function GET(req: Request) {
           return links.length > 0 && links.every((link) => centralBonIds.includes(code(link.bon_remise_id)));
         }));
         if (eligibleCentralInvoiceIds.size) {
-          const centralInvoicesResult = await db.from("invoices").select("id, invoice_number, customer_code, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
+          const centralInvoicesResult = await db.from("invoices").select("id, invoice_number, customer_code, customer_name, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
             .in("id", Array.from(eligibleCentralInvoiceIds)).eq("customer_code", centralCode).order("created_at", { ascending: false }).limit(1000);
           if (centralInvoicesResult.error) throw centralInvoicesResult.error;
           invoices = [...invoices, ...((centralInvoicesResult.data ?? []) as ZoneInvoice[])];
@@ -422,7 +422,9 @@ export async function GET(req: Request) {
       const deliveryStatus = expectedPackageCount > 0 && delivery.delivered >= expectedPackageCount ? "Livrée" : "À remettre";
       return {
       id: code(invoice.id), invoice_number: code(invoice.invoice_number), customer_code: customerCode,
-      customer_name: customerName(customerByCode.get(customerCode)), customer_balance_usd: balance?.usd ?? 0, customer_balance_htg: balance?.htg ?? 0,
+      customer_name: customerCode.toUpperCase() === centralCode
+        ? `${code((invoice as { customer_name?: string }).customer_name) || "Client"} (Compte central)`
+        : customerName(customerByCode.get(customerCode)), customer_balance_usd: balance?.usd ?? 0, customer_balance_htg: balance?.htg ?? 0,
       package_count: Number(invoice.package_count ?? 0), grand_total_usd: amounts.grandTotalUsd, deposit_usd: amounts.depositUsd, amount_due_usd: amounts.payableUsd, amount_due_htg: amounts.payableHtg,
       amount_label: amounts.hasDeposit ? "Solde à payer selon la facture" : "Total de la facture", payment_status: paymentStatusFromAmounts(invoice), payment_details: paymentDetails(paymentStatusFromAmounts(invoice), paymentsByInvoice.get(invoice.id) ?? []), payment_paid_usd: money(invoice.payment_paid_usd),
       payment_paid_htg: money(invoice.payment_paid_htg),
