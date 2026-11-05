@@ -18,7 +18,7 @@ import { adminApi, useRole } from "@/lib/authx";
 
 import { useNoticeToast } from "@/lib/notify";
 import { loadMcpackSettings, parseCodeList, saveMcpackConfig } from "@/lib/mcpack-payable";
-import { DEFAULT_INVOICE_ADVICE, INVOICE_ADVICE_KEY, INVOICE_PATENT_KEY, PATENT_PENDING, parseInvoiceAdvice } from "@/lib/invoice-advice";
+import { DEFAULT_INVOICE_ADVICE, INVOICE_ADVICE_KEY, INVOICE_PATENT_KEY, parseInvoiceAdvice } from "@/lib/invoice-advice";
 const schema = z.object({
   name: z.string().min(1, "Non vil la obligatwa"),
   price_personal: z.coerce.number().min(0, "Dwe >= 0"),
@@ -943,8 +943,8 @@ function InvoiceAdviceSection({ onNotice }: { onNotice: (s: string) => void }) {
       <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Facture : patente et conseils</h2>
       <label className="block">
         <span className="text-xs font-medium text-slate-500">Numéro de patente (en tête de facture)</span>
-        <input className="input mt-1" value={patent} onChange={(e) => setPatent(e.target.value)} disabled={!loaded} placeholder={PATENT_PENDING} />
-        <span className="mt-1 block text-[11px] text-slate-400">Laissé vide, la facture affiche « {PATENT_PENDING} ».</span>
+        <input className="input mt-1" value={patent} onChange={(e) => setPatent(e.target.value)} disabled={!loaded} placeholder="Numéro de patente" />
+        <span className="mt-1 block text-[11px] text-slate-400">Laissé vide, aucune ligne Patente n'apparaît sur les factures.</span>
       </label>
       <p className="text-xs text-slate-500">Conseils en kreyòl, imprimés en bas de chaque facture. Un conseil par ligne. Ils sont imprimés sur chaque facture PDF, sans jamais être coupés (un conseil trop long passe en entier sur la page suivante). 20 conseils maximum.</p>
       <textarea className="input min-h-[220px] font-normal leading-relaxed" value={text} onChange={(e) => setText(e.target.value)} disabled={!loaded} />

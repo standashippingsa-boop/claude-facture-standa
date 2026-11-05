@@ -6,7 +6,6 @@
 export const INVOICE_ADVICE_KEY = "invoice_advice";
 /** Numéro de patente affiché en tête de facture (Paramètres). */
 export const INVOICE_PATENT_KEY = "invoice_patent";
-export const PATENT_PENDING = "En cours d'enregistrement";
 
 export const DEFAULT_INVOICE_ADVICE: string[] = [
   "Pote kòd kliyan MC ou ak yon pyès idantite lè w ap vin chèche koli w nan ajans lan.",

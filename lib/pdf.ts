@@ -3,7 +3,7 @@ import autoTable from "jspdf-autotable";
 import { Invoice, InvoiceItem } from "./types";
 import { supabase } from "./supabase";
 import { dateFr, htg, usd } from "./utils";
-import { DEFAULT_INVOICE_ADVICE, INVOICE_ADVICE_KEY, INVOICE_PATENT_KEY, PATENT_PENDING, parseInvoiceAdvice } from "./invoice-advice";
+import { DEFAULT_INVOICE_ADVICE, INVOICE_ADVICE_KEY, INVOICE_PATENT_KEY, parseInvoiceAdvice } from "./invoice-advice";
 import { SITE } from "./site";
 import { SITE_URL } from "./branding";
 import { DEPOT } from "./depot";
@@ -15,8 +15,8 @@ async function loadExtras(): Promise<InvoiceExtras> {
   try {
     const { data } = await supabase.from("app_settings").select("key, value").in("key", [INVOICE_ADVICE_KEY, INVOICE_PATENT_KEY]);
     const map = Object.fromEntries(((data ?? []) as { key: string; value: string }[]).map((r) => [r.key, r.value]));
-    return { advice: parseInvoiceAdvice(map[INVOICE_ADVICE_KEY]), patent: String(map[INVOICE_PATENT_KEY] ?? "").trim() || PATENT_PENDING };
-  } catch { return { advice: DEFAULT_INVOICE_ADVICE, patent: PATENT_PENDING }; }
+    return { advice: parseInvoiceAdvice(map[INVOICE_ADVICE_KEY]), patent: String(map[INVOICE_PATENT_KEY] ?? "").trim() };
+  } catch { return { advice: DEFAULT_INVOICE_ADVICE, patent: "" }; }
 }
 
 const NAVY: [number, number, number] = [18, 43, 92];
@@ -49,7 +49,7 @@ export async function loadLogo(): Promise<string | null> {
 
 export function generateInvoicePdf(
   inv: Invoice, items: InvoiceItem[], footer: string, logo: string | null,
-  advice: string[] = DEFAULT_INVOICE_ADVICE, patent: string = PATENT_PENDING
+  advice: string[] = DEFAULT_INVOICE_ADVICE, patent = ""
 ): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
@@ -79,8 +79,9 @@ export function generateInvoicePdf(
   doc.text("Standa Shipping S.A.", cx, 19);
   doc.setFontSize(7.5);
   doc.setTextColor(95, 95, 95);
+  // La patente n'apparaît que lorsqu'elle est saisie dans Paramètres.
   const company = [
-    `Patente : ${patent}`,
+    ...(patent ? [`Patente : ${patent}`] : []),
     `Téléphone et WhatsApp : ${SITE.phone}`,
     `Courriel : ${SITE.email}`,
     `Site : ${SITE_URL.replace("https://", "")}`,
