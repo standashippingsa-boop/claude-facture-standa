@@ -1,23 +1,54 @@
 "use client";
 /*
- * ENVOYER AU CLIENT (fiche client) : trois envois séparés sur WhatsApp.
+ * ENVOYER AU CLIENT (fiche client) : trois textes séparés, copiés d'un clic
+ * pour être collés dans la conversation WhatsApp du client.
  *  1. Adresse de dépôt seule.
  *  2. Identifiants actuels (même mot de passe, rien n'est changé).
  *  3. Nouveau mot de passe (l'ancien cesse de fonctionner).
  */
 import { useState } from "react";
-import { KeyRound, MapPin, RefreshCw } from "@/components/icons";
+import { Check, Copy, KeyRound, MapPin, RefreshCw } from "@/components/icons";
 import { adminApi } from "@/lib/authx";
-import { openCredentialsWhatsApp, openDepotWhatsApp } from "@/lib/whatsapp";
+import { buildCredentialsMessage, buildDepotMessage } from "@/lib/depot";
 import type { Client } from "@/lib/types";
 
 type Creds = { username: string; password: string; fresh: boolean };
 
+/** Copie dans le presse-papiers (avec repli pour les anciens navigateurs). */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand("copy");
+      area.remove();
+      return ok;
+    } catch { return false; }
+  }
+}
+
 export default function ClientSendPanel({ client, onNotice }: { client: Client; onNotice: (message: string) => void }) {
   const [busy, setBusy] = useState<"creds" | "reset" | null>(null);
   const [creds, setCreds] = useState<Creds | null>(null);
-  const hasPhone = !!(client.whatsapp || client.phone);
+  const [copied, setCopied] = useState<"depot" | "creds" | null>(null);
   const active = !!client.customer_code;
+
+  const copy = async (which: "depot" | "creds", text: string) => {
+    if (await copyText(text)) {
+      setCopied(which);
+      setTimeout(() => setCopied((c) => (c === which ? null : c)), 2500);
+    } else {
+      onNotice("Copie impossible sur cet appareil : sélectionnez le texte à la main.");
+    }
+  };
 
   const currentCreds = async () => {
     setBusy("creds");
@@ -38,14 +69,16 @@ export default function ClientSendPanel({ client, onNotice }: { client: Client; 
     } finally { setBusy(null); }
   };
 
+  const credsText = creds ? buildCredentialsMessage(client, creds.username, creds.password, creds.fresh) : "";
+
   return (
     <section className="card p-4">
-      <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-navy">Envoyer au client (WhatsApp)</h2>
-      {!hasPhone && <p className="mb-2 text-xs text-amber-700">Aucun numéro WhatsApp ni téléphone sur la fiche.</p>}
+      <h2 className="mb-1 text-xs font-bold uppercase tracking-wide text-navy">Envoyer au client (WhatsApp)</h2>
+      <p className="mb-3 text-xs text-slate-500">Le texte est copié : collez le dans la conversation WhatsApp du client.</p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="btn btn-ghost border border-line" disabled={!hasPhone || !active}
-          onClick={() => openDepotWhatsApp(client)} title="Adresse de dépôt à Miami, sans mot de passe">
-          <MapPin size={15} /> Adresse de dépôt
+        <button type="button" className="btn btn-ghost border border-line" disabled={!active}
+          onClick={() => void copy("depot", buildDepotMessage(client))} title="Copie l'adresse de dépôt à Miami, sans mot de passe">
+          {copied === "depot" ? <><Check size={15} /> Adresse copiée</> : <><MapPin size={15} /> Adresse de dépôt</>}
         </button>
         <button type="button" className="btn btn-ghost border border-line" disabled={!active || busy !== null}
           onClick={() => void currentCreds()} title="Nom d'utilisateur et mot de passe actuels, sans les changer">
@@ -62,16 +95,11 @@ export default function ClientSendPanel({ client, onNotice }: { client: Client; 
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setCreds(null)}>
           <div className="card w-full max-w-sm space-y-3 p-5" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-bold text-navy">{creds.fresh ? "Nouveau mot de passe créé" : "Identifiants actuels du client"}</h3>
-            <div className="space-y-1 rounded-lg bg-slate-50 p-3 text-sm">
-              <p>Nom d&apos;utilisateur : <span className="select-all font-mono font-bold">{creds.username}</span></p>
-              <p>Mot de passe : <span className="select-all font-mono font-bold">{creds.password}</span></p>
-            </div>
+            <pre className="max-h-64 select-all overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 font-sans text-[13px] leading-relaxed text-ink">{credsText}</pre>
             <div className="flex flex-wrap gap-2">
-              {hasPhone && (
-                <button type="button" className="btn" onClick={() => openCredentialsWhatsApp(client, creds.username, creds.password, creds.fresh)}>
-                  📲 Envoyer sur WhatsApp
-                </button>
-              )}
+              <button type="button" className="btn" onClick={() => void copy("creds", credsText)}>
+                {copied === "creds" ? <><Check size={15} /> Texte copié</> : <><Copy size={15} /> Copier le texte</>}
+              </button>
               <button type="button" className="btn btn-ghost border border-line" onClick={() => setCreds(null)}>Fermer</button>
             </div>
           </div>
