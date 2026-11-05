@@ -71,13 +71,13 @@ export function generateInvoicePdf(
   const cx = 41;
   doc.setTextColor(...NAVY);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(15);
+  doc.setFontSize(13);
   doc.text("STANDA COMMERCIAL", cx, 14.5);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
+  doc.setFontSize(7.5);
   doc.setTextColor(70, 70, 70);
   doc.text("Standa Shipping S.A.", cx, 19);
-  doc.setFontSize(7.5);
+  doc.setFontSize(6.8);
   doc.setTextColor(95, 95, 95);
   // La patente n'apparaît que lorsqu'elle est saisie dans Paramètres.
   const company = [
@@ -87,14 +87,14 @@ export function generateInvoicePdf(
     `Site : ${SITE_URL.replace("https://", "")}`,
     `Dépôt de Miami : ${DEPOT.address1}, Miami, ${DEPOT.state} ${DEPOT.zip}, USA`,
   ];
-  company.forEach((line, i) => doc.text(line, cx, 23.5 + i * 3.6));
+  company.forEach((line, i) => doc.text(line, cx, 22.5 + i * 3.2));
 
   doc.setTextColor(...NAVY);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
+  doc.setFontSize(16);
   doc.text("FACTURE", W - 14, 16, { align: "right" });
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
+  doc.setFontSize(7.5);
   doc.setTextColor(60, 60, 60);
   doc.text(`N° ${inv.invoice_number}`, W - 14, 22, { align: "right" });
   doc.text(`Date : ${dateFr(inv.created_at || new Date())}`, W - 14, 26.5, { align: "right" });
@@ -116,19 +116,19 @@ export function generateInvoicePdf(
   doc.roundedRect(14, clientTop, W - 28, 27, 2, 2, "F");
   doc.setTextColor(...NAVY);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
+  doc.setFontSize(7);
   doc.text("FACTURÉ À", 19, clientTop + 6);
   const field = (label: string, value: string, fx: number, fy: number) => {
-    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(110, 110, 110);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(6.5); doc.setTextColor(110, 110, 110);
     doc.text(label, fx, fy);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(35, 35, 35);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(35, 35, 35);
     doc.text(value || "·", fx, fy + 4);
   };
   const col2 = W / 2 + 4;
   field("Nom du client", inv.customer_name, 19, clientTop + 11.5);
   field("Code client", inv.customer_code, col2, clientTop + 11.5);
   field("WhatsApp", inv.whatsapp, 19, clientTop + 20);
-  field("Lieu de récupération", [inv.pickup_location, inv.ville && !String(inv.pickup_location).includes(inv.ville) ? inv.ville : ""].filter(Boolean).join(", "), col2, clientTop + 20);
+  field("Lieu de récupération", [String(inv.pickup_location ?? "").replace(/\s*[—–]\s*/g, ", "), inv.ville && !String(inv.pickup_location).includes(inv.ville) ? inv.ville : ""].filter(Boolean).join(", "), col2, clientTop + 20);
 
   // ===== Tablo =====
   autoTable(doc, {
@@ -153,7 +153,7 @@ export function generateInvoicePdf(
     theme: "grid",
     headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold" },
     alternateRowStyles: { fillColor: MIST },
-    styles: { fontSize: 8, cellPadding: 2, overflow: "linebreak" },
+    styles: { fontSize: 7, cellPadding: 1.6, overflow: "linebreak" },
     columnStyles: { 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } },
     // Marge du bas : le tableau ne descend jamais sur la ligne de pied de page.
     margin: { left: 14, right: 14, top: 16, bottom: FOOTER_ZONE }
@@ -211,13 +211,13 @@ export function generateInvoicePdf(
   doc.roundedRect(14, yTable + 8, 80, 18, 2, 2, "F");
   doc.setTextColor(...NAVY);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9.5);
+  doc.setFontSize(8);
   doc.text(`Nombre de colis : ${pkgCount}`, 20, yTable + 15);
   doc.text(`Poids total : ${totalWeight.toFixed(2)} LB`, 20, yTable + 22);
   const y = yTable + 8;
   doc.setFillColor(...MIST);
   doc.roundedRect(x, y, boxW, boxH, 2, 2, "F");
-  doc.setFontSize(10);
+  doc.setFontSize(8.5);
   doc.setTextColor(40, 40, 40);
   doc.setFont("helvetica", "normal");
 
@@ -229,7 +229,7 @@ export function generateInvoicePdf(
     if (l.htgNote && rate > 0) {
       doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(120, 120, 120);
       doc.text(htg(l.htgNote), x + boxW - 5, ly - 3, { align: "right" });
-      doc.setFontSize(10); doc.setTextColor(40, 40, 40);
+      doc.setFontSize(8.5); doc.setTextColor(40, 40, 40);
       ly += 3.5;
     }
   }
@@ -249,7 +249,7 @@ export function generateInvoicePdf(
     if (rate > 0) {
       doc.setFontSize(7.5); doc.setTextColor(120, 120, 120);
       doc.text(htg(deposit * rate), x + boxW - 5, ry + 3.5, { align: "right" });
-      doc.setFontSize(10); doc.setTextColor(40, 40, 40);
+      doc.setFontSize(8.5); doc.setTextColor(40, 40, 40);
       ry += 3.5;
     }
     ry += 7;
@@ -261,7 +261,7 @@ export function generateInvoicePdf(
   }
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
+  doc.setFontSize(7.5);
   doc.setTextColor(90, 90, 90);
   doc.text(`Taux: 1 USD = ${rate.toFixed(2)} HTG`, x + 5, ry + 5.5);
 
@@ -269,7 +269,7 @@ export function generateInvoicePdf(
   doc.roundedRect(x, y + boxH, boxW, 11, 2, 2, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
+  doc.setFontSize(9.5);
   doc.text(deposit > 0 ? "SOLDE HTG :" : "TOTAL HTG :", x + 5, y + boxH + 7);
   doc.text(htg(totalHtg), x + boxW - 5, y + boxH + 7, { align: "right" });
 
