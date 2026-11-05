@@ -166,7 +166,8 @@ export default function InvoiceDialog({
         try {
           const vs = (await getVilles()).filter((v) => v.active);
           setVilles(vs);
-          setVilleId(client.ville?.id ?? vs[0]?.id ?? "");
+          // Aucune ville d'office : l'administrateur doit la choisir lui-même.
+          setVilleId("");
         } catch { /* pa bloke fakti a */ }
       }
       setReady(true);
@@ -185,6 +186,10 @@ export default function InvoiceDialog({
   const villeChoisie = villes.find((v) => v.id === villeId) ?? null;
   /** Compte central : nom du client final, imprimé sur la facture. */
   const [endClientName, setEndClientName] = useState("");
+  /** Compte central : informations manquantes (la facture reste bloquée). */
+  const centralMissing = isCentral
+    ? [!villeChoisie ? "la ville" : "", endClientName.trim().length < 2 ? "le nom du client" : ""].filter(Boolean)
+    : [];
   const effClient = isCentral && villeChoisie ? { ...client, ville: villeChoisie } : client;
 
   const specialPackages = pkgs.map((pkg) => ({ pkg, info: specialPackageInfo(pkg) }))
@@ -279,6 +284,10 @@ export default function InvoiceDialog({
     if (!verifyTotal(comp)) { setErr("Erreur de calcul détectée. Facture bloquée."); return; }
     setBusy(true); setErr(null);
     try {
+      if (isCentral && !villeChoisie) {
+        setErr("Compte central : choisissez la ville de destination avant de créer la facture.");
+        return;
+      }
       if (isCentral && endClientName.trim().length < 2) {
         setErr("Compte central : écrivez le nom du client avant de créer la facture.");
         return;
@@ -570,7 +579,7 @@ export default function InvoiceDialog({
             </p>
             <select className="input !py-1.5 !text-sm w-full" value={villeId}
               onChange={(e) => setVilleId(e.target.value)}>
-              {villes.length === 0 && <option value="">Aucune ville active</option>}
+              <option value="">{villes.length ? "Choisissez la ville de destination *" : "Aucune ville active"}</option>
               {villes.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name} · {usd(client.account_type === "Business" ? v.price_business : v.price_personal)}/lb
@@ -818,13 +827,19 @@ export default function InvoiceDialog({
         </div>
         </>)}
 
+        {!askDelivery && !pending && centralMissing.length > 0 && (
+          <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-800">
+            Facture bloquée : renseignez {centralMissing.join(" et ")} du compte central.
+          </p>
+        )}
         {!askDelivery && <div className="mt-5 flex gap-3">
           {pending ? (
             <button className="btn flex-1" onClick={imprimer} disabled={busy}>
               {busy ? "..." : "Imprimer / Télécharger"}
             </button>
           ) : (
-            <button className="btn flex-1" onClick={creerFacture} disabled={busy || !comp || !comp.ok}>
+            <button className="btn flex-1" onClick={creerFacture} disabled={busy || !comp || !comp.ok || centralMissing.length > 0}
+              title={centralMissing.length ? `À compléter : ${centralMissing.join(" et ")}` : undefined}>
               {busy ? "Création..." : "Confirmer la facture"}
             </button>
           )}
