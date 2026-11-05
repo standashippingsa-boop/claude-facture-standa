@@ -25,7 +25,7 @@ export default function GuideAdressePage() {
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <h1 className="text-[28px] font-extrabold leading-tight text-navy sm:text-[34px]">Entrer votre adresse sur SHEIN et Amazon</h1>
         <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-slate-600">
-          Suivez les cases numérotées. Remplacez <b>MC-XXXXX</b> par votre propre code client (vous le trouvez dans votre espace client, rubrique Adresse).
+          Suivez les cases entourées. Remplacez <b>MC-XXXXX</b> par votre propre code client (vous le trouvez dans votre espace client, rubrique Adresse).
         </p>
         <div className="mt-8"><AddressGuide /></div>
       </main>
