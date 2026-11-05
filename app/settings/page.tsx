@@ -18,7 +18,7 @@ import { adminApi, useRole } from "@/lib/authx";
 
 import { useNoticeToast } from "@/lib/notify";
 import { loadMcpackSettings, parseCodeList, saveMcpackConfig } from "@/lib/mcpack-payable";
-import { DEFAULT_INVOICE_ADVICE, INVOICE_ADVICE_KEY, parseInvoiceAdvice } from "@/lib/invoice-advice";
+import { DEFAULT_INVOICE_ADVICE, INVOICE_ADVICE_KEY, INVOICE_PATENT_KEY, PATENT_PENDING, parseInvoiceAdvice } from "@/lib/invoice-advice";
 const schema = z.object({
   name: z.string().min(1, "Non vil la obligatwa"),
   price_personal: z.coerce.number().min(0, "Dwe >= 0"),
@@ -918,11 +918,13 @@ const NL = String.fromCharCode(10);
 /** Conseils imprimés en bas de chaque facture PDF (un conseil par ligne). */
 function InvoiceAdviceSection({ onNotice }: { onNotice: (s: string) => void }) {
   const [text, setText] = useState("");
+  const [patent, setPatent] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     void getSettings().then((s) => {
       setText(parseInvoiceAdvice(s[INVOICE_ADVICE_KEY]).join(NL));
+      setPatent(s[INVOICE_PATENT_KEY] ?? "");
       setLoaded(true);
     });
   }, []);
@@ -932,16 +934,22 @@ function InvoiceAdviceSection({ onNotice }: { onNotice: (s: string) => void }) {
     setBusy(true);
     try {
       await setSetting(INVOICE_ADVICE_KEY, lines().join(NL));
-      onNotice("Conseils enregistrés. Ils apparaîtront sur les prochaines factures.");
+      await setSetting(INVOICE_PATENT_KEY, patent.trim());
+      onNotice("Enregistré. Les prochaines factures afficheront ces informations.");
     } finally { setBusy(false); }
   };
   return (
     <section className="card p-6 space-y-3">
-      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Conseils en bas des factures</h2>
-      <p className="text-xs text-slate-500">Un conseil par ligne. Ils sont imprimés sur chaque facture PDF, sans jamais être coupés (un conseil trop long passe en entier sur la page suivante). 20 conseils maximum.</p>
+      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Facture : patente et conseils</h2>
+      <label className="block">
+        <span className="text-xs font-medium text-slate-500">Numéro de patente (en tête de facture)</span>
+        <input className="input mt-1" value={patent} onChange={(e) => setPatent(e.target.value)} disabled={!loaded} placeholder={PATENT_PENDING} />
+        <span className="mt-1 block text-[11px] text-slate-400">Laissé vide, la facture affiche « {PATENT_PENDING} ».</span>
+      </label>
+      <p className="text-xs text-slate-500">Conseils en kreyòl, imprimés en bas de chaque facture. Un conseil par ligne. Ils sont imprimés sur chaque facture PDF, sans jamais être coupés (un conseil trop long passe en entier sur la page suivante). 20 conseils maximum.</p>
       <textarea className="input min-h-[220px] font-normal leading-relaxed" value={text} onChange={(e) => setText(e.target.value)} disabled={!loaded} />
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="btn" disabled={busy || !loaded} onClick={() => void save()}>{busy ? "Enregistrement…" : "Enregistrer les conseils"}</button>
+        <button type="button" className="btn" disabled={busy || !loaded} onClick={() => void save()}>{busy ? "Enregistrement…" : "Enregistrer"}</button>
         <button type="button" className="btn btn-ghost border border-line" disabled={busy} onClick={() => setText(DEFAULT_INVOICE_ADVICE.join(NL))}>Conseils proposés par défaut</button>
         <span className="text-xs text-slate-500">{count} conseil{count > 1 ? "s" : ""}{count > 20 ? " (les 20 premiers seront imprimés)" : ""}</span>
       </div>

@@ -3,14 +3,20 @@ import autoTable from "jspdf-autotable";
 import { Invoice, InvoiceItem } from "./types";
 import { supabase } from "./supabase";
 import { dateFr, htg, usd } from "./utils";
-import { DEFAULT_INVOICE_ADVICE, INVOICE_ADVICE_KEY, parseInvoiceAdvice } from "./invoice-advice";
+import { DEFAULT_INVOICE_ADVICE, INVOICE_ADVICE_KEY, INVOICE_PATENT_KEY, PATENT_PENDING, parseInvoiceAdvice } from "./invoice-advice";
+import { SITE } from "./site";
+import { SITE_URL } from "./branding";
+import { DEPOT } from "./depot";
 
-/** Conseils enregistrés dans Paramètres (relus à chaque facture : une modification s'applique tout de suite). */
-async function loadAdvice(): Promise<string[]> {
+export type InvoiceExtras = { advice: string[]; patent: string };
+
+/** Conseils et numéro de patente (Paramètres), relus à chaque facture. */
+async function loadExtras(): Promise<InvoiceExtras> {
   try {
-    const { data } = await supabase.from("app_settings").select("value").eq("key", INVOICE_ADVICE_KEY).maybeSingle();
-    return parseInvoiceAdvice((data as { value?: string } | null)?.value);
-  } catch { return DEFAULT_INVOICE_ADVICE; }
+    const { data } = await supabase.from("app_settings").select("key, value").in("key", [INVOICE_ADVICE_KEY, INVOICE_PATENT_KEY]);
+    const map = Object.fromEntries(((data ?? []) as { key: string; value: string }[]).map((r) => [r.key, r.value]));
+    return { advice: parseInvoiceAdvice(map[INVOICE_ADVICE_KEY]), patent: String(map[INVOICE_PATENT_KEY] ?? "").trim() || PATENT_PENDING };
+  } catch { return { advice: DEFAULT_INVOICE_ADVICE, patent: PATENT_PENDING }; }
 }
 
 const NAVY: [number, number, number] = [18, 43, 92];
@@ -43,74 +49,89 @@ export async function loadLogo(): Promise<string | null> {
 
 export function generateInvoicePdf(
   inv: Invoice, items: InvoiceItem[], footer: string, logo: string | null,
-  advice: string[] = DEFAULT_INVOICE_ADVICE
+  advice: string[] = DEFAULT_INVOICE_ADVICE, patent: string = PATENT_PENDING
 ): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
 
-  // ===== Header =====
+  // ===== EN-TÊTE : STANDA COMMERCIAL =====
   doc.setFillColor(...NAVY);
-  doc.rect(0, 0, W, 34, "F");
+  doc.rect(0, 0, W, 3, "F");
   if (logo) {
-    // Kare blan + logo an bòn rezolisyon
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(14, 7, 20, 20, 2, 2, "F");
-    doc.addImage(logo, "PNG", 15.5, 8.5, 17, 17, undefined, "FAST");
+    doc.addImage(logo, "PNG", 14, 9, 22, 22, undefined, "FAST");
   } else {
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(14, 8, 18, 18, 2, 2, "F");
-    doc.setTextColor(...NAVY);
+    doc.setFillColor(...NAVY);
+    doc.roundedRect(14, 9, 22, 22, 2, 2, "F");
+    doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.text("SC", 23, 20, { align: "center" });
+    doc.text("SC", 25, 23, { align: "center" });
   }
-
-  doc.setTextColor(255, 255, 255);
+  const cx = 41;
+  doc.setTextColor(...NAVY);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  doc.text("STANDA COMMERCIAL", 38, 17);
+  doc.setFontSize(15);
+  doc.text("STANDA COMMERCIAL", cx, 14.5);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text("Sèvis livrezon koli", 38, 23);
+  doc.setFontSize(8.5);
+  doc.setTextColor(70, 70, 70);
+  doc.text("Standa Shipping S.A.", cx, 19);
+  doc.setFontSize(7.5);
+  doc.setTextColor(95, 95, 95);
+  const company = [
+    `Patente : ${patent}`,
+    `Téléphone et WhatsApp : ${SITE.phone}`,
+    `Courriel : ${SITE.email}`,
+    `Site : ${SITE_URL.replace("https://", "")}`,
+    `Dépôt de Miami : ${DEPOT.address1}, Miami, ${DEPOT.state} ${DEPOT.zip}, USA`,
+  ];
+  company.forEach((line, i) => doc.text(line, cx, 23.5 + i * 3.6));
 
+  doc.setTextColor(...NAVY);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text("FACTURE", W - 14, 15, { align: "right" });
+  doc.setFontSize(20);
+  doc.text("FACTURE", W - 14, 16, { align: "right" });
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text(`No: ${inv.invoice_number}`, W - 14, 21, { align: "right" });
-  doc.text(`Date : ${dateFr(inv.created_at || new Date())}`, W - 14, 26, { align: "right" });
+  doc.setFontSize(8.5);
+  doc.setTextColor(60, 60, 60);
+  doc.text(`N° ${inv.invoice_number}`, W - 14, 22, { align: "right" });
+  doc.text(`Date : ${dateFr(inv.created_at || new Date())}`, W - 14, 26.5, { align: "right" });
 
   // ===== SERVICE ORDER — li valè yo, tou dousman (fakti shipping -> 0) =====
   const purchase = Number(inv.order_purchase) || 0;
   const svcFee = Number(inv.order_service_fee) || 0;
   const deposit = Number(inv.order_deposit) || 0;
   const isOrder = inv.invoice_kind === "service_order" || purchase > 0 || svcFee > 0;
-  if (isOrder) {
-    doc.setFontSize(8);
-    doc.text("Service Order", W - 14, 31, { align: "right" });
-    doc.setFontSize(9);
-  }
+  if (isOrder) doc.text("Service Order", W - 14, 31, { align: "right" });
 
-  // ===== Client =====
+  doc.setDrawColor(215, 220, 230);
+  doc.setLineWidth(0.3);
+  doc.line(14, 44, W - 14, 44);
+
+  // ===== FACTURÉ À : le client =====
+  const clientTop = 48;
   doc.setFillColor(...MIST);
-  doc.roundedRect(14, 42, W - 28, 32, 2, 2, "F");
+  doc.roundedRect(14, clientTop, W - 28, 27, 2, 2, "F");
   doc.setTextColor(...NAVY);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text("CLIENT", 20, 50);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(40, 40, 40);
-  doc.text(`Code: ${inv.customer_code}`, 20, 57);
-  doc.text(`Nom: ${inv.customer_name}`, 20, 63);
-  doc.text(`Ville: ${inv.ville || "·"}`, W / 2 + 4, 57);
-  doc.text(`WhatsApp: ${inv.whatsapp}`, W / 2 + 4, 63);
-  doc.text(`Lieu de récupération : ${inv.pickup_location}`, 20, 69);
+  doc.setFontSize(8);
+  doc.text("FACTURÉ À", 19, clientTop + 6);
+  const field = (label: string, value: string, fx: number, fy: number) => {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(110, 110, 110);
+    doc.text(label, fx, fy);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(35, 35, 35);
+    doc.text(value || "·", fx, fy + 4);
+  };
+  const col2 = W / 2 + 4;
+  field("Nom du client", inv.customer_name, 19, clientTop + 11.5);
+  field("Code client", inv.customer_code, col2, clientTop + 11.5);
+  field("WhatsApp", inv.whatsapp, 19, clientTop + 20);
+  field("Lieu de récupération", [inv.pickup_location, inv.ville && !String(inv.pickup_location).includes(inv.ville) ? inv.ville : ""].filter(Boolean).join(", "), col2, clientTop + 20);
 
   // ===== Tablo =====
   autoTable(doc, {
-    startY: 80,
+    startY: clientTop + 33,
     head: [["#", "Tracking ID", "Tracking Number", "Poids (lb)", "Taxe (USD)", "Montant (USD)"]],
     body: items.map((k, i) => {
       const w = Number(k.weight) || 0;
@@ -255,28 +276,28 @@ export function generateInvoicePdf(
   // Chaque conseil est mesuré avant d'être écrit : s'il ne tient pas en entier
   // sur la page, il passe sur la page suivante (jamais coupé en deux).
   if (advice.length) {
-    const left = 14, width = W - 28, numW = 6, lineH = 3.9, gap = 1.6;
+    const left = 14, width = W - 28, numW = 5, lineH = 3.2, gap = 1.3;
     const bottom = H - FOOTER_ZONE;
     let ay = Math.max(y + boxH + 11, yTable + 26) + 9;
     const title = (suite: boolean) => {
       doc.setFillColor(...NAVY);
-      doc.roundedRect(left, ay, width, 8, 1.5, 1.5, "F");
+      doc.roundedRect(left, ay, width, 6.5, 1.2, 1.2, "F");
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.text(suite ? "CONSEILS ET RÈGLES (suite)" : "CONSEILS ET RÈGLES", left + 4, ay + 5.4);
-      ay += 12;
+      doc.setFontSize(7.5);
+      doc.text(suite ? "SA POU W KONNEN LÈ W AP VIN CHÈCHE KOLI W (swit)" : "SA POU W KONNEN LÈ W AP VIN CHÈCHE KOLI W", left + 3.5, ay + 4.4);
+      ay += 10;
     };
-    doc.setFontSize(8.3);
+    doc.setFontSize(7);
     const blocks = advice.map((a) => doc.splitTextToSize(a, width - numW - 4) as string[]);
-    const firstH = 12 + blocks[0].length * lineH + gap;
+    const firstH = 10 + blocks[0].length * lineH + gap;
     if (ay + firstH > bottom) { doc.addPage(); ay = 16; }
     title(false);
     blocks.forEach((lines, i) => {
       const h = lines.length * lineH + gap;
       if (ay + h > bottom) { doc.addPage(); ay = 16; title(true); }
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.3);
+      doc.setFontSize(7);
       doc.setTextColor(...NAVY);
       doc.text(`${i + 1}.`, left + 2, ay);
       doc.setFont("helvetica", "normal");
@@ -314,8 +335,8 @@ export async function generateUploadDownload(
   inv: Invoice, items: InvoiceItem[], footer: string,
   opts: { download?: boolean; autoPrint?: boolean } = {}
 ): Promise<PdfResult> {
-  const [logo, advice] = await Promise.all([loadLogo(), loadAdvice()]);
-  const doc = generateInvoicePdf(inv, items, footer, logo, advice);
+  const [logo, extras] = await Promise.all([loadLogo(), loadExtras()]);
+  const doc = generateInvoicePdf(inv, items, footer, logo, extras.advice, extras.patent);
   const filename = `Facture_${inv.invoice_number}_${inv.customer_code}.pdf`;
   const blob = doc.output("blob");
 
@@ -341,7 +362,7 @@ export async function generateUploadDownload(
 }
 
 export async function openInvoicePdf(inv: Invoice, items: InvoiceItem[], footer: string) {
-  const [logo, advice] = await Promise.all([loadLogo(), loadAdvice()]);
-  const doc = generateInvoicePdf(inv, items, footer, logo, advice);
+  const [logo, extras] = await Promise.all([loadLogo(), loadExtras()]);
+  const doc = generateInvoicePdf(inv, items, footer, logo, extras.advice, extras.patent);
   window.open(doc.output("bloburl"), "_blank");
 }
