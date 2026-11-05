@@ -9,6 +9,7 @@ import { getConduces, getMcpackInvoices } from "@/lib/db";
 import { loadMcpackSettings, periodKey, saveMcpackPeriod, setErgensReceipt, type McpackSettings } from "@/lib/mcpack-payable";
 import type { Conduce, McpackInvoice } from "@/lib/types";
 import { notify } from "@/lib/notify";
+import AdminCalcAssistant from "@/components/AdminCalcAssistant";
 
 /**
  * À PAYER À MCPACK — part STANDA et part Ergens (Dokasav, Blic Express), sur une PÉRIODE.
@@ -24,10 +25,10 @@ import { notify } from "@/lib/notify";
  *    la place du lot dès que la facture est payée.
  *  - Comptes Ergens : codes réglés dans Paramètres ; sans réglage, reconnaissance par le nom
  *    (fiche client ou nom MCPACK du colis). Tous les autres clients sont à STANDA.
- *  - Montant = livres × tarif (Paramètres, 3 $ par défaut). Livres = POIDS DES COLIS DE LA
- *    CONDUCE (packages.weight, décimales comprises) : c'est le poids que MCPACK facture.
- *    (L'ancien « poids facturé » issu du rapprochement de facture n'est plus utilisé :
- *    il était incomplet, p. ex. conduce 15907 à 65,6 lb au lieu de 108,30 lb.)
+ *  - Montant = livres × tarif (Paramètres, 3 $ par défaut). Livres = poids FACTURÉ PAR MCPACK
+ *    pour chaque colis rapproché de la facture (mcpack_billed_lbs), sinon poids de la Conduce.
+ *    Le total du tableau de bord est ainsi identique à la facture MCPACK (ex. lot du 3 nov. :
+ *    808,65 lb, 2 425,95 $). Un colis sans poids facturé garde le poids de la Conduce.
  */
 type ShareKey = "standa" | "dokasav" | "blic";
 const SHARES: Array<{ key: ShareKey; label: string; color: string; onNavy: string; match?: RegExp }> = [
@@ -126,8 +127,10 @@ export default function McpackPayableCard() {
     for (const parcel of state.parcels) {
       if (parcel.archived) continue;
       const lbs = byConduce.get(parcel.conduce_id) ?? zero();
-      // Poids du colis tel qu'il figure sur la Conduce (décimales comprises).
-      const weight = Number(parcel.weight);
+      // Même poids que la facture MCPACK : le poids facturé par MCPACK quand le
+      // rapprochement de facture l'a enregistré, sinon le poids de la Conduce.
+      const billed = parcel.mcpack_billed_lbs;
+      const weight = billed !== null && billed !== undefined && billed !== "" && Number.isFinite(Number(billed)) ? Number(billed) : Number(parcel.weight);
       lbs[accountOf.get(String(parcel.customer_code ?? "").trim().toUpperCase()) ?? "standa"] += weight || 0;
       byConduce.set(parcel.conduce_id, lbs);
     }
@@ -425,6 +428,11 @@ ${rows.map((line) => `<tr><td>${esc(line.conduce.conduce_number)}</td><td>${esc(
       {view.history.length > historyCount && <button type="button" onClick={() => setHistoryCount((count) => count + 6)} className="w-full border-t border-slate-100 py-2.5 text-xs font-semibold text-navy hover:bg-slate-50">Voir plus</button>}
       </>}
     </div>}
+    <AdminCalcAssistant mcpack={view ? {
+      rate: view.rate, lotLbs: view.pendingLbs, nextLotLbs: view.nextLbs, lotInvoiced: view.lotInvoiced,
+      printedLbs: view.control?.printedLbs ?? null, printedUsd: view.control?.printedUsd ?? null,
+      conduceCount: view.pending.length, ergensReceived: Boolean(view.receipt),
+    } : null} />
   </section>;
 }
 
