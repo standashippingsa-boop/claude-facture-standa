@@ -34,6 +34,22 @@ export const arrivalLabel = (p: Pkg) => {
   return d ? d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "";
 };
 
+/**
+ * Nombre de jours depuis l'arrivée à Miami : jusqu'à la remise si le colis est
+ * déjà livré, sinon jusqu'à aujourd'hui (jours calendaires, heure locale).
+ */
+export function daysSinceArrival(p: Pkg): number | null {
+  const start = arrivalDateOf(p);
+  if (!start) return null;
+  const deliveredRaw = (p as Pkg & { delivered_at?: string | null }).delivered_at;
+  const end = p.status === "Livré" && deliveredRaw ? new Date(deliveredRaw) : new Date();
+  if (Number.isNaN(end.getTime())) return null;
+  const day = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.max(0, Math.round((day(end) - day(start)) / 86_400_000));
+}
+export const daysLabel = (n: number | null) =>
+  n === null ? "" : n === 0 ? "Aujourd'hui" : n === 1 ? "1 jour" : `${n} jours`;
+
 /** Position du colis sur le trajet : 0 = Miami … 3 = Agence (valeurs intermédiaires = entre deux arrêts). */
 export function routePosition(status: string): number {
   switch (status) {
@@ -125,7 +141,10 @@ export function ParcelCard({ p, onOpen, price, invoicedPrice, special, selector 
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
             {!selector && <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${stageTone(shownStatus)}`}>{shownStatus}</span>}
-            {arrivalLabel(p) && <span className={`text-[11px] text-navy/50 ${selector ? "mr-9 mt-1" : ""}`}>Reçu le {arrivalLabel(p)}</span>}
+            {arrivalLabel(p) && <span className={`text-right text-[11px] leading-tight text-navy/50 ${selector ? "mr-9 mt-1" : ""}`}>
+              Reçu le {arrivalLabel(p)}
+              {daysSinceArrival(p) !== null && <span className="block text-[10px] text-navy/40" title="Nombre de jours depuis l'arrivée du colis à Miami">{p.status === "Livré" ? (daysSinceArrival(p) === 0 ? "Remis le jour même" : `Remis en ${daysLabel(daysSinceArrival(p))}`) : daysLabel(daysSinceArrival(p))}</span>}
+            </span>}
           </div>
         </div>
         {(special || selector) && <div className="mt-2 flex flex-wrap gap-1">

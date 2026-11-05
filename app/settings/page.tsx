@@ -18,6 +18,7 @@ import { adminApi, useRole } from "@/lib/authx";
 
 import { useNoticeToast } from "@/lib/notify";
 import { loadMcpackSettings, parseCodeList, saveMcpackConfig } from "@/lib/mcpack-payable";
+import { DEFAULT_INVOICE_ADVICE, INVOICE_ADVICE_KEY, parseInvoiceAdvice } from "@/lib/invoice-advice";
 const schema = z.object({
   name: z.string().min(1, "Non vil la obligatwa"),
   price_personal: z.coerce.number().min(0, "Dwe >= 0"),
@@ -446,6 +447,8 @@ export default function SettingsPage() {
           Corriger les colonnes Tracking
         </button>
       </section>
+
+      {role === "admin" && <InvoiceAdviceSection onNotice={setNotice} />}
 
       {role === "admin" && <EmailNotificationsSection />}
 
@@ -906,6 +909,42 @@ function AffiliateSettingsSection({ onNotice }: { onNotice: (s: string) => void 
         )}
       </label>
       <BusyButton className="btn" onClick={save} busy={busy} busyLabel="Enregistrement…">Enregistrer</BusyButton>
+    </section>
+  );
+}
+
+const NL = String.fromCharCode(10);
+
+/** Conseils imprimés en bas de chaque facture PDF (un conseil par ligne). */
+function InvoiceAdviceSection({ onNotice }: { onNotice: (s: string) => void }) {
+  const [text, setText] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    void getSettings().then((s) => {
+      setText(parseInvoiceAdvice(s[INVOICE_ADVICE_KEY]).join(NL));
+      setLoaded(true);
+    });
+  }, []);
+  const lines = () => text.split(NL).map((l) => l.trim()).filter(Boolean);
+  const count = lines().length;
+  const save = async () => {
+    setBusy(true);
+    try {
+      await setSetting(INVOICE_ADVICE_KEY, lines().join(NL));
+      onNotice("Conseils enregistrés. Ils apparaîtront sur les prochaines factures.");
+    } finally { setBusy(false); }
+  };
+  return (
+    <section className="card p-6 space-y-3">
+      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Conseils en bas des factures</h2>
+      <p className="text-xs text-slate-500">Un conseil par ligne. Ils sont imprimés sur chaque facture PDF, sans jamais être coupés (un conseil trop long passe en entier sur la page suivante). 20 conseils maximum.</p>
+      <textarea className="input min-h-[220px] font-normal leading-relaxed" value={text} onChange={(e) => setText(e.target.value)} disabled={!loaded} />
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" className="btn" disabled={busy || !loaded} onClick={() => void save()}>{busy ? "Enregistrement…" : "Enregistrer les conseils"}</button>
+        <button type="button" className="btn btn-ghost border border-line" disabled={busy} onClick={() => setText(DEFAULT_INVOICE_ADVICE.join(NL))}>Conseils proposés par défaut</button>
+        <span className="text-xs text-slate-500">{count} conseil{count > 1 ? "s" : ""}{count > 20 ? " (les 20 premiers seront imprimés)" : ""}</span>
+      </div>
     </section>
   );
 }

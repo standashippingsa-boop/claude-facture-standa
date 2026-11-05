@@ -3,6 +3,15 @@ import autoTable from "jspdf-autotable";
 import { Invoice, InvoiceItem } from "./types";
 import { supabase } from "./supabase";
 import { dateFr, htg, usd } from "./utils";
+import { DEFAULT_INVOICE_ADVICE, INVOICE_ADVICE_KEY, parseInvoiceAdvice } from "./invoice-advice";
+
+/** Conseils enregistrés dans Paramètres (relus à chaque facture : une modification s'applique tout de suite). */
+async function loadAdvice(): Promise<string[]> {
+  try {
+    const { data } = await supabase.from("app_settings").select("value").eq("key", INVOICE_ADVICE_KEY).maybeSingle();
+    return parseInvoiceAdvice((data as { value?: string } | null)?.value);
+  } catch { return DEFAULT_INVOICE_ADVICE; }
+}
 
 const NAVY: [number, number, number] = [18, 43, 92];
 const MIST: [number, number, number] = [243, 245, 249];
@@ -33,7 +42,8 @@ export async function loadLogo(): Promise<string | null> {
 }
 
 export function generateInvoicePdf(
-  inv: Invoice, items: InvoiceItem[], footer: string, logo: string | null
+  inv: Invoice, items: InvoiceItem[], footer: string, logo: string | null,
+  advice: string[] = DEFAULT_INVOICE_ADVICE
 ): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
@@ -241,6 +251,41 @@ export function generateInvoicePdf(
   doc.text(deposit > 0 ? "SOLDE HTG :" : "TOTAL HTG :", x + 5, y + boxH + 7);
   doc.text(htg(totalHtg), x + boxW - 5, y + boxH + 7, { align: "right" });
 
+  // ===== CONSEILS ET RÈGLES (sur toutes les factures) =====
+  // Chaque conseil est mesuré avant d'être écrit : s'il ne tient pas en entier
+  // sur la page, il passe sur la page suivante (jamais coupé en deux).
+  if (advice.length) {
+    const left = 14, width = W - 28, numW = 6, lineH = 3.9, gap = 1.6;
+    const bottom = H - FOOTER_ZONE;
+    let ay = Math.max(y + boxH + 11, yTable + 26) + 9;
+    const title = (suite: boolean) => {
+      doc.setFillColor(...NAVY);
+      doc.roundedRect(left, ay, width, 8, 1.5, 1.5, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text(suite ? "CONSEILS ET RÈGLES (suite)" : "CONSEILS ET RÈGLES", left + 4, ay + 5.4);
+      ay += 12;
+    };
+    doc.setFontSize(8.3);
+    const blocks = advice.map((a) => doc.splitTextToSize(a, width - numW - 4) as string[]);
+    const firstH = 12 + blocks[0].length * lineH + gap;
+    if (ay + firstH > bottom) { doc.addPage(); ay = 16; }
+    title(false);
+    blocks.forEach((lines, i) => {
+      const h = lines.length * lineH + gap;
+      if (ay + h > bottom) { doc.addPage(); ay = 16; title(true); }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.3);
+      doc.setTextColor(...NAVY);
+      doc.text(`${i + 1}.`, left + 2, ay);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(55, 55, 55);
+      lines.forEach((line, j) => doc.text(line, left + numW + 2, ay + j * lineH));
+      ay += h;
+    });
+  }
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
@@ -269,8 +314,8 @@ export async function generateUploadDownload(
   inv: Invoice, items: InvoiceItem[], footer: string,
   opts: { download?: boolean; autoPrint?: boolean } = {}
 ): Promise<PdfResult> {
-  const logo = await loadLogo();
-  const doc = generateInvoicePdf(inv, items, footer, logo);
+  const [logo, advice] = await Promise.all([loadLogo(), loadAdvice()]);
+  const doc = generateInvoicePdf(inv, items, footer, logo, advice);
   const filename = `Facture_${inv.invoice_number}_${inv.customer_code}.pdf`;
   const blob = doc.output("blob");
 
@@ -296,7 +341,7 @@ export async function generateUploadDownload(
 }
 
 export async function openInvoicePdf(inv: Invoice, items: InvoiceItem[], footer: string) {
-  const logo = await loadLogo();
-  const doc = generateInvoicePdf(inv, items, footer, logo);
+  const [logo, advice] = await Promise.all([loadLogo(), loadAdvice()]);
+  const doc = generateInvoicePdf(inv, items, footer, logo, advice);
   window.open(doc.output("bloburl"), "_blank");
 }
