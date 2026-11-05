@@ -52,8 +52,8 @@ function mapColor(rgb, kind) {
     return hslToRgb(neutral ? 219 : h, neutral ? 0.25 : Math.min(s, 0.6) * 0.45, 0.19 + (1 - l) * 0.3);
   }
   // texte
-  if (l < 0.42) return hslToRgb(neutral ? 219 : h, neutral ? 0.18 : Math.min(s, 0.75), 0.93 - l * 0.4);
-  if (l < 0.6 && s < 0.35) return hslToRgb(h, s, Math.min(0.78, l + 0.16));  // gris moyens un peu plus clairs
+  if (l < 0.42) return hslToRgb(neutral ? 219 : h, neutral ? 0.12 : Math.min(s, 0.5), 0.97 - l * 0.25);
+  if (l < 0.6 && s < 0.35) return hslToRgb(h, s, Math.min(0.86, l + 0.26));  // gris moyens nettement plus clairs
   return null;
 }
 
@@ -81,7 +81,14 @@ function transformValue(value, kind) {
     const next = mapColor(parsed.rgb, kind);
     if (!next) return m[0];
     changed = true;
-    return parsed.alpha !== null ? `rgb(${next.join(" ")} / ${parsed.alpha})` : `rgb(${next.join(" ")})`;
+    let alpha = parsed.alpha;
+    // Textes pâles (text-navy/40, /50…) : sur fond sombre la transparence les rend
+    // illisibles. On garde un léger écart entre eux mais ils restent bien blancs.
+    if (kind === "text" && alpha !== null && /^\s*[\d.]+%?\s*$/.test(alpha)) {
+      const a = alpha.includes("%") ? parseFloat(alpha) / 100 : parseFloat(alpha);
+      if (a > 0 && a < 1) alpha = (0.78 + a * 0.22).toFixed(3);
+    }
+    return alpha !== null ? `rgb(${next.join(" ")} / ${alpha})` : `rgb(${next.join(" ")})`;
   });
   return changed ? out : null;
 }
