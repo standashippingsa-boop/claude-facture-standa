@@ -5,6 +5,7 @@ import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { createClient } from "@supabase/supabase-js";
 import { safeParsePackage } from "@/lib/validation/shipping";
 import { pushParcelEventToCustomers } from "@/lib/customer-push";
+import { buildHtml, sendManyViaResend, type NotifyPkg } from "@/lib/customer-mail";
 
 /**
  * ENDPOINT EKSTANSYON CHROME (V8 Faz 1 — preparasyon)
@@ -96,6 +97,8 @@ export async function POST(req: Request) {
     // Colis NOUVEAUX seulement, par code client : une mise à jour ou un renvoi
     // du même colis par l'extension ne renotifie jamais le client.
     const newByCustomer = new Map<string, number>();
+    // Détail des colis nouveaux par client : un seul courriel par client avec la liste.
+    const newPkgsByCustomer = new Map<string, NotifyPkg[]>();
 
     for (const p of items) {
       const guia = cleanTk(p.guia);
@@ -164,7 +167,12 @@ export async function POST(req: Request) {
           continue;
         }
         created++;
-        if (code) newByCustomer.set(code, (newByCustomer.get(code) ?? 0) + 1);
+        if (code) {
+          newByCustomer.set(code, (newByCustomer.get(code) ?? 0) + 1);
+          const list = newPkgsByCustomer.get(code) ?? [];
+          list.push({ tracking_number: guia, tracking_manual: tnum, content: p.content ?? "", weight: p.weight ?? 0 });
+          newPkgsByCustomer.set(code, list);
+        }
       }
     }
 
@@ -186,7 +194,50 @@ export async function POST(req: Request) {
       catch (e) { console.error("[ingest:push]", e); }
     }
 
-    return NextResponse.json({ ok: true, created, updated, ignored, total: items.length, pushSent, skipped: skipped.slice(0, 30) });
+    // 6) Courriel « Colis reçu à Miami » : UN SEUL par client, avec la liste de
+    // tous ses nouveaux colis de cet envoi. Envoyé avant la réponse (Vercel coupe
+    // les promesses laissées en arrière-plan). Un colis mis à jour ne renvoie rien.
+    let emailSent = 0, emailFailed = 0;
+    const mailKey = process.env.RESEND_API_KEY;
+    if (mailKey && newPkgsByCustomer.size) {
+      try {
+        const codes = Array.from(newPkgsByCustomer.keys());
+        const clients: Array<{ customer_code: string; fullname: string | null; surname: string | null; email: string | null; city: string | null; ville: { name: string } | { name: string }[] | null }> = [];
+        for (let i = 0; i < codes.length; i += 200) {
+          const { data } = await db.from("clients")
+            .select("customer_code, fullname, surname, email, city, ville:villes(name)")
+            .in("customer_code", codes.slice(i, i + 200));
+          clients.push(...((data ?? []) as typeof clients));
+        }
+        const mails: Array<{ to: string; subject: string; html: string }> = [];
+        for (const c of clients) {
+          const to = String(c.email ?? "").trim();
+          const pkgs = newPkgsByCustomer.get(c.customer_code);
+          if (!pkgs?.length || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(to)) continue;
+          const ville = Array.isArray(c.ville) ? c.ville[0]?.name : c.ville?.name;
+          const { subject, html } = buildHtml({
+            type: "recu_miami",
+            client: { name: [c.fullname, c.surname].filter(Boolean).join(" ") || c.customer_code, code: c.customer_code, ville: ville || c.city || "", email: to },
+            packages: pkgs,
+          });
+          mails.push({ to, subject, html });
+        }
+        if (mails.length) {
+          const r = await sendManyViaResend(mailKey, mails);
+          emailSent = r.sent; emailFailed = r.failed.length;
+          if (r.failed.length) {
+            await db.from("journal").insert({
+              user_name: "Extension Chrome", action: "Notification courriel échouée",
+              details: `Reçu à Miami · ${r.sent} envoyé(s), ${r.failed.length} échec(s) : `
+                + r.failed.slice(0, 6).map((f) => f.message).join(" | ").slice(0, 400),
+              package_ref: "", customer_code: ""
+            });
+          }
+        }
+      } catch (e) { console.error("[ingest:email]", e); }
+    }
+
+    return NextResponse.json({ ok: true, created, updated, ignored, total: items.length, pushSent, emailSent, emailFailed, skipped: skipped.slice(0, 30) });
   } catch (e) {
     // Pa gen detay entèn (non tab, erè Postgres, stack) ki soti bay kliyan an.
     console.error("[ingest]", e);
