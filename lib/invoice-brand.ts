@@ -3,7 +3,8 @@
  * ═════════════════════════════════════════
  * Dokasav Sèvis ak Boutik (partenaire, propriétaire du compte Dokasav) utilise
  * le système STANDA pour facturer ses propres clients. Ses clients sont listés
- * dans Paramètres → MCPACK & Ergens → « Codes des clients Dokasav »
+ * dans Paramètres → MCPACK & Ergens → « Codes des clients Dokasav » (Blic Express,
+ * client de Dokasav, reçoit aussi le modèle Dokasav)
  * (app_settings.mcpack_ergens_codes.dokasav). Ces mêmes codes comptent pour
  * Dokasav dans le calcul « À payer à MCPACK ».
  *
@@ -14,7 +15,7 @@
  */
 export const DOKASAV_BRAND_KEY = "dokasav_brand";
 export const DOKASAV_NAME = "DOKASAV SÈVIS AK BOUTIK";
-export const DOKASAV_LOGO = "/brands/dokasav-logo.jpg";
+export const DOKASAV_LOGO = "/brands/dokasav-logo.png";
 
 export type DokasavBrand = { phone: string; email: string; address: string; footer: string; advice: string };
 export const EMPTY_DOKASAV_BRAND: DokasavBrand = { phone: "", email: "", address: "", footer: "", advice: "" };
@@ -47,15 +48,23 @@ const norm = (value: unknown) => {
   return clean.startsWith("MC-") ? clean : "MC-" + clean.replace(/^MC/, "").replace(/^-+/, "");
 };
 
-/** Codes clients Dokasav lus depuis le réglage mcpack_ergens_codes. */
+/**
+ * Codes facturés au modèle Dokasav, lus depuis mcpack_ergens_codes :
+ * les clients Dokasav ET Blic Express (Blic est un client de Dokasav).
+ */
 export function dokasavCodesFrom(raw: unknown): Set<string> {
   try {
     const v = typeof raw === "string" ? JSON.parse(raw || "{}") : (raw ?? {});
-    return new Set((Array.isArray(v.dokasav) ? v.dokasav : []).map(norm).filter(Boolean));
+    const list = [...(Array.isArray(v.dokasav) ? v.dokasav : []), ...(Array.isArray(v.blic) ? v.blic : [])];
+    return new Set(list.map(norm).filter(Boolean));
   } catch { return new Set(); }
 }
 
-export const isDokasavCode = (codes: Set<string>, customerCode: unknown) => {
+/** Blic Express reconnu par son nom quand son code n est pas encore saisi. */
+const BLIC_NAME = /blic\s*express/i;
+
+export const isDokasavCode = (codes: Set<string>, customerCode: unknown, customerName?: unknown) => {
   const c = norm(customerCode);
-  return !!c && codes.has(c);
+  if (c && codes.has(c)) return true;
+  return BLIC_NAME.test(String(customerName ?? ""));
 };

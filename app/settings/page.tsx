@@ -571,7 +571,7 @@ function McpackErgensSection({ onNotice }: { onNotice: (s: string) => void }) {
             <img src={DOKASAV_LOGO} alt={DOKASAV_NAME} className="h-10 w-auto rounded" />
             <div>
               <p className="text-sm font-bold text-navy">{DOKASAV_NAME}</p>
-              <p className="text-xs text-mute">Partenaire. Ses clients reçoivent la facture au modèle Dokasav (logo et coordonnées Dokasav).</p>
+              <p className="text-xs text-mute">Partenaire. Ses clients, et Blic Express (client de Dokasav), reçoivent la facture au modèle Dokasav.</p>
             </div>
           </div>
           <label className="block"><span className="text-xs font-medium text-slate-500">Codes des clients Dokasav ({dokasavCount}) · un code par ligne ou séparés par des virgules</span>

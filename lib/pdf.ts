@@ -44,12 +44,11 @@ async function loadDokasavLogo(): Promise<string | null> {
 
 /** Facture d'un client Dokasav → modèle Dokasav ; sinon modèle STANDA (undefined). */
 async function brandFor(inv: Invoice, extras: InvoiceExtras): Promise<InvoiceBrand | undefined> {
-  if (!isDokasavCode(extras.dokasavCodes, inv.customer_code)) return undefined;
+  if (!isDokasavCode(extras.dokasavCodes, inv.customer_code, inv.customer_name)) return undefined;
   return { kind: "dokasav", logo: await loadDokasavLogo(), info: extras.dokasav };
 }
 
 /** Couleurs du modèle Dokasav (noir, bleu nuit et or du logo). */
-const DK_BLACK: [number, number, number] = [15, 13, 9];   // même noir que le fond du logo
 const DK_NAVY: [number, number, number] = [22, 36, 82];
 const DK_GOLD: [number, number, number] = [204, 150, 30];
 const DK_SOFT: [number, number, number] = [248, 244, 234];
@@ -96,39 +95,43 @@ export function generateInvoicePdf(
   const SOFT = dk ? DK_SOFT : MIST;
 
   if (dk) {
-    // ===== EN-TÊTE : DOKASAV SÈVIS AK BOUTIK =====
-    doc.setFillColor(...DK_BLACK);
-    doc.rect(0, 0, W, 37, "F");
+    // ===== EN-TÊTE : DOKASAV SÈVIS AK BOUTIK (fond blanc, logo détouré) =====
+    doc.setFillColor(...DK_NAVY);
+    doc.rect(0, 0, W, 4.5, "F");
+    doc.setFillColor(...DK_GOLD);
+    doc.rect(0, 4.5, W, 0.9, "F");
     if (brand?.logo) {
-      doc.addImage(brand.logo, "JPEG", 10, 6, 75, 25, undefined, "FAST");
+      doc.addImage(brand.logo, "PNG", 14, 11, 66, 15.4, undefined, "FAST");
     } else {
-      doc.setTextColor(...DK_GOLD); doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+      doc.setTextColor(...DK_NAVY); doc.setFont("helvetica", "bold"); doc.setFontSize(16);
       doc.text(DOKASAV_NAME, 14, 21);
     }
-    doc.setTextColor(...DK_GOLD);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("FACTURE", W - 14, 16, { align: "right" });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(235, 235, 235);
-    doc.text(`N° ${inv.invoice_number}`, W - 14, 22, { align: "right" });
-    doc.text(`Date : ${dateFr(inv.created_at || new Date())}`, W - 14, 26.5, { align: "right" });
-    doc.setFillColor(...DK_GOLD);
-    doc.rect(0, 37, W, 1.2, "F");
     // Coordonnées Dokasav (seulement celles saisies dans Paramètres).
     const info = brand?.info;
     const contact = [
       info?.phone ? `Téléphone et WhatsApp : ${info.phone}` : "",
       info?.email ? `Courriel : ${info.email}` : "",
       info?.address ? info.address : "",
-    ].filter(Boolean).join("   ·   ");
-    doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(...DK_NAVY);
-    doc.text(DOKASAV_NAME, 14, 43);
-    if (contact) {
-      doc.setFont("helvetica", "normal"); doc.setFontSize(6.6); doc.setTextColor(95, 95, 95);
-      doc.text(doc.splitTextToSize(contact, W - 28 - 52)[0] ?? "", W - 14, 43, { align: "right" });
-    }
+    ].filter(Boolean);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(6.8); doc.setTextColor(100, 100, 100);
+    contact.slice(0, 3).forEach((line, i) => doc.text(doc.splitTextToSize(line, 95)[0] ?? "", 14, 32 + i * 3.3));
+
+    doc.setTextColor(...DK_NAVY);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text("FACTURE", W - 14, 19, { align: "right" });
+    // Numéro dans une pastille or.
+    doc.setFontSize(8);
+    const num = `N° ${inv.invoice_number}`;
+    const pillW = doc.getTextWidth(num) + 8;
+    doc.setFillColor(...DK_GOLD);
+    doc.roundedRect(W - 14 - pillW, 22.5, pillW, 6, 3, 3, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.text(num, W - 14 - pillW / 2, 26.6, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Date : ${dateFr(inv.created_at || new Date())}`, W - 14, 34, { align: "right" });
   } else {
   // ===== EN-TÊTE : STANDA COMMERCIAL =====
   doc.setFillColor(...NAVY);
@@ -180,7 +183,7 @@ export function generateInvoicePdf(
   const svcFee = Number(inv.order_service_fee) || 0;
   const deposit = Number(inv.order_deposit) || 0;
   const isOrder = inv.invoice_kind === "service_order" || purchase > 0 || svcFee > 0;
-  if (isOrder) { if (dk) doc.setTextColor(...DK_GOLD); doc.text("Service Order", W - 14, 31, { align: "right" }); }
+  if (isOrder) { if (dk) doc.setTextColor(...DK_GOLD); doc.text("Service Order", W - 14, dk ? 38 : 31, { align: "right" }); }
 
   if (!dk) {
     doc.setDrawColor(215, 220, 230);
@@ -192,6 +195,7 @@ export function generateInvoicePdf(
   const clientTop = 48;
   doc.setFillColor(...SOFT);
   doc.roundedRect(14, clientTop, W - 28, 27, 2, 2, "F");
+  if (dk) { doc.setFillColor(...DK_GOLD); doc.roundedRect(14, clientTop, 1.6, 27, 0.8, 0.8, "F"); }
   doc.setTextColor(...PRI);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
@@ -230,6 +234,11 @@ export function generateInvoicePdf(
     }),
     theme: "grid",
     headStyles: { fillColor: PRI, textColor: 255, fontStyle: "bold" },
+    didDrawCell: (data) => {
+      if (!dk || data.section !== "head") return;
+      doc.setFillColor(...DK_GOLD);
+      doc.rect(data.cell.x, data.cell.y + data.cell.height - 0.6, data.cell.width, 0.6, "F");
+    },
     alternateRowStyles: { fillColor: SOFT },
     styles: { fontSize: 7, cellPadding: 1.6, overflow: "linebreak" },
     columnStyles: { 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } },
@@ -343,7 +352,7 @@ export function generateInvoicePdf(
   doc.setTextColor(90, 90, 90);
   doc.text(`Taux: 1 USD = ${rate.toFixed(2)} HTG`, x + 5, ry + 5.5);
 
-  doc.setFillColor(...PRI);
+  doc.setFillColor(...(dk ? DK_GOLD : PRI));
   doc.roundedRect(x, y + boxH, boxW, 11, 2, 2, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
@@ -359,9 +368,10 @@ export function generateInvoicePdf(
     const bottom = H - FOOTER_ZONE;
     let ay = Math.max(y + boxH + 11, yTable + 26) + 9;
     const title = (suite: boolean) => {
-      doc.setFillColor(...PRI);
+      doc.setFillColor(...(dk ? SOFT : PRI));
       doc.roundedRect(left, ay, width, 6.5, 1.2, 1.2, "F");
-      doc.setTextColor(255, 255, 255);
+      if (dk) { doc.setFillColor(...DK_GOLD); doc.rect(left, ay, 1.4, 6.5, "F"); }
+      doc.setTextColor(...((dk ? DK_NAVY : [255, 255, 255]) as [number, number, number]));
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7.5);
       doc.text(suite ? "SA POU W KONNEN LÈ W AP VIN CHÈCHE KOLI W (swit)" : "SA POU W KONNEN LÈ W AP VIN CHÈCHE KOLI W", left + 3.5, ay + 4.4);
@@ -396,6 +406,7 @@ export function generateInvoicePdf(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
+    if (dk) { doc.setFillColor(...DK_GOLD); doc.rect(14, H - 14.5, W - 28, 0.4, "F"); }
     doc.text(dk ? (brand?.info.footer || `${DOKASAV_NAME} · Merci de votre confiance.`) : footer, 14, H - 10);
     if (pages > 1) doc.text(`Page ${p}/${pages} · ${inv.invoice_number}`, W - 14, H - 10, { align: "right" });
   }
