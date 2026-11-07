@@ -38,7 +38,7 @@ export function parseDokasavBrand(raw: unknown): DokasavBrand {
   try {
     const v = typeof raw === "string" ? JSON.parse(raw || "{}") : (raw ?? {});
     const s = (x: unknown, max: number) => String(x ?? "").trim().slice(0, max);
-    return { phone: s(v.phone, 60), email: s(v.email, 120), address: s(v.address, 200), footer: s(v.footer, 160), advice: s(v.advice, 4000) };
+    return { phone: s(v.phone, 60), email: s(v.email, 120), address: s(v.address, 200), footer: s(v.footer, 600), advice: s(v.advice, 4000) };
   } catch { return { ...EMPTY_DOKASAV_BRAND }; }
 }
 

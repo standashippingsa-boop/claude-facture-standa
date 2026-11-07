@@ -586,7 +586,7 @@ function McpackErgensSection({ onNotice }: { onNotice: (s: string) => void }) {
               <input className="input mt-1" value={brand.address} onChange={setB("address")} disabled={!ready} /></label>
           </div>
           <label className="block"><span className="text-xs font-medium text-slate-500">Bas de page des factures Dokasav (vide = « {DOKASAV_NAME} · Merci de votre confiance. »)</span>
-            <input className="input mt-1" value={brand.footer} onChange={setB("footer")} disabled={!ready} /></label>
+            <textarea className="input mt-1 min-h-16 text-[13px]" value={brand.footer} onChange={setB("footer")} maxLength={600} disabled={!ready} /></label>
           <label className="block"><span className="text-xs font-medium text-slate-500">Conseils des factures Dokasav · un par ligne (vide = conseils proposés)</span>
             <textarea className="input mt-1 min-h-24 text-[13px]" value={brand.advice} onChange={setB("advice")} placeholder={DEFAULT_DOKASAV_ADVICE.join("\n")} disabled={!ready} /></label>
         </div>
