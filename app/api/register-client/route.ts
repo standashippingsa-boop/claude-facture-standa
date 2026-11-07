@@ -6,6 +6,7 @@ import { encryptPII } from "@/lib/pii-crypto";
 import { clientShippingSchema } from "@/lib/validation/shipping";
 import { pickupLabel, pickupLocationForCity } from "@/lib/pickup-location";
 import { anyObject, readJsonBody } from "@/lib/validation/request";
+import { normalizeIntlPhone } from "@/lib/phone";
 
 /** Valè cookie ?ref= mete pa middleware.ts (parse manyèl — evite soud Next.js sou cookies() async). */
 function refCookie(req: Request): string {
@@ -74,8 +75,12 @@ export async function POST(req: Request) {
     const fullname = clean(p.fullname, 80);
     const surname = clean(p.surname, 80);
     const email = clean(p.email, 120).toLowerCase();
-    const phone = clean(p.phone, 30);
-    const whatsapp = clean(p.whatsapp, 30);
+    // Numéros : nettoyés et contrôlés (Haïti 8 chiffres, États-Unis et Rép. dominicaine 10),
+    // enregistrés au format international que WhatsApp accepte toujours.
+    const phone = normalizeIntlPhone(clean(p.phone, 30)) ?? "";
+    const whatsapp = normalizeIntlPhone(clean(p.whatsapp, 30)) ?? "";
+    if (!phone) return NextResponse.json({ ok: false, reason: "Numéro de téléphone invalide : Haïti 8 chiffres, États-Unis ou République dominicaine 10 chiffres." }, { status: 400 });
+    if (!whatsapp) return NextResponse.json({ ok: false, reason: "Numéro WhatsApp invalide : Haïti 8 chiffres, États-Unis ou République dominicaine 10 chiffres." }, { status: 400 });
     // STANDA est actuellement réservé aux clients en Haïti. La valeur est
     // fixée côté serveur : le formulaire n'affiche donc pas un choix inutile
     // et un navigateur ne peut pas l'altérer.

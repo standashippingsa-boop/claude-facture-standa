@@ -12,6 +12,8 @@ import { CheckCircle2, MapPin } from "@/components/icons";
 import { BusyButton } from "@/components/Loader";
 import { registerClientProfile, RegistrationError } from "@/lib/db";
 import { safeMessage } from "@/lib/safeerror";
+import PhoneInput from "@/components/PhoneInput";
+import { DEFAULT_PHONE_COUNTRY, phoneError, toE164, type PhoneCountryId } from "@/lib/phone";
 
 import { useNoticeToast } from "@/lib/notify";
 type PublicVille = { id: string; name: string; pickup_location: string };
@@ -20,12 +22,20 @@ const schema = z.object({
   fullname: z.string().min(1, "Le prénom est obligatoire"),
   surname: z.string().min(1, "Le nom est obligatoire"),
   email: z.string().email("L'adresse électronique n'est pas valide"),
-  phone: z.string().trim().regex(/^[\d\s+().-]{7,30}$/, "Numéro de téléphone invalide : chiffres uniquement, par exemple +509 3700 0000"),
-  whatsapp: z.string().trim().regex(/^[\d\s+().-]{7,30}$/, "Numéro WhatsApp invalide : chiffres uniquement, par exemple +509 3700 0000"),
+  // Numéros : chiffres locaux seulement (le champ les nettoie), pays choisi à côté.
+  phone: z.string(),
+  phoneCountry: z.enum(["HT", "US", "DO"]),
+  whatsapp: z.string(),
+  whatsappCountry: z.enum(["HT", "US", "DO"]),
   city: z.string().min(1, "Sélectionnez votre ville dans la liste"),
   address: z.string().trim().min(3, "L'adresse est trop courte"),
   id_type: z.enum(["Carte d'identité nationale", "Passeport"], { errorMap: () => ({ message: "Sélectionnez votre pièce d'identité" }) }),
   id_number: z.string().trim().min(2, "Le numéro de pièce d'identité est obligatoire")
+}).superRefine((f, ctx) => {
+  const p = phoneError(f.phoneCountry, f.phone);
+  if (p) ctx.addIssue({ code: "custom", path: ["phone"], message: p });
+  const w = phoneError(f.whatsappCountry, f.whatsapp);
+  if (w) ctx.addIssue({ code: "custom", path: ["whatsapp"], message: w });
 });
 
 type Form = z.infer<typeof schema>;
@@ -71,8 +81,10 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
     void loadCities();
     return () => controller.abort();
   }, []);
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } =
-    useForm<Form>({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting, isSubmitted } } =
+    useForm<Form>({ resolver: zodResolver(schema), defaultValues: { phone: "", whatsapp: "", phoneCountry: DEFAULT_PHONE_COUNTRY, whatsappCountry: DEFAULT_PHONE_COUNTRY } });
+  const setPhone = (name: "phone" | "whatsapp" | "phoneCountry" | "whatsappCountry", value: string) =>
+    setValue(name, value as never, { shouldValidate: isSubmitted, shouldDirty: true });
 
   const onSubmit = async (f: Form) => {
     setErr(null);
@@ -88,8 +100,9 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
         fullname: f.fullname.trim(),
         surname: f.surname.trim(),
         email: f.email.trim(),
-        phone: f.phone.trim(),
-        whatsapp: f.whatsapp.trim(),
+        // Format international enregistré : +50937123456 (WhatsApp l'accepte toujours).
+        phone: toE164(f.phoneCountry, f.phone),
+        whatsapp: toE164(f.whatsappCountry, f.whatsapp),
         country: "Haïti",
         city: f.city,
         address: f.address.trim(),
@@ -147,8 +160,12 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
             <F name="fullname" label="Prénom *" placeholder="Ex. : Jean" />
             <F name="surname" label="Nom *" placeholder="Ex. : Baptiste" />
             <F name="email" label="Courriel *" type="email" placeholder="vous@exemple.com" />
-            <F name="phone" label="Téléphone *" placeholder="+509 ..." />
-            <F name="whatsapp" label="Numéro WhatsApp *" placeholder="+509 ..." />
+            <PhoneInput id="signup-phone" label="Téléphone *"
+              country={watch("phoneCountry") as PhoneCountryId} onCountry={(c) => setPhone("phoneCountry", c)}
+              value={watch("phone") ?? ""} onValue={(v) => setPhone("phone", v)} error={errors.phone?.message} />
+            <PhoneInput id="signup-whatsapp" label="Numéro WhatsApp *"
+              country={watch("whatsappCountry") as PhoneCountryId} onCountry={(c) => setPhone("whatsappCountry", c)}
+              value={watch("whatsapp") ?? ""} onValue={(v) => setPhone("whatsapp", v)} error={errors.whatsapp?.message} />
             <label className="block">
               <span className="text-xs font-semibold text-slate-600">Ville *</span>
               <select

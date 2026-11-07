@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Newsreader, Source_Sans_3 } from "next/font/google";
+import localFont from "next/font/local";
 import { Phone } from "@/components/icons";
 import Logo from "@/components/Logo";
 import AddressGuide from "@/components/site/AddressGuide";
@@ -18,8 +18,10 @@ import { SUPPORT_PHONE } from "@/lib/branding";
  * FÈMEN : kliyan an peze sou youn pou l wè repons lan.
  * Done : ajans yo (modil piblik otorize) ak /api/public/tarifs.
  */
-const serif = Newsreader({ subsets: ["latin"], weight: ["500", "600"], display: "swap" });
-const sans = Source_Sans_3({ subsets: ["latin"], weight: ["400", "600", "700"], display: "swap" });
+// Polices hébergées dans le projet (licence libre OFL, app/fonts) : la construction
+// du site ne dépend plus de Google Fonts, qui échouait parfois.
+const serif = localFont({ src: "../fonts/Newsreader-latin.woff2", weight: "200 800", display: "swap", fallback: ["Georgia", "serif"] });
+const sans = localFont({ src: "../fonts/SourceSans3-latin.woff2", weight: "200 900", display: "swap", fallback: ["Arial", "sans-serif"] });
 
 export const metadata: Metadata = {
   title: "Gid ak èd · STANDA COMMERCIAL",

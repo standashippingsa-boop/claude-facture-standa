@@ -1,12 +1,14 @@
 import { Client, Invoice } from "./types";
 import { buildCredentialsMessage, buildDepotMessage } from "./depot";
 import { htg, usd } from "./utils";
+import { whatsappDigits } from "./phone";
 
-/** Kite chif sèlman. Si 8 chif -> ajoute 509 (Ayiti). */
+/**
+ * Numéro pour wa.me : chiffres seulement, avec l'indicatif (lib/phone.ts).
+ * 8 chiffres → +509 (Haïti) ; 10 chiffres → +1 (États-Unis, Rép. dominicaine) ; « 00 » retiré.
+ */
 export function normalizePhone(raw: string): string {
-  let d = (raw || "").replace(/\D/g, "");
-  if (d.length === 8) d = "509" + d;
-  return d;
+  return whatsappDigits(raw);
 }
 
 /** Mesaj kout san okenn lyen depo entèn. */
