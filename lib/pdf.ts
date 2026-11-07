@@ -7,17 +7,52 @@ import { DEFAULT_INVOICE_ADVICE, INVOICE_ADVICE_KEY, INVOICE_PATENT_KEY, parseIn
 import { SITE } from "./site";
 import { SITE_URL } from "./branding";
 import { DEPOT } from "./depot";
+import { DOKASAV_BRAND_KEY, DOKASAV_LOGO, DOKASAV_NAME, dokasavAdvice, dokasavCodesFrom, isDokasavCode, parseDokasavBrand, type DokasavBrand } from "./invoice-brand";
 
-export type InvoiceExtras = { advice: string[]; patent: string };
+export type InvoiceExtras = { advice: string[]; patent: string; dokasavCodes: Set<string>; dokasav: DokasavBrand };
+/** Modèle de facture d'un partenaire (Dokasav) au lieu du modèle STANDA. */
+export type InvoiceBrand = { kind: "dokasav"; logo: string | null; info: DokasavBrand };
 
-/** Conseils et numéro de patente (Paramètres), relus à chaque facture. */
+/** Conseils, patente et réglages Dokasav (Paramètres), relus à chaque facture. */
 async function loadExtras(): Promise<InvoiceExtras> {
   try {
-    const { data } = await supabase.from("app_settings").select("key, value").in("key", [INVOICE_ADVICE_KEY, INVOICE_PATENT_KEY]);
+    const { data } = await supabase.from("app_settings").select("key, value")
+      .in("key", [INVOICE_ADVICE_KEY, INVOICE_PATENT_KEY, "mcpack_ergens_codes", DOKASAV_BRAND_KEY]);
     const map = Object.fromEntries(((data ?? []) as { key: string; value: string }[]).map((r) => [r.key, r.value]));
-    return { advice: parseInvoiceAdvice(map[INVOICE_ADVICE_KEY]), patent: String(map[INVOICE_PATENT_KEY] ?? "").trim() };
-  } catch { return { advice: DEFAULT_INVOICE_ADVICE, patent: "" }; }
+    return {
+      advice: parseInvoiceAdvice(map[INVOICE_ADVICE_KEY]),
+      patent: String(map[INVOICE_PATENT_KEY] ?? "").trim(),
+      dokasavCodes: dokasavCodesFrom(map.mcpack_ergens_codes),
+      dokasav: parseDokasavBrand(map[DOKASAV_BRAND_KEY]),
+    };
+  } catch { return { advice: DEFAULT_INVOICE_ADVICE, patent: "", dokasavCodes: new Set(), dokasav: parseDokasavBrand("") }; }
 }
+
+let dokasavLogoCache: string | null | undefined;
+async function loadDokasavLogo(): Promise<string | null> {
+  if (dokasavLogoCache !== undefined) return dokasavLogoCache;
+  try {
+    const res = await fetch(DOKASAV_LOGO);
+    if (!res.ok) throw new Error();
+    const blob = await res.blob();
+    dokasavLogoCache = await new Promise<string>((ok, ko) => {
+      const r = new FileReader(); r.onload = () => ok(r.result as string); r.onerror = ko; r.readAsDataURL(blob);
+    });
+  } catch { dokasavLogoCache = null; }
+  return dokasavLogoCache;
+}
+
+/** Facture d'un client Dokasav → modèle Dokasav ; sinon modèle STANDA (undefined). */
+async function brandFor(inv: Invoice, extras: InvoiceExtras): Promise<InvoiceBrand | undefined> {
+  if (!isDokasavCode(extras.dokasavCodes, inv.customer_code)) return undefined;
+  return { kind: "dokasav", logo: await loadDokasavLogo(), info: extras.dokasav };
+}
+
+/** Couleurs du modèle Dokasav (noir, bleu nuit et or du logo). */
+const DK_BLACK: [number, number, number] = [15, 13, 9];   // même noir que le fond du logo
+const DK_NAVY: [number, number, number] = [22, 36, 82];
+const DK_GOLD: [number, number, number] = [204, 150, 30];
+const DK_SOFT: [number, number, number] = [248, 244, 234];
 
 const NAVY: [number, number, number] = [18, 43, 92];
 const MIST: [number, number, number] = [243, 245, 249];
@@ -49,12 +84,52 @@ export async function loadLogo(): Promise<string | null> {
 
 export function generateInvoicePdf(
   inv: Invoice, items: InvoiceItem[], footer: string, logo: string | null,
-  advice: string[] = DEFAULT_INVOICE_ADVICE, patent = ""
+  advice: string[] = DEFAULT_INVOICE_ADVICE, patent = "", brand?: InvoiceBrand
 ): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
+  const dk = brand?.kind === "dokasav";
+  if (dk && brand) advice = dokasavAdvice(brand.info);
+  // Couleurs du modèle : STANDA (bleu marine) ou Dokasav (bleu nuit et or).
+  const PRI = dk ? DK_NAVY : NAVY;
+  const SOFT = dk ? DK_SOFT : MIST;
 
+  if (dk) {
+    // ===== EN-TÊTE : DOKASAV SÈVIS AK BOUTIK =====
+    doc.setFillColor(...DK_BLACK);
+    doc.rect(0, 0, W, 37, "F");
+    if (brand?.logo) {
+      doc.addImage(brand.logo, "JPEG", 10, 6, 75, 25, undefined, "FAST");
+    } else {
+      doc.setTextColor(...DK_GOLD); doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+      doc.text(DOKASAV_NAME, 14, 21);
+    }
+    doc.setTextColor(...DK_GOLD);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("FACTURE", W - 14, 16, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(235, 235, 235);
+    doc.text(`N° ${inv.invoice_number}`, W - 14, 22, { align: "right" });
+    doc.text(`Date : ${dateFr(inv.created_at || new Date())}`, W - 14, 26.5, { align: "right" });
+    doc.setFillColor(...DK_GOLD);
+    doc.rect(0, 37, W, 1.2, "F");
+    // Coordonnées Dokasav (seulement celles saisies dans Paramètres).
+    const info = brand?.info;
+    const contact = [
+      info?.phone ? `Téléphone et WhatsApp : ${info.phone}` : "",
+      info?.email ? `Courriel : ${info.email}` : "",
+      info?.address ? info.address : "",
+    ].filter(Boolean).join("   ·   ");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(...DK_NAVY);
+    doc.text(DOKASAV_NAME, 14, 43);
+    if (contact) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(6.6); doc.setTextColor(95, 95, 95);
+      doc.text(doc.splitTextToSize(contact, W - 28 - 52)[0] ?? "", W - 14, 43, { align: "right" });
+    }
+  } else {
   // ===== EN-TÊTE : STANDA COMMERCIAL =====
   doc.setFillColor(...NAVY);
   doc.rect(0, 0, W, 3, "F");
@@ -98,23 +173,26 @@ export function generateInvoicePdf(
   doc.setTextColor(60, 60, 60);
   doc.text(`N° ${inv.invoice_number}`, W - 14, 22, { align: "right" });
   doc.text(`Date : ${dateFr(inv.created_at || new Date())}`, W - 14, 26.5, { align: "right" });
+  }
 
   // ===== SERVICE ORDER — li valè yo, tou dousman (fakti shipping -> 0) =====
   const purchase = Number(inv.order_purchase) || 0;
   const svcFee = Number(inv.order_service_fee) || 0;
   const deposit = Number(inv.order_deposit) || 0;
   const isOrder = inv.invoice_kind === "service_order" || purchase > 0 || svcFee > 0;
-  if (isOrder) doc.text("Service Order", W - 14, 31, { align: "right" });
+  if (isOrder) { if (dk) doc.setTextColor(...DK_GOLD); doc.text("Service Order", W - 14, 31, { align: "right" }); }
 
-  doc.setDrawColor(215, 220, 230);
-  doc.setLineWidth(0.3);
-  doc.line(14, 44, W - 14, 44);
+  if (!dk) {
+    doc.setDrawColor(215, 220, 230);
+    doc.setLineWidth(0.3);
+    doc.line(14, 44, W - 14, 44);
+  }
 
   // ===== FACTURÉ À : le client =====
   const clientTop = 48;
-  doc.setFillColor(...MIST);
+  doc.setFillColor(...SOFT);
   doc.roundedRect(14, clientTop, W - 28, 27, 2, 2, "F");
-  doc.setTextColor(...NAVY);
+  doc.setTextColor(...PRI);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
   doc.text("FACTURÉ À", 19, clientTop + 6);
@@ -151,8 +229,8 @@ export function generateInvoicePdf(
       ];
     }),
     theme: "grid",
-    headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold" },
-    alternateRowStyles: { fillColor: MIST },
+    headStyles: { fillColor: PRI, textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: SOFT },
     styles: { fontSize: 7, cellPadding: 1.6, overflow: "linebreak" },
     columnStyles: { 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } },
     // Marge du bas : le tableau ne descend jamais sur la ligne de pied de page.
@@ -207,15 +285,15 @@ export function generateInvoicePdf(
     doc.addPage();
     yTable = 16;
   }
-  doc.setFillColor(...MIST);
+  doc.setFillColor(...SOFT);
   doc.roundedRect(14, yTable + 8, 80, 18, 2, 2, "F");
-  doc.setTextColor(...NAVY);
+  doc.setTextColor(...PRI);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.text(`Nombre de colis : ${pkgCount}`, 20, yTable + 15);
   doc.text(`Poids total : ${totalWeight.toFixed(2)} LB`, 20, yTable + 22);
   const y = yTable + 8;
-  doc.setFillColor(...MIST);
+  doc.setFillColor(...SOFT);
   doc.roundedRect(x, y, boxW, boxH, 2, 2, "F");
   doc.setFontSize(8.5);
   doc.setTextColor(40, 40, 40);
@@ -265,7 +343,7 @@ export function generateInvoicePdf(
   doc.setTextColor(90, 90, 90);
   doc.text(`Taux: 1 USD = ${rate.toFixed(2)} HTG`, x + 5, ry + 5.5);
 
-  doc.setFillColor(...NAVY);
+  doc.setFillColor(...PRI);
   doc.roundedRect(x, y + boxH, boxW, 11, 2, 2, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
@@ -281,7 +359,7 @@ export function generateInvoicePdf(
     const bottom = H - FOOTER_ZONE;
     let ay = Math.max(y + boxH + 11, yTable + 26) + 9;
     const title = (suite: boolean) => {
-      doc.setFillColor(...NAVY);
+      doc.setFillColor(...PRI);
       doc.roundedRect(left, ay, width, 6.5, 1.2, 1.2, "F");
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
@@ -299,7 +377,7 @@ export function generateInvoicePdf(
       if (ay + h > bottom) { doc.addPage(); ay = 16; title(true); }
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
-      doc.setTextColor(...NAVY);
+      doc.setTextColor(...PRI);
       doc.text(`${i + 1}.`, left + 2, ay);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(55, 55, 55);
@@ -318,7 +396,7 @@ export function generateInvoicePdf(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
-    doc.text(footer, 14, H - 10);
+    doc.text(dk ? (brand?.info.footer || `${DOKASAV_NAME} · Merci de votre confiance.`) : footer, 14, H - 10);
     if (pages > 1) doc.text(`Page ${p}/${pages} · ${inv.invoice_number}`, W - 14, H - 10, { align: "right" });
   }
 
@@ -337,7 +415,7 @@ export async function generateUploadDownload(
   opts: { download?: boolean; autoPrint?: boolean } = {}
 ): Promise<PdfResult> {
   const [logo, extras] = await Promise.all([loadLogo(), loadExtras()]);
-  const doc = generateInvoicePdf(inv, items, footer, logo, extras.advice, extras.patent);
+  const doc = generateInvoicePdf(inv, items, footer, logo, extras.advice, extras.patent, await brandFor(inv, extras));
   const filename = `Facture_${inv.invoice_number}_${inv.customer_code}.pdf`;
   const blob = doc.output("blob");
 
@@ -364,6 +442,6 @@ export async function generateUploadDownload(
 
 export async function openInvoicePdf(inv: Invoice, items: InvoiceItem[], footer: string) {
   const [logo, extras] = await Promise.all([loadLogo(), loadExtras()]);
-  const doc = generateInvoicePdf(inv, items, footer, logo, extras.advice, extras.patent);
+  const doc = generateInvoicePdf(inv, items, footer, logo, extras.advice, extras.patent, await brandFor(inv, extras));
   window.open(doc.output("bloburl"), "_blank");
 }

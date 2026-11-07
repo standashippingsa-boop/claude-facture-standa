@@ -19,6 +19,7 @@ import { adminApi, useRole } from "@/lib/authx";
 import { useNoticeToast } from "@/lib/notify";
 import { loadMcpackSettings, parseCodeList, saveMcpackConfig } from "@/lib/mcpack-payable";
 import { DEFAULT_INVOICE_ADVICE, INVOICE_ADVICE_KEY, INVOICE_PATENT_KEY, parseInvoiceAdvice } from "@/lib/invoice-advice";
+import { DEFAULT_DOKASAV_ADVICE, DOKASAV_BRAND_KEY, DOKASAV_LOGO, DOKASAV_NAME, parseDokasavBrand, type DokasavBrand } from "@/lib/invoice-brand";
 const schema = z.object({
   name: z.string().min(1, "Non vil la obligatwa"),
   price_personal: z.coerce.number().min(0, "Dwe >= 0"),
@@ -520,24 +521,36 @@ function PlatformLinksSection() {
 // ================= MCPACK & ERGENS (admin) =================
 // Tarif MCPACK par livre et comptes Ergens (Dokasav, Blic Express) utilisés par
 // le graphique « À payer à MCPACK » du tableau de bord. Sans code, Ergens est reconnu par le nom.
+// Les codes des clients Dokasav servent aussi au modèle de facture Dokasav (lib/invoice-brand.ts).
 function McpackErgensSection({ onNotice }: { onNotice: (s: string) => void }) {
   const [rate, setRate] = useState("3");
   const [dokasav, setDokasav] = useState("");
   const [blic, setBlic] = useState("");
+  const [brand, setBrand] = useState<DokasavBrand>(parseDokasavBrand(""));
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    loadMcpackSettings().then((settings) => {
-      setRate(String(settings.rate)); setDokasav(settings.codes.dokasav.join(", ")); setBlic(settings.codes.blic.join(", ")); setReady(true);
+    Promise.all([
+      loadMcpackSettings(),
+      supabase.from("app_settings").select("value").eq("key", DOKASAV_BRAND_KEY).maybeSingle(),
+    ]).then(([settings, brandRow]) => {
+      setRate(String(settings.rate)); setDokasav(settings.codes.dokasav.join("\n")); setBlic(settings.codes.blic.join(", "));
+      setBrand(parseDokasavBrand((brandRow as { data: { value?: string } | null }).data?.value ?? ""));
+      setReady(true);
     }).catch(() => setReady(true));
   }, []);
+  const setB = (k: keyof DokasavBrand) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setBrand({ ...brand, [k]: e.target.value });
+  const dokasavCount = parseCodeList(dokasav).length;
   const save = async () => {
     setBusy(true);
     try {
       const codes = { dokasav: parseCodeList(dokasav), blic: parseCodeList(blic) };
       await saveMcpackConfig(Number(rate.replace(",", ".")), codes);
-      setDokasav(codes.dokasav.join(", ")); setBlic(codes.blic.join(", "));
-      onNotice("Réglages MCPACK et Ergens enregistrés.");
+      const clean = parseDokasavBrand(brand);
+      const { error } = await supabase.from("app_settings").upsert({ key: DOKASAV_BRAND_KEY, value: JSON.stringify(clean) });
+      if (error) throw new Error(error.message);
+      setDokasav(codes.dokasav.join("\n")); setBlic(codes.blic.join(", ")); setBrand(clean);
+      onNotice(`Réglages enregistrés : ${codes.dokasav.length} client(s) Dokasav.`);
     } catch (error) { onNotice("Erè: " + (error instanceof Error ? error.message : "enregistrement impossible")); }
     finally { setBusy(false); }
   };
@@ -545,14 +558,37 @@ function McpackErgensSection({ onNotice }: { onNotice: (s: string) => void }) {
     <section className="space-y-3">
       <h2 className="text-sm font-bold text-navy uppercase tracking-wide">MCPACK & Ergens</h2>
       <div className="card p-5 space-y-4">
-        <p className="text-xs text-mute">Utilisé par le graphique « À payer à MCPACK » du tableau de bord. Laissez un champ de codes vide pour reconnaître le compte par son nom.</p>
+        <p className="text-xs text-mute">Utilisé par le graphique « À payer à MCPACK » du tableau de bord. Les comptes Dokasav et Blic Express sont aussi reconnus par leur nom.</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <label className="block"><span className="text-xs font-medium text-slate-500">Tarif MCPACK (USD par livre)</span>
             <input className="input mt-1" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} disabled={!ready} /></label>
-          <label className="block"><span className="text-xs font-medium text-slate-500">Codes Dokasav</span>
-            <input className="input mt-1 font-mono" value={dokasav} onChange={(e) => setDokasav(e.target.value)} placeholder="Ex. MC-40000" disabled={!ready} /></label>
           <label className="block"><span className="text-xs font-medium text-slate-500">Codes Blic Express</span>
             <input className="input mt-1 font-mono" value={blic} onChange={(e) => setBlic(e.target.value)} placeholder="Ex. MC-45273" disabled={!ready} /></label>
+        </div>
+        <div className="rounded-xl border border-line p-4 space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={DOKASAV_LOGO} alt={DOKASAV_NAME} className="h-10 w-auto rounded" />
+            <div>
+              <p className="text-sm font-bold text-navy">{DOKASAV_NAME}</p>
+              <p className="text-xs text-mute">Partenaire. Ses clients reçoivent la facture au modèle Dokasav (logo et coordonnées Dokasav).</p>
+            </div>
+          </div>
+          <label className="block"><span className="text-xs font-medium text-slate-500">Codes des clients Dokasav ({dokasavCount}) · un code par ligne ou séparés par des virgules</span>
+            <textarea className="input mt-1 min-h-28 font-mono" value={dokasav} onChange={(e) => setDokasav(e.target.value)} placeholder={"MC-36578\nMC-40001\nMC-40002"} disabled={!ready} /></label>
+          <p className="text-xs text-mute">Ces codes comptent pour Dokasav dans « À payer à MCPACK ». Le compte Dokasav lui même est reconnu par son nom. Chaque client Dokasav doit être en compte VIP avec son prix par livre (fiche client, crayon).</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <label className="block"><span className="text-xs font-medium text-slate-500">Téléphone et WhatsApp Dokasav</span>
+              <input className="input mt-1" value={brand.phone} onChange={setB("phone")} disabled={!ready} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Courriel Dokasav</span>
+              <input className="input mt-1" value={brand.email} onChange={setB("email")} disabled={!ready} /></label>
+            <label className="block"><span className="text-xs font-medium text-slate-500">Adresse Dokasav</span>
+              <input className="input mt-1" value={brand.address} onChange={setB("address")} disabled={!ready} /></label>
+          </div>
+          <label className="block"><span className="text-xs font-medium text-slate-500">Bas de page des factures Dokasav (vide = « {DOKASAV_NAME} · Merci de votre confiance. »)</span>
+            <input className="input mt-1" value={brand.footer} onChange={setB("footer")} disabled={!ready} /></label>
+          <label className="block"><span className="text-xs font-medium text-slate-500">Conseils des factures Dokasav · un par ligne (vide = conseils proposés)</span>
+            <textarea className="input mt-1 min-h-24 text-[13px]" value={brand.advice} onChange={setB("advice")} placeholder={DEFAULT_DOKASAV_ADVICE.join("\n")} disabled={!ready} /></label>
         </div>
         <BusyButton className="btn" onClick={save} busy={busy} busyLabel="Enregistrement…">Enregistrer</BusyButton>
       </div>

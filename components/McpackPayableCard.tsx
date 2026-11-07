@@ -107,13 +107,14 @@ export default function McpackPayableCard() {
   const view = useMemo(() => {
     if (!state) return null;
     const { settings } = state;
-    // 1) Comptes Ergens : codes réglés, sinon nom (fiche client ou nom MCPACK du colis).
+    // 1) Comptes Ergens : codes réglés (ex. les clients Dokasav) ET compte reconnu par
+    // son nom (fiche client ou nom MCPACK du colis), pour ne jamais oublier le compte principal.
     const accountOf = new Map<string, ShareKey>();
     const detected = new Map<string, ShareKey>();
     for (const share of SHARES) {
       if (share.key === "standa") continue;
       const fixed = settings.codes[share.key];
-      if (fixed.length) { for (const code of fixed) { accountOf.set(code, share.key); detected.set(code, share.key); } continue; }
+      for (const code of fixed) { accountOf.set(code, share.key); detected.set(code, share.key); }
       const tag = (code: string, name: string) => {
         const clean = code.trim().toUpperCase();
         if (clean && name && share.match?.test(name)) { accountOf.set(clean, share.key); detected.set(clean, share.key); }
