@@ -11,6 +11,7 @@ import { pickupLabel, pickupLocationForCity } from "./pickup-location";
 import { specialPackageInfo, withManualSpecialPackageMetadata, withSpecialPackageMetadata, ManualSpecialPackageKind, SPECIAL_PACKAGE_FLAG, SPECIAL_PACKAGE_REASON, SPECIAL_PACKAGE_SOURCE } from "./special-package";
 import { computePrice, computeLinePrice, DEFAULT_SMALL_PARCEL, DEFAULT_SMALL_PARCEL_PRICE, isSmallParcel, round2, SmallParcelConfig, SpecialArticle, parseSpecialArticles, DEFAULT_SPECIAL_ARTICLES, OrderFeeTier, parseOrderFeeTiers, serializeOrderFeeTiers, DEFAULT_ORDER_FEE_TIERS, villeForClient } from "./pricing";
 import type { PdfPkgRow } from "./pdfimport";
+import { ergensMatcher } from "./invoice-brand";
 import { computeInvoice, invoiceLineContent, InvoiceComputation, verifyTotal } from "./invoice-engine";
 import { invoicePayableAmounts, parsePaymentAmount, paymentIsWithinRoundingMargin, paymentStatusFromAmounts } from "./invoice-payable";
 
@@ -2449,12 +2450,19 @@ export async function getStats(): Promise<DashboardStats> {
     const { count: c } = await q;
     return c ?? 0;
   };
-  const [totalClients, disponibles, factures, totalInvoices] = await Promise.all([
+  const [totalClients, disponibles, factures, revs, ergensSetting] = await Promise.all([
     count("clients"), count("packages", ["status", "Disponible"]),
-    count("packages", ["status", "Facturé"]), count("invoices")
+    count("packages", ["status", "Facturé"]),
+    // Toutes les factures (page par page, pas seulement les 1000 premières).
+    fetchAllRows<{ grand_total: number; customer_code: string; customer_name: string }>(() =>
+      supabase.from("invoices").select("id, grand_total, customer_code, customer_name").order("id", { ascending: true })),
+    supabase.from("app_settings").select("value").eq("key", "mcpack_ergens_codes").maybeSingle(),
   ]);
-  const { data: revs } = await supabase.from("invoices").select("grand_total");
-  const revenue = (revs ?? []).reduce((s, r) => s + Number(r.grand_total), 0);
+  // Budget STANDA : l argent des clients Ergens (Dokasav, Blic, clients Dokasav) est suivi à part.
+  const isErgens = ergensMatcher((ergensSetting as { data: { value?: string } | null }).data?.value ?? "");
+  const standaInvoices = revs.filter((r) => !isErgens(r.customer_code, r.customer_name));
+  const totalInvoices = standaInvoices.length;
+  const revenue = standaInvoices.reduce((s, r) => s + Number(r.grand_total), 0);
   const { data: imp } = await supabase.from("imports").select("*")
     .order("created_at", { ascending: false }).limit(1);
   return { totalClients, disponibles, factures, totalInvoices, revenue, lastImport: imp?.[0] ?? null };

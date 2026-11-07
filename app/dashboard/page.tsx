@@ -72,7 +72,7 @@ export default function Dashboard() {
     { label: "Colis disponibles", value: stats.disponibles, icon: Package, href: "/packages", tint: "bg-brand-light text-brand-dark" },
     { label: "Colis facturés", value: stats.factures, icon: CheckCircle2, href: "/historique", tint: "bg-emerald-50 text-emerald-600" },
     { label: "Total factures", value: stats.totalInvoices, icon: FileText, href: "/invoices", tint: "bg-indigo-50 text-indigo-600" },
-    { label: "Revenu total (USD)", value: usd(stats.revenue), icon: DollarSign, href: "/invoices", tint: "bg-amber-50 text-amber-600" }
+    { label: "Revenu STANDA (USD)", value: usd(stats.revenue), icon: DollarSign, href: "/invoices", tint: "bg-amber-50 text-amber-600" }
   ] : [];
 
   return (

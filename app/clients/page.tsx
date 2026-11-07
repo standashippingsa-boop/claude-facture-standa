@@ -22,6 +22,7 @@ import { pickupLabel, pickupLocationForCity } from "@/lib/pickup-location";
 import { clientZoneFix, type ZoneFix } from "@/lib/client-zone";
 import { supabase } from "@/lib/supabase";
 import ClientEditDialog from "@/components/ClientEditDialog";
+import { ergensMatcher } from "@/lib/invoice-brand";
 const schema = z.object({
   customer_code: z.string().min(1, "Kòd obligatwa"),
   fullname: z.string().min(1, "Non obligatwa"),
@@ -52,6 +53,9 @@ export default function ClientsPage() {
   const [editDialog, setEditDialog] = useState<Client | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
+  // Deux listes, même moteur : clients STANDA et clients Ergens (Dokasav, Blic, clients Dokasav).
+  const [group, setGroup] = useState<"standa" | "ergens">("standa");
+  const [ergensCodes, setErgensCodes] = useState("");
   const [cityF, setCityF] = useState("");
   const [accountTypeF, setAccountTypeF] = useState("");
   const [accountStatusF, setAccountStatusF] = useState("");
@@ -108,6 +112,13 @@ export default function ClientsPage() {
     .then(([c, v, a]) => { setClients(c); setVilles(v); setAgences(a); })
     .catch((e) => setNotice("Erè: " + e.message));
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    supabase.from("app_settings").select("value").eq("key", "mcpack_ergens_codes").maybeSingle()
+      .then(({ data: row }: { data: { value?: string } | null }) => setErgensCodes(row?.value ?? ""));
+  }, []);
+  const isErgens = useMemo(() => ergensMatcher(ergensCodes), [ergensCodes]);
+  const ergensOf = (c: Client) => isErgens(c.customer_code, [c.fullname, c.surname].filter(Boolean).join(" "));
+  const ergensCount = clients.filter(ergensOf).length;
 
   const openNew = () => { setEditing(null); reset({ customer_code: "", fullname: "", whatsapp: "", pickup_location: "", email: "", ville_id: "", account_type: "Personnel", vip_price_per_lb: "" }); setShowForm(true); };
   // Modification : fenêtre complète, recopie côté serveur dans colis, factures, retraits, connexion.
@@ -183,6 +194,7 @@ export default function ClientsPage() {
   // Rechèch flou (fòt òtograf, aksan) : s'ajoute sou rechèch egzak la, li pa ranplase l.
   const fuzzyHits = useMemo(() => fuzzyClientIds(clients, q), [clients, q]);
   const filtered = clients.filter((c) => {
+    if (ergensOf(c) !== (group === "ergens")) return false;
     const date = String(c.created_at ?? "").slice(0, 10);
     const status = c.account_status ?? "Actif";
     if (cityF && c.ville_id !== cityF) return false;
@@ -244,6 +256,16 @@ export default function ClientsPage() {
           </div>}
         </section>
       )}
+
+      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Liste de clients">
+        {([["standa", "Clients STANDA", clients.length - ergensCount], ["ergens", "Clients Ergens", ergensCount]] as const).map(([key, label, n]) => (
+          <button key={key} type="button" role="tab" aria-selected={group === key} onClick={() => setGroup(key)}
+            className={`rounded-lg px-4 py-2 text-sm font-bold transition ${group === key ? "bg-navy text-white" : "border border-line bg-white text-navy hover:border-navy/40"}`}>
+            {label} <span className={group === key ? "text-white/70" : "text-mute"}>({n})</span>
+          </button>
+        ))}
+        {group === "ergens" && <span className="text-xs text-mute">Dokasav, Blic Express et les clients Dokasav (Paramètres, MCPACK & Ergens). Leur argent est suivi à part du budget STANDA.</span>}
+      </div>
 
       <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Code, nom, téléphone, WhatsApp, courriel…"
         resultCount={filtered.length} onClear={clearFilters}

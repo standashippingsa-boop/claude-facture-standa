@@ -68,3 +68,21 @@ export const isDokasavCode = (codes: Set<string>, customerCode: unknown, custome
   if (c && codes.has(c)) return true;
   return BLIC_NAME.test(String(customerName ?? ""));
 };
+
+/**
+ * CLIENTS ERGENS : compte Dokasav, Blic Express et tous les clients Dokasav.
+ * Ils utilisent le même moteur que les clients STANDA, mais leur argent
+ * (factures, paiements, soldes) est suivi À PART : il ne compte pas dans le
+ * budget STANDA. Reconnus par les codes de Paramètres (Dokasav + Blic) ou,
+ * pour les deux comptes principaux, par leur nom.
+ */
+const ERGENS_NAMES = [/doka\s*-?\s*sav/i, /blic\s*express/i];
+export function ergensMatcher(rawCodes: unknown): (customerCode: unknown, customerName?: unknown) => boolean {
+  const codes = dokasavCodesFrom(rawCodes);
+  return (customerCode, customerName) => {
+    const c = norm(customerCode);
+    if (c && codes.has(c)) return true;
+    const name = String(customerName ?? "");
+    return !!name && ERGENS_NAMES.some((re) => re.test(name));
+  };
+}

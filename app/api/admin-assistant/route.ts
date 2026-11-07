@@ -6,6 +6,7 @@ import { getSupabaseAdminConfig } from "@/lib/supabase-server";
 import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
 import { readJsonBody } from "@/lib/validation/request";
 import { hasSignificantInvoiceBalance, invoiceRemainingAmounts } from "@/lib/invoice-payable";
+import { ergensMatcher } from "@/lib/invoice-brand";
 
 /**
  * ASSISTANT DE CALCUL DE L'ADMINISTRATEUR
@@ -73,21 +74,28 @@ export async function POST(req: Request) {
   const invoices: Record<string, unknown>[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await db.from("invoices")
-      .select("customer_code, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, payment_paid_usd, payment_paid_htg, payment_status")
+      .select("customer_code, customer_name, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, payment_paid_usd, payment_paid_htg, payment_status")
       .neq("payment_status", "Payé").order("id").range(from, from + 999);
     if (error) break;
     invoices.push(...(data ?? []));
     if (!data || data.length < 1000) break;
   }
-  let owedUsd = 0; const debtors = new Set<string>(); let owing = 0;
+  // Budget STANDA et budget Ergens (Dokasav, Blic, clients Dokasav) comptés à part.
+  const { data: ergensRow } = await db.from("app_settings").select("value").eq("key", "mcpack_ergens_codes").maybeSingle();
+  const isErgens = ergensMatcher(ergensRow?.value ?? "");
+  const owed = { standa: { usd: 0, n: 0, clients: new Set<string>() }, ergens: { usd: 0, n: 0, clients: new Set<string>() } };
   for (const inv of invoices) {
     if (!hasSignificantInvoiceBalance(inv as never)) continue;
     const a = invoiceRemainingAmounts(inv as never);
     const share = Math.min(1, (a.payableUsd ? a.paidUsd / a.payableUsd : 0) + (a.payableHtg ? a.paidHtg / a.payableHtg : 0));
-    owedUsd += a.payableUsd * (1 - share);
-    owing++; debtors.add(String(inv.customer_code ?? ""));
+    const bucket = isErgens(inv.customer_code, inv.customer_name) ? owed.ergens : owed.standa;
+    bucket.usd += a.payableUsd * (1 - share);
+    bucket.n++; bucket.clients.add(String(inv.customer_code ?? ""));
   }
-  facts.push(`Clients : ${owing} facture(s) non soldée(s), ${debtors.size} client(s), reste à encaisser environ ${usd(owedUsd)}.`);
+  facts.push(
+    `Clients STANDA : ${owed.standa.n} facture(s) non soldée(s), ${owed.standa.clients.size} client(s), reste à encaisser environ ${usd(owed.standa.usd)}.`,
+    `Clients Ergens (Dokasav, Blic, clients Dokasav), budget séparé de STANDA : ${owed.ergens.n} facture(s) non soldée(s), ${owed.ergens.clients.size} client(s), environ ${usd(owed.ergens.usd)}.`,
+  );
 
   const statuses = ["Reçu à Miami", "En préparation", "En transit", "Arrivé en Haïti", "En route vers agence", "Disponible", "Facturé"];
   const counts = await Promise.all(statuses.map(async (s) => {

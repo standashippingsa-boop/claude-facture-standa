@@ -8,6 +8,7 @@ import ClientPaymentForm, { PaymentModal, type ClientPaymentSubmit } from "@/com
 import { invoiceStatusLines } from "@/lib/payment-allocation";
 import { notify, useNoticeToast } from "@/lib/notify";
 import { supabase } from "@/lib/supabase";
+import { ergensMatcher } from "@/lib/invoice-brand";
 import { hasSignificantInvoiceBalance, invoiceRemainingAmounts, paymentStatusFromAmounts } from "@/lib/invoice-payable";
 
 type InvoiceRow = {
@@ -44,6 +45,9 @@ export default function RapportsFinanciersPage() {
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [villeId, setVilleId] = useState("");
+  // Deux budgets séparés : STANDA, et Ergens (Dokasav, Blic, clients Dokasav).
+  const [business, setBusiness] = useState<"standa" | "ergens">("standa");
+  const [ergensCodes, setErgensCodes] = useState("");
   const [from, setFrom] = useState(() => dateInput(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
   const [to, setTo] = useState(() => dateInput(new Date()));
   const [paymentCustomer, setPaymentCustomer] = useState<string | null>(null);
@@ -76,11 +80,22 @@ export default function RapportsFinanciersPage() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    supabase.from("app_settings").select("value").eq("key", "mcpack_ergens_codes").maybeSingle()
+      .then(({ data: row }: { data: { value?: string } | null }) => setErgensCodes(row?.value ?? ""));
+  }, []);
 
   const customerByCode = useMemo(() => new Map((data?.clients ?? []).map((client) => [client.customer_code, client])), [data?.clients]);
   const invoiceById = useMemo(() => new Map((data?.invoices ?? []).map((invoice) => [invoice.id, invoice])), [data?.invoices]);
   const cityById = useMemo(() => new Map((data?.villes ?? []).map((city) => [city.id, city.name])), [data?.villes]);
-  const customerMatchesCity = useCallback((customerCode: string) => !villeId || customerByCode.get(customerCode)?.ville_id === villeId, [customerByCode, villeId]);
+  const isErgens = useMemo(() => ergensMatcher(ergensCodes), [ergensCodes]);
+  // Filtre central : ville choisie ET budget choisi (STANDA ou Ergens).
+  const customerMatchesCity = useCallback((customerCode: string) => {
+    const client = customerByCode.get(customerCode);
+    const ergens = isErgens(customerCode, client ? [client.fullname, client.surname].filter(Boolean).join(" ") : "");
+    if (ergens !== (business === "ergens")) return false;
+    return !villeId || client?.ville_id === villeId;
+  }, [business, customerByCode, isErgens, villeId]);
 
   // Un paiement clôturé sort du rapport (il n'est jamais supprimé) : on le montre seulement sur demande.
   const payments = useMemo(() => (data?.payments ?? []).filter((payment) => {
@@ -268,6 +283,7 @@ export default function RapportsFinanciersPage() {
 
   return <div className="space-y-5 pb-10">
     <div className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="h-page flex items-center gap-2"><BarChart3 size={23} /> Rapports financiers</h1><p className="mt-1 text-sm text-mute">Encaissements, soldes et reçus confirmés dans une seule vue.</p></div><div className="flex gap-2"><button type="button" onClick={() => window.location.reload()} className="btn btn-ghost inline-flex items-center gap-2"><RefreshCw size={16} /> Actualiser</button><button type="button" disabled={!payments.length} onClick={exportPayments} className="btn btn-primary inline-flex items-center gap-2 disabled:opacity-50"><Download size={16} /> Exporter</button></div></div>
+    <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Budget">{([["standa", "Budget STANDA"], ["ergens", "Ergens (Dokasav, Blic)"]] as const).map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={business === key} onClick={() => setBusiness(key)} className={`rounded-lg px-4 py-2 text-sm font-bold transition ${business === key ? "bg-navy text-white" : "border border-line bg-white text-navy hover:border-navy/40"}`}>{label}</button>)}<span className="text-xs text-mute">{business === "ergens" ? "Argent des clients Ergens, suivi à part : il ne compte pas dans le budget STANDA." : "Clients STANDA seulement : l’argent des clients Ergens est à part."}</span></div>
     <section className="card grid gap-3 p-4 md:grid-cols-4"><label><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Ville</span><select className="input mt-1" value={villeId} onChange={(event) => setVilleId(event.target.value)}><option value="">Toutes les villes</option>{(data?.villes ?? []).filter((city) => city.active).map((city) => <option value={city.id} key={city.id}>{city.name}</option>)}</select></label><label><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Du</span><input className="input mt-1" type="date" value={from} max={to || undefined} onChange={(event) => setFrom(event.target.value)} /></label><label><span className="text-xs font-bold uppercase tracking-wide text-slate-500">Au</span><input className="input mt-1" type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} /></label><label className="flex items-end gap-2 pb-2.5 text-sm font-semibold text-slate-600"><input type="checkbox" className="h-4 w-4" checked={showSettled} onChange={(event) => setShowSettled(event.target.checked)} />Inclure les paiements clôturés</label></section>
     {loading ? <div className="card py-16"><Loader inline size={56} /></div> : <>
       {data && !data.settlement_ready && <p className="card border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">Clôture du rapport indisponible : exécutez supabase/20260920_report_settlement.sql dans Supabase SQL Editor, puis actualisez.</p>}
