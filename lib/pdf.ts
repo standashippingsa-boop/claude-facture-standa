@@ -11,7 +11,9 @@ import { DOKASAV_BRAND_KEY, DOKASAV_LOGO, DOKASAV_NAME, dokasavAdvice, dokasavCo
 
 export type InvoiceExtras = { advice: string[]; patent: string; dokasavCodes: Set<string>; dokasav: DokasavBrand };
 /** Modèle de facture d'un partenaire (Dokasav) au lieu du modèle STANDA. */
-export type InvoiceBrand = { kind: "dokasav"; logo: string | null; info: DokasavBrand };
+export type InvoiceBrand = { kind: "dokasav"; logo: string | null; info: DokasavBrand; fonts?: PdfFonts | null };
+/** Polices TrueType (base64) intégrées au PDF : Poppins pour les factures Dokasav. */
+export type PdfFonts = { regular: string; bold: string };
 
 /** Conseils, patente et réglages Dokasav (Paramètres), relus à chaque facture. */
 async function loadExtras(): Promise<InvoiceExtras> {
@@ -43,9 +45,29 @@ async function loadDokasavLogo(): Promise<string | null> {
 }
 
 /** Facture d'un client Dokasav → modèle Dokasav ; sinon modèle STANDA (undefined). */
+let poppinsCache: PdfFonts | null | undefined;
+/** Poppins (licence libre OFL, public/fonts) : chargée une fois ; sans elle la facture garde Helvetica. */
+async function loadPoppins(): Promise<PdfFonts | null> {
+  if (poppinsCache !== undefined) return poppinsCache;
+  const toBase64 = async (url: string) => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(url);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...Array.from(bytes.subarray(i, i + 0x8000)));
+    return btoa(bin);
+  };
+  try {
+    const [regular, bold] = await Promise.all([toBase64("/fonts/Poppins-Regular.ttf"), toBase64("/fonts/Poppins-SemiBold.ttf")]);
+    poppinsCache = { regular, bold };
+  } catch { poppinsCache = null; }
+  return poppinsCache;
+}
+
 async function brandFor(inv: Invoice, extras: InvoiceExtras): Promise<InvoiceBrand | undefined> {
   if (!isDokasavCode(extras.dokasavCodes, inv.customer_code, inv.customer_name)) return undefined;
-  return { kind: "dokasav", logo: await loadDokasavLogo(), info: extras.dokasav };
+  const [logo, fonts] = await Promise.all([loadDokasavLogo(), loadPoppins()]);
+  return { kind: "dokasav", logo, info: extras.dokasav, fonts };
 }
 
 /** Couleurs du modèle Dokasav (noir, bleu nuit et or du logo). */
@@ -89,6 +111,17 @@ export function generateInvoicePdf(
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const dk = brand?.kind === "dokasav";
+  // Police : Poppins sur les factures Dokasav (différente de STANDA), Helvetica sinon.
+  let FONT = "helvetica";
+  if (dk && brand?.fonts) {
+    try {
+      doc.addFileToVFS("Poppins-Regular.ttf", brand.fonts.regular);
+      doc.addFont("Poppins-Regular.ttf", "Poppins", "normal");
+      doc.addFileToVFS("Poppins-SemiBold.ttf", brand.fonts.bold);
+      doc.addFont("Poppins-SemiBold.ttf", "Poppins", "bold");
+      FONT = "Poppins";
+    } catch { FONT = "helvetica"; }
+  }
   if (dk && brand) advice = dokasavAdvice(brand.info);
   // Couleurs du modèle : STANDA (bleu marine) ou Dokasav (bleu nuit et or).
   const PRI = dk ? DK_NAVY : NAVY;
@@ -105,7 +138,7 @@ export function generateInvoicePdf(
     if (brand?.logo) {
       doc.addImage(brand.logo, "PNG", 14, 7.5, 52, 12.1, undefined, "FAST");
     } else {
-      doc.setTextColor(...DK_NAVY); doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+      doc.setTextColor(...DK_NAVY); doc.setFont(FONT, "bold"); doc.setFontSize(14);
       doc.text(DOKASAV_NAME, 14, 15);
     }
     // Coordonnées Dokasav (seulement celles saisies), retour à la ligne si besoin : rien n'est coupé.
@@ -115,14 +148,14 @@ export function generateInvoicePdf(
       info?.email ? `Courriel : ${info.email}` : "",
       info?.address ? `Adresse : ${info.address}` : "",
     ].filter(Boolean);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(6.4); doc.setTextColor(95, 95, 95);
+    doc.setFont(FONT, "normal"); doc.setFontSize(6.4); doc.setTextColor(95, 95, 95);
     let cy = 23.5;
     for (const line of contact) {
       for (const part of doc.splitTextToSize(line, 110) as string[]) { doc.text(part, 14, cy); cy += 2.9; }
     }
 
     doc.setTextColor(...DK_NAVY);
-    doc.setFont("helvetica", "bold");
+    doc.setFont(FONT, "bold");
     doc.setFontSize(17);
     doc.text("FACTURE", W - 14, 14, { align: "right" });
     // Numéro dans une pastille or.
@@ -133,7 +166,7 @@ export function generateInvoicePdf(
     doc.roundedRect(W - 14 - pillW, 16.5, pillW, 5, 2.5, 2.5, "F");
     doc.setTextColor(255, 255, 255);
     doc.text(num, W - 14 - pillW / 2, 19.9, { align: "center" });
-    doc.setFont("helvetica", "normal");
+    doc.setFont(FONT, "normal");
     doc.setFontSize(6.8);
     doc.setTextColor(95, 95, 95);
     doc.text(`Date : ${dateFr(inv.created_at || new Date())}`, W - 14, 25.5, { align: "right" });
@@ -148,16 +181,16 @@ export function generateInvoicePdf(
     doc.setFillColor(...NAVY);
     doc.roundedRect(14, 9, 22, 22, 2, 2, "F");
     doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
+    doc.setFont(FONT, "bold");
     doc.setFontSize(14);
     doc.text("SC", 25, 23, { align: "center" });
   }
   const cx = 41;
   doc.setTextColor(...NAVY);
-  doc.setFont("helvetica", "bold");
+  doc.setFont(FONT, "bold");
   doc.setFontSize(13);
   doc.text("STANDA COMMERCIAL", cx, 14.5);
-  doc.setFont("helvetica", "normal");
+  doc.setFont(FONT, "normal");
   doc.setFontSize(7.5);
   doc.setTextColor(70, 70, 70);
   doc.text("Standa Shipping S.A.", cx, 19);
@@ -174,10 +207,10 @@ export function generateInvoicePdf(
   company.forEach((line, i) => doc.text(line, cx, 22.5 + i * 3.2));
 
   doc.setTextColor(...NAVY);
-  doc.setFont("helvetica", "bold");
+  doc.setFont(FONT, "bold");
   doc.setFontSize(16);
   doc.text("FACTURE", W - 14, 16, { align: "right" });
-  doc.setFont("helvetica", "normal");
+  doc.setFont(FONT, "normal");
   doc.setFontSize(7.5);
   doc.setTextColor(60, 60, 60);
   doc.text(`N° ${inv.invoice_number}`, W - 14, 22, { align: "right" });
@@ -203,7 +236,7 @@ export function generateInvoicePdf(
   const valW = W / 2 - 22;                        // largeur d'une valeur : jamais sur l'autre colonne
   const labelSize = dk ? 5.8 : 6.5, valueSize = dk ? 7.2 : 8, valueLine = dk ? 2.9 : 3.4;
   const pickup = [String(inv.pickup_location ?? "").replace(/\s*[—–]\s*/g, ", "), inv.ville && !String(inv.pickup_location).includes(inv.ville) ? inv.ville : ""].filter(Boolean).join(", ");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(valueSize);
+  doc.setFont(FONT, "bold"); doc.setFontSize(valueSize);
   const wrap = (v: string) => (doc.splitTextToSize(v || "·", valW) as string[]).slice(0, 2);
   const nameLines = wrap(inv.customer_name), pickupLines = wrap(pickup);
   const rowGap = dk ? 7.2 : 8.5;
@@ -214,13 +247,13 @@ export function generateInvoicePdf(
   doc.roundedRect(14, clientTop, W - 28, cardH, 2, 2, "F");
   if (dk) { doc.setFillColor(...DK_GOLD); doc.roundedRect(14, clientTop, 1.4, cardH, 0.7, 0.7, "F"); }
   doc.setTextColor(...PRI);
-  doc.setFont("helvetica", "bold");
+  doc.setFont(FONT, "bold");
   doc.setFontSize(dk ? 6.4 : 7);
   doc.text("FACTURÉ À", 19, clientTop + (dk ? 4.6 : 6));
   const field = (label: string, lines: string[], fx: number, fy: number) => {
-    doc.setFont("helvetica", "normal"); doc.setFontSize(labelSize); doc.setTextColor(110, 110, 110);
+    doc.setFont(FONT, "normal"); doc.setFontSize(labelSize); doc.setTextColor(110, 110, 110);
     doc.text(label, fx, fy);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(valueSize); doc.setTextColor(35, 35, 35);
+    doc.setFont(FONT, "bold"); doc.setFontSize(valueSize); doc.setTextColor(35, 35, 35);
     lines.forEach((line, i) => doc.text(line, fx, fy + (dk ? 3.3 : 4) + i * valueLine));
   };
   field("Nom du client", nameLines, 19, row1);
@@ -256,7 +289,7 @@ export function generateInvoicePdf(
       doc.rect(data.cell.x, data.cell.y + data.cell.height - 0.6, data.cell.width, 0.6, "F");
     },
     alternateRowStyles: { fillColor: SOFT },
-    styles: dk ? { fontSize: 6.3, cellPadding: { top: 0.8, bottom: 0.8, left: 1.4, right: 1.4 }, overflow: "linebreak" } : { fontSize: 7, cellPadding: 1.6, overflow: "linebreak" },
+    styles: dk ? { font: FONT, fontSize: 6.1, cellPadding: { top: 0.8, bottom: 0.8, left: 1.4, right: 1.4 }, overflow: "linebreak" } : { fontSize: 7, cellPadding: 1.6, overflow: "linebreak" },
     columnStyles: { 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } },
     // Marge du bas : le tableau ne descend jamais sur la ligne de pied de page.
     margin: { left: 14, right: 14, top: 16, bottom: FOOTER_ZONE }
@@ -313,7 +346,7 @@ export function generateInvoicePdf(
   doc.setFillColor(...SOFT);
   doc.roundedRect(14, yTable + 8, 80, 18, 2, 2, "F");
   doc.setTextColor(...PRI);
-  doc.setFont("helvetica", "bold");
+  doc.setFont(FONT, "bold");
   doc.setFontSize(8);
   doc.text(`Nombre de colis : ${pkgCount}`, 20, yTable + 15);
   doc.text(`Poids total : ${totalWeight.toFixed(2)} LB`, 20, yTable + 22);
@@ -322,7 +355,7 @@ export function generateInvoicePdf(
   doc.roundedRect(x, y, boxW, boxH, 2, 2, "F");
   doc.setFontSize(8.5);
   doc.setTextColor(40, 40, 40);
-  doc.setFont("helvetica", "normal");
+  doc.setFont(FONT, "normal");
 
   let ly = y + 7;
   for (const l of lines) {
@@ -330,7 +363,7 @@ export function generateInvoicePdf(
     doc.text((l.value < 0 ? "-" : "") + usd(Math.abs(l.value)), x + boxW - 5, ly, { align: "right" });
     ly += 7;
     if (l.htgNote && rate > 0) {
-      doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(120, 120, 120);
+      doc.setFont(FONT, "normal"); doc.setFontSize(7.5); doc.setTextColor(120, 120, 120);
       doc.text(htg(l.htgNote), x + boxW - 5, ly - 3, { align: "right" });
       doc.setFontSize(8.5); doc.setTextColor(40, 40, 40);
       ly += 3.5;
@@ -338,14 +371,14 @@ export function generateInvoicePdf(
   }
   doc.setDrawColor(180, 180, 180);
   doc.line(x + 5, ly - 3.5, x + boxW - 5, ly - 3.5);
-  doc.setFont("helvetica", "bold");
+  doc.setFont(FONT, "bold");
   doc.text("TOTAL USD :", x + 5, ly + 1);
   doc.text(usd(grand), x + boxW - 5, ly + 1, { align: "right" });
 
   // ===== ACOMPTE + BALANCE (Service Order sèlman) =====
   let ry = ly + 1;
   if (deposit > 0) {
-    doc.setFont("helvetica", "normal");
+    doc.setFont(FONT, "normal");
     ry += 7;
     doc.text("Acompte versé :", x + 5, ry);
     doc.text("-" + usd(deposit), x + boxW - 5, ry, { align: "right" });
@@ -358,12 +391,12 @@ export function generateInvoicePdf(
     ry += 7;
     doc.setDrawColor(180, 180, 180);
     doc.line(x + 5, ry - 3.5, x + boxW - 5, ry - 3.5);
-    doc.setFont("helvetica", "bold");
+    doc.setFont(FONT, "bold");
     doc.text("BALANCE À PAYER:", x + 5, ry);
     doc.text(usd(balance), x + boxW - 5, ry, { align: "right" });
   }
 
-  doc.setFont("helvetica", "normal");
+  doc.setFont(FONT, "normal");
   doc.setFontSize(7.5);
   doc.setTextColor(90, 90, 90);
   doc.text(`Taux: 1 USD = ${rate.toFixed(2)} HTG`, x + 5, ry + 5.5);
@@ -371,7 +404,7 @@ export function generateInvoicePdf(
   doc.setFillColor(...(dk ? DK_GOLD : PRI));
   doc.roundedRect(x, y + boxH, boxW, 11, 2, 2, "F");
   doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
+  doc.setFont(FONT, "bold");
   doc.setFontSize(9.5);
   doc.text(deposit > 0 ? "SOLDE HTG :" : "TOTAL HTG :", x + 5, y + boxH + 7);
   doc.text(htg(totalHtg), x + boxW - 5, y + boxH + 7, { align: "right" });
@@ -391,7 +424,7 @@ export function generateInvoicePdf(
       doc.roundedRect(left, ay, width, titleH, 1.2, 1.2, "F");
       if (dk) { doc.setFillColor(...DK_GOLD); doc.rect(left, ay, 1.4, titleH, "F"); }
       doc.setTextColor(...((dk ? DK_NAVY : [255, 255, 255]) as [number, number, number]));
-      doc.setFont("helvetica", "bold");
+      doc.setFont(FONT, "bold");
       doc.setFontSize(dk ? 6.8 : 7.5);
       doc.text(suite ? "SA POU W KONNEN LÈ W AP VIN CHÈCHE KOLI W (swit)" : "SA POU W KONNEN LÈ W AP VIN CHÈCHE KOLI W", left + 3.5, ay + titleH * 0.68);
       ay += titleH + 3.5;
@@ -404,11 +437,11 @@ export function generateInvoicePdf(
     blocks.forEach((lines, i) => {
       const h = lines.length * lineH + gap;
       if (ay + h > bottom) { doc.addPage(); ay = 16; title(true); }
-      doc.setFont("helvetica", "bold");
+      doc.setFont(FONT, "bold");
       doc.setFontSize(adviceSize);
       doc.setTextColor(...PRI);
       doc.text(`${i + 1}.`, left + 2, ay);
-      doc.setFont("helvetica", "normal");
+      doc.setFont(FONT, "normal");
       doc.setTextColor(55, 55, 55);
       lines.forEach((line, j) => doc.text(line, left + numW + 2, ay + j * lineH));
       ay += h;
@@ -420,10 +453,10 @@ export function generateInvoicePdf(
   const footText = String(dk ? (brand?.info.footer || `${DOKASAV_NAME} · Merci de votre confiance.`) : footer).trim();
   if (footText) {
     const footSize = dk ? 6.6 : 7.5, footLine = dk ? 2.9 : 3.3;
-    doc.setFont("helvetica", "normal");
+    doc.setFont(FONT, "normal");
     doc.setFontSize(footSize);
-    const footLines = (doc.splitTextToSize(footText, W - 28) as string[]).slice(0, 6);
-    const footTop = H - 10 - (footLines.length - 1) * footLine;   // première ligne
+    const footLines = (doc.splitTextToSize(footText, W - 28 - 42) as string[]).slice(0, 6);
+    const footTop = H - 11 - (footLines.length - 1) * footLine;   // première ligne
     // Pas de place sous le contenu : le pied de page passe sur une nouvelle page.
     if (contentEnd + 5 > footTop - 3) doc.addPage();
     doc.setPage(doc.getNumberOfPages());
@@ -437,10 +470,10 @@ export function generateInvoicePdf(
   if (pages > 1) {
     for (let p = 1; p <= pages; p++) {
       doc.setPage(p);
-      doc.setFont("helvetica", "normal");
+      doc.setFont(FONT, "normal");
       doc.setFontSize(6.5);
       doc.setTextColor(140, 140, 140);
-      doc.text(`Page ${p}/${pages} · ${inv.invoice_number}`, W - 14, H - 5, { align: "right" });
+      doc.text(`Page ${p}/${pages} · ${inv.invoice_number}`, W - 14, H - 6, { align: "right" });
     }
   }
 
