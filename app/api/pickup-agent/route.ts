@@ -377,10 +377,28 @@ export async function GET(req: Request) {
     if (destinationBons.error && !String(destinationBons.error.message ?? "").includes("does not exist")) throw destinationBons.error;
     bons = (destinationBons.data ?? []) as typeof bons;
 
+    // Réception colis par colis : pour chaque Bon encore ouvert, la liste exacte de
+    // ses colis (liste blanche : ni téléphone, ni adresse, ni prix).
+    const openBonIds = bons.filter((bon) => !bon.received_at).map((bon) => code(bon.id)).filter(Boolean);
+    const bonParcelsById = new Map<string, Array<{ id: string; tracking_number: string; tracking_manual: string; customer_code: string; content: string; quantity: number; status: string }>>();
+    if (openBonIds.length) {
+      const bonParcelsResult = await db.from("packages")
+        .select("id, bon_remise_id, tracking_number, tracking_manual, customer_code, content, quantity, status")
+        .in("bon_remise_id", openBonIds).order("created_at", { ascending: true }).limit(5000);
+      if (bonParcelsResult.error) throw bonParcelsResult.error;
+      for (const row of (bonParcelsResult.data ?? []) as Array<{ id: string; bon_remise_id: string; tracking_number: string; tracking_manual: string | null; customer_code: string; content: string | null; quantity: number | null; status: string }>) {
+        const key = code(row.bon_remise_id);
+        bonParcelsById.set(key, [...(bonParcelsById.get(key) ?? []), {
+          id: code(row.id), tracking_number: code(row.tracking_number), tracking_manual: code(row.tracking_manual),
+          customer_code: code(row.customer_code), content: code(row.content), quantity: Number(row.quantity ?? 1) || 1, status: code(row.status)
+        }]);
+      }
+    }
     const bonCards = bons.map((bon) => ({
         id: code(bon.id), bon_number: code(bon.bon_number), destination: code(bon.destination),
         package_count: Number(bon.package_count ?? 0), created_at: code(bon.created_at),
-        has_pdf: Boolean(bon.pdf_path), received_at: code(bon.received_at), received_by: code(bon.received_by)
+        has_pdf: Boolean(bon.pdf_path), received_at: code(bon.received_at), received_by: code(bon.received_by),
+        parcels: bonParcelsById.get(code(bon.id)) ?? []
       }));
 
     const deliveryByInvoice = new Map<string, { total: number; delivered: number }>();
@@ -510,16 +528,28 @@ export async function POST(req: Request) {
       if (!bon) return NextResponse.json({ ok: false, reason: "Ce Bon de remise n'appartient pas à votre zone." }, { status: 403 });
       if (bon.received_at) return NextResponse.json({ ok: true, updated: 0, alreadyReady: 0, alreadyConfirmed: true });
 
+      // Réception colis par colis : l'agent doit cocher chaque colis réellement reçu.
+      // Plus aucune confirmation « tout le Bon » : sans sélection, rien n'est touché.
+      const selectedIds = Array.from(new Set((Array.isArray(body.package_ids) ? body.package_ids : []).map((id: unknown) => code(id)).filter((id: string) => uuid.test(id))));
+      if (!selectedIds.length) return NextResponse.json({ ok: false, reason: "Sélectionnez les colis que vous avez reçus." }, { status: 400 });
+
       const parcelsResult = await db.from("packages")
         .select("id, weight, customer_code, status").eq("bon_remise_id", bonId);
       if (parcelsResult.error) throw parcelsResult.error;
-      const parcels = (parcelsResult.data ?? []) as Array<{ id: string; weight: number; customer_code: string; status: string }>;
+      const allBonParcels = (parcelsResult.data ?? []) as Array<{ id: string; weight: number; customer_code: string; status: string }>;
+      const parcels = allBonParcels.filter((p) => selectedIds.includes(code(p.id)));
+      if (parcels.length !== selectedIds.length) {
+        return NextResponse.json({ ok: false, reason: "Un colis sélectionné n'appartient pas à ce Bon. Actualisez l'écran." }, { status: 409 });
+      }
 
       // SÈLMAN koli ki poko pi lwen (Disponible/Facturé/Livré) chanje. Yon
       // koli ki deja pi lwen nan sikil la pa dwe janm fè bak.
-      const targets = parcels.filter((p) => !["Disponible", "Facturé", "Livré"].includes(code(p.status)));
+      const ADVANCED = ["Disponible", "Facturé", "Livré"];
+      const targets = parcels.filter((p) => !ADVANCED.includes(code(p.status)));
       let updated = 0;
       const alreadyReady = parcels.length - targets.length;
+      // Colis du Bon pas encore reçus après cette confirmation : le Bon reste ouvert.
+      const remaining = allBonParcels.filter((p) => !selectedIds.includes(code(p.id)) && !ADVANCED.includes(code(p.status))).length;
 
       if (targets.length) {
         const [villeResult, rateResult, clientsResult] = await Promise.all([
@@ -564,9 +594,13 @@ export async function POST(req: Request) {
         }
       }
 
-      await db.from("bons_remise").update({ received_at: new Date().toISOString(), received_by: agentName(agent) }).eq("id", bonId);
-      await writeAudit(db, req, agent, "Bon de remise reçu",
-        `${bon.bon_number} · ${updated} colis rendus disponibles${alreadyReady ? `, ${alreadyReady} déjà prêts` : ""} · ${zoneName}`, bon.bon_number, "");
+      // Le Bon n'est « reçu » que lorsque TOUS ses colis ont été cochés/reçus.
+      if (remaining === 0) {
+        const closed = await db.from("bons_remise").update({ received_at: new Date().toISOString(), received_by: agentName(agent) }).eq("id", bonId);
+        if (closed.error) throw closed.error;
+      }
+      await writeAudit(db, req, agent, remaining === 0 ? "Bon de remise reçu" : "Bon de remise reçu partiellement",
+        `${bon.bon_number} · ${updated} colis rendus disponibles${alreadyReady ? `, ${alreadyReady} déjà prêts` : ""}${remaining ? `, ${remaining} colis restent à recevoir` : ""} · ${zoneName}`, bon.bon_number, "");
       // Les clients dont les colis viennent de devenir « Disponible » reçoivent
       // l'alerte sur leur téléphone. `targets` exclut les colis déjà disponibles
       // (pas de doublon) ; le compte central n'est pas un client. Une panne
@@ -582,7 +616,7 @@ export async function POST(req: Request) {
         await pushParcelEventToCustomers(availableConfig, newlyAvailable, "disponible")
           .catch((error) => console.error("[pickup-agent:available-push]", error));
       }
-      return NextResponse.json({ ok: true, updated, alreadyReady });
+      return NextResponse.json({ ok: true, updated, alreadyReady, remaining, bonClosed: remaining === 0 });
     }
 
     if (body?.action === "record_payment") {
