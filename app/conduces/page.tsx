@@ -284,6 +284,12 @@ export default function ConducesPage() {
   };
   const makeAvailable = async () => {
     if (!availabilityFolder || !availabilityBonId) return;
+    const bon = availabilityBons?.find((b) => b.id === availabilityBonId);
+    // Garde-fou : cette action touche TOUS les colis du Bon (pas une sélection).
+    if (!confirm(
+      `Rendre disponibles TOUS les colis du Bon ${bon?.bon_number ?? ""} (${bon?.destination ?? ""}, ${bon?.package_count ?? "?"} colis) ?\n\n` +
+      `Pour n'en rendre que certains disponibles, annulez et utilisez la page Colis (sélection + statut).`
+    )) return;
     setAvailabilityBusy(true);
     try {
       const result = await makeBonRemiseAvailable(availabilityBonId, staffName);

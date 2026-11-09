@@ -1573,6 +1573,27 @@ export async function setPackageStatus(id: string, status: string): Promise<void
  * TICKET DE REMISE. Retounen `delivered_at` la (oswa null) pou louvri ticket la.
  * Kolòn yo soti nan migrasyon apa: si youn manke, operasyon an kontinye san li.
  */
+const BEFORE_AVAILABLE_STATUSES = ["Reçu à Miami", "En préparation", "En transit", "Arrivé en Haïti", "En route vers agence"];
+
+/**
+ * Rouvre les Bons de remise « reçus » dont des colis viennent d'être remis en
+ * arrière. Sans cela le Bon restait marqué reçu : il disparaissait de la liste
+ * « Disponible » et l'agence ne pouvait plus le confirmer → colis introuvables.
+ */
+async function reopenBonsForPackages(ids: string[]): Promise<void> {
+  const { data: rows, error } = await supabase.from("packages").select("bon_remise_id").in("id", ids).not("bon_remise_id", "is", null);
+  if (error) throw error;
+  const bonIds = Array.from(new Set((rows ?? []).map((r: { bon_remise_id: string | null }) => String(r.bon_remise_id)).filter(Boolean)));
+  if (!bonIds.length) return;
+  const { data: reopened, error: reopenError } = await supabase.from("bons_remise")
+    .update({ received_at: null, received_by: null }).in("id", bonIds).not("received_at", "is", null).select("bon_number");
+  if (reopenError) throw new Error(`Statut corrigé, mais le Bon de remise n'a pas pu être rouvert : ${reopenError.message}`);
+  if (reopened?.length) {
+    await logAction("Bon de remise rouvert",
+      `${reopened.map((b: { bon_number: string }) => b.bon_number).join(", ")} · colis remis avant « Disponible » (correction)`, "", "");
+  }
+}
+
 export async function setPackagesStatus(ids: string[], status: string): Promise<string | null> {
   if (!ids.length) return null;
   if (status !== "Livré") {
@@ -1584,6 +1605,10 @@ export async function setPackagesStatus(ids: string[], status: string): Promise<
     if ((data ?? []).length !== ids.length) {
       throw new Error(`Statut non mis à jour pour ${ids.length - (data ?? []).length} colis sur ${ids.length}.`);
     }
+    // Un colis qui redevient « avant Disponible » (correction d'erreur) ne doit
+    // jamais rester coincé : son Bon de remise est rouvert pour que l'agence
+    // (ou le bouton « Disponible ») puisse le traiter à nouveau.
+    if (BEFORE_AVAILABLE_STATUSES.includes(status)) await reopenBonsForPackages(ids);
     return null;
   }
   const deliveredAt = new Date().toISOString();
