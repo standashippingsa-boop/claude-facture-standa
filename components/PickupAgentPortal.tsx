@@ -38,7 +38,11 @@ type ZoneInvoice = {
 type ZoneBon = {
   id: string; bon_number: string; destination: string; package_count: number; created_at: string;
   has_pdf: boolean; received_at: string; received_by: string;
+  parcels?: BonParcel[];
 };
+type BonParcel = { id: string; tracking_number: string; tracking_manual: string; customer_code: string; content: string; quantity: number; status: string };
+/** Colis d'un Bon déjà reçus (donc plus à cocher). */
+const BON_PARCEL_DONE = new Set(["Disponible", "Facturé", "Livré"]);
 type AgentPayment = { id: string; invoice_id: string; invoice_number: string; customer_code: string; customer_name: string; amount: number; currency: string; amount_usd: number; amount_htg: number; payment_method: string; payment_reference: string; created_at: string };
 type CustomerBalanceReport = { customer_code: string; customer_name: string; balance_usd: number; balance_htg: number; invoice_id: string; invoice_number: string; invoice_count: number };
 type PortalData = { agent: { id: string; name: string; username: string }; zone: { name: string }; packages: ZonePackage[]; invoices: ZoneInvoice[]; bons: ZoneBon[]; report: { agent_payments: AgentPayment[]; customer_balances: CustomerBalanceReport[] } };
@@ -360,18 +364,19 @@ export default function PickupAgentPortal() {
   };
   const releaseSelectedPackages = () => releasePackages(selectedPackageIds);
 
-  const confirmBonRemise = async (bonId: string) => {
-    if (bonBusy) return;
+  const confirmBonRemise = async (bonId: string, packageIds: string[]) => {
+    if (bonBusy || !packageIds.length) return;
     setBonBusy(true);
     setMessage(null);
     try {
-      const result = await call({ action: "confirm_bon_remise", bon_remise_id: bonId });
+      const result = await call({ action: "confirm_bon_remise", bon_remise_id: bonId, package_ids: packageIds });
       setBonConfirmedId(bonId);
       const text = result.alreadyConfirmed
         ? "Ce bon a déjà été confirmé."
-        : `${result.updated} colis rendus disponibles${result.alreadyReady ? ` · ${result.alreadyReady} l'étaient déjà` : ""}.`;
+        : `${result.updated} colis reçus et rendus disponibles${result.alreadyReady ? ` · ${result.alreadyReady} l'étaient déjà` : ""}.` +
+          (result.remaining ? ` Il reste ${result.remaining} colis à recevoir sur ce bon.` : " Bon complet.");
       setMessage({ type: "ok", text });
-      window.setTimeout(() => { setBonConfirmedId(null); setSelectedBonId(null); void load(); }, 1_400);
+      window.setTimeout(() => { setBonConfirmedId(null); setSelectedBonId(null); void load(); }, 1_000);
     } catch (error) {
       setMessage({ type: "error", text: error instanceof Error ? error.message : "Confirmation impossible." });
     } finally {
@@ -788,7 +793,7 @@ function HomeDashboard({
   payments: AgentPayment[]; onGo: (tab: Tab) => void; onOpenReceipt: (paymentId: string) => void;
   search: string; onSearchChange: (value: string) => void; onOpenDossier: () => void;
   bons: ZoneBon[]; selectedBonId: string | null; onSelectBon: (id: string | null) => void;
-  bonBusy: boolean; bonConfirmedId: string | null; onConfirmBon: (id: string) => void;
+  bonBusy: boolean; bonConfirmedId: string | null; onConfirmBon: (id: string, packageIds: string[]) => void;
 }) {
   const shortcuts: Array<[Tab, string, ReactNode, number]> = [
     ["ready", "À remettre", <ClipboardCheck key="r" size={20} />, counts.ready],
@@ -844,33 +849,80 @@ function PendingBonsNotification({
   bons, selectedId, onSelect, busy, confirmedId, onConfirm
 }: {
   bons: ZoneBon[]; selectedId: string | null; onSelect: (id: string | null) => void;
-  busy: boolean; confirmedId: string | null; onConfirm: (id: string) => void;
+  busy: boolean; confirmedId: string | null; onConfirm: (id: string, packageIds: string[]) => void;
 }) {
   const pending = bons.filter((bon) => !bon.received_at);
   if (!pending.length) return null;
-  return <Card className="ring-orange-200">
-    <div className="flex items-center gap-3 px-4 pb-2 pt-3.5">
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-orange-50 text-[#e85e19]"><Truck size={19} /></span>
-      <div className="min-w-0"><p className="text-[15px] font-semibold text-slate-900">{pending.length} bon{pending.length > 1 ? "s" : ""} de remise en route</p><p className="text-xs text-slate-500">Touchez le bon reçu, puis confirmez.</p></div>
+  const opened = pending.find((bon) => bon.id === selectedId) ?? null;
+  return <>
+    <Card className="ring-orange-200">
+      <div className="flex items-center gap-3 px-4 pb-2 pt-3.5">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-orange-50 text-[#e85e19]"><Truck size={19} /></span>
+        <div className="min-w-0"><p className="text-[15px] font-semibold text-slate-900">{pending.length} bon{pending.length > 1 ? "s" : ""} de remise en route</p><p className="text-xs text-slate-500">Ouvrez le bon, puis cochez chaque colis reçu.</p></div>
+      </div>
+      <div className="divide-y divide-slate-100">
+        {pending.map((bon) => {
+          const parcels = bon.parcels ?? [];
+          const receivedCount = parcels.filter((p) => BON_PARCEL_DONE.has(p.status)).length;
+          return <button key={bon.id} type="button" onClick={() => onSelect(bon.id)} disabled={busy}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-orange-50 text-[#e85e19]"><PackageCheck size={18} /></span>
+            <span className="min-w-0 flex-1"><span className="block font-mono text-sm font-semibold text-slate-900">{bon.bon_number}</span>
+              <span className="block text-xs text-slate-500">{receivedCount > 0 ? `${receivedCount} sur ${bon.package_count} reçus` : `${bon.package_count} colis`} · {dateText(bon.created_at)}</span></span>
+            {confirmedId === bon.id ? <CheckCircle2 className="shrink-0 text-emerald-500" size={20} /> : <ChevronRight className="shrink-0 text-slate-400" size={18} />}
+          </button>;
+        })}
+      </div>
+    </Card>
+    {opened && <BonReceptionSheet key={opened.id} bon={opened} busy={busy} onClose={() => onSelect(null)} onConfirm={(ids) => onConfirm(opened.id, ids)} />}
+  </>;
+}
+
+/**
+ * Réception colis par colis. Écran plein : le bouton de confirmation est dans
+ * l'en-tête FIXE en haut, jamais en bas de la liste — l'agent coche, et le
+ * bouton est déjà là sous son pouce, sans descendre.
+ */
+function BonReceptionSheet({ bon, busy, onClose, onConfirm }: { bon: ZoneBon; busy: boolean; onClose: () => void; onConfirm: (packageIds: string[]) => void }) {
+  const parcels = bon.parcels ?? [];
+  const [checked, setChecked] = useState<string[]>([]);
+  const [query, setQuery] = useState("");
+  const todo = parcels.filter((p) => !BON_PARCEL_DONE.has(p.status));
+  const done = parcels.filter((p) => BON_PARCEL_DONE.has(p.status));
+  const q = query.trim().toLowerCase();
+  const visible = q ? todo.filter((p) => `${p.tracking_number} ${p.tracking_manual} ${p.customer_code} ${p.content}`.toLowerCase().includes(q)) : todo;
+  const toggle = (id: string) => setChecked((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  const count = checked.length;
+  return <div role="dialog" aria-modal="true" aria-label={`Réception du bon ${bon.bon_number}`} className="fixed inset-0 z-[90] flex flex-col bg-slate-50">
+    <div className="shrink-0 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.08)]">
+      <div className="flex items-center gap-2 px-3 pb-2 pt-[calc(0.6rem+env(safe-area-inset-top))]">
+        <button type="button" onClick={onClose} disabled={busy} aria-label="Retour" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 disabled:opacity-50"><ArrowLeft size={20} /></button>
+        <div className="min-w-0 flex-1"><p className="truncate font-mono text-sm font-semibold text-slate-900">{bon.bon_number}</p>
+          <p className={cn("text-xs", count ? "font-semibold text-emerald-700" : "text-slate-500")}>{count} sélectionné{count > 1 ? "s" : ""} sur {todo.length} à recevoir</p></div>
+        <button type="button" onClick={() => onConfirm(checked)} disabled={busy || count === 0}
+          className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400">
+          {busy ? <RefreshCw size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}{busy ? "Confirmation…" : `Confirmer${count ? ` (${count})` : ""}`}
+        </button>
+      </div>
+      {todo.length > 8 && <div className="px-3 pb-3"><div className="flex h-10 items-center gap-2 rounded-xl bg-slate-100 px-3"><Search size={16} className="text-slate-400" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Chercher un numéro de suivi ou un client" className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400" /></div></div>}
     </div>
-    <div className="divide-y divide-slate-100">
-      {pending.map((bon) => {
-        const selected = selectedId === bon.id;
-        const justConfirmed = confirmedId === bon.id;
-        return <button key={bon.id} type="button" onClick={() => onSelect(selected ? null : bon.id)} disabled={busy} aria-pressed={selected}
-          className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition", selected ? "bg-orange-50/70" : "hover:bg-slate-50")}>
-          <span className={cn("grid h-5 w-5 shrink-0 place-items-center rounded-full border-2", selected ? "border-[#e85e19] bg-[#e85e19] text-white" : "border-slate-300")}>{selected && <Check size={12} strokeWidth={3} />}</span>
-          <span className="min-w-0 flex-1"><span className="block font-mono text-sm font-semibold text-slate-900">{bon.bon_number}</span><span className="block text-xs text-slate-500">{bon.package_count} colis · {dateText(bon.created_at)}</span></span>
-          {justConfirmed && <CheckCircle2 className="shrink-0 text-emerald-500" size={20} />}
-        </button>;
-      })}
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
+      {todo.length === 0 ? <p className="px-6 py-12 text-center text-sm text-slate-600">Tous les colis de ce bon sont déjà reçus.</p> : visible.length === 0 ? <p className="px-6 py-12 text-center text-sm text-slate-500">Aucun colis ne correspond.</p> :
+        <div className="divide-y divide-slate-100 bg-white">{visible.map((p) => {
+          const on = checked.includes(p.id);
+          return <button key={p.id} type="button" role="checkbox" aria-checked={on} disabled={busy} onClick={() => toggle(p.id)}
+            className={cn("flex w-full items-center gap-3 px-4 py-3.5 text-left transition", on && "bg-emerald-50/70")}>
+            <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-md border-2 transition", on ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300 bg-white")}>{on && <Check size={16} strokeWidth={3} />}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block break-all text-sm font-semibold text-slate-900">{p.tracking_manual || p.tracking_number || "Colis sans numéro"}</span>
+              <span className="block truncate text-xs text-slate-500">{p.customer_code}{p.content ? ` · ${p.content}` : ""}</span>
+            </span>
+          </button>;
+        })}</div>}
+      {done.length > 0 && <p className="px-4 py-3 text-center text-xs text-slate-500">{done.length} colis de ce bon déjà reçus.</p>}
     </div>
-    {selectedId && <div className="px-4 pb-4 pt-2"><button type="button" onClick={() => onConfirm(selectedId)} disabled={busy}
-      className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-5 text-sm font-semibold text-white transition hover:bg-[#d4530f] disabled:cursor-not-allowed disabled:opacity-60">
-      {busy ? <RefreshCw size={18} className="animate-spin" /> : <PackageCheck size={18} />}
-      {busy ? "Mise à jour du système…" : "Rendre ces colis disponibles"}
-    </button></div>}
-  </Card>;
+  </div>;
 }
 
 /**
