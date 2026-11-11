@@ -130,7 +130,7 @@ export function ParcelCard({ p, onOpen, price, invoicedPrice, special, selector 
   const shown = invoicedPrice ?? (pricePending ? null : price) ?? null;
   const shownStatus = pricePending && p.status === "Disponible" ? "En attente" : p.status;
   return <motion.article layout="position" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.985 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-    className={cn("relative mb-3 overflow-hidden rounded-[22px] bg-white transition-shadow", selector?.selected ? "ring-2 ring-[#E4650A]" : "ring-1 ring-[#122B5C]/[.07]")} style={notchMask(54)}>
+    className={cn("parcel-card relative mb-3 overflow-hidden rounded-[22px] bg-white transition-shadow", selector?.selected ? "ring-2 ring-[#E4650A]" : "ring-1 ring-[#122B5C]/[.07]")} style={notchMask(54)}>
     <button type="button" onClick={onOpen} className="block w-full text-left">
       <div className="px-4 pb-4 pt-4">
         <div className="flex items-start justify-between gap-3">

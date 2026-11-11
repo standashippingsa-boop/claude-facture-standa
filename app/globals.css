@@ -185,13 +185,11 @@ body { @apply bg-mist text-slate-700 antialiased; }
 /* Connexion client : champs à 13 px réels, proportionnés au reste de la page. */
 .login-compact.login-client input, .login-compact.login-client select, .login-compact.login-client textarea { font-size: calc(13px / .6) !important; }
 
+/* Fond gris de l app client : les cartes blanches (colis, factures) se détachent nettement. */
 .client-app {
-  background-color: #f8faff;
-  background-image:
-    radial-gradient(circle at 9% 21%, rgba(96, 165, 250, .19), transparent 19rem),
-    radial-gradient(circle at 92% 74%, rgba(125, 211, 252, .18), transparent 18rem),
-    linear-gradient(180deg, #e0f2fe 0%, #f8fbff 32%, #ffffff 68%);
-  background-size: auto, auto, 100% 100%;
+  background-color: #dfe5ee;
+  background-image: linear-gradient(180deg, #d4dce8 0%, #dfe5ee 40%, #e4e9f1 100%);
+  background-size: 100% 100%;
 }
 
 .client-app-header {
@@ -409,4 +407,34 @@ main:has(.retrait-floating) > button[title="Haut de page"] { bottom: 10.5rem; }
 .shop-logo { mix-blend-mode: multiply; }
 @media not print {
   html.dark .shop-logo { filter: invert(1) hue-rotate(180deg); mix-blend-mode: screen; }
+}
+
+/* MODE SOMBRE · cartes de colis BLANCHES sur fond sombre, écriture bleu marine.
+   Les règles automatiques du mode sombre (scripts/postcss-dark-mode.cjs) foncent
+   le blanc et éclaircissent le texte : ici on les annule pour la carte de colis. */
+@media not print {
+  html.dark .parcel-card { background-color: #ffffff !important; color: #122B5C; }
+  html.dark .parcel-card .text-navy { color: #122B5C !important; }
+  html.dark .parcel-card .text-navy\/70 { color: rgb(18 43 92 / .75) !important; }
+  html.dark .parcel-card .text-navy\/55 { color: rgb(18 43 92 / .62) !important; }
+  html.dark .parcel-card .text-navy\/50 { color: rgb(18 43 92 / .6) !important; }
+  html.dark .parcel-card .text-navy\/45 { color: rgb(18 43 92 / .55) !important; }
+  html.dark .parcel-card .text-navy\/40 { color: rgb(18 43 92 / .52) !important; }
+  html.dark .parcel-card .text-navy\/35 { color: rgb(18 43 92 / .45) !important; }
+  html.dark .parcel-card .border-navy\/15 { border-color: rgb(18 43 92 / .18) !important; }
+  html.dark .parcel-card .border-navy\/20 { border-color: rgb(18 43 92 / .25) !important; }
+  html.dark .parcel-card .bg-white { background-color: #ffffff !important; }
+  html.dark .parcel-card .bg-emerald-50 { background-color: #ecfdf5 !important; }
+  html.dark .parcel-card .text-emerald-700 { color: #047857 !important; }
+  html.dark .parcel-card .bg-amber-50 { background-color: #fffbeb !important; }
+  html.dark .parcel-card .text-amber-700 { color: #b45309 !important; }
+  html.dark .parcel-card .text-amber-800 { color: #92400e !important; }
+  html.dark .parcel-card .bg-slate-100 { background-color: #f1f5f9 !important; }
+  html.dark .parcel-card .text-slate-700 { color: #334155 !important; }
+  html.dark .parcel-card .bg-blue-50 { background-color: #eff6ff !important; }
+  html.dark .parcel-card .text-blue-700 { color: #1d4ed8 !important; }
+  html.dark .parcel-card .bg-violet-50 { background-color: #f5f3ff !important; }
+  html.dark .parcel-card .text-violet-700 { color: #6d28d9 !important; }
+  html.dark .parcel-card .bg-sky-50 { background-color: #f0f9ff !important; }
+  html.dark .parcel-card .text-sky-800 { color: #075985 !important; }
 }
