@@ -113,7 +113,7 @@ export default async function GuideAidePage() {
             <Question id="adresse-miami" n={q()} title="Ki adrès Miami pou m sèvi ?">
               <p>Kopye enfòmasyon sa yo egzakteman jan yo ye lè w ap achte.</p>
               <dl className="mt-3 divide-y divide-[#e6e1d6] border-y border-[#e6e1d6]">
-                {([["Full Name", `Non w ${CODE}`], ["Address 1", DEPOT.address1], ["Address 2", CODE], ["City", DEPOT.city], ["State", DEPOT.state], ["ZIP Code", DEPOT.zip], ["Phone", DEPOT.phone]] as const).map(([key, value]) => (
+                {([["Full Name", `Non w ${CODE}`], ["Address Line 1", DEPOT.address1], ["Address Line 2 (Suite / Apt / Building)", CODE], ["City", DEPOT.city], ["State", DEPOT.state], ["ZIP Code", DEPOT.zip], ["Phone", DEPOT.phone]] as const).map(([key, value]) => (
                   <div key={key} className="flex justify-between gap-3 py-2.5 text-[15px]">
                     <dt className="shrink-0 text-[#7a7466]">{key}</dt>
                     <dd className="break-all text-right font-semibold text-[#14213d]">{value}</dd>

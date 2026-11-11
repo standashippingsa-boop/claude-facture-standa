@@ -1240,15 +1240,15 @@ export default function EspaceClientPage() {
               </p>
               <div className="mt-3 rounded-xl border border-line divide-y divide-line">
                 {([["Full Name", `${non || ""} ${client.customer_code}`.trim()],
-                   ["Address 1", DEPOT.address1],
-                   ["Address 2", client.customer_code],
+                   ["Address Line 1", DEPOT.address1],
+                   ["Address Line 2 (Suite / Apt / Building)", client.customer_code],
                    ["City", DEPOT.city],
                    ["State", DEPOT.state],
                    ["ZIP Code", DEPOT.zip],
                    ["Phone", DEPOT.phone]] as const).map(([k, v]) => (
                   <div key={k} className="flex justify-between gap-3 px-3 py-2">
                     <span className="text-[12px] text-mute shrink-0">{k}</span>
-                    <span className={`text-[12px] font-semibold text-right break-all ${k.startsWith("Address 2") || k === "Full Name" ? "text-navy" : "text-ink"}`}>{v}</span>
+                    <span className={`text-[12px] font-semibold text-right break-all ${k.startsWith("Address Line 2") || k === "Full Name" ? "text-navy" : "text-ink"}`}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -1399,15 +1399,15 @@ export default function EspaceClientPage() {
 
             <div className="card p-5">
               {([["Full Name / Nombre completo", non || "·"],
-                 ["Address 1", DEPOT.address1],
-                 ["Address 2", client.customer_code],
+                 ["Address Line 1", DEPOT.address1],
+                 ["Address Line 2 (Suite / Apt / Building)", client.customer_code],
                  ["City", DEPOT.city],
                  ["State", DEPOT.state],
                  ["ZIP Code", DEPOT.zip],
                  ["Phone", DEPOT.phone]] as const).map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4 border-b border-line py-2.5 last:border-0">
                   <span className="text-mute text-sm">{k}</span>
-                  <span className={`font-semibold text-sm text-right ${k === "Address 2" ? "text-navy" : "text-ink"}`}>{v}</span>
+                  <span className={`font-semibold text-sm text-right ${k.startsWith("Address Line 2") ? "text-navy" : "text-ink"}`}>{v}</span>
                 </div>
               ))}
             </div>
