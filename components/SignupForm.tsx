@@ -13,6 +13,7 @@ import { BusyButton } from "@/components/Loader";
 import { registerClientProfile, RegistrationError } from "@/lib/db";
 import { safeMessage } from "@/lib/safeerror";
 import PhoneInput from "@/components/PhoneInput";
+import ChoicePicker from "@/components/ChoicePicker";
 import { DEFAULT_PHONE_COUNTRY, phoneError, toE164, type PhoneCountryId } from "@/lib/phone";
 
 import { useNoticeToast } from "@/lib/notify";
@@ -83,7 +84,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
   }, []);
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting, isSubmitted } } =
     useForm<Form>({ resolver: zodResolver(schema), defaultValues: { phone: "", whatsapp: "", phoneCountry: DEFAULT_PHONE_COUNTRY, whatsappCountry: DEFAULT_PHONE_COUNTRY } });
-  const setPhone = (name: "phone" | "whatsapp" | "phoneCountry" | "whatsappCountry", value: string) =>
+  const setPhone = (name: "phone" | "whatsapp" | "phoneCountry" | "whatsappCountry" | "city" | "id_type", value: string) =>
     setValue(name, value as never, { shouldValidate: isSubmitted, shouldDirty: true });
 
   const onSubmit = async (f: Form) => {
@@ -166,41 +167,37 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
             <PhoneInput id="signup-whatsapp" label="Numéro WhatsApp *"
               country={watch("whatsappCountry") as PhoneCountryId} onCountry={(c) => setPhone("whatsappCountry", c)}
               value={watch("whatsapp") ?? ""} onValue={(v) => setPhone("whatsapp", v)} error={errors.whatsapp?.message} />
-            <label className="block">
+            <div className="block">
               <span className="text-xs font-semibold text-slate-600">Ville *</span>
-              <select
-                className="input mt-1 text-ink"
-                disabled={citiesState !== "ready"}
-                aria-describedby="city-status"
-                {...register("city")}
-              >
-                <option value="">
-                  {citiesState === "loading" ? "Chargement des villes…" : "Sélectionnez votre ville"}
-                </option>
-                {villes.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
-              </select>
+              <ChoicePicker className="mt-1" title="Choisissez votre ville" disabled={citiesState !== "ready"}
+                placeholder={citiesState === "loading" ? "Chargement des villes…" : "Sélectionnez votre ville"}
+                value={watch("city") ?? ""} invalid={!!errors.city}
+                options={villes.map((v) => ({ value: v.name, label: v.name, hint: v.pickup_location ? `Retrait : ${v.pickup_location}` : undefined }))}
+                onChange={(v) => setPhone("city", v)} />
               <span id="city-status" aria-live="polite" className="mt-1 block text-[11px] text-slate-500">
                 {citiesState === "loading" && "La liste des villes est en cours de chargement."}
                 {citiesState === "unavailable" && "La liste des villes est momentanément indisponible. Réessayez dans un instant."}
               </span>
               {selectedVille && <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-2 text-[11px] font-semibold text-emerald-800"><MapPin size={13} /> Lieu de récupération : {selectedVille.pickup_location}</p>}
               {errors.city && <span className="block text-xs text-red-600">{errors.city.message}</span>}
-            </label>
+            </div>
           </div>
 
           <F name="address" label="Adresse *" placeholder="Rue ou quartier où vous habitez."
              help="Indiquez votre rue ou votre quartier." />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="block">
+            <div className="block">
               <span className="text-xs font-semibold text-slate-600">Pièce d&apos;identité *</span>
-              <select className="input mt-1 text-ink" defaultValue="" {...register("id_type")}>
-                <option className="bg-white text-ink" value="">Sélectionnez</option>
-                <option className="bg-white text-ink" value="Carte d'identité nationale">Carte d&apos;identité nationale</option>
-                <option className="bg-white text-ink" value="Passeport">Passeport</option>
-              </select>
+              <ChoicePicker className="mt-1" title="Votre pièce d'identité" placeholder="Sélectionnez"
+                value={watch("id_type") ?? ""} invalid={!!errors.id_type}
+                options={[
+                  { value: "Carte d'identité nationale", label: "Carte d'identité nationale" },
+                  { value: "Passeport", label: "Passeport" },
+                ]}
+                onChange={(v) => setPhone("id_type", v)} />
               {errors.id_type && <span className="text-xs text-red-600">{errors.id_type.message}</span>}
-            </label>
+            </div>
             <F name="id_number" label="Numéro de pièce d&apos;identité *" placeholder="Numéro du passeport ou de la carte" />
           </div>
 

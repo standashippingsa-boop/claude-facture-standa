@@ -5,6 +5,7 @@
  * Espaces, tirets et indicatif tapé en trop sont retirés pendant la saisie,
  * et on ne peut pas taper plus de chiffres que le pays n'en a (lib/phone.ts).
  */
+import ChoicePicker from "@/components/ChoicePicker";
 import { PHONE_COUNTRIES, cleanLocalPhone, detectPhoneCountry, formatPhone, phoneCountry, type PhoneCountryId } from "@/lib/phone";
 
 export default function PhoneInput({ id, label, country, onCountry, value, onValue, error }: {
@@ -18,10 +19,12 @@ export default function PhoneInput({ id, label, country, onCountry, value, onVal
     <div className="block">
       <label htmlFor={id} className="text-xs font-semibold text-slate-600">{label}</label>
       <div className="mt-1 flex gap-2">
-        <select aria-label={`Pays · ${label}`} className="input w-[10rem] shrink-0 pl-2.5 pr-8 text-ink" value={country}
-          onChange={(e) => { const next = e.target.value as PhoneCountryId; onCountry(next); onValue(cleanLocalPhone(next, value)); }}>
-          {PHONE_COUNTRIES.map((p) => <option key={p.id} value={p.id} title={p.name}>{p.short} +{p.dial}</option>)}
-        </select>
+        <div className="w-[8.6rem] shrink-0">
+          <ChoicePicker title="Pays du numéro" placeholder="Pays" value={country}
+            options={PHONE_COUNTRIES.map((p) => ({ value: p.id, label: `${p.name}  +${p.dial}`, hint: `${p.length} chiffres, ex. ${p.example}` }))}
+            display={(choice) => { const p = phoneCountry(choice.value); return `${p.short} +${p.dial}`; }}
+            onChange={(v) => { const next = v as PhoneCountryId; onCountry(next); onValue(cleanLocalPhone(next, value)); }} />
+        </div>
         <div className="min-w-0 flex-1">
           <input id={id} type="tel" inputMode="numeric" autoComplete="tel-national" className="input"
             placeholder={c.example} value={formatPhone(country, value)}
