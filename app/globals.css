@@ -185,11 +185,13 @@ body { @apply bg-mist text-slate-700 antialiased; }
 /* Connexion client : champs à 13 px réels, proportionnés au reste de la page. */
 .login-compact.login-client input, .login-compact.login-client select, .login-compact.login-client textarea { font-size: calc(13px / .6) !important; }
 
-/* Fond gris de l app client : les cartes blanches (colis, factures) se détachent nettement. */
 .client-app {
-  background-color: #dfe5ee;
-  background-image: linear-gradient(180deg, #d4dce8 0%, #dfe5ee 40%, #e4e9f1 100%);
-  background-size: 100% 100%;
+  background-color: #f8faff;
+  background-image:
+    radial-gradient(circle at 9% 21%, rgba(96, 165, 250, .19), transparent 19rem),
+    radial-gradient(circle at 92% 74%, rgba(125, 211, 252, .18), transparent 18rem),
+    linear-gradient(180deg, #e0f2fe 0%, #f8fbff 32%, #ffffff 68%);
+  background-size: auto, auto, 100% 100%;
 }
 
 .client-app-header {
@@ -408,6 +410,13 @@ main:has(.retrait-floating) > button[title="Haut de page"] { bottom: 10.5rem; }
 @media not print {
   html.dark .shop-logo { filter: invert(1) hue-rotate(180deg); mix-blend-mode: screen; }
 }
+
+/* MODE CLAIR · carte de colis gris foncé (ClientParcelUI, bg-[#c9d1dd]) : les textes
+   bleus pâles sont foncés pour rester bien lisibles sur le gris. */
+.parcel-card .text-navy\/35, .parcel-card .text-navy\/40, .parcel-card .text-navy\/45 { color: rgb(18 43 92 / .72); }
+.parcel-card .text-navy\/50, .parcel-card .text-navy\/55 { color: rgb(18 43 92 / .8); }
+.parcel-card .text-navy\/70 { color: rgb(18 43 92 / .9); }
+.parcel-card .border-navy\/15 { border-color: rgb(18 43 92 / .3); }
 
 /* MODE SOMBRE · cartes de colis BLANCHES sur fond sombre, écriture bleu marine.
    Les règles automatiques du mode sombre (scripts/postcss-dark-mode.cjs) foncent

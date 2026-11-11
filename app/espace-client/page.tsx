@@ -160,6 +160,8 @@ export default function EspaceClientPage() {
   const [challenge, setChallenge] = useState<ChallengeMe | null>(null);
   const loadChallenge = () => { getChallengeMe().then(setChallenge).catch(() => undefined); };
   // Détail des paiements (montant, devise, moyen) — lu par /api/client-payments.
+  // Numéro de Conduce par colis (route serveur : seulement les colis du client).
+  const [conduceNums, setConduceNums] = useState<Record<string, string>>({});
   const [payments, setPayments] = useState<Array<{ id: string; invoice_id: string; amount: number; currency: "USD" | "HTG"; method: string; created_at: string }>>([]);
   const [sel, setSel] = useState<Set<string>>(new Set());
   // Historique : période choisie (dates AAAA-MM-JJ), 30 derniers jours par défaut.
@@ -243,6 +245,10 @@ export default function EspaceClientPage() {
       supabase.auth.getSession().then(({ data: sessionData }) => {
         const token = sessionData.session?.access_token;
         if (!token) return;
+        fetch("/api/client-conduces", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
+          .then((response) => response.json())
+          .then((json) => { if (json?.ok && json.conduces) setConduceNums(json.conduces as Record<string, string>); })
+          .catch(() => undefined);
         return fetch("/api/client-payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) })
           .then((response) => response.json())
           .then((json) => { if (json?.ok && Array.isArray(json.payments)) setPayments(json.payments); });
@@ -788,7 +794,7 @@ export default function EspaceClientPage() {
     const special = specialPackageInfo(p).isSpecial;
     const specialPending = special && !facture;
     const selectable = !check || (p.status === "Disponible" && !specialPending);
-    return <ParcelCard p={p} onOpen={() => setDetail(p)} price={price} invoicedPrice={facture ? Number(p.total_usd) : null}
+    return <ParcelCard p={p} conduce={p.conduce_id ? conduceNums[p.conduce_id] : null} onOpen={() => setDetail(p)} price={price} invoicedPrice={facture ? Number(p.total_usd) : null}
       special={special}
       selector={check ? { selected: sel.has(p.id), disabled: !selectable, title: selectable ? undefined : specialPending ? "Colis spécial · en attente du prix fixé par STANDA." : "Colis déjà facturé · réglez la facture pour le retirer.", onToggle: () => toggleSel(p.id) } : undefined} />;
   };

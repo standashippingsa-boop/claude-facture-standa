@@ -119,8 +119,10 @@ export function Barcode({ value, className = "", color = "currentColor" }: { val
   return <svg aria-hidden="true" viewBox={`0 0 ${x} 40`} preserveAspectRatio="none" className={className}>{rects}</svg>;
 }
 
-export function ParcelCard({ p, onOpen, price, invoicedPrice, special, selector }: {
+export function ParcelCard({ p, onOpen, price, invoicedPrice, special, selector, conduce }: {
   p: Pkg; onOpen: () => void; price?: number | null; invoicedPrice?: number | null; special?: boolean;
+  /** Numéro de la Conduce du colis (si le colis en a déjà une). */
+  conduce?: string | null;
   selector?: { selected: boolean; disabled: boolean; title?: string; onToggle: () => void };
 }) {
   const weight = Number(p.weight) || 0;
@@ -130,7 +132,7 @@ export function ParcelCard({ p, onOpen, price, invoicedPrice, special, selector 
   const shown = invoicedPrice ?? (pricePending ? null : price) ?? null;
   const shownStatus = pricePending && p.status === "Disponible" ? "En attente" : p.status;
   return <motion.article layout="position" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.985 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-    className={cn("parcel-card relative mb-3 overflow-hidden rounded-[22px] bg-white transition-shadow", selector?.selected ? "ring-2 ring-[#E4650A]" : "ring-1 ring-[#122B5C]/[.07]")} style={notchMask(54)}>
+    className={cn("parcel-card relative mb-3 overflow-hidden rounded-[22px] bg-[#c9d1dd] transition-shadow", selector?.selected ? "ring-2 ring-[#E4650A]" : "ring-1 ring-[#122B5C]/[.07]")} style={notchMask(54)}>
     <button type="button" onClick={onOpen} className="block w-full text-left">
       <div className="px-4 pb-4 pt-4">
         <div className="flex items-start justify-between gap-3">
@@ -138,6 +140,7 @@ export function ParcelCard({ p, onOpen, price, invoicedPrice, special, selector 
             <p className="text-[10px] font-medium tracking-[.16em] text-navy/40">N° DE SUIVI</p>
             <p className="mt-0.5 truncate font-mono text-[15px] font-semibold tracking-tight text-navy">{p.tracking_number || "·"}</p>
             {p.tracking_manual && <p className="truncate font-mono text-[11px] text-navy/45">{p.tracking_manual}</p>}
+            {conduce && <p className="mt-1 inline-flex rounded-md bg-navy px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-white">CONDUCE {conduce}</p>}
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
             {!selector && <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${stageTone(shownStatus)}`}>{shownStatus}</span>}
