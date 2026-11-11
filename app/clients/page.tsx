@@ -525,7 +525,8 @@ export default function ClientsPage() {
                  ["Peyi", mcClient.country ?? ""],
                  ["Vil", [mcClient.city, mcClient.city2].filter(Boolean).join(" / ")],
                  ["Adrès", mcClient.address ?? ""],
-                 ["Idantifikasyon", `${mcClient.id_type ?? ""} ${mcClient.id_number ?? ""}`.trim()]] as const)
+                 ["Tip pyès", mcClient.id_type ?? ""],
+                 ["Nimewo pyès", mcClient.id_number ?? ""]] as const)
                 .map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4 px-3 py-2">
                   <span className="text-slate-500 text-xs">{k}</span>

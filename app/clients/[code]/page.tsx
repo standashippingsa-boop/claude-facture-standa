@@ -351,7 +351,8 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
             {([["Téléphone", client.phone], ["WhatsApp", client.whatsapp], ["Email", client.email],
                ["Pays", client.country], ["Ville", [client.city, client.city2].filter(Boolean).join(" / ") || client.ville?.name],
                ["Ville tarifaire", client.ville?.name], ["Adresse", client.address],
-               ["Pièce", `${client.id_type ?? ""} ${client.id_number ?? ""}`.trim()],
+               ["Type de pièce", client.id_type ?? ""],
+               ["N° de pièce", client.id_number ?? ""],
                ["Username", client.username]] as const).map(([k, v]) => (
               <div key={k}><span className="text-slate-400">{k}:</span>{" "}
                 <span className="font-semibold">{v || "·"}</span></div>
