@@ -24,7 +24,7 @@ const serif = localFont({ src: "../fonts/Newsreader-latin.woff2", weight: "200 8
 const sans = localFont({ src: "../fonts/SourceSans3-latin.woff2", weight: "200 900", display: "swap", fallback: ["Arial", "sans-serif"] });
 
 export const metadata: Metadata = {
-  title: "Gid ak èd · STANDA COMMERCIAL",
+  title: "Gid ak èd",
   description: "Adrès Amazon ak SHEIN, kijan voye koli soti Miami pou Ayiti, delè, pri pa vil, ajans ak kesyon moun poze souvan.",
   robots: { index: false, follow: false },
 };

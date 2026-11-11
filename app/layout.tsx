@@ -28,17 +28,18 @@ export const metadata: Metadata = {
    * yon non ki pa di anyen bay yon moun k ap chèche shipping.
    *
    * `template` fè chak paj mete pwòp tit li devan mak la:
-   *     Contact | STANDA COMMERCIAL
+   *     Contact · Standa Commercial
    * epi `default` sèvi lè yon paj pa gen tit pa l.
    */
   title: {
-    default: "STANDA COMMERCIAL · Expédition de colis USA → Haïti",
-    template: "%s | STANDA COMMERCIAL"
+    default: "Standa Commercial · Vos colis des USA vers Haïti",
+    // Les pages donnent seulement leur sujet ; le nom est ajouté une seule fois, sans majuscules partout.
+    template: "%s · Standa Commercial"
   },
   description:
     "Recevez vos achats en ligne des USA en Haïti. Adresse de dépôt "
     + "gratuite à Miami, suivi de colis en temps réel et livraison en agence.",
-  applicationName: "STANDA COMMERCIAL",
+  applicationName: "Standa Commercial",
 
   /*
    * ENDEKSAJ — PA DEFO NON.

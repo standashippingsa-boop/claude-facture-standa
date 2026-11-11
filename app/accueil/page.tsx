@@ -13,14 +13,15 @@ import { getSiteImages } from "@/lib/site-images";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "STANDA COMMERCIAL, vos colis des USA vers Haïti",
+  // Titre affiché par Google, écrit tel quel (absolute) : le nom n'est pas ajouté une deuxième fois.
+  title: { absolute: "Standa Commercial · Vos colis des USA vers Haïti" },
   description: "Une adresse à Miami, le suivi de vos colis et le retrait dans votre agence en Haïti.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/accueil" },
   keywords: ["standa commercial", "shipping Haïti", "colis USA Haïti", "adresse Miami Haïti", "envoi colis Ayiti"],
   openGraph: {
-    type: "website", url: "/accueil", siteName: "STANDA COMMERCIAL", locale: "fr_HT",
-    title: "STANDA COMMERCIAL, vos colis des USA vers Haïti",
+    type: "website", url: "/accueil", siteName: "Standa Commercial", locale: "fr_HT",
+    title: "Standa Commercial · Vos colis des USA vers Haïti",
     description: "Une adresse à Miami, le suivi de vos colis et le retrait dans votre agence en Haïti.",
     images: [{ url: "/hero-shopping.jpg", width: 1600, height: 1067, alt: "Colis STANDA COMMERCIAL" }]
   }
@@ -47,7 +48,7 @@ const INTERDITS = [
 ];
 
 const JSONLD = {
-  "@context": "https://schema.org", "@type": "MovingCompany", name: "STANDA COMMERCIAL", legalName: "Standa Shipping SA",
+  "@context": "https://schema.org", "@type": "MovingCompany", name: "Standa Commercial", alternateName: "STANDA COMMERCIAL", legalName: "Standa Shipping SA",
   url: `${SITE_URL}/accueil`, logo: `${SITE_URL}/logo.png`, image: `${SITE_URL}/hero-shopping.jpg`,
   description: "Expédition de colis des USA vers Haïti.", telephone: SITE.phone, email: SITE.email,
   areaServed: [{ "@type": "Country", name: "Haïti" }],

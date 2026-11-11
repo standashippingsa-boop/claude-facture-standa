@@ -5,7 +5,7 @@ import SiteFooter from "@/components/site/SiteFooter";
 import StoreBadges from "@/components/site/StoreBadges";
 
 export const metadata: Metadata = {
-  title: "Application mobile · STANDA COMMERCIAL",
+  title: "Application mobile",
   description: "Téléchargez l'application Standa pour suivre vos colis, vos factures et vos retraits directement depuis votre téléphone Android.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/app" }

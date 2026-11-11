@@ -8,7 +8,7 @@ import AddressGuide from "@/components/site/AddressGuide";
  * lyen an bay yon kliyan depi Paramètres (gid adrès SHEIN / Amazon).
  */
 export const metadata: Metadata = {
-  title: "Kijan pou mete adrès ou sou SHEIN ak Amazon · STANDA COMMERCIAL",
+  title: "Kijan pou mete adrès ou sou SHEIN ak Amazon",
   description: "Kijan pou ranpli adrès depo nou an Miami sou SHEIN ak Amazon, kaz pa kaz.",
   robots: { index: false, follow: false }
 };
