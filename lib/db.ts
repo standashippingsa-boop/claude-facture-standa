@@ -1098,16 +1098,39 @@ export function deriveConduceStatus(count: number, facturedCount: number): strin
 }
 
 /** Estatistik yon Conduce, kalkile depi packages ki gen menm conduce_id — jamè chan dwaplike. */
+/** Rekonèt kliyan Ergens yo (Dokasav, Blic, kliyan Dokasav) — paramèt la li yon sèl fwa pa 60 s. */
+let ergensMatcherCache: { at: number; p: Promise<(code: unknown, name?: unknown) => boolean> } | null = null;
+function loadErgensMatcher() {
+  if (!ergensMatcherCache || Date.now() - ergensMatcherCache.at > 60_000) {
+    const p = Promise.resolve(supabase.from("app_settings").select("value").eq("key", "mcpack_ergens_codes").maybeSingle())
+      .then(({ data }) => ergensMatcher((data as { value?: string } | null)?.value ?? ""))
+      .catch(() => ergensMatcher(""));
+    ergensMatcherCache = { at: Date.now(), p };
+  }
+  return ergensMatcherCache.p;
+}
+
 export async function getConduceStats(conduceId: string): Promise<{
   count: number; weight: number; facturedCount: number; facturedTotal: number; verifiedCount: number;
   disponibleCount: number; livreCount: number; specialCount: number;
+  /** Pwa koli Dokasav (Ergens, Blic konpri) ak pwa STANDA (tout lòt koli yo). */
+  dokasavWeight: number; dokasavCount: number; standaWeight: number; standaCount: number;
 }> {
-  const { data } = await supabase.from("packages")
-    .select("weight, invoice_id, total_usd, verified, archived, status, content, mcpack_data").eq("conduce_id", conduceId);
+  const [{ data }, isErgens] = await Promise.all([
+    supabase.from("packages")
+      .select("weight, invoice_id, total_usd, verified, archived, status, content, mcpack_data, customer_code, customer_name").eq("conduce_id", conduceId),
+    loadErgensMatcher(),
+  ]);
   const rows = (data ?? []).filter((r: any) => !r.archived);
+  const dokasavRows = rows.filter((r: any) => isErgens(r.customer_code, r.customer_name));
+  const sumW = (list: any[]) => list.reduce((s: number, r: any) => s + (Number(r.weight) || 0), 0);
+  const totalWeight = sumW(rows);
+  const dokasavWeight = sumW(dokasavRows);
   return {
+    dokasavWeight, dokasavCount: dokasavRows.length,
+    standaWeight: totalWeight - dokasavWeight, standaCount: rows.length - dokasavRows.length,
     count: rows.length,
-    weight: rows.reduce((s: number, r: any) => s + (Number(r.weight) || 0), 0),
+    weight: totalWeight,
     facturedCount: rows.filter((r: any) => r.invoice_id).length,
     facturedTotal: rows.reduce((s: number, r: any) => s + (r.invoice_id ? (Number(r.total_usd) || 0) : 0), 0),
     verifiedCount: rows.filter((r: any) => r.verified).length,

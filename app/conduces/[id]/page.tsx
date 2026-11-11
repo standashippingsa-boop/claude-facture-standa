@@ -26,10 +26,7 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
   const searchParams = useSearchParams();
   const backHref = returnToOr(searchParams.get("returnTo"), "/conduces");
   const [conduce, setConduce] = useState<Conduce | null>(null);
-  const [stats, setStats] = useState<{
-    count: number; weight: number; facturedCount: number; facturedTotal: number; verifiedCount: number;
-    disponibleCount: number; livreCount: number; specialCount: number;
-  } | null>(null);
+  const [stats, setStats] = useState<Awaited<ReturnType<typeof getConduceStats>> | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [packageListFilter, setPackageListFilter] = useState<"all" | "special" | null>(null);
@@ -110,6 +107,21 @@ export default function ConduceDetail({ params }: { params: Promise<{ id: string
           <div className="rounded-lg bg-amber-50 text-amber-800 text-xs font-semibold px-3 py-2 mb-4 flex items-center gap-2">
             <Clock size={14} /> En attente d&apos;import · sur MCPACK, ouvrez la Conduce
             <span className="font-mono">{conduce.conduce_number}</span>, exportez le fichier Excel et importez ce fichier plus bas.
+          </div>
+        )}
+
+        {stats && stats.count > 0 && (
+          <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+            <div className="rounded-xl border border-navy/20 bg-navy/5 p-3">
+              <div className="text-mute text-[11px]">Livres STANDA</div>
+              <div className="text-lg font-extrabold text-navy mt-0.5 tabular-nums">{stats.standaWeight.toFixed(2)} lb</div>
+              <div className="text-[10px] font-bold text-navy/70">{stats.standaCount} colis</div>
+            </div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+              <div className="text-mute text-[11px]">Livres Dokasav (Ergens, Blic inclus)</div>
+              <div className="text-lg font-extrabold text-amber-800 mt-0.5 tabular-nums">{stats.dokasavWeight.toFixed(2)} lb</div>
+              <div className="text-[10px] font-bold text-amber-800/80">{stats.dokasavCount} colis</div>
+            </div>
           </div>
         )}
 
