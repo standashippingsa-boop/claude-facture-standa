@@ -35,7 +35,8 @@ interface IncomingPkg {
 }
 
 // Yon Guía valab kòmanse pa WR (menm règ ak lib/utils isGuia)
-const isGuia = (v?: string) => /^WR\d{6,}$/i.test(String(v ?? "").trim());
+// Plizyè bwat nan menm chajman: MCPACK ajoute -2, -3, -4… nan fen Guía a (WR082600276025-4).
+const isGuia = (v?: string) => /^WR\d{6,}(-\d{1,3})?$/i.test(String(v ?? "").trim());
 const cleanTk = (v?: string) => String(v ?? "").trim().replace(/\s+/g, "").toUpperCase();
 
 function svc() {

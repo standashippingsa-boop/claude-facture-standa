@@ -37,7 +37,8 @@ export const clientShippingSchema = z.object({
 
 /** Yon koli k ap antre (ex: extension Chrome MCPACK, ingest agence). */
 export const incomingPackageSchema = z.object({
-  guia: z.string().trim().regex(/^WR\d{6,}$/i, "Guía invalide."),
+  // WR + chif, ak yon ti nimewo bwat si chajman an gen plizyè bwat (WR082600276025-4).
+  guia: z.string().trim().regex(/^WR\d{6,}(-\d{1,3})?$/i, "Guía invalide."),
   tracking_number: z.string().trim().max(64).optional(),
   customer_code: z.string().trim().max(30).optional(),
   customer_name: z.string().trim().max(120).optional(),
