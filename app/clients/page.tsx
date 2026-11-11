@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil, Trash2, Plus, UserPlus, X } from "@/components/icons";
+import { Pencil, Trash2, Plus, UserPlus, X, Copy, Check } from "@/components/icons";
 import { DupGroup, deleteClient, findDuplicateGroups, getClients, getVilles, logAction, mergeClients, upsertClient } from "@/lib/db";
 import { adminApi, useRole } from "@/lib/authx";
 import { Client, Ville } from "@/lib/types";
@@ -69,6 +69,16 @@ export default function ClientsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   useNoticeToast(notice, setNotice);
   const [mcClient, setMcClient] = useState<Client | null>(null);  // modal "Créer un compte MCPACK"
+  const [mcCopied, setMcCopied] = useState<string | null>(null);  // liy ki fèk kopye nan modal MCPACK la
+  const copyMc = async (key: string, value: string) => {
+    if (!value) return;
+    try { await navigator.clipboard.writeText(value); }
+    catch {
+      const t = document.createElement("textarea"); t.value = value; document.body.appendChild(t);
+      t.select(); try { document.execCommand("copy"); } catch { /* ignore */ } t.remove();
+    }
+    setMcCopied(key); window.setTimeout(() => setMcCopied((k) => (k === key ? null : k)), 1500);
+  };
   const [mcCode, setMcCode] = useState("");
   // Apre aktivasyon: kredansyèl yo (pou montre + voye WhatsApp)
   const [creds, setCreds] = useState<{ client: Client; username: string; password: string } | null>(null);
@@ -528,9 +538,14 @@ export default function ClientsPage() {
                  ["Tip pyès", mcClient.id_type ?? ""],
                  ["Nimewo pyès", mcClient.id_number ?? ""]] as const)
                 .map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-4 px-3 py-2">
-                  <span className="text-slate-500 text-xs">{k}</span>
-                  <span className="font-semibold text-right select-all">{v || "·"}</span>
+                <div key={k} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="text-slate-500 text-xs shrink-0">{k}</span>
+                  <span className="ml-auto font-semibold text-right select-all break-all">{v || "·"}</span>
+                  <button type="button" disabled={!v} onClick={() => copyMc(k, String(v ?? ""))}
+                    aria-label={`Kopye ${k}`} title={`Kopye ${k}`}
+                    className={`shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:opacity-30 ${mcCopied === k ? "border-emerald-500 bg-emerald-50 text-emerald-600" : "border-line text-navy hover:bg-navy/5"}`}>
+                    {mcCopied === k ? <Check size={15} /> : <Copy size={15} />}
+                  </button>
                 </div>
               ))}
             </div>
