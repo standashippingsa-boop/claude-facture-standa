@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — Koneksyon PÈSONÈL (Admin ak Employé)
+ * Standa Commercial — Koneksyon PÈSONÈL (Admin ak Employé)
  * ════════════════════════════════════════════════════════
  * Chak pòt antre mande yon wòl presi. Nou ka re-itilize fòm lan, men yon
  * administratè pa ka pase pa pòt anplwaye a, ni yon ajan retrè pa ka pase
@@ -104,7 +104,7 @@ export default function StaffLogin({
         className="relative z-10 w-full max-w-md rounded-3xl bg-[#0D1F3F]/90 border border-white/10 shadow-2xl p-6 sm:p-8 space-y-5 backdrop-blur-sm">
         <div className="w-20 h-20 mx-auto rounded-2xl bg-white grid place-items-center shadow-lg">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-16 object-contain" />
+          <img src="/logo.png" alt="Standa Commercial" className="h-16 object-contain" />
         </div>
         <div className="text-center">
           <h1 className="text-xl font-extrabold text-white">{title}</h1>

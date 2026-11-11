@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — Scanner de réception MCPACK (Faz 1)
+ * Standa Commercial — Scanner de réception MCPACK (Faz 1)
  * ══════════════════════════════════════════════════════════
  * Scan fizik koli MCPACK (Caribe Tours). Sipòte:
  *   • Kamera telefòn / Webcam (ZXing barcode + QR)

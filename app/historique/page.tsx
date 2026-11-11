@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — HISTORIQUE (colis livrés)
+ * Standa Commercial — HISTORIQUE (colis livrés)
  * ═══════════════════════════════════════════════════════
  * Se sèlman koli ki vrèman livre ki antre isit la.
  * ZEWO efasman: tout done yo rete (tracking, kliyan, pwa, kontni,

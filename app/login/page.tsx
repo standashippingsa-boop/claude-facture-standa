@@ -66,7 +66,7 @@ function LoginInner() {
       <div className="mx-auto max-w-5xl px-5 py-6 sm:px-8 sm:py-8">
         <header className="flex items-center justify-between gap-4">
           <Link href="/accueil" className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[13px] font-medium text-navy/80 shadow-[0_1px_2px_rgba(0,0,0,.05)] transition hover:text-navy"><ArrowLeft size={15} /> Retour au site</Link>
-          <Link href="/accueil" className="inline-flex items-center gap-2.5"><Logo size={34} /><span className="leading-none"><b className="block text-[14px] font-extrabold tracking-tight">STANDA</b><span className="mt-0.5 block text-[9px] font-semibold tracking-[.2em] text-accent">COMMERCIAL</span></span></Link>
+          <Link href="/accueil" className="inline-flex items-center gap-2.5"><Logo size={34} /><span className="leading-none"><b className="block text-[14px] font-extrabold tracking-tight">Standa</b><span className="mt-0.5 block text-[9px] font-semibold tracking-[.08em] text-accent">Commercial</span></span></Link>
         </header>
 
         <main className="mx-auto mt-12 max-w-md pb-10 sm:mt-16">

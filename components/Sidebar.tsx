@@ -79,8 +79,8 @@ export default function Sidebar({ staff, open = false, onClose }: { staff?: Staf
       <div className="flex items-center gap-3 px-5 h-16">
         <Logo size={34} tone="light" />
         <div>
-          <p className="font-extrabold text-sm leading-tight">STANDA</p>
-          <p className="text-[10px] text-white/50 tracking-wide">COMMERCIAL</p>
+          <p className="font-extrabold text-sm leading-tight">Standa</p>
+          <p className="text-[10px] text-white/50 tracking-wide">Commercial</p>
         </div>
       </div>
 

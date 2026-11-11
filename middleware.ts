@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { corsHeaders } from "@/lib/cors";
 
 /**
- * STANDA COMMERCIAL — DOMÈN KANONIK
+ * Standa Commercial — DOMÈN KANONIK
  * ══════════════════════════════════
  * PWOBLÈM KI KORIJE: yon kliyan te ka rive (oswa rete) sou URL deplwaman an
  * (*.vercel.app) — sa ekspoze enfrastrikti a epi li kreye yon 2yèm pòt

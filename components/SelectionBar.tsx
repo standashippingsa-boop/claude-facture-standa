@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — Barre de sélection GLOBALE
+ * Standa Commercial — Barre de sélection GLOBALE
  * ══════════════════════════════════════════════
  * Parèt otomatikman depi gen koli seleksyone, sou TOUT paj admin/employé.
  * • Montre kantite + lis (tracking, kliyan, poids, statut)

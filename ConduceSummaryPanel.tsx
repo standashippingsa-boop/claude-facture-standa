@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — Summary Panel Conduce (Faz 4)
+ * Standa Commercial — Summary Panel Conduce (Faz 4)
  * Estatistik konplè bò dwat paj Conduce a. READ-ONLY, pa touche kalkil.
  */
 import { useEffect, useState } from "react";

@@ -30,7 +30,7 @@ export async function exportPackagesPdf(
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
-  doc.text("STANDA COMMERCIAL", 32, 13);
+  doc.text("Standa Commercial", 32, 13);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.text(title, 32, 19);
@@ -69,7 +69,7 @@ export async function exportPackagesPdf(
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
   const pageH = doc.internal.pageSize.getHeight();
-  doc.text("STANDA COMMERCIAL · " + title, 10, pageH - 6);
+  doc.text("Standa Commercial · " + title, 10, pageH - 6);
 
   doc.save(`Liste_colis_${Date.now().toString().slice(-6)}.pdf`);
 }

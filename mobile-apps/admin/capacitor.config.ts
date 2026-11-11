@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 /**
- * STANDA COMMERCIAL — APK "Admin" (distribisyon dirèk, JAMÈ piblik)
+ * Standa Commercial — APK "Admin" (distribisyon dirèk, JAMÈ piblik)
  * ══════════════════════════════════════════════════════════════════
  * Sa a se yon pwojè Capacitor SEPARE de app kliyan an (../../capacitor.config.ts,
  * ki pibliye sou Uptodown). App sa a louvri dirèkteman /admin-login sou sit

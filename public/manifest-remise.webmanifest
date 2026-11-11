@@ -1,7 +1,7 @@
 {
   "name": "STANDA Point de retrait",
   "short_name": "STANDA Retrait",
-  "description": "Remise des colis et encaissements — agents des points de retrait STANDA COMMERCIAL.",
+  "description": "Remise des colis et encaissements — agents des points de retrait Standa Commercial.",
   "id": "/espace-remise",
   "start_url": "/espace-remise",
   "scope": "/espace-remise",

@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — KONEKSYON APLIKASYON AN
+ * Standa Commercial — KONEKSYON APLIKASYON AN
  * ═══════════════════════════════════════════
  * ⚠️ PAJ SA A SE POU APLIKASYON AN SÈLMAN.
  *
@@ -71,7 +71,7 @@ export default function AppConnexionPage() {
         <div className="text-center">
           <div className="mx-auto grid h-20 w-20 place-items-center rounded-[24px] bg-white shadow-[0_12px_30px_-16px_rgba(18,43,92,.45)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-14 object-contain" />
+            <img src="/logo.png" alt="Standa Commercial" className="h-14 object-contain" />
           </div>
           <p className="mt-6 text-[12px] font-medium tracking-[0.14em] text-accent-dark">ESPAS KLIYAN</p>
           <h1 className="mt-2 text-[32px] font-semibold leading-tight tracking-[-0.03em]">Byenvini <span className="text-accent">ankò</span></h1>
@@ -132,7 +132,7 @@ export default function AppConnexionPage() {
         </div>
       </div>
 
-      <p className="pb-6 text-center text-[10.5px] tracking-[.2em] text-navy/30">STANDA COMMERCIAL</p>
+      <p className="pb-6 text-center text-[10.5px] tracking-[.2em] text-navy/30">Standa Commercial</p>
     </div>
   );
 }

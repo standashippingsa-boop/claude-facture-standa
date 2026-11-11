@@ -47,7 +47,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
   /** Nimewo Conduce pa id — pou montre nan ki Conduce chak koli ye. */
   const [conduceNumbers, setConduceNumbers] = useState<Map<string, string>>(new Map());
   const [rate, setRate] = useState(132);
-  const [footer, setFooter] = useState("Mèsi paske ou fè STANDA COMMERCIAL konfyans.");
+  const [footer, setFooter] = useState("Mèsi paske ou fè Standa Commercial konfyans.");
   const [bulkStatus, setBulkStatus] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");

@@ -3,7 +3,7 @@ import { Check, Truck } from "@/components/icons";
 import { INTERNAL_STATUSES } from "@/lib/types";
 
 /**
- * Konpozan estati reutilizab — STANDA COMMERCIAL
+ * Konpozan estati reutilizab — Standa Commercial
  * ══════════════════════════════════════════════
  * <StatusPill status="Disponible" />  -> ti badge kolore
  * <StatusTimeline status="En transit" /> -> etap konekte (estil suivi livrezon)

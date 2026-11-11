@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 /**
- * STANDA COMMERCIAL — APK "Affiliation" (distribisyon dirèk, JAMÈ piblik)
+ * Standa Commercial — APK "Affiliation" (distribisyon dirèk, JAMÈ piblik)
  * Pwojè Capacitor separe — wè mobile-apps/admin/capacitor.config.ts pou
  * eksplikasyon konplè sou pouki sa "server.url" itilize olye "webDir".
  * Louvri pòtay afilye a (koneksyon), PA fòm kandidati /affiliation an —

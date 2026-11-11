@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 /*
- * STANDA COMMERCIAL — Imaj apèsi lyen (Open Graph)
+ * Standa Commercial — Imaj apèsi lyen (Open Graph)
  * ════════════════════════════════════════════════
  * Se imaj sa a ki parèt lè yon moun pataje lyen an sou WhatsApp, Facebook
  * oswa Messenger. San li, aplikasyon mesajri yo pran nenpòt bagay yo jwenn
@@ -14,7 +14,7 @@ import { ImageResponse } from "next/og";
  * 1200×630 se dimansyon estanda WhatsApp/Facebook mande.
  */
 export const runtime = "edge";
-export const alt = "STANDA COMMERCIAL · Expédition de colis USA vers Haïti";
+export const alt = "Standa Commercial · Expédition de colis USA vers Haïti";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -37,7 +37,7 @@ export default async function Image() {
               fontWeight: 700, display: "flex"
             }}
           >
-            STANDA COMMERCIAL
+            Standa Commercial
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — Importer les colis d'une Conduce
+ * Standa Commercial — Importer les colis d'une Conduce
  * ══════════════════════════════════════════════════════════
  * DEUX chemins (pa gen bot ki navige — itilizatè a rete an kontwòl):
  *   A) Fichier Excel — bouton "Exportar XLS" sou paj Conduce MCPACK la.

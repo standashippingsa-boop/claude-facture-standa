@@ -40,7 +40,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md rounded-3xl bg-[#0D1F3F]/90 border border-white/10 shadow-2xl p-8 space-y-5">
         <div className="w-20 h-20 mx-auto rounded-2xl bg-white grid place-items-center shadow-lg">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-16 object-contain" />
+          <img src="/logo.png" alt="Standa Commercial" className="h-16 object-contain" />
         </div>
         <h1 className="text-xl font-extrabold text-white text-center">Nouveau mot de passe</h1>
         <p className="text-xs text-slate-400 text-center">Choisissez un nouveau mot de passe pour votre compte.</p>

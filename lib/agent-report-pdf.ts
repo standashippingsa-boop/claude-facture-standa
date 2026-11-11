@@ -57,7 +57,7 @@ export async function buildAgentReportPdf(input: AgentReportInput) {
   doc.rect(0, 0, W, 30, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold"); doc.setFontSize(16);
-  doc.text("STANDA COMMERCIAL", 14, 13);
+  doc.text("Standa Commercial", 14, 13);
   doc.setFont("helvetica", "normal"); doc.setFontSize(11);
   doc.text(`Rapport du point de retrait · ${input.zone}`, 14, 21);
   doc.setFontSize(9);
@@ -159,7 +159,7 @@ Réf. ${p.payment_reference}` : ""),
   const pages = doc.getNumberOfPages();
   for (let page = 1; page <= pages; page++) {
     doc.setPage(page); doc.setFontSize(8); doc.setTextColor(140, 140, 140);
-    doc.text(`STANDA COMMERCIAL · ${input.zone} · page ${page}/${pages}`, W / 2, doc.internal.pageSize.getHeight() - 8, { align: "center" });
+    doc.text(`Standa Commercial · ${input.zone} · page ${page}/${pages}`, W / 2, doc.internal.pageSize.getHeight() - 8, { align: "center" });
   }
   const day = now.toISOString().slice(0, 10);
   const fileName = `Rapport-${input.zone.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-")}-${day}.pdf`;

@@ -81,8 +81,8 @@ export default async function GuideAidePage() {
     <div lang="ht" className={`${sans.className} min-h-screen bg-[#faf8f4] text-[#14213d]`}>
       <header className="border-b border-[#d9d3c7] bg-[#faf8f4]">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Link href="/accueil" aria-label="STANDA COMMERCIAL"><Logo size={32} rounded="rounded-md" /></Link>
-          <p className="flex-1 text-[14px] font-bold tracking-wide">STANDA COMMERCIAL</p>
+          <Link href="/accueil" aria-label="Standa Commercial"><Logo size={32} rounded="rounded-md" /></Link>
+          <p className="flex-1 text-[14px] font-bold tracking-wide">Standa Commercial</p>
           <Link href="/login" className="rounded-md border border-[#14213d] px-3 py-2 text-[13px] font-semibold hover:bg-[#14213d] hover:text-white">Espas mwen</Link>
         </div>
       </header>
@@ -91,7 +91,7 @@ export default async function GuideAidePage() {
         <p className="text-[12px] font-bold uppercase tracking-[.14em] text-[#9a8f7a]">Gid ak èd</p>
         <h1 className={`${serif.className} mt-2 text-[34px] font-medium leading-[1.1] sm:text-[44px]`}>Kijan nou ka ede w ?</h1>
         <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-[#3d4352]">
-          Byenveni lakay STANDA COMMERCIAL. Chwazi yon kesyon pi ba a epi peze sou li pou w li repons lan.
+          Byenveni lakay Standa Commercial. Chwazi yon kesyon pi ba a epi peze sou li pou w li repons lan.
         </p>
 
         <div className="mt-12">
@@ -156,7 +156,7 @@ export default async function GuideAidePage() {
               <p>Wi. Ou ka achte nan plizyè boutik : nou resevwa epi peze chak koli apa nan Miami, epi tout koli ki gen kòd kliyan ou mete ansanm nan kont ou. Koli ki disponib an menm tan ka mete sou yon sèl fakti.</p>
             </Question>
             <Question id="domicile" n={q()} title="Èske nou vin pran koli lakay moun ?">
-              <p>Non. STANDA COMMERCIAL pa vin pran koli lakay ou. Nou resevwa sèlman koli yo livre nan depo nou an Miami.</p>
+              <p>Non. Standa Commercial pa vin pran koli lakay ou. Nou resevwa sèlman koli yo livre nan depo nou an Miami.</p>
               <p className="mt-3">Koli a deja nan men w Ozetazini ? Voye l nan adrès nou an Miami ak yon konpayi tankou <b>FedEx</b>, <b>UPS</b> oswa <b>USPS</b>, epi ekri adrès la ak kòd MC ou.</p>
             </Question>
           </Section>

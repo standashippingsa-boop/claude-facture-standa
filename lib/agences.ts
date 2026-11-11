@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 
 /**
- * STANDA COMMERCIAL — AJANS / PWEN RETRAIT AN AYITI
+ * Standa Commercial — AJANS / PWEN RETRAIT AN AYITI
  * ══════════════════════════════════════════════════
  * ⚠️ FICHYE SA A DWE RETE "SÈVÈ-SAN-DANJE" (pa gen "use client" ladan l),
  *    menm règ ak lib/site.ts ak lib/depot.ts — konsa paj SÈVÈ a

@@ -142,7 +142,7 @@ export async function POST(req: Request) {
     if (!pickup) {
       return NextResponse.json({
         ok: false,
-        reason: "Aucun point de retrait actif n'est configuré pour cette ville. Choisissez une autre ville ou contactez STANDA COMMERCIAL."
+        reason: "Aucun point de retrait actif n'est configuré pour cette ville. Choisissez une autre ville ou contactez Standa Commercial."
       }, { status: 400 });
     }
 
@@ -246,7 +246,7 @@ export async function POST(req: Request) {
         reason: `Ces informations correspondent déjà à un compte existant. Pour ouvrir un `
               + `deuxième compte, utilisez une autre adresse électronique et un autre numéro de `
               + `téléphone · c'est par là que nous envoyons vos notifications, factures et `
-              + `mots de passe. Sinon, veuillez vous connecter à votre compte ou contactez STANDA COMMERCIAL.`
+              + `mots de passe. Sinon, veuillez vous connecter à votre compte ou contactez Standa Commercial.`
       }, { status: 409 });
     }
 
@@ -302,7 +302,7 @@ export async function POST(req: Request) {
     });
     if (error) {
       console.error("[register-client] insertion :", error.code, error.message);
-      return NextResponse.json({ ok: false, reason: "Enregistrement impossible pour le moment. Réessayez dans quelques minutes ou contactez STANDA COMMERCIAL." }, { status: 500 });
+      return NextResponse.json({ ok: false, reason: "Enregistrement impossible pour le moment. Réessayez dans quelques minutes ou contactez Standa Commercial." }, { status: 500 });
     }
 
     await svc.from("journal").insert({

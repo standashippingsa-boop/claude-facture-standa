@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — File d'attente WhatsApp (bulk)
+ * Standa Commercial — File d'attente WhatsApp (bulk)
  * ══════════════════════════════════════════════════════════
  * ⚠️ WhatsApp PA gen API otomatik konfigire (sa ta mande yon kont
  * WhatsApp Business API peye + verifikasyon biznis). Sistèm nan itilize

@@ -5,7 +5,7 @@ import { SITE } from "@/lib/site";
 import { getAgences, Agence } from "@/lib/agences";
 
 /**
- * STANDA COMMERCIAL — PAJ NOS AGENCES (PIBLIK)
+ * Standa Commercial — PAJ NOS AGENCES (PIBLIK)
  * ═══════════════════════════════════════════
  * Menm règ ak /accueil ak /contact:
  *   - Pa gen koneksyon obligatwa (li nan PUBLIC_PREFIXES nan lib/access.ts).
@@ -17,9 +17,9 @@ import { getAgences, Agence } from "@/lib/agences";
  *     POU PAJ SA A SÈLMAN, menm jan ak /accueil ak /contact.
  */
 export const metadata: Metadata = {
-  title: "Nos agences · STANDA COMMERCIAL",
+  title: "Nos agences · Standa Commercial",
   description:
-    "Retrouvez toutes les agences et points de retrait STANDA COMMERCIAL en Haïti : adresses, téléphones, WhatsApp et horaires d'ouverture.",
+    "Retrouvez toutes les agences et points de retrait Standa Commercial en Haïti : adresses, téléphones, WhatsApp et horaires d'ouverture.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/agences" }
 };
@@ -68,7 +68,7 @@ export default async function AgencesPage() {
             Nos agences
           </h1>
           <p className="mt-3 text-[15px] sm:text-[17px] leading-relaxed text-white/75 max-w-lg">
-            Retrouvez l&apos;agence STANDA COMMERCIAL la plus proche de vous : adresse,
+            Retrouvez l&apos;agence Standa Commercial la plus proche de vous : adresse,
             téléphone, WhatsApp et horaires d&apos;ouverture.
           </p>
 

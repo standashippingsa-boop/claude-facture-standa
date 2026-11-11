@@ -15,7 +15,7 @@ export function normalizePhone(raw: string): string {
 export function buildMessage(inv: Invoice): string {
   return (
     `Bonjou ${inv.customer_name},\n` +
-    `Men fakti STANDA COMMERCIAL ou a: No ${inv.invoice_number} · ` +
+    `Men fakti Standa Commercial ou a: No ${inv.invoice_number} · ` +
     `${usd(inv.grand_total)} (${htg(inv.total_htg || inv.grand_total * inv.exchange_rate_used)}).\n` +
     "PDF la disponib nan espas kliyan STANDA ou a."
   );
@@ -44,7 +44,7 @@ export async function sendInvoicePdfWhatsApp(
       await navigator.share({
         files: [file],
         title: filename,
-        text: `Facture ${inv.invoice_number} · STANDA COMMERCIAL`
+        text: `Facture ${inv.invoice_number} · Standa Commercial`
       });
       return "file";
     } catch (e: any) {
@@ -80,9 +80,9 @@ export function buildPackagesMessage(
   const lignes = pkgs.map((p) => `• ${p.tracking_number}${p.content ? "" + p.content : ""} (${p.status})`);
   return (
     `Bonjou ${clientName},\n` +
-    `Nouvèl sou ${pkgs.length > 1 ? "vos colis" : "votre colis"} STANDA COMMERCIAL :\n\n` +
+    `Nouvèl sou ${pkgs.length > 1 ? "vos colis" : "votre colis"} Standa Commercial :\n\n` +
     lignes.join("\n") +
-    `\n\nMèsi paske ou fè STANDA COMMERCIAL konfyans.`
+    `\n\nMèsi paske ou fè Standa Commercial konfyans.`
   );
 }
 

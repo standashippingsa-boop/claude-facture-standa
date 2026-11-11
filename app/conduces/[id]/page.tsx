@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — Fiche Conduce (Faz 3)
+ * Standa Commercial — Fiche Conduce (Faz 3)
  * ══════════════════════════════════════════════════════════
  * PA yon kopi Section Package la. Header spesifik Conduce +
  * MENM PackagesEngine la, filtre pa conduce_id. Zewo dwaplikaj kòd.

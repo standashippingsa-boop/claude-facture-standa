@@ -1,7 +1,7 @@
 import { StaffRole } from "./types";
 
 /**
- * CONTRÔLE D'ACCÈS CENTRALISÉ (RBAC) — STANDA COMMERCIAL
+ * CONTRÔLE D'ACCÈS CENTRALISÉ (RBAC) — Standa Commercial
  * ══════════════════════════════════════════════════════════
  * Yon SÈL sous verite pou "ki wòl ka al ki paj". Shell la ak Sidebar la
  * tou de sèvi ak li — konsa pa gen 2 lojik diferan (prensip: yon sèl moteur).
@@ -37,7 +37,7 @@ export const PUBLIC_PREFIXES = [
   "/reset-password", "/nouveau-mot-de-passe", "/confidentialite",
   "/espace-client/connexion",            // koneksyon APLIKASYON an (anndan scope PWA)
 
-  // ── SIT WÈB PIBLIK STANDA COMMERCIAL ──
+  // ── SIT WÈB PIBLIK Standa Commercial ──
   // Vizitè yo (moun ki poko kliyan) dwe ka wè paj sa yo san konekte.
   // Yo pa li okenn done kliyan: tracking piblik la pase pa /api/track.
   "/accueil",                           // paj akèy piblik la

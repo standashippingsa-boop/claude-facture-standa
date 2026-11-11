@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — DAHA (asistan AI /espace-client)
+ * Standa Commercial — DAHA (asistan AI /espace-client)
  * ════════════════════════════════════════════════════════
  * Widget flotant san eta pataje ak paj la : li chèche pwòp jeton sesyon
  * kliyan an lè l voye yon mesaj, epi wout sèvè a (`/api/daha-chat`)
@@ -86,7 +86,7 @@ export default function DahaChat() {
             <Sparkles size={16} />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold leading-tight">Daha</p>
-              <p className="text-[11px] leading-tight text-white/70">Assistant STANDA COMMERCIAL</p>
+              <p className="text-[11px] leading-tight text-white/70">Assistant Standa Commercial</p>
             </div>
             <button type="button" onClick={() => setOpen(false)} aria-label="Fermer" className="rounded-lg p-1 hover:bg-white/10">
               <X size={16} />

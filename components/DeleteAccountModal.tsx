@@ -61,7 +61,7 @@ export default function DeleteAccountModal({ whatsappHref, onClose }: { whatsapp
       {done ? <div className="space-y-3 py-4 text-center">
         <CheckCircle2 className="mx-auto text-emerald-500" size={56} />
         <h2 className="text-lg font-extrabold text-ink">Compte supprimé</h2>
-        <p className="text-sm text-mute">Vos informations personnelles ont été effacées. Merci d&apos;avoir utilisé STANDA COMMERCIAL.</p>
+        <p className="text-sm text-mute">Vos informations personnelles ont été effacées. Merci d&apos;avoir utilisé Standa Commercial.</p>
       </div> : <>
         <div className="flex items-start justify-between gap-3">
           <h2 className="flex items-center gap-2 text-base font-extrabold text-red-700"><Trash2 size={18} /> Supprimer mon compte</h2>

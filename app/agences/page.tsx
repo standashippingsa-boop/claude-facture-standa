@@ -10,7 +10,7 @@ import { getSiteImages } from "@/lib/site-images";
 
 export const metadata: Metadata = {
   title: "Nos agences",
-  description: "Retrouvez les agences et points de retrait STANDA COMMERCIAL en Haïti : adresses, téléphones, WhatsApp et horaires.",
+  description: "Retrouvez les agences et points de retrait Standa Commercial en Haïti : adresses, téléphones, WhatsApp et horaires.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/agences" }
 };

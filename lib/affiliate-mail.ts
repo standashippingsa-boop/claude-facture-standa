@@ -38,7 +38,7 @@ const copyBox = (value: string, href?: string) => {
 };
 
 function fromValue(): string {
-  return process.env.EMAIL_FROM || "STANDA COMMERCIAL <notifications@standacommercialsa.com>";
+  return process.env.EMAIL_FROM || "Standa Commercial <notifications@standacommercialsa.com>";
 }
 
 export function buildAffiliateApprovalEmail(a: {
@@ -48,18 +48,18 @@ export function buildAffiliateApprovalEmail(a: {
 }): { subject: string; html: string } {
   const websiteLink = affiliateWebsiteLink(a.code);
   const subject = a.isRenewal
-    ? `Votre nouveau contrat d'affiliation STANDA COMMERCIAL · ${a.code}`
-    : `Bienvenue dans le programme d'affiliation STANDA COMMERCIAL · ${a.code}`;
+    ? `Votre nouveau contrat d'affiliation Standa Commercial · ${a.code}`
+    : `Bienvenue dans le programme d'affiliation Standa Commercial · ${a.code}`;
   const intro = a.isRenewal
-    ? `Votre contrat <strong>programme d'affiliation STANDA COMMERCIAL</strong> est renouvelé pour 3 mois, avec un <strong>nouveau lien</strong>. L'ancien lien ne génère plus de commission. Voici vos nouvelles informations :`
-    : `Votre candidature au <strong>programme d'affiliation STANDA COMMERCIAL</strong> est acceptée. Voici vos informations :`;
+    ? `Votre contrat <strong>programme d'affiliation Standa Commercial</strong> est renouvelé pour 3 mois, avec un <strong>nouveau lien</strong>. L'ancien lien ne génère plus de commission. Voici vos nouvelles informations :`
+    : `Votre candidature au <strong>programme d'affiliation Standa Commercial</strong> est acceptée. Voici vos informations :`;
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>
 <body style="margin:0;padding:0;background:#F4F6F9;font-family:${FONT}">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6F9">
 <tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:560px;max-width:100%;background:#FFFFFF;border:1px solid #EAECEF;border-radius:8px">
-<tr><td style="padding:24px 32px 0"><img src="https://www.standacommercialsa.com/logo.png" alt="STANDA COMMERCIAL" height="32" style="height:32px"></td></tr>
+<tr><td style="padding:24px 32px 0"><img src="https://www.standacommercialsa.com/logo.png" alt="Standa Commercial" height="32" style="height:32px"></td></tr>
 <tr><td style="padding:16px 32px 0"><h1 style="margin:0;font-size:20px;color:#111827">${a.isRenewal ? `Bonne nouvelle, ${esc(a.fullname)} !` : `Félicitations, ${esc(a.fullname)} !`}</h1>
 <p style="margin:10px 0 0;font-size:14px;line-height:1.6;color:#4B5563">${intro}</p></td></tr>
 <tr><td style="padding:18px 32px 0"><p style="margin:0 0 10px;font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.06em">Vos deux liens personnels</p>
@@ -90,7 +90,7 @@ ${label("Mot de passe")}${copyBox(a.password)}
 <p style="margin:8px 0 0;font-size:12px;color:#9CA3AF">Dans votre Espace Affilié : bouton « Copier » pour votre lien, suivi de vos clients et de vos commissions.</p></td></tr>
 <tr><td style="padding:18px 32px 0"><p style="margin:0;font-size:13px;line-height:1.6;color:#4B5563">Le contrat détaillant les conditions du programme est joint à ce courriel en PDF.</p></td></tr>
 <tr><td style="padding:22px 32px 24px"><div style="height:2px;background:#1E3A8A;margin-bottom:12px"></div>
-<p style="margin:0;font-size:11px;color:#9CA3AF">STANDA COMMERCIAL · standacommercialsa.com</p></td></tr>
+<p style="margin:0;font-size:11px;color:#9CA3AF">Standa Commercial · standacommercialsa.com</p></td></tr>
 </table></td></tr></table></body></html>`;
   return { subject, html };
 }

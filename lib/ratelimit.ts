@@ -1,5 +1,5 @@
 /*
- * STANDA COMMERCIAL — Rate limiting (limitasyon kadans)
+ * Standa Commercial — Rate limiting (limitasyon kadans)
  * ═════════════════════════════════════════════════════
  * Pwoteje wout sansib yo kont abi: brute-force, spam enskripsyon,
  * enjeksyon koli an mas, spam imèl.

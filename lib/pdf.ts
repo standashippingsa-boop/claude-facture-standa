@@ -172,7 +172,7 @@ export function generateInvoicePdf(
     doc.text(`Date : ${dateFr(inv.created_at || new Date())}`, W - 14, 25.5, { align: "right" });
     headerBottom = Math.max(30, cy + 1.5);
   } else {
-  // ===== EN-TÊTE : STANDA COMMERCIAL =====
+  // ===== EN-TÊTE : Standa Commercial =====
   doc.setFillColor(...NAVY);
   doc.rect(0, 0, W, 3, "F");
   if (logo) {
@@ -189,7 +189,7 @@ export function generateInvoicePdf(
   doc.setTextColor(...NAVY);
   doc.setFont(FONT, "bold");
   doc.setFontSize(13);
-  doc.text("STANDA COMMERCIAL", cx, 14.5);
+  doc.text("Standa Commercial", cx, 14.5);
   doc.setFont(FONT, "normal");
   doc.setFontSize(7.5);
   doc.setTextColor(70, 70, 70);

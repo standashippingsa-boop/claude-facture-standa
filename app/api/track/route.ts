@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { anyObject, readJsonBody } from "@/lib/validation/request";
 
 /**
- * STANDA COMMERCIAL — TRACKING PIBLIK (/api/track)
+ * Standa Commercial — TRACKING PIBLIK (/api/track)
  * ═════════════════════════════════════════════════
  * Nenpòt moun (san koneksyon) ka tape yon nimewo tracking epi wè kote koli a ye.
  *

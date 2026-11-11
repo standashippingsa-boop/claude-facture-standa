@@ -1,5 +1,5 @@
 /*
- * STANDA COMMERCIAL — Konfigirasyon Sentry (rapò erè)
+ * Standa Commercial — Konfigirasyon Sentry (rapò erè)
  * ═══════════════════════════════════════════════════
  * YON SÈL kote ki dekri sa Sentry gen dwa voye. Kliyan, sèvè ak edge
  * (instrumentation-client.ts, instrumentation.ts) sèvi ak menm fonksyon an.

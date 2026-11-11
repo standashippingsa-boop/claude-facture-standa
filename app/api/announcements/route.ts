@@ -132,7 +132,7 @@ export async function POST(req: Request) {
     const codes = Array.from(new Set([...(web.data ?? []), ...(fcm.data ?? [])]
       .map((row: { customer_code: string | null }) => String(row.customer_code ?? "").trim()).filter(Boolean)))
       .filter((code) => !targetSet || targetSet.has(code));
-    const copy = { title, text: text ? text.slice(0, 140) : "Nouvelle annonce STANDA COMMERCIAL", url: "/espace-client" };
+    const copy = { title, text: text ? text.slice(0, 140) : "Nouvelle annonce Standa Commercial", url: "/espace-client" };
     let devices = 0;
     for (let start = 0; start < codes.length; start += 10) {
       const results = await Promise.allSettled(codes.slice(start, start + 10).flatMap((code) => [

@@ -1,5 +1,5 @@
 /*
- * STANDA COMMERCIAL — Validasyon fichye telechaje
+ * Standa Commercial — Validasyon fichye telechaje
  * ═══════════════════════════════════════════════
  * `accept="image/*"` se UX SÈLMAN — li pa yon sekirite: nenpòt moun ka
  * chanje non yon fichye oswa pase l via DevTools. Isit la nou verifye

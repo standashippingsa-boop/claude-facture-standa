@@ -1,7 +1,7 @@
 {
   "name": "STANDA Réception",
   "short_name": "STANDA Réception",
-  "description": "Arrivée des Conduces et recherche client — agents de réception STANDA COMMERCIAL.",
+  "description": "Arrivée des Conduces et recherche client — agents de réception Standa Commercial.",
   "id": "/reception",
   "start_url": "/reception",
   "scope": "/reception",

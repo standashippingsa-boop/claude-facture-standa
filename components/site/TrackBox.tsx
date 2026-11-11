@@ -7,7 +7,7 @@ import { dateFr } from "@/lib/utils";
 
 import { useNoticeToast } from "@/lib/notify";
 /**
- * STANDA COMMERCIAL — BWAT TRACKING PIBLIK
+ * Standa Commercial — BWAT TRACKING PIBLIK
  * ═════════════════════════════════════════
  * Vizitè a tape yon nimewo tracking epi li wè kote koli l ye — SAN KONEKTE.
  *

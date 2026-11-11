@@ -45,7 +45,7 @@ export default function InvoicesPage() {
     if (!client) return;
     setCustomerF(client); setSearch(""); setFromF(""); setToF(""); setMinTotal(""); setMaxTotal("");
   }, []);
-  const [footer, setFooter] = useState("Mèsi paske ou fè STANDA COMMERCIAL konfyans.");
+  const [footer, setFooter] = useState("Mèsi paske ou fè Standa Commercial konfyans.");
   const [notice, setNotice] = useState<string | null>(null);
   useNoticeToast(notice, setNotice);
   const [busy, setBusy] = useState(false);

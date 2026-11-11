@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — SÉLECTION GLOBALE DES COLIS
+ * Standa Commercial — SÉLECTION GLOBALE DES COLIS
  * ═══════════════════════════════════════════════
  * YON SÈL sous verite pou seleksyon koli, pataje pa TOUT modil yo
  * (Packages, Conduces, Dossier client, Facturation…).

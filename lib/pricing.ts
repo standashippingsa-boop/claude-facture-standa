@@ -39,7 +39,7 @@ export function computeLinePrice(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TAXE FIXE SOU PWA TOTAL — règ STANDA COMMERCIAL
+// TAXE FIXE SOU PWA TOTAL — règ Standa Commercial
 // ───────────────────────────────────────────────────────────────────────────
 // Depi pwa TOTAL koli yo rive nan 6.50 lb, yon taxe fiks 10 USD ajoute.
 // Se yon sèl fwa pa fakti (pa pa koli). Chanje valè yo isit la sèlman.

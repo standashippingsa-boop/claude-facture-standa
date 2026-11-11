@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     type: "website", url: "/accueil", siteName: "Standa Commercial", locale: "fr_HT",
     title: "Standa Commercial · Avec notre service express, vos colis arrivent près de vous en Haïti",
     description: "Une adresse à Miami, le suivi de vos colis et le retrait dans votre agence en Haïti.",
-    images: [{ url: "/hero-shopping.jpg", width: 1600, height: 1067, alt: "Colis STANDA COMMERCIAL" }]
+    images: [{ url: "/hero-shopping.jpg", width: 1600, height: 1067, alt: "Colis Standa Commercial" }]
   }
 };
 

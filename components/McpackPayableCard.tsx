@@ -236,7 +236,7 @@ export default function McpackPayableCard() {
     const total = view.periodLbs.dokasav + view.periodLbs.blic;
     win.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Relevé Ergens depuis le ${esc(view.period.start)}</title>
 <style>body{font-family:Arial,sans-serif;color:#0f172a;margin:32px}h1{font-size:20px;margin:0}p{margin:4px 0;color:#475569;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:18px;font-size:13px}th,td{padding:8px;border-bottom:1px solid #e2e8f0;text-align:right}th:first-child,td:first-child{text-align:left}th{background:#0b2a5b;color:#fff}tfoot td{font-weight:bold;border-top:2px solid #0b2a5b}.box{margin-top:18px;padding:12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px}</style></head><body>
-<h1>STANDA COMMERCIAL · Relevé MCPACK · Part Ergens</h1>
+<h1>Standa Commercial · Relevé MCPACK · Part Ergens</h1>
 <p>Période : du ${esc(fmtDate(view.period.start))} au ${esc(fmtDate(localDay(new Date().toISOString())))} · Tarif MCPACK : ${fmtUsd(view.rate)} / lb</p>
 <table><thead><tr><th>Conduce</th><th>Date</th><th>Dokasav</th><th>Blic Express</th><th>Montant</th></tr></thead><tbody>
 ${rows.map((line) => `<tr><td>${esc(line.conduce.conduce_number)}</td><td>${esc(fmtDate(line.day))}</td><td>${fmtLb(line.lbs.dokasav)}</td><td>${fmtLb(line.lbs.blic)}</td><td>${fmtUsd((line.lbs.dokasav + line.lbs.blic) * view.rate)}</td></tr>`).join("")}

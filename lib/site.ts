@@ -1,5 +1,5 @@
 /**
- * STANDA COMMERCIAL — ENFÒMASYON SIT PIBLIK LA (SITE)
+ * Standa Commercial — ENFÒMASYON SIT PIBLIK LA (SITE)
  * ═══════════════════════════════════════════════════
  * ⚠️ FICHYE SA A DWE RETE "SÈVÈ-SAN-DANJE" (pa gen "use client" ladan l).
  *
@@ -19,7 +19,7 @@
  * Pou chanje yon nimewo oswa yon imèl: se ISIT sèlman.
  */
 export const SITE = {
-  name: "STANDA COMMERCIAL",
+  name: "Standa Commercial",
   email: "standacommercialsa@gmail.com",
   phone: "+509 4673 8117",
   /** Nimewo san espas ni + — se fòma wa.me la mande */

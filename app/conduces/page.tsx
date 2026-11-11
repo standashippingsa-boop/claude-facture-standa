@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — CONDUCES · V17 (CLASSEURS PAR DATE)
+ * Standa Commercial — CONDUCES · V17 (CLASSEURS PAR DATE)
  * ═══════════════════════════════════════════════════════
  * Yon Conduce se yon manifest Caribe Tours. Men nan travay reyèl la, ou antre
  * PLIZYÈ conduce menm jou a (lè w fenk rekipere machandiz Dajabon). Donk

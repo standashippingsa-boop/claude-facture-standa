@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — CHARGEMENT & CONFIRMATION (yon sèl sous pou TOUT sistèm nan)
+ * Standa Commercial — CHARGEMENT & CONFIRMATION (yon sèl sous pou TOUT sistèm nan)
  * ═══════════════════════════════════════════════════════════════════════════════
  * Règ: PA GEN TÈKS "Ap chaje...", "Ap verifye aksè...", "Chargement…".
  *      Se ILUSTRASYON an k ap vire ki parèt — menm bagay la toupatou:

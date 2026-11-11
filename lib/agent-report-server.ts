@@ -63,7 +63,7 @@ export async function sendAgentReport(
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify({
-          from: process.env.EMAIL_FROM || "STANDA COMMERCIAL <notifications@standacommercialsa.com>",
+          from: process.env.EMAIL_FROM || "Standa Commercial <notifications@standacommercialsa.com>",
           to: recipients,
           subject: `Rapport point de retrait · ${input.zone} · ${day}`,
           html: `<p>Bonjour,</p><p><b>${escapeHtml(input.agentName)}</b> (point de retrait <b>${escapeHtml(input.zone)}</b>) a envoyé son rapport.</p><p>${escapeHtml(summary)}</p><p>Le rapport complet est en pièce jointe (PDF). Il est aussi disponible dans STANDA → Points de retrait → Rapports des agences.</p>`,

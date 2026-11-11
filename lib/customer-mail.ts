@@ -145,10 +145,10 @@ export function buildHtml(b: NotifyBody): { subject: string; html: string } {
         <tr><td class="px" style="padding:22px 40px 0">
           <!--[if !mso]><!-->
           <span style="display:inline-block;background:#FFFFFF;border-radius:4px;padding:3px 6px" class="dm-logobg">
-            <img src="${SITE_URL}/logo.png" alt="STANDA COMMERCIAL" height="32" style="display:block;height:32px;border:0;outline:none">
+            <img src="${SITE_URL}/logo.png" alt="Standa Commercial" height="32" style="display:block;height:32px;border:0;outline:none">
           </span>
           <!--<![endif]-->
-          <!--[if mso]><img src="${SITE_URL}/logo.png" alt="STANDA COMMERCIAL" height="32" style="height:32px"><![endif]-->
+          <!--[if mso]><img src="${SITE_URL}/logo.png" alt="Standa Commercial" height="32" style="height:32px"><![endif]-->
         </td></tr>
         <tr><td style="padding:14px 0 0"><div class="dm-line" style="height:3px;background:#1E3A8A;line-height:3px;font-size:0">&nbsp;</div></td></tr>
 
@@ -175,7 +175,7 @@ export function buildHtml(b: NotifyBody): { subject: string; html: string } {
         <!-- FOOTER -->
         <tr><td style="padding:20px 0 0"><div class="dm-line" style="height:2px;background:#1E3A8A;line-height:2px;font-size:0">&nbsp;</div></td></tr>
         <tr><td class="px dm-foot" style="padding:14px 40px 22px;color:#9CA3AF;font-size:11px;line-height:1.65;font-family:${FONT}">
-          <strong style="color:#6B7280" class="dm-muted">STANDA COMMERCIAL</strong><br>
+          <strong style="color:#6B7280" class="dm-muted">Standa Commercial</strong><br>
           Téléphone : ${SUPPORT_PHONE}<br>
           ${SITE_URL.replace("https://", "")}
         </td></tr>
@@ -201,7 +201,7 @@ export function buildHtml(b: NotifyBody): { subject: string; html: string } {
 // Seksyon "Paramètres > Notifications email" rele wout sa a ak { probe }
 // pou montre rezon egzat la (olye yon blòk JSON ki disparèt nan yon toast).
 // ═══════════════════════════════════════════════════════════════════════════
-export const EXPECTED_FROM = "STANDA COMMERCIAL <notifications@standacommercialsa.com>";
+export const EXPECTED_FROM = "Standa Commercial <notifications@standacommercialsa.com>";
 
 /** Valè "from" efektif la (env oswa valè pa defo). */
 export function fromValue(): string {

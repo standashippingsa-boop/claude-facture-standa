@@ -7,7 +7,7 @@ export default function PointRetraitLoginPage() {
   return (
     <StaffLogin
       title="Point de retrait"
-      subtitle="Accès réservé aux agents de remise STANDA COMMERCIAL"
+      subtitle="Accès réservé aux agents de remise Standa Commercial"
       destination="/espace-remise"
       requiredRole="agent_retrait"
     />

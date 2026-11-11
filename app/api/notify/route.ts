@@ -11,7 +11,7 @@ import { buildHtml, domainOf, esc, EXPECTED_FROM, fromValue, sendViaResend, type
  * Email otomatik (Reçu à Miami / Disponible) via Resend (https://resend.com).
  * Konfigirasyon nan Vercel > Settings > Environment Variables:
  *   RESEND_API_KEY = re_xxxxx          (obligatwa pou email yo pati)
- *   EMAIL_FROM     = "STANDA COMMERCIAL <notifications@standacommercialsa.com>" (opsyonèl)
+ *   EMAIL_FROM     = "Standa Commercial <notifications@standacommercialsa.com>" (opsyonèl)
  * San RESEND_API_KEY, wout la reponn { skipped: true } san kraze anyen.
  *
  * LAYOUT (V10) — "DÉTAILS DU COLIS"
@@ -135,9 +135,9 @@ export async function POST(req: Request) {
       + `<h2 style="margin:0 0 8px">✅ Le système de courriel fonctionne</h2>`
       + `<p style="color:#4B5563;font-size:14px">Message de test envoyé depuis Paramètres → Notifications courriel.<br>`
       + `Expéditeur : <code>${esc(from)}</code><br>Date : ${esc(now)}</p>`
-      + `<p style="color:#9CA3AF;font-size:12px">STANDA COMMERCIAL · ${esc(SITE_URL.replace("https://", ""))} · ${esc(SUPPORT_PHONE)}</p>`
+      + `<p style="color:#9CA3AF;font-size:12px">Standa Commercial · ${esc(SITE_URL.replace("https://", ""))} · ${esc(SUPPORT_PHONE)}</p>`
       + `</body></html>`;
-    const r = await sendViaResend(key, to, "Test STANDA COMMERCIAL · notifications courriel", testHtml);
+    const r = await sendViaResend(key, to, "Test Standa Commercial · notifications courriel", testHtml);
     return r.ok
       ? NextResponse.json({ ok: true, id: r.id, config, to })
       : NextResponse.json({ ok: false, code: r.code, status: r.status, error: r.message, config, to }, { status: 200 });

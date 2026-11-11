@@ -104,7 +104,7 @@ export async function generateBonRemise(
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(17);
-  doc.text("STANDA COMMERCIAL", 38, 16);
+  doc.text("Standa Commercial", 38, 16);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.text("Bon de remise pour transport", 38, 22);
@@ -209,7 +209,7 @@ export async function generateBonRemise(
 
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
-  doc.text("STANDA COMMERCIAL · Bon de remise " + numero, 14, pageH - 8);
+  doc.text("Standa Commercial · Bon de remise " + numero, 14, pageH - 8);
 
   const suffix = dest ? `_${dest.replace(/\s+/g, "")}` : "";
   const filename = `BonRemise_${numero}${suffix}.pdf`;

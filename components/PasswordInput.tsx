@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — Chan modpas ak TI JE 👁️
+ * Standa Commercial — Chan modpas ak TI JE 👁️
  * ═══════════════════════════════════════════
  * Kliyan yo ka tape modpas yo resevwa sou WhatsApp. San wè sa yo tape,
  * yo fè erè epi yo panse kont lan bloke. Ti je a regle sa.

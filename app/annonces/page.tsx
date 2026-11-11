@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — ANNONCES (ADMIN)
+ * Standa Commercial — ANNONCES (ADMIN)
  * Publier photos et vidéos + un message pour un PUBLIC choisi (tous les
  * clients, certaines villes, certains types de compte ou des clients précis).
  * Les médias défilent en diaporama sur l'accueil de l'espace client, et les

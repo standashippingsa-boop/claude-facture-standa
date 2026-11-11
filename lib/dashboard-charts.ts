@@ -1,5 +1,5 @@
 /**
- * STANDA COMMERCIAL — Agregasyon done pou grafik Dashboard admin.
+ * Standa Commercial — Agregasyon done pou grafik Dashboard admin.
  * Fonksyon PUR (san React, san rezo, san Supabase) — fasil pou verifye,
  * reyitilize kote nou vle. `app/dashboard/page.tsx` rele yo ak done
  * `getChartsData()` (lib/db.ts) voye.

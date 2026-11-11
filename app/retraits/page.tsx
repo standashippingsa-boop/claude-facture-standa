@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — DEMANDES DE RETRAIT (ADMIN) · V14
+ * Standa Commercial — DEMANDES DE RETRAIT (ADMIN) · V14
  * ══════════════════════════════════════════════════════
  * Kliyan an notifye davans ki koli li pral vin pran. Isit la ekip la:
  *   1) wè detay koli yo,
@@ -35,7 +35,7 @@ const BADGE: Record<RetraitStatus, string> = {
   "Préparé": "bg-blue-100 text-blue-700",
   "Remis": "bg-emerald-100 text-emerald-700"
 };
-const DEFAULT_FOOTER = "Mèsi paske ou fè STANDA COMMERCIAL konfyans.";
+const DEFAULT_FOOTER = "Mèsi paske ou fè Standa Commercial konfyans.";
 
 interface Target { client: Client; pkgs: Pkg[]; footer: string; retraitId: string }
 

@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       model: "gemini-2.5-flash",
       input: question,
       system_instruction: [
-        "Tu es l'assistant de calcul de l'administrateur de STANDA COMMERCIAL.",
+        "Tu es l'assistant de calcul de l'administrateur de Standa Commercial.",
         "Réponds en kreyòl ayisyen simple, sauf si la question est posée en français.",
         "Utilise UNIQUEMENT les chiffres du bloc CHIFFRES ci-dessous : ils sont déjà calculés et exacts. N'invente jamais un montant ou un poids.",
         "Si tu dois additionner ou soustraire, fais-le à partir de ces chiffres et montre le calcul en une ligne.",

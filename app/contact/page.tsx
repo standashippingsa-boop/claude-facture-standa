@@ -10,7 +10,7 @@ import { DEPOT } from "@/lib/depot";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Contactez STANDA COMMERCIAL par téléphone, WhatsApp ou courriel. Adresse de notre dépôt aux USA et formulaire de contact.",
+  description: "Contactez Standa Commercial par téléphone, WhatsApp ou courriel. Adresse de notre dépôt aux USA et formulaire de contact.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/contact" }
 };
@@ -19,7 +19,7 @@ const WRAP = "mx-auto max-w-7xl px-5 sm:px-8 lg:px-10 xl:px-6";
 const HOURS = [["Du lundi au vendredi", "9h00 à 17h00"], ["Samedi", "9h00 à 12h00"], ["Dimanche", "Fermé"]] as const;
 const SOCIALS = [
   { name: "Instagram", handle: `@${SITE.instagram}`, href: SITE.instagramUrl, icon: InstagramIcon },
-  { name: "Facebook", handle: "STANDA COMMERCIAL", href: SITE.facebookUrl, icon: FacebookIcon },
+  { name: "Facebook", handle: "Standa Commercial", href: SITE.facebookUrl, icon: FacebookIcon },
   { name: "TikTok", handle: "@standa_commercials.a", href: SITE.tiktokUrl, icon: TikTokIcon }
 ];
 const MAP_QUERY = encodeURIComponent(`${DEPOT.address1}, ${DEPOT.city}, ${DEPOT.state} ${DEPOT.zip}`);
@@ -65,7 +65,7 @@ export default function ContactPage() {
               <a href={`https://www.google.com/maps/search/?api=1&query=${MAP_QUERY}`} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-[14px] font-medium"><MapPin size={16} />Ouvrir dans Google Maps <ArrowRight size={15} /></a>
             </div>
           </div>
-          <div className="min-h-[320px] overflow-hidden rounded-3xl border border-line bg-[#f2f5fa]"><iframe title="Dépôt STANDA COMMERCIAL à Miami" src={`https://www.google.com/maps?q=${MAP_QUERY}&output=embed`} className="h-full min-h-[320px] w-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" /></div>
+          <div className="min-h-[320px] overflow-hidden rounded-3xl border border-line bg-[#f2f5fa]"><iframe title="Dépôt Standa Commercial à Miami" src={`https://www.google.com/maps?q=${MAP_QUERY}&output=embed`} className="h-full min-h-[320px] w-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" /></div>
         </section>
 
         <div className="mt-12 sm:mt-16"><ReviewSection /></div>

@@ -1,5 +1,5 @@
 /*
- * STANDA COMMERCIAL — FRONTYÈ DONE PIBLIK
+ * Standa Commercial — FRONTYÈ DONE PIBLIK
  * ═══════════════════════════════════════
  * YON SÈL SOUS VERITE pou kesyon an: « kisa yon moun ki PA konekte gen dwa wè? »
  *

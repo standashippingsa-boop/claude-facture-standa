@@ -1,5 +1,5 @@
 /*
- * STANDA COMMERCIAL — Import Facture MCPACK (pwen #6)
+ * Standa Commercial — Import Facture MCPACK (pwen #6)
  * ══════════════════════════════════════════════════════════
  * Ekstrè Tracking Number yo depi yon FACTURE MCPACK, kit se:
  *   - PDF  (tèks egzat, san erè) — via parseMcpackPdf

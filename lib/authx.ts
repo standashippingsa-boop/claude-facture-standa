@@ -72,7 +72,7 @@ export function clientSignInErrorMessage(reason: ClientSignInFailure, code: stri
     return "Le service de connexion n'est pas configuré sur cet ordinateur. Ajoutez les clés publiques Supabase dans le fichier .env.local, puis redémarrez l'application.";
   }
   if (reason === "unconfirmed") {
-    return "Votre compte n'est pas encore activé. Contactez STANDA COMMERCIAL sur WhatsApp.";
+    return "Votre compte n'est pas encore activé. Contactez Standa Commercial sur WhatsApp.";
   }
   if (reason === "network") {
     return "Impossible de joindre le service de connexion. Vérifiez votre connexion internet puis réessayez.";

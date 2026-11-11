@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — Grafik ba (tandans tan) pou Dashboard admin
+ * Standa Commercial — Grafik ba (tandans tan) pou Dashboard admin
  * ═══════════════════════════════════════════════════════════════
  * Yon sèl seri (yon koulè) — pa gen legend (tit la deja di sa l ye).
  * Ba "pic" la (pi gwo valè a) rete an koulè plen; lòt yo pi klè — konsa

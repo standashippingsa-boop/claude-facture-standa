@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — ESPACE CLIENT (V12)
+ * Standa Commercial — ESPACE CLIENT (V12)
  * ═══════════════════════════════════════
  * ACCUEIL : 4 liy klikab (Disponibles · Réceptions · Factures · Historique)
  *           + Demandes de retrait ak detay koli yo.
@@ -126,7 +126,7 @@ function waPkgLink(p: Pkg, code: string): string {
     `Tracking Number: ${tn}\n` +
     `Tracking ID: ${id}\n` +
     `Client: ${code}\n\n` +
-    `Bonjou STANDA COMMERCIAL, mwen gen yon kesyon sou koli sa a.`;
+    `Bonjou Standa Commercial, mwen gen yon kesyon sou koli sa a.`;
   return `https://wa.me/${WA_NUM}?text=${encodeURIComponent(msg)}`;
 }
 
@@ -450,7 +450,7 @@ export default function EspaceClientPage() {
   if (!client) return (
     <div className="min-h-screen bg-mist grid place-items-center p-6">
       <div className="card p-8 max-w-md text-center space-y-4">
-        <p className="text-sm text-slate-600">Votre profil est introuvable. Contactez STANDA COMMERCIAL.</p>
+        <p className="text-sm text-slate-600">Votre profil est introuvable. Contactez Standa Commercial.</p>
         <button className="btn justify-center w-full" onClick={logout}>Se déconnecter</button>
       </div>
     </div>
@@ -467,7 +467,7 @@ export default function EspaceClientPage() {
           <Clock className="mx-auto text-amber-500" size={44} />
           <h1 className="text-lg font-extrabold text-navy">Votre compte est en attente d&apos;activation</h1>
           <p className="text-sm text-slate-600">
-            {non} : l&apos;équipe STANDA COMMERCIAL vérifie vos informations. Dès que votre compte sera activé,
+            {non} : l&apos;équipe Standa Commercial vérifie vos informations. Dès que votre compte sera activé,
             vous recevrez votre adresse de dépôt aux USA et pourrez utiliser tous nos services.
           </p>
           <a className="btn btn-wa justify-center w-full" href={WA_LINK} target="_blank" rel="noreferrer">
@@ -566,7 +566,7 @@ export default function EspaceClientPage() {
       id: `announce-${item.id}`,
       key: noticeKey("announce", item.id),
       title: item.title,
-      description: item.body ? item.body.slice(0, 120) : "Nouvelle annonce STANDA COMMERCIAL",
+      description: item.body ? item.body.slice(0, 120) : "Nouvelle annonce Standa Commercial",
       stamp: dateFr(item.created_at),
       to: "notifications",
       kind: "announce",
@@ -859,7 +859,7 @@ export default function EspaceClientPage() {
             <button aria-label="Mon compte" onClick={() => setMenuOpen((v) => !v)}
               className="client-header-profile p-1.5" style={{ background: "#fff" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="STANDA COMMERCIAL" className="h-full w-full object-contain" />
+              <img src="/logo.png" alt="Standa Commercial" className="h-full w-full object-contain" />
             </button>
             <div className="min-w-0">
               <p className="truncate text-sm font-extrabold text-white">{clientName}</p>
@@ -1012,7 +1012,7 @@ export default function EspaceClientPage() {
                   onClick={() => { setMenuOpen(false); setShowDelete(true); }} />
               </div>
 
-              <p className="pt-2 text-center text-[12px] text-slate-400">STANDA COMMERCIAL</p>
+              <p className="pt-2 text-center text-[12px] text-slate-400">Standa Commercial</p>
             </div>
           </div>
         );
@@ -1076,7 +1076,7 @@ export default function EspaceClientPage() {
                 <section className="w-full max-w-sm overflow-hidden rounded-[30px] bg-white shadow-[0_28px_60px_rgba(4,33,78,.3)]">
                   <div className="relative overflow-hidden bg-gradient-to-br from-[#0b3977] via-[#145ca8] to-[#28a3bc] px-6 pb-7 pt-6 text-white">
                     <span className="relative grid h-14 w-14 place-items-center rounded-2xl border border-white/20 bg-white/15 shadow-lg shadow-blue-950/20"><BellRing size={27} /></span>
-                    <p className="relative mt-5 text-[11px] font-bold uppercase tracking-[.14em] text-sky-100">STANDA COMMERCIAL</p>
+                    <p className="relative mt-5 text-[11px] font-bold uppercase tracking-[.14em] text-sky-100"><span className="normal-case">Standa Commercial</span></p>
                     <h2 id="push-permission-title" className="relative mt-1 text-[19px] font-black leading-tight">Activez les notifications</h2>
                   </div>
                   <div className="p-5">

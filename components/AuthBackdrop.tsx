@@ -1,5 +1,5 @@
 /*
- * STANDA COMMERCIAL — DEKÒ PAJ KONEKSYON / ENSKRIPSYON
+ * Standa Commercial — DEKÒ PAJ KONEKSYON / ENSKRIPSYON
  * ════════════════════════════════════════════════════
  * Yon dekò anime ki fèt AK CSS + SVG sèlman — zewo foto, zewo bibliyotèk.
  *

@@ -9,7 +9,7 @@ const RECEPTION_PWA_SCOPE = "/reception";
 const AFFILIATE_PWA_SCOPE = "/espace-affilie";
 
 /**
- * PWA Manager — STANDA COMMERCIAL (v3)
+ * PWA Manager — Standa Commercial (v3)
  * ════════════════════════════════════
  * Anrejistre service worker la epi asire kliyan an TOUJOU wè dènye vèsyon an.
  *

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/branding";
 
 /*
- * STANDA COMMERCIAL — robots.txt
+ * Standa Commercial — robots.txt
  * ══════════════════════════════
  * Di Google KLÈMAN sa pou l endekse epi sa pou l pa touche.
  *

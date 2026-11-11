@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * STANDA COMMERCIAL — GAD ISOLASYON SIT PIBLIK  (v3)
+ * Standa Commercial — GAD ISOLASYON SIT PIBLIK  (v3)
  * ══════════════════════════════════════════════════
  * Yon règ ki ekri nan yon dokiman ap kase yon jou. Yon règ ki KRAZE BUILD
  * la pa ka kase. Script sa a kouri anvan chak deplwaman.

@@ -1,6 +1,6 @@
 "use client";
 /**
- * STANDA COMMERCIAL — Notifications push (espace client)
+ * Standa Commercial — Notifications push (espace client)
  * ════════════════════════════════════════════════════════
  * De MOTÈ diferan dèyè MENM API piblik la (isPushSupported/pushPermission/
  * subscribeToPush/unsubscribeFromPush) — apèl yo pa chanje nan lib/espace-

@@ -1,5 +1,5 @@
 /**
- * STANDA COMMERCIAL — Baz konesans Daha (asistan /espace-client)
+ * Standa Commercial — Baz konesans Daha (asistan /espace-client)
  * ═══════════════════════════════════════════════════════════════
  * AUKENN API AI PEYAN : repons yo soti nan yon bank kesyon/repons ekri
  * davans (FR/HT/EN), chwazi selon mo-kle nan mesaj kliyan an. Zewo kòb
@@ -149,9 +149,9 @@ export const FAQ_TOPICS: FaqTopic[] = [
 export const GREETING_KEYWORDS = ["bonjour", "bonsoir", "salut", "bonjou", "bonswa", "alo", "hello", "hi", "hey", "good morning", "good afternoon"];
 
 export const GREETING: Localized = {
-  fr: "Bonjour ! Je suis Daha, l'assistant STANDA COMMERCIAL. Je peux vous dire où en sont vos colis, combien vous devez, ou comment fonctionne le service. Posez votre question !",
-  ht: "Bonjou ! Mwen se Daha, asistan STANDA COMMERCIAL. Mwen ka di w kote koli w yo ye, konbyen ou dwe, oswa kijan sèvis la mache. Poze m kesyon w !",
-  en: "Hello! I'm Daha, the STANDA COMMERCIAL assistant. I can tell you where your packages are, how much you owe, or how the service works. Ask away!"
+  fr: "Bonjour ! Je suis Daha, l'assistant Standa Commercial. Je peux vous dire où en sont vos colis, combien vous devez, ou comment fonctionne le service. Posez votre question !",
+  ht: "Bonjou ! Mwen se Daha, asistan Standa Commercial. Mwen ka di w kote koli w yo ye, konbyen ou dwe, oswa kijan sèvis la mache. Poze m kesyon w !",
+  en: "Hello! I'm Daha, the Standa Commercial assistant. I can tell you where your packages are, how much you owe, or how the service works. Ask away!"
 };
 
 export const FALLBACK: Localized = {

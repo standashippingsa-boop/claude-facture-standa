@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 
 /**
- * STANDA COMMERCIAL — Konfigirasyon pwodiksyon
+ * Standa Commercial — Konfigirasyon pwodiksyon
  * ════════════════════════════════════════════
  * Headers sekirite yo chwazi POU YO PA KRAZE aplikasyon an:
  *  • HSTS            — fòse HTTPS (domèn nan deja an HTTPS)

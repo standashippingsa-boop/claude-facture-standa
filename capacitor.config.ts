@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 /**
- * STANDA COMMERCIAL — APK Android "app kliyan" (piblikasyon sou Uptodown)
+ * Standa Commercial — APK Android "app kliyan" (piblikasyon sou Uptodown)
  * ═══════════════════════════════════════════════════════════════════
  * ⚠️ APK sa a se SÈLMAN app KLIYAN an — pa yon app pou anplwaye/admin/ajan.
  * `server.url` anba a pwente DIREKTEMAN sou /espace-client (menm chemen

@@ -1,7 +1,7 @@
 {
   "name": "STANDA Client",
   "short_name": "STANDA Client",
-  "description": "Suivez vos colis et vos factures STANDA COMMERCIAL.",
+  "description": "Suivez vos colis et vos factures Standa Commercial.",
   "id": "/espace-client",
   "start_url": "/espace-client",
   "scope": "/espace-client",

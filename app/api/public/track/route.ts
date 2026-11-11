@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 /*
- * STANDA COMMERCIAL — ANSYEN WOUT TRACKING (FÈMEN)
+ * Standa Commercial — ANSYEN WOUT TRACKING (FÈMEN)
  * ════════════════════════════════════════════════
  * Wout sa a te premye vèsyon tracking piblik la. Sit wèb la sèvi ak
  * /api/track kounye a.

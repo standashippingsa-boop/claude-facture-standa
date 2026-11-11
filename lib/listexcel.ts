@@ -1,5 +1,5 @@
 /*
- * STANDA COMMERCIAL — Export Excel des colis
+ * Standa Commercial — Export Excel des colis
  * ══════════════════════════════════════════════════════════
  * Menm done ak exportPackagesPdf (lib/listpdf.ts), fòma .xlsx.
  * READ-ONLY — pa touche okenn kalkil, jis ekspòte sa ki afiche deja.

@@ -11,7 +11,7 @@ import { Agence, blankAgence, deleteAgence, getAllAgences, toggleAgence, upsertA
 
 import { useNoticeToast } from "@/lib/notify";
 /**
- * STANDA COMMERCIAL — PAJ ADMIN "AJANS / PWEN RETRAIT"
+ * Standa Commercial — PAJ ADMIN "AJANS / PWEN RETRAIT"
  * ══════════════════════════════════════════════════════
  * Admin sèlman (menm gad ak /settings — /settings/* deja ADMIN_ONLY nan
  * lib/access.ts + Sidebar la). Isit administratè a ka ajoute/modifye/

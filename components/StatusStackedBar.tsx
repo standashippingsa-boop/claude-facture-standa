@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — Ba anpile pou montre pwopòsyon estati kliyan
+ * Standa Commercial — Ba anpile pou montre pwopòsyon estati kliyan
  * ═══════════════════════════════════════════════════════════════
  * 2 (oswa 3) kategori -> legend OBLIGATWA (idantite pa ka kouche sou
  * koulè sèlman). Chak segman gen yon ti espas blan ant yo (pa yon sèl

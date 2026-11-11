@@ -22,7 +22,7 @@ import { BusyButton } from "@/components/Loader";
 
 import { useNoticeToast } from "@/lib/notify";
 /**
- * FENÊTRE DE FACTURATION — CONFIGURATION UNIQUE (STANDA COMMERCIAL)
+ * FENÊTRE DE FACTURATION — CONFIGURATION UNIQUE (Standa Commercial)
  * ════════════════════════════════════════════════════════════════
  * Konpozan sa a se SÈL sous verite pou jenerasyon fakti nan tout aplikasyon an:
  * Packages, Fiche Client, ak nenpòt paj fiti. Menm workflow, menm moteur

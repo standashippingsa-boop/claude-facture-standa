@@ -3,7 +3,7 @@ import { round2, isSmallParcel, SmallParcelConfig, FixedPriceMap, TAX_THRESHOLD_
          OrderFeeTier, orderServiceFee, orderFeeLabel, perLbFor, sumsWeights, villeForClient } from "./pricing";
 
 /**
- * MOTEUR DE FACTURATION — NIVEAU FINANCIER (STANDA COMMERCIAL)
+ * MOTEUR DE FACTURATION — NIVEAU FINANCIER (Standa Commercial)
  * ═══════════════════════════════════════════════════════════════
  * Règ absoli:
  *  - Prix/LB soti SÈLMAN nan Paramètres (vil kliyan an). Jamè yon ansyen

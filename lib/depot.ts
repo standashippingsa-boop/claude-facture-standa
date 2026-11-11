@@ -19,9 +19,9 @@ export function buildCredentialsMessage(c: Client, username: string, password: s
   return `Bonjour ${non},
 
 ` +
-    (fresh ? `Voici votre nouveau mot de passe STANDA COMMERCIAL.
+    (fresh ? `Voici votre nouveau mot de passe Standa Commercial.
 
-` : `Voici vos informations de connexion STANDA COMMERCIAL.
+` : `Voici vos informations de connexion Standa Commercial.
 
 `) +
     `Nom d'utilisateur :
@@ -40,7 +40,7 @@ https://www.standacommercialsa.com/espace-client/connexion
 
 ` +
     `Merci.
-STANDA COMMERCIAL`;
+Standa Commercial`;
 }
 
 export function buildDepotMessage(c: Client, password?: string): string {
@@ -75,6 +75,6 @@ export function buildDepotMessage(c: Client, password?: string): string {
     `1. Ouvrez le lien ci-dessus et connectez-vous.\n` +
     `2. Touchez « Installer l’application ».\n` +
     `Sur iPhone : ouvrez le lien dans Safari, touchez Partager puis « Sur l’écran d’accueil ».\n`;
-  msg += `\nMerci.\nSTANDA COMMERCIAL`;
+  msg += `\nMerci.\nStanda Commercial`;
   return msg;
 }

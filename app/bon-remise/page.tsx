@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — BON DE REMISE DEPI CONDUCES · V15
+ * Standa Commercial — BON DE REMISE DEPI CONDUCES · V15
  * ═══════════════════════════════════════════════════════
  * WORKFLOW (3 etap, jan ou dekri l):
  *   1) Seleksyone yon oswa PLIZYÈ Conduce

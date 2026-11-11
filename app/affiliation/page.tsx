@@ -228,7 +228,7 @@ function ProgramInfoDialog({ onClose }: { onClose: () => void }) {
       </div>
 
       <section className="mt-4 rounded-2xl bg-[#0b3675] p-4 text-white">
-        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-sky-200">Qui est Standa Commercial ?</p>
+        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-sky-200">Qui est <span className="normal-case">Standa Commercial</span> ?</p>
         <p className="mt-2 text-[14px] leading-[1.7] text-white/90">
           Standa Commercial est un service d’expédition de colis des USA vers Haïti. Le client reçoit une adresse de dépôt à Miami et un code personnel, suit ses colis, puis les récupère dans son agence en Haïti.
         </p>

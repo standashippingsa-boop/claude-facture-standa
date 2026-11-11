@@ -1,7 +1,7 @@
 {
   "name": "STANDA Affiliés",
   "short_name": "STANDA Affiliés",
-  "description": "Espace des affiliés STANDA COMMERCIAL : filleuls, commissions et CHALLENGE DE NOËL.",
+  "description": "Espace des affiliés Standa Commercial : filleuls, commissions et CHALLENGE DE NOËL.",
   "id": "/espace-affilie",
   "start_url": "/espace-affilie",
   "scope": "/espace-affilie",

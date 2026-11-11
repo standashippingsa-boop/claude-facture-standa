@@ -7,7 +7,7 @@ export default function ReceptionLoginPage() {
   return (
     <StaffLogin
       title="Réception"
-      subtitle="Accès réservé aux agents de réception STANDA COMMERCIAL"
+      subtitle="Accès réservé aux agents de réception Standa Commercial"
       destination="/reception"
       requiredRole="agent_reception"
       backgroundImage="/account-agent-hero.png"

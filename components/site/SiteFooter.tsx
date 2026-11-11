@@ -7,7 +7,7 @@ import { DEPOT } from "@/lib/depot";
 import { FacebookIcon, InstagramIcon, TikTokIcon, WhatsAppIcon } from "./BrandIcons";
 
 /**
- * STANDA COMMERCIAL — FOOTER SIT PIBLIK LA
+ * Standa Commercial — FOOTER SIT PIBLIK LA
  * Konpozan PATAJE. Kontak yo soti nan SITE (lib/site.ts) ak adrès depo a nan
  * DEPOT (lib/depot.ts) : yo pa retape isit la, konsa yo chanje toupatou ansanm.
  */
@@ -33,7 +33,7 @@ export default function SiteFooter() {
           <div>
             <div className="flex items-center gap-2.5">
               <Logo size={30} tone="light" />
-              <span className="leading-none"><span className="block text-[15px] font-extrabold tracking-tight">STANDA</span><span className="mt-0.5 block text-[9.5px] font-semibold tracking-[0.2em] text-white/55">COMMERCIAL</span></span>
+              <span className="leading-none"><span className="block text-[15px] font-extrabold tracking-tight">Standa</span><span className="mt-0.5 block text-[9.5px] font-semibold tracking-[0.08em] text-white/55">Commercial</span></span>
             </div>
             <Link href="/inscription" className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3.5 text-[13px] font-semibold text-navy transition hover:bg-[#eef2f8]">
               Créer un compte

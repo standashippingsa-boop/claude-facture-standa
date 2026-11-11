@@ -1,5 +1,5 @@
 /*
- * STANDA COMMERCIAL — Mesaj erè san fuit
+ * Standa Commercial — Mesaj erè san fuit
  * ══════════════════════════════════════
  * Bò KLIYAN, yon mesaj erè pa dwe janm revele enfrastrikti a:
  * non tab, erè Postgres/Supabase, chemen sèvè, non varyab, stack trace.

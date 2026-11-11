@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/branding";
 
 /*
- * STANDA COMMERCIAL — sitemap.xml
+ * Standa Commercial — sitemap.xml
  * ═══════════════════════════════
  * Kat sit la pou Google. SÈLMAN paj piblik yo — yon paj entèn nan sitemap
  * la ta envite Google vin gade yon kote li pa gen dwa ale.

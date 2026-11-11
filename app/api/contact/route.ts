@@ -6,7 +6,7 @@ import { contactSchema, readJsonBody } from "@/lib/validation/request";
 /**
  * FÒM KONTAK SIT PIBLIK LA — /contact
  * ══════════════════════════════════════
- * Voye mesaj vizitè yo bay STANDA COMMERCIAL pa imèl, ak Resend
+ * Voye mesaj vizitè yo bay Standa Commercial pa imèl, ak Resend
  * (menm sistèm ki deja konfigire pou app/api/notify/route.ts —
  *  ⚠️ PA gen nouvo sèvis imèl, menm RESEND_API_KEY, menm EMAIL_FROM).
  *
@@ -57,7 +57,7 @@ function buildHtml(b: ContactBody): { subject: string; html: string } {
     <tr><td align="center" style="padding:24px 12px">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:#FFFFFF;border:1px solid #EAECEF;border-radius:6px">
         <tr><td style="background:#122B5C;padding:18px 32px;border-radius:6px 6px 0 0">
-          <span style="color:#FFFFFF;font-size:15px;font-weight:800;font-family:${FONT}">STANDA COMMERCIAL</span>
+          <span style="color:#FFFFFF;font-size:15px;font-weight:800;font-family:${FONT}">Standa Commercial</span>
           <div style="color:#16A34A;font-size:12px;font-weight:700;font-family:${FONT};margin-top:2px">Nouveau message · formulaire Contact</div>
         </td></tr>
         <tr><td style="padding:26px 32px 8px">
@@ -126,7 +126,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM || "STANDA COMMERCIAL <notifications@standacommercialsa.com>",
+        from: process.env.EMAIL_FROM || "Standa Commercial <notifications@standacommercialsa.com>",
         to: [CONTACT_TO_EMAIL],
         reply_to: email || undefined,
         subject,

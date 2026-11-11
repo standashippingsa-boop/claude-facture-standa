@@ -1,5 +1,5 @@
 /*
- * STANDA COMMERCIAL — Service Worker (v3)
+ * Standa Commercial — Service Worker (v3)
  * ══════════════════════════════════════════════════════════
  * Estrateji:
  *  - Paj (navigasyon): rezo dirèk, san entèsepsyon (browser jere l).
@@ -201,7 +201,7 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data && event.data.text() }; }
-  const title = data.title || "STANDA COMMERCIAL";
+  const title = data.title || "Standa Commercial";
   const options = {
     body: data.body || "",
     icon: "/icons/icon-192.png",

@@ -2,7 +2,7 @@
 import { useState } from "react";
 
 /**
- * Logo ofisyèl STANDA COMMERCIAL.
+ * Logo ofisyèl Standa Commercial.
  * Mete fichye a nan /public/logo.png — li parèt otomatikman nan sidebar,
  * dashboard, header ak PDF yo. Fichye a gen fon transparan pou l adapte sou
  * fon klè oswa fon fonse. Si li pa la, monogram "SC" a parèt (anyen pa kraze).
@@ -19,7 +19,7 @@ export default function Logo({ size = 36, rounded = "rounded-lg", tone = "defaul
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src="/logo.png" alt="STANDA COMMERCIAL" width={size} height={size}
+    <img src="/logo.png" alt="Standa Commercial" width={size} height={size}
       className={`${rounded} object-contain ${tone === "light" ? "brightness-0 invert" : ""}`}
       style={{ width: size, height: size }}
       onError={() => setMissing(true)} />

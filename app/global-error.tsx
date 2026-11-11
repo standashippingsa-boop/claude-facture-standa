@@ -32,7 +32,7 @@ export default function GlobalError({ error, reset }: {
         <main style={{ maxWidth: 420, padding: 24, textAlign: "center" }}>
           <h1 style={{ fontSize: 20, margin: "0 0 8px" }}>Un problème technique est survenu</h1>
           <p style={{ fontSize: 14, lineHeight: 1.5, color: "#4b5563", margin: "0 0 20px" }}>
-            Veuillez réessayer. Si le problème continue, contactez STANDA COMMERCIAL.
+            Veuillez réessayer. Si le problème continue, contactez Standa Commercial.
           </p>
           <button onClick={() => reset()} style={{
             background: "#122b5c", color: "#fff", border: 0, borderRadius: 10,

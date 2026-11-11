@@ -236,7 +236,7 @@ export async function GET(req: Request) {
     const ticket: RemiseTicket = {
       ticket_number: ticketNumber,
       security_code: securityCode,
-      company: { name: "STANDA COMMERCIAL", phone: SUPPORT_PHONE, website: SITE_URL.replace(/^https?:\/\//, ""), email: SITE.email },
+      company: { name: "Standa Commercial", phone: SUPPORT_PHONE, website: SITE_URL.replace(/^https?:\/\//, ""), email: SITE.email },
       agency,
       point,
       delivered_at: deliveredAt,
@@ -258,7 +258,7 @@ export async function GET(req: Request) {
         remaining_htg: sum(invoices.map((invoice) => invoice.remaining_htg))
       },
       qr_payload: [
-        "STANDA COMMERCIAL · Ticket de remise",
+        "Standa Commercial · Ticket de remise",
         `Ticket: ${ticketNumber}`,
         `Client: ${customerCode}`,
         `Colis: ${packages.length}`,

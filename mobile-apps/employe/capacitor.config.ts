@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 /**
- * STANDA COMMERCIAL — APK "Employé" (distribisyon dirèk, JAMÈ piblik)
+ * Standa Commercial — APK "Employé" (distribisyon dirèk, JAMÈ piblik)
  * Pwojè Capacitor separe — wè mobile-apps/admin/capacitor.config.ts pou
  * eksplikasyon konplè sou pouki sa "server.url" itilize olye "webDir".
  * JAMÈ Play Store, Uptodown, ni okenn lyen piblik — bay men-a-men sèlman.

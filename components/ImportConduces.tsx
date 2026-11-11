@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — Créer les Conduces en attente (workflow réel)
+ * Standa Commercial — Créer les Conduces en attente (workflow réel)
  * ══════════════════════════════════════════════════════════
  * ÉTAPE 1 (ici, dans STANDA) : coller les numéros de conduce → créés
  *   immédiatement "en attente" (vides). AUCUNE saisie manuelle de contenu.

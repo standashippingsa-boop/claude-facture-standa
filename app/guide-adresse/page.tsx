@@ -18,8 +18,8 @@ export default function GuideAdressePage() {
     <div className="min-h-screen bg-white">
       <header className="border-b border-line">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Link href="/accueil" aria-label="STANDA COMMERCIAL"><Logo size={36} rounded="rounded-lg" /></Link>
-          <p className="text-sm font-extrabold text-navy">STANDA COMMERCIAL</p>
+          <Link href="/accueil" aria-label="Standa Commercial"><Logo size={36} rounded="rounded-lg" /></Link>
+          <p className="text-sm font-extrabold text-navy">Standa Commercial</p>
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">

@@ -1,5 +1,5 @@
 /*
- * STANDA COMMERCIAL — Import fichye CONDUCE (MCPACK)
+ * Standa Commercial — Import fichye CONDUCE (MCPACK)
  * ══════════════════════════════════════════════════
  * MCPACK chanje fòma ekspòtasyon an. Modil sa a sipòte TOUDE — epi nenpòt
  * lòt fòma ki ka vini — san nou pa oblije refè l chak fwa.

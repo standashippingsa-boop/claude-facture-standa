@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — POLITIQUE DE CONFIDENTIALITÉ
+ * Standa Commercial — POLITIQUE DE CONFIDENTIALITÉ
  * ════════════════════════════════════════════════
  * Paj piblik (pa mande koneksyon). Lyen depi /login, /admin-login, /employe.
  * Ekri an fransè — se lang dokiman ofisyèl kliyan yo.
@@ -39,14 +39,14 @@ export default function ConfidentialitePage() {
 
         <div className="text-center py-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="STANDA COMMERCIAL" className="mx-auto h-16 object-contain" />
+          <img src="/logo.png" alt="Standa Commercial" className="mx-auto h-16 object-contain" />
           <h1 className="text-2xl font-extrabold text-navy mt-3">Politique de confidentialité</h1>
           <p className="text-xs text-mute mt-1">Dernière mise à jour : {MAJ}</p>
         </div>
 
         <div className="card p-5 sm:p-6 bg-navy text-white">
           <p className="text-[13px] leading-relaxed">
-            STANDA COMMERCIAL, Standa Shipping SA, transporte vos colis entre les USA
+            Standa Commercial, Standa Shipping SA, transporte vos colis entre les USA
             et Haïti. Pour cela, nous devons collecter certaines informations vous concernant.
             Cette page explique <b>lesquelles</b>, <b>pourquoi</b>, <b>qui peut les voir</b> et
             <b> quels sont vos droits</b>. Nous ne vendons vos données à personne.
@@ -84,7 +84,7 @@ export default function ConfidentialitePage() {
         <S n="3" t="Qui peut voir vos informations">
           <ul className="space-y-1.5">
             <Li><b>Vous</b> · dans votre espace client, à tout moment.</Li>
-            <Li><b>Le personnel autorisé de STANDA COMMERCIAL</b> · uniquement pour traiter vos colis et vos factures.</Li>
+            <Li><b>Le personnel autorisé de Standa Commercial</b> · uniquement pour traiter vos colis et vos factures.</Li>
             <Li><b>Nos prestataires techniques</b>, strictement pour faire fonctionner le service :
               hébergement et base de données, envoi d&apos;courriels, plateforme logistique MCPACK,
               et transporteur pour l&apos;acheminement en Haïti.</Li>
@@ -109,7 +109,7 @@ export default function ConfidentialitePage() {
             <Li><b>Délai de retrait</b> · dès qu&apos;un colis est disponible, vous disposez de <b>15 jours</b> pour venir le récupérer à votre point de retrait.</Li>
             <Li><b>Frais d&apos;entreposage</b> · à compter du <b>16e jour</b>, des frais d&apos;entreposage de <b>5 $ US par jour</b> s&apos;appliquent jusqu&apos;au retrait du colis. Ces frais doivent être réglés avant la remise.</Li>
             <Li><b>Colis non réclamé</b> · après <b>60 jours</b> sans retrait, le colis peut être remis aux autorités compétentes, conformément aux règles applicables. Le client perd alors tout droit de réclamation sur ce colis.</Li>
-            <Li><b>Adresse et code client</b> · vous êtes responsable d&apos;encoder correctement l&apos;adresse de dépôt et votre code MC lors de vos achats. Si l&apos;adresse est erronée, incomplète ou si le code MC est absent, STANDA COMMERCIAL ne peut garantir l&apos;identification, le suivi ou la récupération du colis. Le client assume la perte qui en résulte.</Li>
+            <Li><b>Adresse et code client</b> · vous êtes responsable d&apos;encoder correctement l&apos;adresse de dépôt et votre code MC lors de vos achats. Si l&apos;adresse est erronée, incomplète ou si le code MC est absent, Standa Commercial ne peut garantir l&apos;identification, le suivi ou la récupération du colis. Le client assume la perte qui en résulte.</Li>
           </ul>
         </S>
 
@@ -129,7 +129,7 @@ export default function ConfidentialitePage() {
           </ul>
           <p className="font-semibold text-ink">
             De votre côté : conservez votre mot de passe en lieu sûr et ne le partagez avec personne.
-            Vous pouvez le changer dans votre espace personnel quand vous le souhaitez. Aucun employé de STANDA COMMERCIAL ne vous demandera
+            Vous pouvez le changer dans votre espace personnel quand vous le souhaitez. Aucun employé de Standa Commercial ne vous demandera
             jamais votre mot de passe.
           </p>
         </S>
@@ -170,7 +170,7 @@ export default function ConfidentialitePage() {
         </S>
 
         <S n="10" t="Nous contacter">
-          <p><b>STANDA COMMERCIAL</b> · Standa Shipping SA</p>
+          <p><b>Standa Commercial</b> · Standa Shipping SA</p>
           <ul className="space-y-1.5">
             <Li>Téléphone / WhatsApp : <b>{SUPPORT_PHONE}</b></Li>
             <Li>Site : {SITE_URL.replace("https://", "")}</Li>
@@ -190,7 +190,7 @@ export default function ConfidentialitePage() {
         </S>
 
         <p className="text-center text-[11px] text-mute py-4">
-          © {new Date().getFullYear()} STANDA COMMERCIAL · Standa Shipping SA
+          © {new Date().getFullYear()} Standa Commercial · Standa Shipping SA
         </p>
       </div>
     </div>

@@ -20,7 +20,7 @@ export default function InscriptionPage() {
           </Link>
           <Link href="/accueil" className="inline-flex items-center gap-2.5">
             <Logo size={34} />
-            <span className="leading-none"><b className="block text-[14px] font-extrabold tracking-tight">STANDA</b><span className="mt-0.5 block text-[9px] font-semibold tracking-[.2em] text-mute">COMMERCIAL</span></span>
+            <span className="leading-none"><b className="block text-[14px] font-extrabold tracking-tight">Standa</b><span className="mt-0.5 block text-[9px] font-semibold tracking-[.08em] text-mute">Commercial</span></span>
           </Link>
         </header>
 

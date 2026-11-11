@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — FÒM ENSKRIPSYON (konpozan pataje)
+ * Standa Commercial — FÒM ENSKRIPSYON (konpozan pataje)
  * Menm fòm nan sèvi sou /login (onglè "Créer un compte").
  * Zewo dwaplikaj: yon sèl sous verite pou enskripsyon.
  */
@@ -130,7 +130,7 @@ export default function SignupForm({ onGoLogin }: { onGoLogin?: () => void }) {
           <CheckCircle2 className="mx-auto text-emerald-500" size={52} />
           <h1 className="text-xl font-extrabold text-navy">Votre inscription a bien été reçue !</h1>
           <p className="text-sm text-slate-600">
-            Votre compte est <b>en attente d&apos;activation</b>. L&apos;équipe STANDA COMMERCIAL
+            Votre compte est <b>en attente d&apos;activation</b>. L&apos;équipe Standa Commercial
             vérifiera vos informations puis activera votre compte. Vous recevrez sur WhatsApp
             votre adresse de dépôt aux USA, votre <b>code MC</b>
             et un <b>mot de passe</b> pour vous connecter.

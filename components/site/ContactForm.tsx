@@ -6,7 +6,7 @@ import { WhatsAppIcon } from "./BrandIcons";
 
 import { useNoticeToast, notify } from "@/lib/notify";
 /**
- * STANDA COMMERCIAL — FÒM MESAJ PAJ CONTACT LA
+ * Standa Commercial — FÒM MESAJ PAJ CONTACT LA
  * ═══════════════════════════════════════════════
  * Vizitè a ka voye mesaj li DE FASON:
  *   1) "Envoyer par e-mail"    -> POST /api/contact (Resend, deja konfigire nan Vercel)
@@ -66,7 +66,7 @@ export default function ContactForm() {
 
   function buildWhatsAppText(): string {
     return (
-      `Bonjour STANDA COMMERCIAL,\n\n` +
+      `Bonjour Standa Commercial,\n\n` +
       `Nom : ${name.trim()}\n` +
       (email.trim() ? `Email : ${email.trim()}\n` : "") +
       (phone.trim() ? `Téléphone : ${phone.trim()}\n` : "") +

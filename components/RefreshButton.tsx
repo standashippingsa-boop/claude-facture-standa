@@ -4,7 +4,7 @@ import { RefreshCw } from "@/components/icons";
 import { Spinner } from "@/components/Loader";
 
 /**
- * BOUTON ACTUALISER + MIZAJOU OTOMATIK — STANDA COMMERCIAL (v3)
+ * BOUTON ACTUALISER + MIZAJOU OTOMATIK — Standa Commercial (v3)
  * ═════════════════════════════════════════════════════════════
  * Konpozan sa a sou CHAK paj sistèm nan (Dashboard, Packages, Clients,
  * Conduces, Factures, Retraits, Journal, Historique, Bon de Remise…) epi li

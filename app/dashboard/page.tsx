@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — TABLO DE BÒ ADMIN
+ * Standa Commercial — TABLO DE BÒ ADMIN
  * ═════════════════════════════════════
  * Paj sa a te sou "/" anvan. Nou deplase l sou "/dashboard" paske rasin
  * domèn nan (standacommercialsa.com) dwe montre SIT PIBLIK la: yon kliyan

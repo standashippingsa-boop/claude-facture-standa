@@ -1,6 +1,6 @@
 "use client";
 /*
- * STANDA COMMERCIAL — RÉSUMÉ CONDUCE · V17
+ * Standa Commercial — RÉSUMÉ CONDUCE · V17
  * ════════════════════════════════════════
  * RÈG: yon rezime pa gen sans toutotan tout koli yo poko fakti — chif yo ta
  * enkonplè epi yo ta twonpe w. Donk:
