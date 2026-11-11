@@ -50,8 +50,8 @@ export function buildDepotMessage(c: Client, password?: string): string {
     `Bonjour ${non},\n\n` +
     `Votre adresse de dépôt aux USA est maintenant disponible.\n\n` +
     `Nom :\n${non}\n\n` +
-    `Adresse line 1 :\n${DEPOT.address1}\n\n` +
-    `Adresse line 2 (Suite / Apt / Building) :\n${code}\n\n` +
+    `Address Line 1 :\n${DEPOT.address1}\n\n` +
+    `Address Line 2 (Suite / Apt / Building) :\n${code}\n\n` +
     `Ville :\nMiami\n\n` +
     `État :\n${DEPOT.state}\n\n` +
     `Code Postal :\n${DEPOT.zip}\n\n` +

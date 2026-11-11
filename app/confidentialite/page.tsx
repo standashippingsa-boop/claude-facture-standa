@@ -70,7 +70,7 @@ export default function ConfidentialitePage() {
 
         <S n="2" t="Pourquoi nous les utilisons">
           <ul className="space-y-1.5">
-            <Li><b>Identifier vos colis</b> · votre code MC est l&apos;adresse 2 utilisée par nos entrepôts. Sans lui, un colis ne peut pas vous être attribué.</Li>
+            <Li><b>Identifier vos colis</b> · votre code MC est la ligne « Address Line 2 » utilisée par nos entrepôts. Sans lui, un colis ne peut pas vous être attribué.</Li>
             <Li><b>Transporter et livrer</b> · préparer les manifestes de transport et les bons de remise.</Li>
             <Li><b>Vous facturer</b> · calculer le prix selon le poids et le tarif de votre ville.</Li>
             <Li><b>Vous informer</b> · courriel et WhatsApp quand un colis arrive à Miami ou devient disponible.</Li>

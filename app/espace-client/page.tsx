@@ -1349,7 +1349,7 @@ export default function EspaceClientPage() {
                    ["ZIP Code", DEPOT.zip],
                    ["Phone", DEPOT.phone]] as const).map(([k, v]) => (
                   <div key={k} className="flex justify-between gap-3 px-3 py-2">
-                    <span className="text-[12px] text-mute shrink-0">{k}</span>
+                    <span className="min-w-0 text-[12px] text-mute">{k}</span>
                     <span className={`text-[12px] font-semibold text-right break-all ${k.startsWith("Address Line 2") || k === "Full Name" ? "text-navy" : "text-ink"}`}>{v}</span>
                   </div>
                 ))}

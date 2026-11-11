@@ -62,9 +62,9 @@ export const FAQ_TOPICS: FaqTopic[] = [
       "pa parèt", "pa wè", "poko parèt", "pa gen koli",
       "not showing", "don't see", "doesn't appear", "missing", "can't find"],
     answer: {
-      fr: "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. L'application se met à jour automatiquement ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. S'il n'apparaît toujours pas, c'est souvent que le code client MC-… n'était pas sur la ligne « Address 2 » lors de l'achat. Écrivez à STANDA sur WhatsApp avec votre numéro de suivi pour une réclamation.",
-      ht: "Koli w parèt depi depo Miami nou an resevwa l epi anrejistre l, pa anvan. App la mete tèt li ajou otomatikman ; ou ka tou peze bouton ↻ anwo ekran an. Si li toujou pa parèt, souvan se paske kòd kliyan MC-... pa t sou liy « Address 2 » lè w te achte a. Ekri nou sou WhatsApp ak nimewo tracking ou pou fè yon reklamasyon.",
-      en: "Your package shows up as soon as our Miami warehouse has received and logged it, not before. The app refreshes automatically; you can also tap the ↻ button at the top of the screen. If it still doesn't show, it's usually because the customer code MC-… wasn't on the 'Address 2' line at checkout. Message us on WhatsApp with your tracking number to file a claim."
+      fr: "Votre colis apparaît dès que notre entrepôt de Miami l'a reçu et enregistré, pas avant. L'application se met à jour automatiquement ; vous pouvez aussi toucher le bouton ↻ en haut de l'écran. S'il n'apparaît toujours pas, c'est souvent que le code client MC-… n'était pas sur la ligne « Address Line 2 » lors de l'achat. Écrivez à STANDA sur WhatsApp avec votre numéro de suivi pour une réclamation.",
+      ht: "Koli w parèt depi depo Miami nou an resevwa l epi anrejistre l, pa anvan. App la mete tèt li ajou otomatikman ; ou ka tou peze bouton ↻ anwo ekran an. Si li toujou pa parèt, souvan se paske kòd kliyan MC-... pa t sou liy « Address Line 2 » lè w te achte a. Ekri nou sou WhatsApp ak nimewo tracking ou pou fè yon reklamasyon.",
+      en: "Your package shows up as soon as our Miami warehouse has received and logged it, not before. The app refreshes automatically; you can also tap the ↻ button at the top of the screen. If it still doesn't show, it's usually because the customer code MC-… wasn't on the 'Address Line 2' line at checkout. Message us on WhatsApp with your tracking number to file a claim."
     }
   },
   {
@@ -117,9 +117,9 @@ export const FAQ_TOPICS: FaqTopic[] = [
       "kijan sa mache", "kijan pou m voye", "adrès miami",
       "how does it work", "how to ship", "miami address", "how do i send"],
     answer: {
-      fr: "Achetez en ligne en utilisant l'adresse de notre dépôt à Miami, avec votre code client sur la ligne « Address 2 ». Notre entrepôt enregistre et pèse votre colis à la réception, puis il est acheminé vers Haïti jusqu'à votre agence. Consultez « Mon adresse » dans l'application pour voir l'adresse complète.",
-      ht: "Achte sou entènèt lè w itilize adrès depo Miami nou an, ak kòd kliyan w sou liy « Address 2 ». Depo nou anrejistre epi peze koli w lè l rive, epi li voye l an Ayiti rive nan ajans ou. Gade « Mon adresse » nan app la pou wè adrès konplè a.",
-      en: "Shop online using our Miami warehouse address, with your customer code on the 'Address 2' line. Our warehouse logs and weighs your package when it arrives, then ships it to Haiti to your agency. Check 'Mon adresse' in the app for the full address."
+      fr: "Achetez en ligne en utilisant l'adresse de notre dépôt à Miami, avec votre code client sur la ligne « Address Line 2 ». Notre entrepôt enregistre et pèse votre colis à la réception, puis il est acheminé vers Haïti jusqu'à votre agence. Consultez « Mon adresse » dans l'application pour voir l'adresse complète.",
+      ht: "Achte sou entènèt lè w itilize adrès depo Miami nou an, ak kòd kliyan w sou liy « Address Line 2 ». Depo nou anrejistre epi peze koli w lè l rive, epi li voye l an Ayiti rive nan ajans ou. Gade « Mon adresse » nan app la pou wè adrès konplè a.",
+      en: "Shop online using our Miami warehouse address, with your customer code on the 'Address Line 2' line. Our warehouse logs and weighs your package when it arrives, then ships it to Haiti to your agency. Check 'Mon adresse' in the app for the full address."
     }
   },
   {
