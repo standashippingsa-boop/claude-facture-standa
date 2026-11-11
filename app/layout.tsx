@@ -32,7 +32,7 @@ export const metadata: Metadata = {
    * epi `default` sèvi lè yon paj pa gen tit pa l.
    */
   title: {
-    default: "Standa Commercial · Vos colis des USA vers Haïti",
+    default: "Standa Commercial · Avec notre service express, vos colis arrivent près de vous en Haïti",
     // Les pages donnent seulement leur sujet ; le nom est ajouté une seule fois, sans majuscules partout.
     template: "%s · Standa Commercial"
   },

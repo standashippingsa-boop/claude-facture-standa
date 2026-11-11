@@ -14,14 +14,14 @@ export const revalidate = 60;
 
 export const metadata: Metadata = {
   // Titre affiché par Google, écrit tel quel (absolute) : le nom n'est pas ajouté une deuxième fois.
-  title: { absolute: "Standa Commercial · Vos colis des USA vers Haïti" },
+  title: { absolute: "Standa Commercial · Avec notre service express, vos colis arrivent près de vous en Haïti" },
   description: "Une adresse à Miami, le suivi de vos colis et le retrait dans votre agence en Haïti.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/accueil" },
   keywords: ["standa commercial", "shipping Haïti", "colis USA Haïti", "adresse Miami Haïti", "envoi colis Ayiti"],
   openGraph: {
     type: "website", url: "/accueil", siteName: "Standa Commercial", locale: "fr_HT",
-    title: "Standa Commercial · Vos colis des USA vers Haïti",
+    title: "Standa Commercial · Avec notre service express, vos colis arrivent près de vous en Haïti",
     description: "Une adresse à Miami, le suivi de vos colis et le retrait dans votre agence en Haïti.",
     images: [{ url: "/hero-shopping.jpg", width: 1600, height: 1067, alt: "Colis STANDA COMMERCIAL" }]
   }
