@@ -99,6 +99,33 @@ function activeTrackingStep(pkg: Pkg) {
   return 0;
 }
 
+/** « 12 nov. 2026 à 14h05 » ; vide si la date manque ou est invalide. */
+function stepDateTime(value?: string | null): string {
+  if (!value) return "";
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? value + "T12:00:00" : value);
+  if (Number.isNaN(d.getTime())) return "";
+  const day = d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }).replace(":", "h");
+  return `${day} à ${time}`;
+}
+
+/** Date de chaque étape du parcours, d'après les dates enregistrées sur le colis. */
+function trackingStepDates(pkg: Pkg, current: number): string[] {
+  const p = pkg as Pkg & { created_at?: string; conduce_linked_at?: string | null; delivered_at?: string | null; status_changed_at?: string | null };
+  const dates: (string | null | undefined)[] = [
+    p.created_at || p.received_at,  // Reçu à Miami : entrée dans STANDA
+    null,                           // Départ de Miami : pas de date enregistrée
+    p.conduce_linked_at,            // Arrivé en Haïti : colis ajouté au conduce
+    null,                           // En route vers l'agence
+    null,                           // Disponible
+    p.invoiced_at,                  // Facturé
+    p.delivered_at                  // Livré
+  ];
+  // L'étape actuelle prend la date du dernier changement de statut si elle n'en a pas.
+  if (!dates[current] && p.status_changed_at) dates[current] = p.status_changed_at;
+  return dates.map((value, index) => (index <= current ? stepDateTime(value) : ""));
+}
+
 /** Date lisible du colis : la première date valide (MCPACK, réception, création). Jamais « Invalid Date ». */
 function parcelDate(pkg: Pkg): string {
   // Même règle que les étiquettes : date d'entrée dans STANDA (created_at), qui ne change jamais.
@@ -114,6 +141,7 @@ function parcelDate(pkg: Pkg): string {
 export function ClientTrackingDetails({ pkg, customerName, destination, onClose, onContact }: { pkg: Pkg; customerName: string; destination: string; onClose: () => void; onContact: () => void }) {
   const [copiedField, setCopiedField] = useState<"guia" | "manual" | null>(null);
   const current = activeTrackingStep(pkg);
+  const stepDates = trackingStepDates(pkg, current);
   const weight = Number(pkg.weight) || 0;
 
   const copyValue = async (value: string, field: "guia" | "manual") => {
@@ -189,7 +217,7 @@ export function ClientTrackingDetails({ pkg, customerName, destination, onClose,
                 </div>
                 <div className={`pb-4 ${index < trackingSteps.length - 1 ? "" : "pb-0"}`}>
                   <p className={`text-[14px] leading-6 ${done || now ? "font-semibold text-navy" : "text-navy/40"}`}>{step}</p>
-                  <p className={`text-[12px] ${now ? "font-medium text-[#c2410c]" : "text-navy/45"}`}>{step === "Livré" && current === index ? "Livraison terminée" : done ? "Étape terminée" : now ? "Étape en cours" : "À venir"}</p>
+                  <p className={`text-[12px] ${now ? "font-medium text-[#c2410c]" : "text-navy/45"}`}>{stepDates[index] || (step === "Livré" && current === index ? "Livraison terminée" : done ? "Étape terminée" : now ? "Étape en cours" : "À venir")}</p>
                 </div>
               </li>;
             })}
