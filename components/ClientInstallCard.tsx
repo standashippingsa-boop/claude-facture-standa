@@ -5,7 +5,9 @@ import { Capacitor } from "@capacitor/core";
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 
-const HIDE_KEY = "standa-install-card-hidden";
+const HIDE_KEY = "standa-install-card-hidden-v2"; // v2 : la carte réapparaît une fois pour montrer le lien Android
+/** Application Android du client (APK signé, construit depuis android/). */
+const APK_URL = "/telechargement/standa-client.apk";
 
 /**
  * « Installer l'application » — espace client (et page de connexion).
@@ -69,6 +71,17 @@ export default function ClientInstallCard({ className = "" }: { className?: stri
       <button type="button" onClick={install} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-bold text-navy">
         <Download size={16} /> {promptEvent ? "Installer" : "Comment l'installer"}
       </button>
+      {!ios && (
+        <>
+          <a href={APK_URL} download="STANDA.apk"
+            className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/30 text-sm font-bold text-white hover:bg-white/10">
+            <Download size={16} /> Télécharger l&apos;application Android
+          </a>
+          <p className="mt-1.5 text-[11.5px] leading-snug text-white/65">
+            Après le téléchargement, ouvrez le fichier STANDA.apk. Si le téléphone le demande, autorisez l&apos;installation, puis touchez <b>Installer</b>.
+          </p>
+        </>
+      )}
       {showSteps && !promptEvent && (ios ? (
         <ol className="mt-3 space-y-2 text-[13px] text-white/90">
           <li className="flex items-center gap-2"><span className="font-bold">1.</span> Ouvrez ce site dans <b>Safari</b>, puis touchez <Share size={16} className="shrink-0" /> <b>Partager</b>.</li>
