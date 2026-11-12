@@ -71,7 +71,10 @@ export function buildDepotMessage(c: Client, password?: string): string {
     `\nACCÉDER À VOTRE COMPTE\n\n` +
     `https://www.standacommercialsa.com/espace-client/connexion\n\n` +
     `📱 APPLICATION MOBILE\n\n` +
-    `L’application STANDA sera bientôt disponible sur Google Play et l’App Store.\n`;
+    `Installez l’application STANDA sur votre téléphone :\n` +
+    `1. Ouvrez le lien ci-dessus et connectez-vous.\n` +
+    `2. Touchez « Installer l’application ».\n` +
+    `Sur iPhone : ouvrez le lien dans Safari, touchez Partager puis « Sur l’écran d’accueil ».\n`;
   msg += `\nMerci.\nSTANDA COMMERCIAL`;
   return msg;
 }
