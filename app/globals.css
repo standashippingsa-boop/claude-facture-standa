@@ -150,8 +150,8 @@ body { @apply bg-mist text-slate-700 antialiased; }
    scope volontairement limité à /espace-client, le reste de l'app garde la police système. */
 .client-app-font {
   font-family: var(--font-client), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  /* Échelle de l'app client : textes et éléments 40 % plus petits (demande client). */
-  --client-zoom: .6;
+  /* Échelle de l'app client : textes et éléments 30 % plus petits (demande client). */
+  --client-zoom: .7;
   zoom: var(--client-zoom);
 }
 /* Images de l'app client (logo du bouton Accueil, flyers…) : pas de menu « Télécharger / Enregistrer
@@ -181,7 +181,8 @@ body { @apply bg-mist text-slate-700 antialiased; }
    App : 1 × 0,6 (.client-app-font) = 0,6 · Site (/login) : 0,6. */
 .login-compact.login-client { --login-zoom: .6; }
 .client-app-font .login-compact.login-client { --login-zoom: 1; }
-.login-compact.login-client.min-h-screen, .client-app-font .login-compact.login-client.min-h-screen { min-height: calc(100vh / .6); }
+.login-compact.login-client.min-h-screen { min-height: calc(100vh / .6); }
+.client-app-font .login-compact.login-client.min-h-screen { min-height: calc(100vh / var(--client-zoom)); }
 /* Connexion client : champs à 13 px réels, proportionnés au reste de la page. */
 .login-compact.login-client input, .login-compact.login-client select, .login-compact.login-client textarea { font-size: calc(13px / .6) !important; }
 
