@@ -46,6 +46,7 @@ interface Row extends Conduce {
   specialCount: number;
   /** Liv Dokasav (Ergens, Blic konpri) ak liv STANDA nan Conduce sa a. */
   dokasavWeight: number; standaWeight: number;
+  dokasavCount: number; standaCount: number;
   /** Eta fakti MCPACK ki gen Conduce sa a, si PDF MCPACK te deja valide li. */
   mcpackInvoiceStatus?: McpackInvoiceStatus;
   /** Yon Bon de remise deja soti pou lo sa a: li pa gen dwa seleksyone ankò. */
@@ -59,6 +60,7 @@ interface Classeur {
   rows: Row[];
   count: number; weight: number; facturedCount: number; specialCount: number;
   dokasavWeight: number; standaWeight: number;
+  dokasavCount: number; standaCount: number;
   paidCount: number; unpaidCount: number;
 }
 
@@ -134,6 +136,7 @@ export default function ConducesPage() {
           ...c, status: derived, count: s.count, weight: s.weight,
           facturedCount: s.facturedCount, verifiedCount: s.verifiedCount, specialCount: s.specialCount,
           dokasavWeight: s.dokasavWeight, standaWeight: s.standaWeight,
+          dokasavCount: s.dokasavCount, standaCount: s.standaCount,
           mcpackInvoiceStatus: mcpackInvoiceStatusByConduce.get(c.id),
           bonRemiseCreated: recordedBonRemiseConduces.has(c.id),
         };
@@ -181,6 +184,8 @@ export default function ConducesPage() {
           weight: list.reduce((s, r) => s + r.weight, 0),
           dokasavWeight: list.reduce((s, r) => s + r.dokasavWeight, 0),
           standaWeight: list.reduce((s, r) => s + r.standaWeight, 0),
+          dokasavCount: list.reduce((s, r) => s + r.dokasavCount, 0),
+          standaCount: list.reduce((s, r) => s + r.standaCount, 0),
           facturedCount: list.reduce((s, r) => s + r.facturedCount, 0),
           specialCount: list.reduce((s, r) => s + r.specialCount, 0),
           paidCount: list.filter((r) => r.payment_status === "Payé" || r.mcpackInvoiceStatus === "Payée").length,
@@ -528,11 +533,11 @@ function Echelle({ pct, tone = "brand" }: { pct: number; tone?: "brand" | "white
 }
 
 /** Liv STANDA ak liv Dokasav (Ergens, Blic konpri), youn akote lòt. */
-function LbSplit({ standa, dokasav, className = "" }: { standa: number; dokasav: number; className?: string }) {
+function LbSplit({ standa, dokasav, standaCount, dokasavCount, className = "" }: { standa: number; dokasav: number; standaCount: number; dokasavCount: number; className?: string }) {
   return (
     <div className={`flex flex-wrap gap-1 text-[10px] font-bold tabular-nums ${className}`}>
-      <span className="rounded-md bg-navy/10 px-1.5 py-0.5 text-navy">STANDA {standa.toFixed(2)} lb</span>
-      <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-amber-800">Dokasav {dokasav.toFixed(2)} lb</span>
+      <span className="rounded-md bg-navy/10 px-1.5 py-0.5 text-navy">STANDA {standa.toFixed(2)} lb · {standaCount} colis</span>
+      <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-amber-800">Dokasav {dokasav.toFixed(2)} lb · {dokasavCount} colis</span>
     </div>
   );
 }
@@ -561,7 +566,7 @@ function ClasseurTile({ cl, onOpen }: { cl: Classeur; onOpen: () => void }) {
       <div className="text-[11px] text-mute leading-snug">
         {cl.count} colis · {cl.weight.toFixed(0)} lb
       </div>
-      <LbSplit standa={cl.standaWeight} dokasav={cl.dokasavWeight} />
+      <LbSplit standa={cl.standaWeight} dokasav={cl.dokasavWeight} standaCount={cl.standaCount} dokasavCount={cl.dokasavCount} />
 
       <div className="flex flex-wrap gap-1.5 text-[10px] font-bold">
         <span className={cl.unpaidCount ? "text-amber-700" : cl.paidCount ? "text-emerald-700" : "text-mute"}>
@@ -597,7 +602,7 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPa
             <p className="text-[11px] text-mute mt-0.5">
               {cl.rows.length} conduce{cl.rows.length > 1 ? "s" : ""} · {cl.count} colis · {cl.weight.toFixed(1)} lb
             </p>
-            <LbSplit standa={cl.standaWeight} dokasav={cl.dokasavWeight} className="mt-1.5" />
+            <LbSplit standa={cl.standaWeight} dokasav={cl.dokasavWeight} standaCount={cl.standaCount} dokasavCount={cl.dokasavCount} className="mt-1.5" />
             <div className="flex flex-wrap gap-1.5 mt-2 text-[10px] font-bold">
               <span className={cl.unpaidCount ? "text-amber-700" : cl.paidCount ? "text-emerald-700" : "text-mute"}>
                 {cl.paidCount || cl.unpaidCount
@@ -653,7 +658,7 @@ function JourOuvert({ cl, sel, onSel, onOpenConduce, onDelete, onDeleteDay, onPa
                 <p className="text-[11px] text-mute mt-0.5 truncate">
                   {r.office || "Office · "} · {r.count} colis · {r.weight.toFixed(1)} lb
                 </p>
-                {r.count > 0 && <LbSplit standa={r.standaWeight} dokasav={r.dokasavWeight} className="mt-1" />}
+                {r.count > 0 && <LbSplit standa={r.standaWeight} dokasav={r.dokasavWeight} standaCount={r.standaCount} dokasavCount={r.dokasavCount} className="mt-1" />}
                 {vide ? (
                   <p className="text-[11px] text-amber-700 mt-1.5">
                     Colis pas encore synchronisés depuis MCPACK.
