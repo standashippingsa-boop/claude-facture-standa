@@ -111,15 +111,20 @@ function stepDateTime(value?: string | null): string {
 
 /** Date de chaque étape du parcours, d'après les dates enregistrées sur le colis. */
 function trackingStepDates(pkg: Pkg, current: number): string[] {
-  const p = pkg as Pkg & { created_at?: string; conduce_linked_at?: string | null; delivered_at?: string | null; status_changed_at?: string | null };
+  const p = pkg as Pkg & {
+    created_at?: string; conduce_linked_at?: string | null; delivered_at?: string | null; status_changed_at?: string | null;
+    /** Date de chaque statut, enregistrée par la base (trigger trg_packages_status_dates). */
+    status_dates?: Record<string, string> | null;
+  };
+  const sd = p.status_dates ?? {};
   const dates: (string | null | undefined)[] = [
-    p.created_at || p.received_at,  // Reçu à Miami : entrée dans STANDA
-    null,                           // Départ de Miami : pas de date enregistrée
-    p.conduce_linked_at,            // Arrivé en Haïti : colis ajouté au conduce
-    null,                           // En route vers l'agence
-    null,                           // Disponible
-    p.invoiced_at,                  // Facturé
-    p.delivered_at                  // Livré
+    sd["Reçu à Miami"] || p.created_at || p.received_at,  // entrée dans STANDA
+    sd["En transit"],                                      // Départ de Miami
+    sd["Arrivé en Haïti"] || p.conduce_linked_at,          // colis ajouté au conduce
+    sd["En route vers agence"],
+    sd["Disponible"],
+    sd["Facturé"] || p.invoiced_at,
+    sd["Livré"] || p.delivered_at
   ];
   // L'étape actuelle prend la date du dernier changement de statut si elle n'en a pas.
   if (!dates[current] && p.status_changed_at) dates[current] = p.status_changed_at;
@@ -217,7 +222,7 @@ export function ClientTrackingDetails({ pkg, customerName, destination, onClose,
                 </div>
                 <div className={`pb-4 ${index < trackingSteps.length - 1 ? "" : "pb-0"}`}>
                   <p className={`text-[14px] leading-6 ${done || now ? "font-semibold text-navy" : "text-navy/40"}`}>{step}</p>
-                  <p className={`text-[12px] ${now ? "font-medium text-[#c2410c]" : "text-navy/45"}`}>{stepDates[index] || (step === "Livré" && current === index ? "Livraison terminée" : done ? "Étape terminée" : now ? "Étape en cours" : "À venir")}</p>
+                  <p className={`text-[12px] ${now ? "font-medium text-[#c2410c]" : "text-navy/45"}`}>{stepDates[index] || (done ? "" : now ? "Étape en cours" : "À venir")}</p>
                 </div>
               </li>;
             })}
