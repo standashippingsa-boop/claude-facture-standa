@@ -8,7 +8,7 @@ import {
 import { extractFactureDetailed } from "@/lib/factureimport";
 import {
   analyzeMcpackInvoiceTrackings, createMcpackInvoice, getMcpackInvoices,
-  McpackInvoiceAnalysis, payMcpackInvoice,
+  McpackInvoiceAnalysis, payMcpackInvoice, selectMcpackInvoiceConduces,
 } from "@/lib/db";
 import { validateUpload } from "@/lib/upload";
 import type { McpackInvoice } from "@/lib/types";
@@ -42,7 +42,19 @@ export default function McpackInvoiceWorkspace({
   const [saving, setSaving] = useState(false);
   const [payingId, setPayingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
+  /** Conduces décochées : MCPACK ne les a pas encore facturées, elles iront sur la prochaine facture. */
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
   useNoticeToast(notice, setNotice);
+
+  /** La facture réellement enregistrée : seulement les Conduces cochées. */
+  const selected = analysis
+    ? { ...selectMcpackInvoiceConduces(analysis, new Set(analysis.conduces.map((line) => line.conduce.id).filter((id) => !excluded.has(id)))), fileName: analysis.fileName, readCheck: analysis.readCheck }
+    : null;
+  const toggleConduce = (id: string) => setExcluded((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   const load = async () => {
     setLoading(true);
@@ -59,6 +71,11 @@ export default function McpackInvoiceWorkspace({
 
   const analyzeAllConduces = async (trackings: { value: string; weight?: number }[], fileName: string, readCheck?: ReadCheck) => {
     const result = await analyzeMcpackInvoiceTrackings(trackings);
+    // Une Conduce dont moins de la moitié des colis figure sur la facture n'est
+    // probablement pas encore facturée par MCPACK : décochée par défaut.
+    setExcluded(new Set(result.conduces
+      .filter((line) => (line.totalPackageCount ?? 0) > 0 && line.packageCount * 2 < (line.totalPackageCount ?? 0))
+      .map((line) => line.conduce.id)));
     setAnalysis({ ...result, fileName, readCheck });
     setNotice(result.conduces.length
       ? { tone: "info", text: `${result.conduces.length} Conduce${result.conduces.length > 1 ? "s" : ""} prête${result.conduces.length > 1 ? "s" : ""} à facturer.${result.alreadyRecordedConduces.length ? ` ${result.alreadyRecordedConduces.length} déjà enregistrée${result.alreadyRecordedConduces.length > 1 ? "s" : ""} est/sont mise(s) à part.` : ""}` }
@@ -90,15 +107,15 @@ export default function McpackInvoiceWorkspace({
   };
 
   const saveInvoice = async () => {
-    if (!analysis?.conduces.length) return;
+    if (!selected?.conduces.length) return;
     // Garde-fou : jamais de facture enregistrée sur une lecture incomplète du PDF.
-    if (!readCheckOk(analysis.readCheck)) {
+    if (!readCheckOk(selected.readCheck)) {
       setNotice({ tone: "error", text: "Lecture du PDF incomplète : la somme des colis lus ne correspond pas au « Pwa Total » imprimé par MCPACK. Rien n'a été enregistré." });
       return;
     }
     setSaving(true);
     try {
-      await createMcpackInvoice(analysis, staffName);
+      await createMcpackInvoice(selected, staffName);
       setAnalysis(null);
       setNotice({ tone: "ok", text: "Facture MCPACK enregistrée. Les Conduces restent « à payer » jusqu'au règlement." });
       await load();
@@ -167,19 +184,25 @@ export default function McpackInvoiceWorkspace({
               </div>
             </div>
 
-            {analysis.conduces.length > 0 && (
+            {analysis.conduces.length > 0 && (<>
+              <p className="text-[11px] text-mute">Décochez une Conduce que MCPACK n&apos;a pas mise sur cette facture : elle ne sera pas facturée maintenant et restera pour la prochaine facture.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {analysis.conduces.map((line) => (
-                  <div key={line.conduce.id} className="rounded-xl border border-line bg-white px-3 py-2.5 flex items-center gap-2">
-                    <ReceiptText size={16} className="text-navy shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-mono font-extrabold text-navy text-sm truncate">Conduce {line.conduce.conduce_number}</p>
-                      <p className="text-[11px] text-mute">{line.packageCount} colis dans cette facture</p>
-                    </div>
-                  </div>
-                ))}
+                {analysis.conduces.map((line) => {
+                  const on = !excluded.has(line.conduce.id);
+                  const total = Math.max(line.totalPackageCount ?? 0, line.packageCount);
+                  const partial = total > line.packageCount;
+                  return (
+                    <label key={line.conduce.id} className={`rounded-xl border px-3 py-2.5 flex items-center gap-2 cursor-pointer ${on ? "border-line bg-white" : "border-dashed border-slate-300 bg-slate-100 opacity-70"}`}>
+                      <input type="checkbox" checked={on} onChange={() => toggleConduce(line.conduce.id)} className="h-4 w-4 shrink-0 accent-navy" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-mono font-extrabold text-navy text-sm truncate">Conduce {line.conduce.conduce_number}</p>
+                        <p className={`text-[11px] ${partial ? "font-semibold text-amber-700" : "text-mute"}`}>{line.packageCount} colis sur {total} dans cette facture{on ? "" : " · prochaine facture"}</p>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
-            )}
+            </>)}
 
             {(() => {
               const rc = analysis.readCheck;
@@ -195,8 +218,8 @@ export default function McpackInvoiceWorkspace({
               </div>;
             })()}
 
-            {analysis.reconciliation.invoiceLbs > 0 && (() => {
-              const rec = analysis.reconciliation;
+            {selected && selected.reconciliation.invoiceLbs > 0 && (() => {
+              const rec = selected.reconciliation;
               const gap = rec.systemLbs - rec.invoiceLbs;
               const ok = Math.abs(gap) < 0.01;
               return <div className={`rounded-xl border px-3 py-2.5 text-[11px] ${ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
@@ -241,9 +264,9 @@ export default function McpackInvoiceWorkspace({
 
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-1">
               <button type="button" className="btn btn-ghost justify-center" disabled={saving} onClick={() => setAnalysis(null)}>Annuler</button>
-              <button type="button" className="btn btn-brand justify-center" disabled={saving || !analysis.conduces.length || !readCheckOk(analysis.readCheck)} onClick={saveInvoice}>
+              <button type="button" className="btn btn-brand justify-center" disabled={saving || !selected?.conduces.length || !readCheckOk(analysis.readCheck)} onClick={saveInvoice}>
                 {saving ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-                {saving ? "Enregistrement…" : `Facturer ${analysis.conduces.length} Conduce${analysis.conduces.length > 1 ? "s" : ""}`}
+                {saving ? "Enregistrement…" : `Facturer ${selected?.conduces.length ?? 0} Conduce${(selected?.conduces.length ?? 0) > 1 ? "s" : ""}`}
               </button>
             </div>
           </div>

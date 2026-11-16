@@ -726,7 +726,10 @@ export async function setConducePaymentStatus(
 
 export interface McpackInvoiceConduceCandidate {
   conduce: Conduce;
+  /** Colis de cette Conduce trouvés dans la facture MCPACK. */
   packageCount: number;
+  /** Tous les colis de la Conduce (hors archivés) : sert à repérer une Conduce que MCPACK n'a pas encore facturée. */
+  totalPackageCount?: number;
 }
 
 /** Yon Conduce detekte nan PDF a men ki deja fè pati yon lòt fakti MCPACK. */
@@ -753,10 +756,10 @@ export interface McpackInvoiceAnalysis {
   reconciliation: {
     invoiceLbs: number;
     systemLbs: number;
-    weightDiffs: { tracking: string; invoiceLbs: number; systemLbs: number; conduceNumber: string; customerCode: string }[];
-    missingFromInvoice: { tracking: string; systemLbs: number; conduceNumber: string; customerCode: string }[];
+    weightDiffs: { tracking: string; invoiceLbs: number; systemLbs: number; conduceNumber: string; customerCode: string; conduceId?: string }[];
+    missingFromInvoice: { tracking: string; systemLbs: number; conduceNumber: string; customerCode: string; conduceId?: string }[];
     /** Poids facturé par MCPACK pour chaque colis des Conduces (0 = absent de la facture). */
-    billed: { id: string; lbs: number }[];
+    billed: { id: string; lbs: number; conduceId?: string; systemLbs?: number }[];
   };
 }
 
@@ -914,19 +917,23 @@ export async function analyzeMcpackInvoiceTrackings(
   const weightDiffs: McpackInvoiceAnalysis["reconciliation"]["weightDiffs"] = [];
   const missingFromInvoice: McpackInvoiceAnalysis["reconciliation"]["missingFromInvoice"] = [];
   let systemLbs = 0;
-  const billed: { id: string; lbs: number }[] = [];
+  const billed: { id: string; lbs: number; conduceId: string; systemLbs: number }[] = [];
+  const totalByConduce = new Map<string, number>();
   for (const pkg of rows ?? []) {
-    if (!eligibleIds.has(String(pkg.conduce_id ?? "")) || pkg.archived) continue;
+    const conduceId = String(pkg.conduce_id ?? "");
+    if (!eligibleIds.has(conduceId) || pkg.archived) continue;
+    totalByConduce.set(conduceId, (totalByConduce.get(conduceId) ?? 0) + 1);
     const lbs = Number(pkg.weight) || 0;
     systemLbs += lbs;
     const tracking = trackingKey(pkg.tracking_manual) || trackingKey(pkg.tracking_number);
-    billed.push({ id: pkg.id, lbs: invoiceWeightByPackage.get(pkg.id)?.lbs ?? (invoiceWeightByPackage.has(pkg.id) ? lbs : 0) });
+    billed.push({ id: pkg.id, lbs: invoiceWeightByPackage.get(pkg.id)?.lbs ?? (invoiceWeightByPackage.has(pkg.id) ? lbs : 0), conduceId, systemLbs: lbs });
     const billedLine = invoiceWeightByPackage.get(pkg.id);
-    if (!billedLine) { missingFromInvoice.push({ tracking, systemLbs: lbs, conduceNumber: numberOf(pkg.conduce_id), customerCode: String(pkg.customer_code ?? "") }); continue; }
+    if (!billedLine) { missingFromInvoice.push({ tracking, systemLbs: lbs, conduceNumber: numberOf(pkg.conduce_id), customerCode: String(pkg.customer_code ?? ""), conduceId }); continue; }
     if (billedLine.lbs !== undefined && Math.abs(billedLine.lbs - lbs) > 0.004) {
-      weightDiffs.push({ tracking: billedLine.tracking, invoiceLbs: billedLine.lbs, systemLbs: lbs, conduceNumber: numberOf(pkg.conduce_id), customerCode: String(pkg.customer_code ?? "") });
+      weightDiffs.push({ tracking: billedLine.tracking, invoiceLbs: billedLine.lbs, systemLbs: lbs, conduceNumber: numberOf(pkg.conduce_id), customerCode: String(pkg.customer_code ?? ""), conduceId });
     }
   }
+  for (const line of eligibleConduces) line.totalPackageCount = totalByConduce.get(line.conduce.id) ?? line.packageCount;
   const invoiceLbs = Array.from(weightByTracking.values()).reduce((sum, value) => sum + value, 0);
 
   return {
@@ -940,6 +947,26 @@ export async function analyzeMcpackInvoiceTrackings(
     duplicateTrackings,
     alreadyRecordedConduces,
     conduces: eligibleConduces,
+  };
+}
+
+/**
+ * Garde seulement les Conduces cochées par le staff. Une Conduce décochée n'est
+ * pas facturée maintenant : MCPACK la mettra sur sa prochaine facture.
+ */
+export function selectMcpackInvoiceConduces(analysis: McpackInvoiceAnalysis, keepIds: Set<string>): McpackInvoiceAnalysis {
+  const keep = (conduceId?: string) => !conduceId || keepIds.has(conduceId);
+  const billed = analysis.reconciliation.billed.filter((line) => keep(line.conduceId));
+  return {
+    ...analysis,
+    conduces: analysis.conduces.filter((line) => keepIds.has(line.conduce.id)),
+    reconciliation: {
+      ...analysis.reconciliation,
+      systemLbs: billed.reduce((sum, line) => sum + (line.systemLbs ?? 0), 0),
+      weightDiffs: analysis.reconciliation.weightDiffs.filter((line) => keep(line.conduceId)),
+      missingFromInvoice: analysis.reconciliation.missingFromInvoice.filter((line) => keep(line.conduceId)),
+      billed,
+    },
   };
 }
 
@@ -1023,7 +1050,7 @@ export async function createMcpackInvoice(
   const linksError = linksResult.error;
   if (!linksError && input.reconciliation?.billed.length) {
     // Le tableau de bord paie MCPACK au poids de SA facture (pas à notre pesée).
-    const { error: billedError } = await supabase.rpc("set_mcpack_billed_lbs", { p_items: input.reconciliation.billed });
+    const { error: billedError } = await supabase.rpc("set_mcpack_billed_lbs", { p_items: input.reconciliation.billed.map(({ id, lbs }) => ({ id, lbs })) });
     if (billedError) console.error("[mcpack billed lbs]", billedError);
   }
   if (linksError) {
