@@ -777,8 +777,12 @@ const trackingKey = (value: unknown) => String(value ?? "").toUpperCase().replac
 export async function analyzeMcpackInvoiceTrackings(
   items: { value: string; weight?: number }[], options: { maximumTrackings?: number } = {}
 ): Promise<McpackInvoiceAnalysis> {
-  const weightByTracking = new Map<string, number>();
-  for (const item of items) { const key = trackingKey(item.value); if (key && Number(item.weight) > 0 && !weightByTracking.has(key)) weightByTracking.set(key, Number(item.weight)); }
+  // Un tracking peut figurer sur plusieurs lignes (une par boîte) : on garde tous ses poids.
+  const weightsByTracking = new Map<string, number[]>();
+  for (const item of items) {
+    const key = trackingKey(item.value);
+    if (key && Number(item.weight) > 0) weightsByTracking.set(key, [...(weightsByTracking.get(key) ?? []), Number(item.weight)]);
+  }
   const allTrackings = Array.from(new Set(items
     .map((item) => trackingKey(item.value))
     .filter(Boolean)));
@@ -838,7 +842,20 @@ export async function analyzeMcpackInvoiceTrackings(
     const suffix = !exact.length && tracking.length >= 20 ? (bySuffix.get(tracking.slice(-20)) ?? []) : [];
     const packages = exact.length ? exact : suffix.length === 1 ? suffix : [];
     if (!packages.length) { unmatchedTrackingCount++; continue; }
-    packages.forEach((pkg) => { matchedPackages.add(pkg.id); invoiceWeightByPackage.set(pkg.id, { tracking, lbs: weightByTracking.get(tracking) }); });
+    // Chaque boîte reçoit le poids de la ligne MCPACK la plus proche de sa pesée STANDA.
+    const remaining = [...(weightsByTracking.get(tracking) ?? [])];
+    const single = remaining.length === 1 ? remaining[0] : undefined;
+    [...packages].sort((a, b) => (Number(b.weight) || 0) - (Number(a.weight) || 0)).forEach((pkg) => {
+      matchedPackages.add(pkg.id);
+      let lbs: number | undefined = single;
+      if (remaining.length > 1 || (single === undefined && remaining.length)) {
+        const own = Number(pkg.weight) || 0;
+        let best = 0;
+        remaining.forEach((value, index) => { if (Math.abs(value - own) < Math.abs(remaining[best] - own)) best = index; });
+        lbs = remaining.splice(best, 1)[0];
+      }
+      invoiceWeightByPackage.set(pkg.id, { tracking, lbs });
+    });
 
     const conduceIdsForTracking = Array.from(new Set(packages
       .map((pkg) => String(pkg.conduce_id ?? "").trim())
@@ -934,7 +951,7 @@ export async function analyzeMcpackInvoiceTrackings(
     }
   }
   for (const line of eligibleConduces) line.totalPackageCount = totalByConduce.get(line.conduce.id) ?? line.packageCount;
-  const invoiceLbs = Array.from(weightByTracking.values()).reduce((sum, value) => sum + value, 0);
+  const invoiceLbs = Array.from(weightsByTracking.values()).flat().reduce((sum, value) => sum + value, 0);
 
   return {
     reconciliation: { invoiceLbs, systemLbs, weightDiffs, missingFromInvoice, billed },

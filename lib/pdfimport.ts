@@ -147,7 +147,9 @@ export async function extractFirstMcpackCommercialInvoiceTracking(
 /** Logique pure du tableau commercial — isolée pou teste li ak plizyè modèl PDF. */
 export function parseMcpackCommercialInvoiceRows(rows: TextItem[][]): McpackCommercialInvoiceRow[] {
   const out: McpackCommercialInvoiceRow[] = [];
-  const seen = new Set<string>();
+  // Pas de dédoublonnage : un même tracking peut figurer sur plusieurs lignes
+  // (envoi en plusieurs boîtes, guías WR…-2, -3). Chaque ligne a son poids et
+  // compte dans le « Pwa Total » imprimé par MCPACK.
 
   let contentX = 0;
   let weightX = 0;
@@ -192,7 +194,6 @@ export function parseMcpackCommercialInvoiceRows(rows: TextItem[][]): McpackComm
     const trackingCell = candidates.sort((a, b) => a.x - b.x)[0];
     if (!trackingCell) continue;
     const tracking = trimEdges(compact(trackingCell.s));
-    if (seen.has(tracking)) continue;
 
     const content = row
       .filter((cell) => cell.x >= contentX - 58 && (!weightX || cell.x < weightX - 12))
@@ -206,7 +207,6 @@ export function parseMcpackCommercialInvoiceRows(rows: TextItem[][]): McpackComm
     );
     const weight = weightCell ? Number.parseFloat(weightCell.s.replace(",", ".")) || 0 : 0;
 
-    seen.add(tracking);
     out.push({ tracking_number: tracking, weight, content });
   }
 

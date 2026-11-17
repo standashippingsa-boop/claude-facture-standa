@@ -99,14 +99,14 @@ export async function extractFactureDetailed(file: File): Promise<{
     const trackings = await extractFromPdf(buf);
     return { trackings, readLbs: 0, readCount: trackings.length, totals: null };
   }
+  // Une ligne par boîte : un tracking répété (envoi en plusieurs boîtes) garde
+  // chacune de ses lignes et chacun de ses poids.
   const trackings: FactureTracking[] = [];
-  const seen = new Set<string>();
   let readLbs = 0;
   for (const r of detailed.rows) {
     readLbs += Number(r.weight) || 0;
     const v = cleanTracking(r.tracking_number);
-    if (!v || seen.has(v)) continue;
-    seen.add(v);
+    if (!v) continue;
     trackings.push({ value: v, weight: r.weight || undefined, source: "pdf", raw: r.tracking_number });
   }
   return { trackings, readLbs: Math.round(readLbs * 100) / 100, readCount: detailed.rows.length, totals: detailed.totals };
