@@ -92,7 +92,7 @@ export default function ConducesPage() {
   const [creating, setCreating] = useState(false);
   const [availabilityFolder, setAvailabilityFolder] = useState<Classeur | null>(null);
   const [availabilityBons, setAvailabilityBons] = useState<BonRemiseRecord[] | null>(null);
-  const [availabilityBonId, setAvailabilityBonId] = useState("");
+  const [availabilityBonIds, setAvailabilityBonIds] = useState<string[]>([]);
   const [availabilityBusy, setAvailabilityBusy] = useState(false);
   const staffName = staff ? `${staff.prenom ?? ""} ${staff.nom ?? ""}`.trim() || (staff.username ?? "") : "";
   useRememberListContext("conduces", {
@@ -284,7 +284,7 @@ export default function ConducesPage() {
   /** « Disponible » est relié aux Bons de remise du classeur : on choisit un Bon (une ville). */
   const openAvailability = async (cl: Classeur) => {
     setAvailabilityFolder(cl);
-    setAvailabilityBonId("");
+    setAvailabilityBonIds([]);
     setAvailabilityBons(null);
     try {
       setAvailabilityBons(await getBonsRemiseForConduces(cl.rows.map((row) => row.id)));
@@ -293,26 +293,39 @@ export default function ConducesPage() {
       setNotice((e as Error)?.message ?? "Impossible de charger les Bons de remise.");
     }
   };
+  const toggleAvailabilityBon = (id: string) => setAvailabilityBonIds((current) =>
+    current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+  /** Plusieurs villes en une fois : chaque Bon choisi est rendu disponible l'un après l'autre. */
   const makeAvailable = async () => {
-    if (!availabilityFolder || !availabilityBonId) return;
-    const bon = availabilityBons?.find((b) => b.id === availabilityBonId);
-    // Garde-fou : cette action touche TOUS les colis du Bon (pas une sélection).
+    if (!availabilityFolder || !availabilityBonIds.length) return;
+    const chosen = (availabilityBons ?? []).filter((b) => availabilityBonIds.includes(b.id));
+    const total = chosen.reduce((sum, b) => sum + (Number(b.package_count) || 0), 0);
+    // Garde-fou : cette action touche TOUS les colis des Bons choisis (pas une sélection).
     if (!confirm(
-      `Rendre disponibles TOUS les colis du Bon ${bon?.bon_number ?? ""} (${bon?.destination ?? ""}, ${bon?.package_count ?? "?"} colis) ?\n\n` +
-      `Pour n'en rendre que certains disponibles, annulez et utilisez la page Colis (sélection + statut).`
+      `Rendre disponibles TOUS les colis de ${chosen.length > 1 ? `ces ${chosen.length} Bons` : "ce Bon"} (${total} colis) ?\n\n` +
+      chosen.map((b) => `• ${b.destination || "Sans ville"} · ${b.bon_number} · ${b.package_count} colis`).join("\n") +
+      `\n\nPour n'en rendre que certains disponibles, annulez et utilisez la page Colis (sélection + statut).`
     )) return;
     setAvailabilityBusy(true);
+    const done: string[] = [];
+    const failed: string[] = [];
     try {
-      const result = await makeBonRemiseAvailable(availabilityBonId, staffName);
-      setNotice(
-        `${result.available} colis de ${result.cityName} rendus disponibles et ${result.priced} tarifés.` +
-        (result.alreadyAvailable ? ` ${result.alreadyAvailable} déjà disponible(s) ont été recalculé(s).` : "") +
-        (result.skippedLocked ? ` ${result.skippedLocked} colis facturé(s) ou livré(s) n'ont pas été touché(s).` : "")
-      );
-      setAvailabilityFolder(null);
+      for (const bon of chosen) {
+        try {
+          const result = await makeBonRemiseAvailable(bon.id, staffName);
+          done.push(
+            `${result.cityName} : ${result.available} colis disponibles, ${result.priced} tarifés` +
+            (result.alreadyAvailable ? `, ${result.alreadyAvailable} déjà disponible(s) recalculé(s)` : "") +
+            (result.skippedLocked ? `, ${result.skippedLocked} facturé(s) ou livré(s) non touché(s)` : "")
+          );
+        } catch (e: unknown) {
+          failed.push(`${bon.destination || bon.bon_number} : ${(e as Error)?.message ?? "erreur"}`);
+        }
+      }
+      setNotice([...done, ...failed.map((line) => "Échec · " + line)].join(" · "));
+      if (!failed.length) setAvailabilityFolder(null);
+      else setAvailabilityBonIds(chosen.filter((b) => failed.some((line) => line.startsWith((b.destination || b.bon_number) + " :"))).map((b) => b.id));
       await load();
-    } catch (e: unknown) {
-      setNotice((e as Error)?.message ?? "Impossible de rendre ces colis disponibles.");
     } finally { setAvailabilityBusy(false); }
   };
 
@@ -466,7 +479,7 @@ export default function ConducesPage() {
               </div>
             </div>
             <p className="mt-4 text-sm text-ink">
-              Choisissez le Bon de remise. Les colis de ce Bon passeront à <b>Disponible</b> avec le tarif de sa ville.
+              Cochez un ou plusieurs Bons de remise (une ville par Bon). Leurs colis passeront à <b>Disponible</b> avec le tarif de leur ville.
             </p>
             {availabilityBons === null ? (
               <p className="mt-4 text-xs text-mute">Chargement des Bons de remise…</p>
@@ -477,9 +490,9 @@ export default function ConducesPage() {
             ) : (
               <div className="mt-4 max-h-64 space-y-2 overflow-y-auto">
                 {availabilityBons.map((bon) => (
-                  <label key={bon.id} className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 ${availabilityBonId === bon.id ? "border-navy bg-blue-50" : "border-line"}`}>
-                    <input type="radio" name="availability-bon" className="h-4 w-4" checked={availabilityBonId === bon.id}
-                      onChange={() => setAvailabilityBonId(bon.id)} disabled={availabilityBusy} />
+                  <label key={bon.id} className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 ${availabilityBonIds.includes(bon.id) ? "border-navy bg-blue-50" : "border-line"}`}>
+                    <input type="checkbox" className="h-4 w-4" checked={availabilityBonIds.includes(bon.id)}
+                      onChange={() => toggleAvailabilityBon(bon.id)} disabled={availabilityBusy} />
                     <span className="min-w-0">
                       <span className="block text-sm font-bold text-navy">{bon.destination || "Sans ville"} · {bon.package_count} colis</span>
                       <span className="block truncate text-[11px] text-mute">{bon.bon_number} · {dateFr(bon.created_at)}</span>
@@ -490,9 +503,9 @@ export default function ConducesPage() {
             )}
             <div className="mt-5 flex justify-end gap-2">
               <button className="btn btn-ghost" onClick={() => setAvailabilityFolder(null)} disabled={availabilityBusy}>Annuler</button>
-              <BusyButton className="btn btn-brand" onClick={makeAvailable} busy={availabilityBusy} disabled={!availabilityBonId}
+              <BusyButton className="btn btn-brand" onClick={makeAvailable} busy={availabilityBusy} disabled={!availabilityBonIds.length}
                 busyLabel="Application…">
-                <CheckCircle2 size={15} /> Rendre disponible
+                <CheckCircle2 size={15} /> Rendre disponible{availabilityBonIds.length > 1 ? ` (${availabilityBonIds.length} villes)` : ""}
               </BusyButton>
             </div>
           </div>
