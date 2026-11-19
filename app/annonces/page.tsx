@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { ImagePlus, Megaphone, Send, Trash2, Video, X } from "@/components/icons";
 import { supabase } from "@/lib/supabase";
+import { compressImage } from "@/lib/compress-image";
 import { BusyButton } from "@/components/Loader";
 import { getVilles } from "@/lib/db";
 import { dateFr } from "@/lib/utils";
@@ -80,11 +81,13 @@ export default function AnnoncesPage() {
       let media: { path: string; kind: string }[] = [];
       if (picked.length) {
         setProgress("Préparation de l'envoi…");
-        const { uploads } = await api({ action: "upload_urls", files: picked.map((item) => ({ type: item.file.type, size: item.file.size })) });
+        // Photos allégées avant l'envoi : chaque client télécharge le diaporama.
+        const files = await Promise.all(picked.map((item) => compressImage(item.file)));
+        const { uploads } = await api({ action: "upload_urls", files: files.map((file) => ({ type: file.type, size: file.size })) });
         for (let i = 0; i < picked.length; i++) {
           setProgress(`Envoi du fichier ${i + 1}/${picked.length}…`);
           const upload = uploads[i] as { path: string; token: string; kind: string };
-          const { error } = await supabase.storage.from("announcements").uploadToSignedUrl(upload.path, upload.token, picked[i].file, { contentType: picked[i].file.type });
+          const { error } = await supabase.storage.from("announcements").uploadToSignedUrl(upload.path, upload.token, files[i], { contentType: files[i].type, cacheControl: "31536000" });
           if (error) throw new Error(`Envoi de ${picked[i].file.name} impossible.`);
           media.push({ path: upload.path, kind: upload.kind });
         }

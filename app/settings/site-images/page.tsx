@@ -7,6 +7,7 @@ import { useRole } from "@/lib/authx";
 import { supabase } from "@/lib/supabase";
 import { useNoticeToast } from "@/lib/notify";
 import { SITE_IMAGE_BUCKET, SITE_IMAGE_SLOTS } from "@/lib/site-image-slots";
+import { compressImage } from "@/lib/compress-image";
 
 /** Images du site public : changer, ou revenir à l'image d'origine. */
 export default function SiteImagesPage() {
@@ -34,11 +35,13 @@ export default function SiteImagesPage() {
   }, [api]);
   useEffect(() => { if (role === "admin") void load(); }, [role, load]);
 
-  const upload = async (slot: string, file: File) => {
+  const upload = async (slot: string, original: File) => {
     setBusy(slot);
     try {
+      // Photo allégée (≈ 150 Ko au lieu de plusieurs Mo) : chaque visiteur la télécharge.
+      const file = await compressImage(original);
       const { path, token } = await api({ action: "upload_url", slot, type: file.type, size: file.size });
-      const { error } = await supabase.storage.from(SITE_IMAGE_BUCKET).uploadToSignedUrl(path, token, file, { contentType: file.type });
+      const { error } = await supabase.storage.from(SITE_IMAGE_BUCKET).uploadToSignedUrl(path, token, file, { contentType: file.type, cacheControl: "31536000" });
       if (error) throw new Error("Envoi de l'image impossible.");
       await api({ action: "set", slot, path });
       setNotice("Image remplacée. Elle apparaît sur le site d'ici une minute.");
