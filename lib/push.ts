@@ -131,12 +131,24 @@ async function saveOnServer(kind: "client" | "staff", data: WebPushSubscriptionD
   const { data: session } = await supabase.auth.getSession();
   const token = session.session?.access_token;
   if (!token) throw new Error("session");
-  const res = await withTimeout(fetch("/api/push-subscribe", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, kind, ...data })
-  }), 20000, "timeout:save");
-  const j = await res.json().catch(() => ({ ok: false, reason: "save" }));
-  if (!j.ok) throw new Error("save:" + (j.reason ?? res.status));
+  // Réseau mobile faible (« Failed to fetch », « timeout:save » dans le Journal) :
+  // trois essais espacés avant d'abandonner.
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+    try {
+      const res = await withTimeout(fetch("/api/push-subscribe", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, kind, ...data })
+      }), 25000, "timeout:save");
+      const j = await res.json().catch(() => ({ ok: false, reason: "save" }));
+      if (j.ok) return;
+      lastError = new Error("save:" + (j.reason ?? res.status));
+      // Refus net du serveur (session, données) : inutile de réessayer.
+      if (res.status >= 400 && res.status < 500) break;
+    } catch (e) { lastError = e; }
+  }
+  throw lastError instanceof Error ? lastError : new Error("save");
 }
 
 /**

@@ -477,7 +477,7 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
             else if (info?.email) problems.push(`${code}: ${j.reason ?? j.error ?? "erè enkoni"}`);
           } catch (err: any) { problems.push(`${code}: ${err?.message ?? "erè rezo"}`); }
         }
-        mailInfo = ` Email: ${sent} voye${noEmail ? `, ${noEmail} kliyan san imèl` : ""}. Notifikasyon telefòn: ${pushed} aparèy.` +
+        mailInfo = ` Courriel et notification : ${sent} client(s) en file d'attente, envoi automatique sous 2 minutes${noEmail ? ` (${noEmail} sans courriel : notification téléphone seulement)` : ""}.` +
           (problems.length ? ` ⚠️ ${problems.slice(0, 2).join(" | ").slice(0, 300)}` : "");
         // Tras dirab: si imèl echwe, kite yon antre nan Journal (toast la disparèt)
         if (problems.length) {

@@ -255,8 +255,9 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
               fournisseur: p.mcpack_data?.["Proveedor"] ?? ""
             }))
           });
-          const phone = ` Notifikasyon telefòn: ${j.pushSent ?? 0} aparèy.`;
-          mailInfo = (j.ok ? " Email voye." : client.email ? ` ⚠️ Email: ${j.reason ?? j.error ?? "echwe"}` : " Kliyan san imèl.") + phone;
+          mailInfo = j.ok
+            ? " Courriel et notification en file d'attente : envoi automatique sous 2 minutes."
+            : ` ⚠️ Notification : ${j.reason ?? j.error ?? "échec"}`;
           if (!j.ok && client.email) {
             await logAction("Notification courriel échouée",
               `${bulkStatus} · ${client.customer_code}: ${j.error ?? j.reason ?? "echwe"}`,

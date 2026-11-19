@@ -242,8 +242,8 @@ export default function SyncPage() {
           "", "");
       }
       setApplyDone(
-        `✅ Import de facture ${r.batchId} : ${r.updated} colis « Disponible » • ${sent} courriel(s) envoyé(s)` +
-        `${noEmail ? `, ${noEmail} sans courriel` : ""} • ${pushed} notification(s) téléphone.` +
+        `✅ Import de facture ${r.batchId} : ${r.updated} colis « Disponible » • ${sent} client(s) prévenu(s) automatiquement sous 2 minutes` +
+        `${noEmail ? ` (${noEmail} sans courriel : notification téléphone seulement)` : ""}.` +
         (problems.length ? ` ⚠️ ${problems.slice(0, 2).join(" | ").slice(0, 200)}` : ""));
       setLastBatch(r.batchId);
       setFactures(null); setFactureText(""); setCorrections({});

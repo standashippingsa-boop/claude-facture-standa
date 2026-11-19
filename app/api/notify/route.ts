@@ -114,6 +114,10 @@ export async function POST(req: Request) {
       from_domain: domainOf(from),
       from_is_default: !process.env.EMAIL_FROM,
       domain_matches_expected: domainOf(from) === domainOf(EXPECTED_FROM),
+      // Push : présence des clés seulement (jamais leur valeur).
+      vapid_ready: !!((process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) && process.env.VAPID_PRIVATE_KEY),
+      firebase_present: !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
+      firebase_project: (() => { try { return String(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || "{}").project_id ?? ""); } catch { return "invalide"; } })(),
     };
     if (body.probe === "diag") return NextResponse.json({ ok: true, config });
 
@@ -148,10 +152,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, code: "auth", error: notifyGate.error }, { status: notifyGate.status });
   }
 
-  // Push la se yon kanal SEPARE: nou eseye l kanmenm si imèl la pa konfigire
-  // oswa kliyan an pa gen adrès imèl — youn pa dwe bloke lòt la. De kanal
-  // push kouri an paralèl: Web Push (navigatè/PWA) AK FCM (app Android
-  // Uptodown) — yon kliyan ka gen youn, lòt la, oswa toulede.
+  // « Reçu à Miami » et « Disponible » : le courriel et le push partent
+  // maintenant de la file d'attente (notification_outbox, remplie par un
+  // trigger sur le statut du colis, envoyée chaque minute par
+  // /api/notify-dispatch). Les envoyer aussi d'ici créerait des doublons.
+  if (body.type === "recu_miami" || body.type === "disponible") {
+    return NextResponse.json({ ok: true, queued: true, pushSent: 0 });
+  }
+
+  // « facture » : push seulement (le PDF part déjà par WhatsApp). Deux canaux
+  // en parallèle : Web Push (navigateur/PWA) et FCM (app Android).
   const adminConfig = getSupabaseAdminConfig();
   let pushSent = 0;
   if (adminConfig && body?.client?.code) {
@@ -164,19 +174,5 @@ export async function POST(req: Request) {
     if (fcmResult.status === "fulfilled") pushSent += fcmResult.value;
   }
 
-  // "facture" se push sèlman — dokiman an deja voye pa WhatsApp (PDF).
-  // buildHtml pa gen modèl imèl pou tip sa a.
-  if (body.type === "facture") return NextResponse.json({ ok: true, pushSent });
-
-  if (!key) return NextResponse.json({ skipped: true, code: "no_key", reason: "RESEND_API_KEY pa konfigire", pushSent });
-  if (!body?.client?.email) return NextResponse.json({ skipped: true, code: "no_email", reason: "kliyan san imèl", pushSent });
-
-  try {
-    const { subject, html } = buildHtml(body);
-    const r = await sendViaResend(key, body.client.email, subject, html);
-    if (r.ok) return NextResponse.json({ ok: true, id: r.id, pushSent });
-    return NextResponse.json({ ok: false, code: r.code, status: r.status, error: r.message, pushSent }, { status: 200 });
-  } catch (e) {
-    return NextResponse.json({ ok: false, code: "exception", error: String(e), pushSent }, { status: 200 });
-  }
+  return NextResponse.json({ ok: true, pushSent });
 }

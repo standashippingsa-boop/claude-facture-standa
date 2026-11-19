@@ -452,6 +452,7 @@ export default function SettingsPage() {
       {role === "admin" && <InvoiceAdviceSection onNotice={setNotice} />}
 
       {role === "admin" && <EmailNotificationsSection />}
+      {role === "admin" && <NotificationQueueSection />}
 
       {role === "admin" && <AffiliateSettingsSection onNotice={setNotice} />}
 
@@ -887,6 +888,9 @@ interface EmailDiag {
   from_domain: string;
   from_is_default: boolean;
   domain_matches_expected: boolean;
+  vapid_ready?: boolean;
+  firebase_present?: boolean;
+  firebase_project?: string;
 }
 
 // ================= PWOGRAM AFFILIATION (admin sèlman) =================
@@ -1065,6 +1069,18 @@ function EmailNotificationsSection() {
               <span className="text-amber-700">⚠ différent du domaine attendu · il doit être vérifié sur Resend</span>
             )}
           </div>
+          <div>
+            <b>Notifications navigateur (VAPID) :</b>{" "}
+            {diag.vapid_ready ? <span className="text-emerald-700">✓ configurées</span> : <span className="text-red-600 font-semibold">✗ clés absentes · aucune notification navigateur</span>}
+          </div>
+          <div>
+            <b>Notifications app Android (Firebase) :</b>{" "}
+            {diag.firebase_present
+              ? <span className={diag.firebase_project === "planning-with-ai-d1512" ? "text-emerald-700" : "text-red-600 font-semibold"}>
+                  {diag.firebase_project === "planning-with-ai-d1512" ? "✓ configurées" : `✗ clé d'un autre projet Firebase (${diag.firebase_project || "inconnu"}) · l'app Android attend « planning-with-ai-d1512 »`}
+                </span>
+              : <span className="text-red-600 font-semibold">✗ FIREBASE_SERVICE_ACCOUNT_JSON absent · aucune notification dans l&apos;app Android</span>}
+          </div>
         </div>
       )}
 
@@ -1097,6 +1113,113 @@ function EmailNotificationsSection() {
           <li><b>« kliyan san imèl »</b> : la fiche client n&apos;a pas d&apos;adresse électronique.</li>
         </ol>
       </details>
+    </section>
+  );
+}
+
+// ================= FILE D'ATTENTE DES NOTIFICATIONS (admin) =================
+type OutboxLine = { id: string; customer_code: string; event: string; state: string; attempts: number; email_state: string | null; push_count: number; last_error: string | null; created_at: string; sent_at: string | null; next_attempt_at: string };
+type DispatchRun = { at: string; groups: number; emails: number; pushes: number; retried: number; failed: number; skipped: number; errors?: string[] };
+
+/**
+ * Suivi des courriels et notifications envoyés automatiquement aux clients :
+ * ce qui est parti, ce qui attend un nouvel essai, ce qui a échoué et pourquoi.
+ */
+function NotificationQueueSection() {
+  const [lines, setLines] = useState<OutboxLine[] | null>(null);
+  const [lastRun, setLastRun] = useState<DispatchRun | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  useNoticeToast(message, setMessage);
+
+  const load = async () => {
+    const since = new Date(Date.now() - 7 * 86400000).toISOString();
+    const [{ data }, { data: run }] = await Promise.all([
+      supabase.from("notification_outbox")
+        .select("id, customer_code, event, state, attempts, email_state, push_count, last_error, created_at, sent_at, next_attempt_at")
+        .gte("created_at", since).order("created_at", { ascending: false }).limit(1000),
+      supabase.from("app_settings").select("value").eq("key", "notify_dispatch_last_run").maybeSingle(),
+    ]);
+    setLines((data ?? []) as OutboxLine[]);
+    try { setLastRun(run?.value ? JSON.parse(String(run.value)) as DispatchRun : null); } catch { setLastRun(null); }
+  };
+  useEffect(() => { void load(); }, []);
+
+  const dispatch = async (action: "run" | "retry_failed") => {
+    setBusy(true);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const res = await fetch("/api/notify-dispatch", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, token: data.session?.access_token ?? "" }),
+      });
+      const j = await res.json().catch(() => ({ ok: false, reason: "Réponse illisible." }));
+      setMessage(j.ok
+        ? { ok: true, text: `${j.emails} courriel(s) et ${j.pushes} notification(s) envoyés${j.retried ? `, ${j.retried} colis en attente d'un nouvel essai` : ""}${j.failed ? `, ${j.failed} échec(s)` : ""}.` }
+        : { ok: false, text: j.reason || "Envoi impossible." });
+      await load();
+    } catch (e) {
+      setMessage({ ok: false, text: "Erreur réseau : " + (e instanceof Error ? e.message : String(e)) });
+    } finally { setBusy(false); }
+  };
+
+  const count = (state: string) => (lines ?? []).filter((line) => line.state === state).length;
+  const problems = (lines ?? []).filter((line) => line.state === "failed" || (line.state === "pending" && line.attempts > 0)).slice(0, 15);
+  const waiting = (lines ?? []).filter((line) => line.state === "pending" || line.state === "processing");
+  const oldestNew = waiting.filter((line) => line.attempts === 0)
+    .reduce<string | null>((min, line) => (!min || line.created_at < min ? line.created_at : min), null);
+  // Une notification jamais tentée depuis plus de 10 minutes : l'envoi automatique ne tourne pas.
+  const stuck = !!oldestNew && Date.now() - Date.parse(oldestNew) > 10 * 60000;
+  const when = (iso: string | null) => iso ? new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "·";
+
+  return (
+    <section className="card p-6 space-y-3">
+      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">📬 Suivi des notifications clients</h2>
+      <p className="text-xs text-slate-500">
+        Chaque colis qui passe <b>« Reçu à Miami »</b> ou <b>« Disponible »</b> entre dans une file d&apos;attente, quel que soit le bouton utilisé.
+        Toutes les minutes, le serveur envoie le courriel et la notification téléphone, et réessaie automatiquement en cas d&apos;échec. 7 derniers jours :
+      </p>
+      {lines === null ? <Loader inline /> : lines.length === 0 && !lastRun ? (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Aucune notification enregistrée pour l&apos;instant. Si des colis ont changé de statut, vérifiez que le SQL de la file d&apos;attente a bien été exécuté dans Supabase.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
+            {([["sent", "Envoyées", "text-emerald-700"], ["pending", "En attente", "text-navy"], ["failed", "Échouées", "text-red-600"], ["skipped", "Sans moyen de contact", "text-slate-500"]] as const).map(([state, label, cls]) => (
+              <div key={state} className="rounded-lg bg-mist px-2 py-2.5">
+                <p className={`text-lg font-extrabold tabular-nums ${cls}`}>{count(state) + (state === "pending" ? count("processing") : 0)}</p>
+                <p className="text-[11px] text-slate-500">{label}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Dernier passage de l&apos;envoi automatique : <b>{when(lastRun?.at ?? null)}</b>
+            {lastRun ? ` · ${lastRun.emails} courriel(s), ${lastRun.pushes} notification(s)` : ""}
+          </p>
+          {stuck && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800">
+              Des notifications attendent depuis plus de 10 minutes : l&apos;envoi automatique ne tourne pas. Cliquez « Envoyer maintenant » ; si cela continue, vérifiez la tâche « standa-notify-dispatch » dans Supabase → Integrations → Cron.
+            </p>
+          )}
+          {problems.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+              <p className="font-bold">À vérifier</p>
+              <ul className="mt-1 space-y-0.5">
+                {problems.map((line) => (
+                  <li key={line.id}>
+                    <b>{line.customer_code}</b> · {line.event === "recu_miami" ? "Reçu à Miami" : "Disponible"} · {when(line.created_at)} ·{" "}
+                    {line.state === "failed" ? "échec définitif" : `nouvel essai ${when(line.next_attempt_at)}`} : {line.last_error || line.email_state || "erreur inconnue"}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <BusyButton className="btn" onClick={() => dispatch("run")} busy={busy} busyLabel="Envoi…">Envoyer maintenant</BusyButton>
+        <button type="button" className="btn btn-ghost border border-line" disabled={busy || !count("failed")} onClick={() => void dispatch("retry_failed")}>Relancer les échecs ({count("failed")})</button>
+        <button type="button" className="btn btn-ghost border border-line" disabled={busy} onClick={() => void load()}>Actualiser</button>
+      </div>
     </section>
   );
 }

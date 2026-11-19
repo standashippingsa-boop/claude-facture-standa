@@ -805,3 +805,14 @@ commit;
 -- If the current frontend directly inserts customer registrations while
 -- unauthenticated, move that registration flow to a protected server/API
 -- endpoint before removing any remaining anonymous INSERT dependency.
+
+-- ── File d'attente des notifications client (20261118120000_notification_outbox.sql) ──
+-- Lecture réservée au personnel ; écritures seulement par le trigger (security
+-- definer) et par le serveur avec la clé service.
+alter table if exists public.notification_outbox enable row level security;
+drop policy if exists "staff read notification outbox" on public.notification_outbox;
+create policy "staff read notification outbox" on public.notification_outbox
+  for select to authenticated using (public.is_staff());
+-- Secrets serveur (ex. secret pg_cron → /api/notify-dispatch) : AUCUNE politique,
+-- donc illisibles pour anon et authenticated.
+alter table if exists public.app_secrets enable row level security;
