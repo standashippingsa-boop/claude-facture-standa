@@ -4,7 +4,8 @@ import Loader, { BusyButton } from "@/components/Loader";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Pencil, MapPin, Building2, BookOpen, ChevronRight, Check, Copy, ExternalLink, Link2 } from "@/components/icons";
+import { Plus, Trash2, Pencil, MapPin, Building2, BookOpen, ChevronRight, Check, Copy, ExternalLink, Link2, ArrowLeft, Calculator, Receipt, Mail, DollarSign, Users, Image, Store, Truck, Settings } from "@/components/icons";
+import { SettingsGroup, SettingsRow, SwitchRow } from "@/components/SettingsUI";
 import Link from "next/link";
 import {
   deleteVille, getSettings, getUsdRate,
@@ -31,6 +32,18 @@ const schema = z.object({
 });
 type Form = z.infer<typeof schema>;
 
+const PANELS = [
+  { id: "tarifs", title: "Tarifs" },
+  { id: "factures", title: "Factures et calcul des prix" },
+  { id: "notifications", title: "Notifications clients" },
+  { id: "affiliation", title: "Programme d’affiliation" },
+  { id: "personnel", title: "Personnel et agents de remise" },
+  { id: "guides", title: "Guides et liens" },
+  { id: "integrations", title: "MCPACK et intégrations" },
+  { id: "maintenance", title: "Maintenance" },
+] as const;
+type Panel = typeof PANELS[number]["id"];
+
 export default function SettingsPage() {
   const { role, loading: roleLoading } = useRole();
   const [villes, setVilles] = useState<Ville[]>([]);
@@ -55,6 +68,16 @@ export default function SettingsPage() {
   const [rate, setRate] = useState("0");
   const [notice, setNotice] = useState<string | null>(null);
   useNoticeToast(notice, setNotice);
+  const [panel, setPanel] = useState<Panel | null>(null);
+  useEffect(() => {
+    const read = () => {
+      const id = new URLSearchParams(window.location.search).get("s");
+      setPanel(PANELS.some((item) => item.id === id) ? id as Panel : null);
+    };
+    read();
+    window.addEventListener("popstate", read);
+    return () => window.removeEventListener("popstate", read);
+  }, []);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
     useForm<Form>({ resolver: zodResolver(schema) });
@@ -142,50 +165,72 @@ export default function SettingsPage() {
       </div>
     );
   }
-  return (
-    <div className="space-y-6 max-w-4xl">
-      <h1 className="text-xl font-extrabold text-navy">Paramètres</h1>
+  const go = (next: Panel | null) => {
+    setPanel(next);
+    try { window.history.pushState(null, "", next ? `?s=${next}` : window.location.pathname); } catch { /* ignore */ }
+    window.scrollTo({ top: 0 });
+  };
+  const current = PANELS.find((item) => item.id === panel);
 
+  return (
+    <div className="mx-auto max-w-3xl space-y-6">
+      {current ? (
+        <div className="flex items-center gap-1">
+          <button type="button" aria-label="Retour" onClick={() => go(null)} className="-ml-2 grid h-11 w-11 place-items-center rounded-full text-ink transition hover:bg-mist">
+            <ArrowLeft size={22} />
+          </button>
+          <h1 className="text-xl font-bold text-ink">{current.title}</h1>
+        </div>
+      ) : (
+        <h1 className="text-2xl font-bold text-ink">Paramètres</h1>
+      )}
+
+      {!current && (
+        <>
+          <SettingsGroup title="Tarifs et factures">
+            <SettingsRow icon={<Calculator size={19} />} title="Tarifs" sub="Prix par ville, taux de change, compte central, articles à prix fixe" onClick={() => go("tarifs")} />
+            <SettingsRow icon={<Receipt size={19} />} title="Factures et calcul des prix" sub="Taxes, petits colis, pied de page, patente et conseils" onClick={() => go("factures")} />
+          </SettingsGroup>
+
+          <SettingsGroup title="Clients">
+            <SettingsRow icon={<Mail size={19} />} title="Notifications clients" sub="Courriels, notifications téléphone et suivi des envois" onClick={() => go("notifications")} />
+            <SettingsRow icon={<DollarSign size={19} />} title="Programme d’affiliation" sub="Commissions et conditions des affiliés" onClick={() => go("affiliation")} />
+          </SettingsGroup>
+
+          <SettingsGroup title="Équipe">
+            <SettingsRow icon={<Users size={19} />} title="Personnel et agents de remise" sub="Comptes, rôles et points de retrait" onClick={() => go("personnel")} />
+            <SettingsRow icon={<BookOpen size={19} />} title="Guides et liens" sub="Manuels par rôle et liens des plateformes" onClick={() => go("guides")} />
+          </SettingsGroup>
+
+          <SettingsGroup title="Site public">
+            <SettingsRow icon={<Image size={19} />} title="Images du site" sub="Changer les photos du site public" href="/settings/site-images" />
+            <SettingsRow icon={<Store size={19} />} title="Agences et points de retrait" sub="Liste affichée sur la page /agences" href="/settings/agences" />
+          </SettingsGroup>
+
+          <SettingsGroup title="Système">
+            <SettingsRow icon={<Truck size={19} />} title="MCPACK et intégrations" sub="MCPACK, Ergens, extension Chrome et jetons API" onClick={() => go("integrations")} />
+            <SettingsRow icon={<Settings size={19} />} title="Maintenance" sub="Correction des colonnes Tracking" onClick={() => go("maintenance")} />
+          </SettingsGroup>
+        </>
+      )}
+
+      {panel === "guides" && (
+        <>
       <section className="card p-5">
-        <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand"><BookOpen size={19} /></span><div><h2 className="text-sm font-bold text-navy">Guides d’utilisation</h2><p className="mt-1 text-xs text-slate-500">Ouvrez le manuel adapté à chaque rôle avant de commencer les opérations.</p></div></div>
+        <div className="flex items-start gap-3"><div><h2 className="text-sm font-bold text-navy">Guides d’utilisation</h2><p className="mt-1 text-xs text-slate-500">Ouvrez le manuel adapté à chaque rôle avant de commencer les opérations.</p></div></div>
         <div className="mt-4 grid gap-2 sm:grid-cols-3"><Link href="/guide" className="rounded-xl border border-line bg-mist px-3 py-3 text-sm font-bold text-navy transition hover:border-brand/40 hover:bg-brand/5">Guide administrateur</Link><Link href="/guide/employe" className="rounded-xl border border-line bg-mist px-3 py-3 text-sm font-bold text-navy transition hover:border-brand/40 hover:bg-brand/5">Guide employé</Link><Link href="/guide/agent-retrait" className="rounded-xl border border-line bg-mist px-3 py-3 text-sm font-bold text-navy transition hover:border-brand/40 hover:bg-brand/5">Guide point de retrait</Link></div>
       </section>
 
       <PlatformLinksSection />
+        </>
+      )}
 
-      <Link href="/settings/site-images"
-        className="card p-5 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand/40 transition">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0">
-            <Building2 size={18} />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-navy">Images du site</h2>
-            <p className="text-xs text-slate-500">Changer les photos du site public.</p>
-          </div>
-        </div>
-        <ChevronRight size={18} className="text-slate-400 shrink-0" />
-      </Link>
-
-      {/* ===== Ajans / Pwen retrait (sit piblik /agences) ===== */}
-      <Link href="/settings/agences"
-        className="card p-5 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand/40 transition">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0">
-            <Building2 size={18} />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-navy">Ajans / Pwen retrait</h2>
-            <p className="text-xs text-slate-500">Jere lis ajans ki parèt sou paj piblik /agences.</p>
-          </div>
-        </div>
-        <ChevronRight size={18} className="text-slate-400 shrink-0" />
-      </Link>
-
+      {panel === "tarifs" && (
+        <>
       {/* ===== Tarification par ville ===== */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-navy uppercase tracking-wide flex items-center gap-2">
+          <h2 className="text-[15px] font-bold text-ink flex items-center gap-2">
             <MapPin size={15} /> Tarification par ville
           </h2>
           <button className="btn" onClick={openNew}><Plus size={15} /> Ajouter une ville</button>
@@ -266,7 +311,7 @@ export default function SettingsPage() {
 
       {/* ===== Taux de change ===== */}
       <section className="card p-5 space-y-3">
-        <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Taux de change</h2>
+        <h2 className="text-[15px] font-bold text-ink">Taux de change</h2>
         <p className="text-xs text-slate-500">
           Tout <b>nouvo</b> fakti itilize taux sa a. Ansyen fakti yo pa chanje · taux ki te itilize lè yo te kreye a rete anrejistre nan bazdone a.
         </p>
@@ -286,9 +331,9 @@ export default function SettingsPage() {
 
       {/* ===== Compte central business ===== */}
       <section className="card p-5 space-y-3">
-        <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Compte central business</h2>
+        <h2 className="text-[15px] font-bold text-ink">Compte central business</h2>
         <p className="text-xs text-slate-500 bg-mist rounded-lg px-3 py-2 leading-relaxed">
-          ℹ️ Kliyan biznis ki <b>poko gen pwòp kont yo</b> pase sou kont sa a. Li pa mare ak yon
+          Kliyan biznis ki <b>poko gen pwòp kont yo</b> pase sou kont sa a. Li pa mare ak yon
           sèl vil: li parèt nan <b>nenpòt Bon de Remise</b>, epi lè w ap fakti, ou chwazi vil
           destinasyon an · se tarif vil sa a ki aplike.
         </p>
@@ -312,9 +357,9 @@ export default function SettingsPage() {
 
       {/* ===== Articles à prix fixe (forfaits) ===== */}
       <section className="card p-5 space-y-3">
-        <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Articles à prix fixe</h2>
+        <h2 className="text-[15px] font-bold text-ink">Articles à prix fixe</h2>
         <p className="text-xs text-slate-500 bg-mist rounded-lg px-3 py-2 leading-relaxed">
-          ℹ️ Kèk koli pa fakti pa liv · yon laptòp 4 lb pa gen menm valè ak 4 lb rad.
+          Kèk koli pa fakti pa liv · yon laptòp 4 lb pa gen menm valè ak 4 lb rad.
           Atik ki nan lis sa a parèt nan fenèt fakti a: admin chwazi atik la pou yon koli,
           epi se <b>pri fòfè</b> a ki aplike.
         </p>
@@ -369,11 +414,16 @@ export default function SettingsPage() {
         </p>
       </section>
 
+        </>
+      )}
+
+      {panel === "factures" && (
+        <>
       {/* ===== Général ===== */}
       <section className="card p-5 space-y-4">
-        <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Général</h2>
+        <h2 className="text-[15px] font-bold text-ink">Factures et calcul des prix</h2>
         <p className="text-xs text-slate-500 bg-mist rounded-lg px-3 py-2">
-          ℹ️ Petits colis 0,10 à 0,99 lb : depi v8, yo kalkile <b>Pwa × Prix/lb vil la</b> menm
+          Petits colis 0,10 à 0,99 lb : depi v8, yo kalkile <b>Pwa × Prix/lb vil la</b> menm
           jan ak tout lòt koli. Pa gen pri fiks ankò.
         </p>
         <label className="block">
@@ -390,27 +440,22 @@ export default function SettingsPage() {
             Permet d&apos;ouvrir directement la conduce sur MCPACK depuis Synchronisation → Importer des Conduces.
           </span>
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={autoPricing} onChange={(e) => setAutoPricing(e.target.checked)} />
-          Tarification automatique lors de la synchronisation MCPACK
-        </label>
+        <div className="-mx-5 border-y border-line">
+          <SwitchRow title="Tarification automatique" sub="Calculer le prix des colis lors de la synchronisation MCPACK" checked={autoPricing} onChange={setAutoPricing} />
+        </div>
         <div className="border-t border-line pt-3 space-y-2">
-          <p className="text-xs font-bold text-navy uppercase tracking-wide">Composition des factures</p>
+          <p className="text-[13px] font-semibold text-ink">Composition des factures</p>
           <p className="text-[11px] text-slate-500">
             Kolòn <b>Prix USD / HTG</b> yo montre <b>sèlman pri transpò a</b>. Tax yo rete anrejistre
             nan sistèm nan, men yo antre nan kalkil fakti a SÈLMAN si w aktive yo isit la.
           </p>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={taxFixOn} onChange={(e) => setTaxFixOn(e.target.checked)} />
-            Inclure <b>Taxe fixe</b> dans les factures
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={taxDgaOn} onChange={(e) => setTaxDgaOn(e.target.checked)} />
-            Inclure <b>Taxe DGA</b>
-          </label>
+          <div className="-mx-5 divide-y divide-line border-y border-line">
+            <SwitchRow title="Taxe fixe" sub="Inclure la taxe fixe dans les factures" checked={taxFixOn} onChange={setTaxFixOn} />
+            <SwitchRow title="Taxe DGA" sub="Inclure la taxe DGA dans les factures" checked={taxDgaOn} onChange={setTaxDgaOn} />
+          </div>
         </div>
         <div className="border-t border-line pt-3 space-y-2">
-          <p className="text-xs font-bold text-navy uppercase tracking-wide">Tarification des petits colis</p>
+          <p className="text-[13px] font-semibold text-ink">Tarification des petits colis</p>
           <p className="text-[11px] text-slate-500">
             Lè administratè a chwazi mòd <b>Contrôle des petits colis</b> sou yon fakti, tout koli ki nan
             entèval sa a pran pri fiks la.
@@ -436,9 +481,33 @@ export default function SettingsPage() {
         <button className="btn" onClick={saveGeneral}>Enregistrer</button>
       </section>
 
+      <InvoiceAdviceSection onNotice={setNotice} />
+        </>
+      )}
+
+      {panel === "notifications" && (
+        <>
+      <EmailNotificationsSection />
+      <NotificationQueueSection />
+        </>
+      )}
+
+      {panel === "affiliation" && <AffiliateSettingsSection onNotice={setNotice} />}
+
+      {panel === "personnel" && <EmployesSection onNotice={setNotice} />}
+
+      {panel === "integrations" && (
+        <>
+      <McpackErgensSection onNotice={setNotice} />
+      <ApiTokensSection onNotice={setNotice} />
+        </>
+      )}
+
+      {panel === "maintenance" && (
+        <>
       {/* ===== MAINTENANCE (V8.5) ===== */}
       <section className="card p-6 space-y-3">
-        <h2 className="text-sm font-bold text-navy uppercase tracking-wide">🔧 Maintenance</h2>
+        <h2 className="text-[15px] font-bold text-ink">Maintenance</h2>
         <p className="text-xs text-slate-500">
           <b>Tracking ID</b> se tout kòd ki kòmanse ak <b>WR</b>.
           Tout lòt kòd se <b>Tracking Number</b>. Bouton sa a analize tout
@@ -449,19 +518,8 @@ export default function SettingsPage() {
         </button>
       </section>
 
-      {role === "admin" && <InvoiceAdviceSection onNotice={setNotice} />}
-
-      {role === "admin" && <EmailNotificationsSection />}
-      {role === "admin" && <NotificationQueueSection />}
-
-      {role === "admin" && <AffiliateSettingsSection onNotice={setNotice} />}
-
-      {role === "admin" && <ApiTokensSection onNotice={setNotice} />}
-
-      {role === "admin" && <McpackErgensSection onNotice={setNotice} />}
-
-      <EmployesSection onNotice={setNotice} />
-
+        </>
+      )}
     </div>
   );
 }
@@ -557,7 +615,7 @@ function McpackErgensSection({ onNotice }: { onNotice: (s: string) => void }) {
   };
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">MCPACK & Ergens</h2>
+      <h2 className="text-[15px] font-bold text-ink">MCPACK & Ergens</h2>
       <div className="card p-5 space-y-4">
         <p className="text-xs text-mute">Utilisé par le graphique « À payer à MCPACK » du tableau de bord. Les comptes Dokasav et Blic Express sont aussi reconnus par leur nom.</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -725,7 +783,7 @@ function EmployesSection({ onNotice }: { onNotice: (s: string) => void }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-navy uppercase tracking-wide">👥 Personnel et agents de remise</h2>
+          <h2 className="text-[15px] font-bold text-ink">Personnel et agents de remise</h2>
           <button className="btn" onClick={() => setShow((s) => !s)}>+ Nouveau compte</button>
       </div>
 
@@ -929,7 +987,7 @@ function AffiliateSettingsSection({ onNotice }: { onNotice: (s: string) => void 
 
   return (
     <section className="card p-6 space-y-3">
-      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">🤝 Programme d’affiliation</h2>
+      <h2 className="text-[15px] font-bold text-ink">Programme d’affiliation</h2>
       <p className="text-xs text-slate-500">
         Montant versé à un affilié pour chaque facture générée par un client qu&apos;il a
         parrainé, pendant la durée de son contrat · et le contrat PDF joint
@@ -980,7 +1038,7 @@ function InvoiceAdviceSection({ onNotice }: { onNotice: (s: string) => void }) {
   };
   return (
     <section className="card p-6 space-y-3">
-      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">Facture : patente et conseils</h2>
+      <h2 className="text-[15px] font-bold text-ink">Facture : patente et conseils</h2>
       <label className="block">
         <span className="text-xs font-medium text-slate-500">Numéro de patente (en tête de facture)</span>
         <input className="input mt-1" value={patent} onChange={(e) => setPatent(e.target.value)} disabled={!loaded} placeholder="Numéro de patente" />
@@ -1048,7 +1106,7 @@ function EmailNotificationsSection() {
 
   return (
     <section className="card p-6 space-y-3">
-      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">📧 Notifications courriel</h2>
+      <h2 className="text-[15px] font-bold text-ink">Notifications courriel</h2>
       <p className="text-xs text-slate-500">
         Lè yon koli pase <b>« Reçu à Miami »</b> oswa <b>« Disponible »</b>, kliyan an resevwa yon imèl
         otomatik. Sèvi ak tès sa a pou verifye ke sa mache <b>vre</b> · non sèlman sou papye.
@@ -1174,7 +1232,7 @@ function NotificationQueueSection() {
 
   return (
     <section className="card p-6 space-y-3">
-      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">📬 Suivi des notifications clients</h2>
+      <h2 className="text-[15px] font-bold text-ink">Suivi des notifications clients</h2>
       <p className="text-xs text-slate-500">
         Chaque colis qui passe <b>« Reçu à Miami »</b> ou <b>« Disponible »</b> entre dans une file d&apos;attente, quel que soit le bouton utilisé.
         Toutes les minutes, le serveur envoie le courriel et la notification téléphone, et réessaie automatiquement en cas d&apos;échec. 7 derniers jours :
@@ -1278,7 +1336,7 @@ function ApiTokensSection({ onNotice }: { onNotice: (s: string) => void }) {
 
   return (
     <section className="card p-6 space-y-3">
-      <h2 className="text-sm font-bold text-navy uppercase tracking-wide">🔌 API · Extension Chrome</h2>
+      <h2 className="text-[15px] font-bold text-ink">API · Extension Chrome</h2>
       <p className="text-xs text-slate-500">
         Kreye yon token pou konekte ekstansyon Chrome MCPACK la. Kopye token an yon sèl fwa
         epi kole l nan konfigirasyon ekstansyon an. Chak koli ki soti nan ekstansyon an
