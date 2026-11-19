@@ -22,10 +22,10 @@
  *
  * ⚠️ TOUT hooks yo deklare ANVAN nenpòt `return` kondisyonèl (règ React).
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle, Ban, Bell, BellRing, Megaphone, BookOpen, Calculator, ChevronDown, CircleCheck,
+  AlertTriangle, ArrowLeft, Ban, Bell, BellRing, Megaphone, BookOpen, Calculator, ChevronDown, CircleCheck,
   ChevronRight, Clock, FileText, HelpCircle, KeyRound, LogOut, MapPin,
   MessageCircle, PackageCheck, Phone, ReceiptText, RefreshCw, Route, Search, ShieldCheck, Store, Trash2, Truck, X
 } from "@/components/icons";
@@ -37,7 +37,7 @@ import {
   getClientRetraits, getSmallParcelConfig
 } from "@/lib/db";
 import { Agence, getAgences } from "@/lib/agences";
-import { autoEnablePush, isPushSupported, pushFailureMessage, reportPushFailure, subscribeToPush } from "@/lib/push";
+import { autoEnablePush, isPushSupported, pushFailureMessage, reportPushFailure, subscribeToPush, unsubscribeFromPush } from "@/lib/push";
 import { Client, Invoice, INTERNAL_STATUSES, Pkg, Retrait } from "@/lib/types";
 import { DEPOT } from "@/lib/depot";
 import { SUPPORT_PHONE } from "@/lib/branding";
@@ -57,7 +57,8 @@ import ClientInstallCard from "@/components/ClientInstallCard";
 import { announcementImageUrl, announcementMedia, getActiveAnnouncements, type Announcement } from "@/lib/announcements";
 import AnnouncementCarousel, { AnnouncementMediaSlider } from "@/components/AnnouncementCarousel";
 import ChallengeView from "@/components/ChallengeView";
-import ThemeToggle from "@/components/ThemeToggle";
+import { useTheme, type Theme } from "@/components/ThemeToggle";
+import { Moon, Sun } from "@getpapillon/papicons";
 import { ManifestCard, ParcelCard, PickupPass, arrivalDateOf } from "@/components/ClientParcelUI";
 import { getChallengeMe, type ChallengeMe } from "@/lib/challenge";
 import AddressGuide from "@/components/site/AddressGuide";
@@ -190,6 +191,10 @@ export default function EspaceClientPage() {
   const [pushBusy, setPushBusy] = useState(false);
   // Eta notifikasyon sou telefòn sa a — pou bouton « Activer les notifications ».
   const [pushState, setPushState] = useState<"on" | "off" | "denied" | "unsupported">("off");
+  // Le client a coupé lui-même les notifications (interrupteur Paramètres) :
+  // on ne les réactive plus automatiquement à l'ouverture de l'app.
+  const [pushOptOut, setPushOptOut] = useState(false);
+  const { theme, setTheme } = useTheme();
   const [retraitConfirmedCount, setRetraitConfirmedCount] = useState<number | null>(null);
 
   // Un seul chargement à la fois : sur un réseau lent, les rechargements
@@ -269,12 +274,19 @@ export default function EspaceClientPage() {
    * san nou pa re-mande chak jou (pa gen okenn lòt chanjman pou vèsyon sa a).
    */
   const PUSH_DISMISS_KEY_PREFIX = "standa:push-permission-dismissed-v2:";
+  const PUSH_OPTOUT_KEY_PREFIX = "standa:push-off:";
   useEffect(() => {
     const customerCode = client?.customer_code;
     if (!customerCode) return;
     if (!isPushSupported()) { setPushState("unsupported"); return; }
     let dismissed = false;
-    try { dismissed = window.localStorage.getItem(`${PUSH_DISMISS_KEY_PREFIX}${customerCode}`) === "1"; } catch { /* ignore */ }
+    let optOut = false;
+    try {
+      dismissed = window.localStorage.getItem(`${PUSH_DISMISS_KEY_PREFIX}${customerCode}`) === "1";
+      optOut = window.localStorage.getItem(`${PUSH_OPTOUT_KEY_PREFIX}${customerCode}`) === "1";
+    } catch { /* ignore */ }
+    setPushOptOut(optOut);
+    if (optOut) { setPushState("off"); return; }
     // Fenèt otorizasyon telefòn nan parèt dirèkteman lè kliyan an antre.
     // Si navigatè a mande yon tap (iPhone), fenèt pa nou an parèt kòm sekou.
     void autoEnablePush(() => subscribeToPush(customerCode)).then((state) => {
@@ -295,10 +307,27 @@ export default function EspaceClientPage() {
     setPushBusy(true);
     try {
       const r = await subscribeToPush(client.customer_code);
-      if (r.ok) { setToast("Notifications activées."); setPushState("on"); dismissPushBanner(); }
+      if (r.ok) {
+        setToast("Notifications activées."); setPushState("on"); setPushOptOut(false); dismissPushBanner();
+        try { window.localStorage.removeItem(`${PUSH_OPTOUT_KEY_PREFIX}${client.customer_code}`); } catch { /* ignore */ }
+      }
       else if (r.reason === "denied") { setPushState("denied"); setToast("Notifications refusées · activez les notifications depuis les réglages de votre navigateur si vous changez d'avis."); dismissPushBanner(); }
       // La bannière reste affichée : le client peut simplement réessayer.
       else { setToast(pushFailureMessage(r.reason)); void reportPushFailure(r.reason ?? "inconnu"); }
+    } finally { setPushBusy(false); }
+  };
+
+  /** Interrupteur « Notifications » de l'écran Paramètres. */
+  const togglePush = async () => {
+    if (!client?.customer_code || pushBusy) return;
+    if (pushState !== "on") { await activatePush(); return; }
+    setPushBusy(true);
+    try {
+      await unsubscribeFromPush();
+      try { window.localStorage.setItem(`${PUSH_OPTOUT_KEY_PREFIX}${client.customer_code}`, "1"); } catch { /* ignore */ }
+      setPushOptOut(true);
+      setPushState("off");
+      setToast("Notifications désactivées sur ce téléphone. Les courriels continuent d'arriver.");
     } finally { setPushBusy(false); }
   };
 
@@ -875,46 +904,119 @@ export default function EspaceClientPage() {
         </div>
       )}
 
-      {/* ══ MON COMPTE — fèy ki monte depi anba ekran an (pa yon ti meni ki koupe anlè) ══ */}
-      {menuOpen && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/45 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Mon compte"
-          onClick={() => setMenuOpen(false)}>
-          <div className="w-full max-w-md rounded-t-[28px] bg-white px-5 pb-8 pt-3 sm:rounded-[28px] sm:pb-6" onClick={(e) => e.stopPropagation()}>
-            <span aria-hidden="true" className="mx-auto block h-1.5 w-10 rounded-full bg-slate-200 sm:hidden" />
-            <div className="relative mt-5 flex flex-col items-center text-center">
-              <button aria-label="Fermer" onClick={() => setMenuOpen(false)} className="absolute -top-2 right-0 grid h-10 w-10 place-items-center rounded-full text-slate-400 hover:bg-mist"><X size={20} /></button>
-              <span aria-hidden="true" className="grid h-16 w-16 place-items-center rounded-full bg-navy text-xl font-extrabold text-white">{clientName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "S"}</span>
-              <p className="mt-3 max-w-full truncate text-lg font-extrabold text-ink">{clientName}</p>
-              <p className="mt-0.5 font-mono text-[13px] font-semibold text-mute">{client.customer_code}</p>
+      {/* ══ PARAMÈTRES — écran plein, lignes groupées façon réglages Android ══ */}
+      {menuOpen && (() => {
+        const pushOn = pushState === "on";
+        const pushLocked = pushState === "denied" || pushState === "unsupported";
+        const pushSub = pushState === "unsupported"
+          ? "Non disponible sur ce navigateur. Sur iPhone, installez d'abord l'application sur l'écran d'accueil."
+          : pushState === "denied"
+            ? "Bloquées dans les réglages du téléphone"
+            : pushOn ? "Colis reçus à Miami, colis disponibles" : "Désactivées sur ce téléphone";
+        const initials = clientName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "S";
+        const Row = ({ icon, label, sub, onClick, right, danger = false, checked }: {
+          icon: ReactNode; label: string; sub?: string; onClick?: () => void; right?: ReactNode; danger?: boolean; checked?: boolean;
+        }) => {
+          const inner = <>
+            <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${danger ? "bg-red-50 text-red-600" : "bg-navy/[.07] text-navy"}`}>{icon}</span>
+            <span className="min-w-0 flex-1">
+              <span className={`block text-[15px] font-semibold ${danger ? "text-red-600" : "text-ink"}`}>{label}</span>
+              {sub && <span className="mt-0.5 block text-[12.5px] leading-snug text-mute">{sub}</span>}
+            </span>
+            {right ?? (onClick ? <ChevronRight size={18} className="shrink-0 text-slate-300" /> : null)}
+          </>;
+          const cls = "flex min-h-[60px] w-full items-center gap-3.5 px-4 py-3 text-left";
+          return onClick
+            ? <button type="button" onClick={onClick} className={`${cls} transition active:bg-mist`}
+                {...(checked === undefined ? {} : { role: "switch", "aria-checked": checked })}>{inner}</button>
+            : <div className={cls}>{inner}</div>;
+        };
+        const Group = ({ title, children }: { title: string; children: ReactNode }) => (
+          <section>
+            <h3 className="px-4 pb-1.5 text-[13px] font-semibold text-navy">{title}</h3>
+            <div className="divide-y divide-line overflow-hidden rounded-2xl bg-white">{children}</div>
+          </section>
+        );
+        const themes: { id: Theme; label: string }[] = [{ id: "auto", label: "Auto" }, { id: "light", label: "Clair" }, { id: "dark", label: "Sombre" }];
+        return (
+          <div className="fixed inset-0 z-[80] overflow-y-auto bg-[#f2f3f7]" role="dialog" aria-modal="true" aria-label="Paramètres">
+            <div className="sticky top-0 z-10 flex h-14 items-center gap-1 bg-[#f2f3f7] px-2">
+              <button type="button" aria-label="Retour" onClick={() => setMenuOpen(false)} className="grid h-11 w-11 place-items-center rounded-full text-ink transition active:bg-black/5">
+                <ArrowLeft size={22} />
+              </button>
+              <h2 className="text-[19px] font-bold text-ink">Paramètres</h2>
             </div>
 
-            <p className="mb-1.5 mt-6 px-1 text-xs font-bold text-mute">Notifications</p>
-            <NotificationButton compact />
+            <div className="mx-auto max-w-md space-y-6 px-3 pb-10 pt-2">
+              {/* Profil */}
+              <div className="flex items-center gap-3.5 rounded-2xl bg-white px-4 py-4">
+                <span aria-hidden="true" className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-navy text-lg font-extrabold text-white">{initials}</span>
+                <div className="min-w-0">
+                  <p className="truncate text-[17px] font-bold text-ink">{clientName}</p>
+                  <p className="mt-0.5 font-mono text-[13px] font-semibold text-mute">{client.customer_code}</p>
+                </div>
+              </div>
 
-            <p className="mb-1.5 mt-5 px-1 text-xs font-bold text-mute">Affichage</p>
-            <ThemeToggle withLabel className="min-h-[52px] w-full rounded-2xl bg-mist px-4 text-left text-[15px] font-bold text-ink" />
+              <Group title="Notifications">
+                <Row icon={<BellRing size={18} />} label="Notifications" sub={pushSub}
+                  onClick={pushLocked ? undefined : () => void togglePush()} checked={pushLocked ? undefined : pushOn}
+                  right={<Switch on={pushOn} busy={pushBusy} disabled={pushLocked} />} />
+                {pushState === "denied" && (
+                  <p className="px-4 py-3 text-[12.5px] leading-relaxed text-mute">
+                    Pour les réactiver : touchez le cadenas à côté de l&apos;adresse du site (ou ouvrez les réglages du téléphone, puis Applications, puis STANDA), autorisez les notifications et revenez ici.
+                  </p>
+                )}
+                <Row icon={<MessageCircle size={18} />} label="Courriels" sub="Toujours envoyés à chaque étape de vos colis" />
+              </Group>
 
-            <p className="mb-1.5 mt-5 px-1 text-xs font-bold text-mute">Sécurité</p>
-            <button className="flex min-h-[60px] w-full items-center gap-3 rounded-2xl bg-mist px-4 text-left"
-              onClick={() => { setMenuOpen(false); setShowPwd(true); }}>
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-navy"><KeyRound size={18} /></span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-bold text-ink">Mot de passe</span>
-                <span className="block text-xs text-mute">Modifier le mot de passe de votre compte</span>
-              </span>
-              <ChevronRight size={18} className="shrink-0 text-slate-400" />
-            </button>
+              <Group title="Affichage">
+                <div className="px-4 py-3.5">
+                  <div className="flex items-center gap-3.5">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-navy/[.07] text-navy">{theme === "dark" ? <Moon size={18} /> : <Sun size={18} />}</span>
+                    <span className="flex-1 text-[15px] font-semibold text-ink">Thème</span>
+                  </div>
+                  <div role="radiogroup" aria-label="Thème" className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-mist p-1">
+                    {themes.map((option) => (
+                      <button key={option.id} type="button" role="radio" aria-checked={theme === option.id} onClick={() => setTheme(option.id)}
+                        className={`min-h-10 rounded-lg text-[14px] font-semibold transition ${theme === option.id ? "bg-white text-navy shadow-sm" : "text-mute"}`}>
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </Group>
 
-            <button className="mt-5 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-navy text-[15px] font-bold text-navy" onClick={logout}>
-              <LogOut size={18} /> Se déconnecter
-            </button>
-            <button className="mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 text-[13px] font-semibold text-red-600"
-              onClick={() => { setMenuOpen(false); setShowDelete(true); }}>
-              <Trash2 size={15} /> Supprimer mon compte
-            </button>
+              <Group title="Compte">
+                <Row icon={<MapPin size={18} />} label="Mon adresse à Miami" sub="À copier sur Amazon, SHEIN et les autres sites"
+                  onClick={() => { setMenuOpen(false); setView("adresse"); }} />
+                <Row icon={<KeyRound size={18} />} label="Mot de passe" sub="Modifier le mot de passe de votre compte"
+                  onClick={() => { setMenuOpen(false); setShowPwd(true); }} />
+              </Group>
+
+              <Group title="Aide">
+                <Row icon={<HelpCircle size={18} />} label="Guide et questions fréquentes"
+                  onClick={() => { setMenuOpen(false); setView("infos"); }} />
+                <a href={WA_LINK} target="_blank" rel="noreferrer" className="flex min-h-[60px] w-full items-center gap-3.5 px-4 py-3 text-left transition active:bg-mist">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-navy/[.07] text-navy"><WhatsAppIcon size={18} /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-semibold text-ink">Écrire à STANDA sur WhatsApp</span>
+                    <span className="mt-0.5 block text-[12.5px] text-mute">{SUPPORT_PHONE}</span>
+                  </span>
+                  <ChevronRight size={18} className="shrink-0 text-slate-300" />
+                </a>
+              </Group>
+
+              <div className="divide-y divide-line overflow-hidden rounded-2xl bg-white">
+                <Row icon={<LogOut size={18} />} label="Se déconnecter" onClick={logout} right={<span />} />
+                <Row icon={<Trash2 size={18} />} label="Supprimer mon compte" danger right={<span />}
+                  onClick={() => { setMenuOpen(false); setShowDelete(true); }} />
+              </div>
+
+              <p className="pt-2 text-center text-[12px] text-slate-400">STANDA COMMERCIAL</p>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div className="client-app-content mx-auto space-y-4 px-4 pb-5 pt-5 sm:px-5">
 
@@ -988,7 +1090,7 @@ export default function EspaceClientPage() {
               </div>
             )}
 
-            {(pushState === "off" || pushState === "denied") && <NotificationButton />}
+            {!pushOptOut && (pushState === "off" || pushState === "denied") && <NotificationButton />}
 
             <ClientInstallCard />
 
@@ -1540,5 +1642,17 @@ export default function EspaceClientPage() {
         </div>
       </nav>
     </div>
+  );
+}
+
+/** Interrupteur visuel façon Android (le clic est géré par la ligne entière). */
+function Switch({ on, busy = false, disabled = false }: { on: boolean; busy?: boolean; disabled?: boolean }) {
+  return (
+    <span aria-hidden="true"
+      className={`relative inline-flex h-8 w-[52px] shrink-0 items-center rounded-full transition-colors duration-200 ${on ? "bg-navy" : "bg-slate-300"} ${disabled ? "opacity-40" : ""}`}>
+      <span className={`grid h-6 w-6 place-items-center rounded-full bg-white shadow transition-transform duration-200 ${on ? "translate-x-[24px]" : "translate-x-[4px]"}`}>
+        {busy && <Spinner size={12} />}
+      </span>
+    </span>
   );
 }
