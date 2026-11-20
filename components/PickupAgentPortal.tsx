@@ -16,6 +16,9 @@ import type { PaymentInvoice } from "@/lib/payment-allocation";
 import Logo from "@/components/Logo";
 import { cn } from "@/lib/cn";
 import StaffNotifications from "@/components/StaffNotifications";
+import { ParcelCard } from "@/components/ClientParcelUI";
+import { ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
+import type { Pkg } from "@/lib/types";
 
 import { MessageScreen } from "@/components/Toaster";
 import PwaInstallButton from "@/components/PwaInstallButton";
@@ -26,6 +29,7 @@ type ZonePackage = {
   invoice_id: string; invoice_number: string; invoice_payment_status: string; invoice_payment_details: string;
   is_central_account: boolean;
   is_special: boolean; special_reason: string;
+  weight?: number; created_at?: string; status_dates?: Record<string, string> | null;
 };
 type InvoicePaymentLine = { method: string; amount: number; currency: string; created_at: string; by: string };
 type ZoneInvoice = {
@@ -121,6 +125,8 @@ export default function PickupAgentPortal() {
   // Ticket de remise affiché à l'écran (aperçu + impression) et proposition de
   // remise juste après un paiement qui rend les colis du client remettables.
   const [ticketPackageId, setTicketPackageId] = useState<string | null>(null);
+  // Détail d'un colis (même écran que le client voit dans son app).
+  const [trackingParcel, setTrackingParcel] = useState<ZonePackage | null>(null);
   const [remiseOffer, setRemiseOffer] = useState<{ customerCode: string; packageIds: string[]; paymentText: string } | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
@@ -271,6 +277,14 @@ export default function PickupAgentPortal() {
   const toggleArrivalCustomer = (customerCode: string) => {
     setExpandedCustomer((current) => current === customerCode ? null : customerCode);
     setArrivalSection(null);
+  };
+
+  /** Toute ligne client (À remettre, Colis en route) ouvre le même dossier client. */
+  const openClientFile = (customerCode: string) => {
+    if (!dossiers.some((dossier) => dossier.customerCode === customerCode)) return false;
+    setTab("dossiers"); setSearch(""); setFocusedPackageId(null); setExpandedCustomer(customerCode);
+    setSelectedInvoiceId(null); setMessage(null);
+    return true;
   };
 
   const openDossier = () => {
@@ -502,11 +516,11 @@ export default function PickupAgentPortal() {
   const shownGroups = groupPage.length ? groupPage : groups;
   const onCustomerPage = (tab === "dossiers" && dossierPage.length > 0) || ((tab === "ready" || tab === "arrivals") && groupPage.length > 0)
     || (tab === "history" && !!expandedCustomer && filteredPackages.some((item) => item.customer_code === expandedCustomer));
-  const TAB_TITLES: Record<Tab, string> = { home: "Accueil", dossiers: "Dossiers clients", arrivals: "Colis à venir", ready: "À remettre", bons: "Bons de remise", history: "Colis remis", reports: "Rapport", settings: "Paramètres" };
+  const TAB_TITLES: Record<Tab, string> = { home: "Accueil", dossiers: "Clients", arrivals: "Colis en route", ready: "Colis à remettre", bons: "Bons de remise", history: "Colis remis", reports: "Caisse et rapport", settings: "Paramètres" };
   const pageTitle = subPage === "payment" ? `Paiement · ${paymentTarget?.customerCode ?? ""}`
     : subPage === "invoice" ? `Facture ${selectedInvoice?.invoice_number ?? ""}`
     : onCustomerPage && tab === "arrivals" && arrivalSection ? `${expandedCustomer} · ${arrivalSection === "haiti" ? "Arrivés en Haïti" : "À Miami · en cours"}`
-    : onCustomerPage ? `Client ${expandedCustomer}`
+    : onCustomerPage ? `Dossier ${expandedCustomer}`
     : TAB_TITLES[tab];
 
   const logout = async () => { await supabase.auth.signOut(); router.replace("/point-retrait"); };
@@ -548,15 +562,15 @@ export default function PickupAgentPortal() {
 
               {!subPage && tab === "settings" && <AgentSettingsView agentName={data.agent.name} pushPermission={pushPermission} pushBusy={pushBusy} onActivate={() => void activatePush()} />}
               {!subPage && tab === "home" && <HomeDashboard zoneName={data.zone.name} cash={cash} balanceCount={report.customer_balances.length}
-                counts={{ ready: ready.length, incoming: incoming.length, dossiers: dossiers.length, bons: pendingBonCount }}
+                counts={{ ready: ready.length, readyClients: new Set(ready.filter((item) => !item.is_central_account).map((item) => item.customer_code)).size, incoming: incoming.length, dossiers: dossiers.length, bons: pendingBonCount }}
                 payments={report.agent_payments} onGo={(next) => { goTab(next); if (next === "arrivals") setArrivalSection(null); }}
                 onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")}
                 search={search} onSearchChange={(value) => { setSearch(value); setFocusedPackageId(null); }} onOpenDossier={openDossier}
                 bons={data.bons} selectedBonId={selectedBonId} onSelectBon={setSelectedBonId}
                 bonBusy={bonBusy} bonConfirmedId={bonConfirmedId} onConfirmBon={confirmBonRemise} />}
-              {!subPage && tab === "dossiers" && <ClientDossiersView dossiers={shownDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
-              {!subPage && tab === "arrivals" && <ArrivalsView groups={shownGroups} expanded={expandedCustomer} section={arrivalSection} onToggleCustomer={toggleArrivalCustomer} onSelectSection={(value) => setArrivalSection(value)} />}
-              {!subPage && tab === "ready" && <ReadyView groups={shownGroups} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
+              {!subPage && tab === "dossiers" && <ClientDossiersView zoneName={data.zone.name} onOpenParcel={setTrackingParcel} dossiers={shownDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
+              {!subPage && tab === "arrivals" && <ArrivalsView groups={shownGroups} expanded={expandedCustomer} section={arrivalSection} onToggleCustomer={(customerCode) => { if (!openClientFile(customerCode)) toggleArrivalCustomer(customerCode); }} onSelectSection={(value) => setArrivalSection(value)} />}
+              {!subPage && tab === "ready" && <ReadyView groups={shownGroups} expanded={expandedCustomer} onExpand={(customerCode) => { if (customerCode && openClientFile(customerCode)) return; setExpandedCustomer(customerCode); }} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
               {!subPage && tab === "history" && <RemiseHistoryView packages={filteredPackages} onOpenTicket={(packageId) => setTicketPackageId(packageId)} openCustomer={expandedCustomer} onOpenCustomer={setExpandedCustomer} />}
               {!subPage && tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
               {!subPage && tab === "reports" && <ReportsView zoneName={data.zone.name} deliveries={delivered} allPayments={report.agent_payments} allBalances={report.customer_balances}
@@ -575,6 +589,7 @@ export default function PickupAgentPortal() {
     </div>
     {/* Ticket : hors de l'échelle réduite, pour que l'impression garde la vraie largeur du papier. */}
     {data && ticketPackageId && <RemiseTicketOverlay packageId={ticketPackageId} onClose={goBack} />}
+    {data && trackingParcel && <ClientTrackingDetails pkg={asClientPkg(trackingParcel)} customerName={trackingParcel.customer_name || trackingParcel.customer_code} destination={data.zone.name} onClose={() => setTrackingParcel(null)} />}
   </>;
 }
 
@@ -715,13 +730,16 @@ function SideNavigation({ tab, incoming, ready, dossiers, delivered, bons, balan
   return <aside className="sticky top-[4.5rem] hidden h-fit rounded-2xl bg-white p-2 ring-1 ring-slate-200/70 md:block">
     <div className="space-y-0.5">
       <Item label="Accueil" icon={<Home size={18} />} active={tab === "home"} onClick={onHome} />
-      <Item label="À remettre" count={ready} icon={<ClipboardCheck size={18} />} active={tab === "ready"} onClick={onReady} />
-      <Item label="Colis à venir" count={incoming} icon={<Truck size={18} />} active={tab === "arrivals"} onClick={onArrivals} />
-      <Item label="Dossiers clients" count={dossiers} icon={<Users size={18} />} active={tab === "dossiers"} onClick={onDossiers} />
-      <Item label="Rapport" count={balanceCount} icon={<Banknote size={18} />} active={tab === "reports"} onClick={onReports} />
-      <Item label="Colis remis" count={delivered} icon={<CheckCircle2 size={18} />} active={tab === "history"} onClick={onHistory} />
+      <Item label="Clients" count={dossiers} icon={<Users size={18} />} active={tab === "dossiers"} onClick={onDossiers} />
+      <Item label="Caisse et rapport" count={balanceCount} icon={<Banknote size={18} />} active={tab === "reports"} onClick={onReports} />
     </div>
-    <div className="mt-2 space-y-0.5 border-t border-slate-100 pt-2"><Item label="Bons de remise" count={bons} icon={<FileText size={18} />} active={tab === "bons"} onClick={onBons} /><Item label="Paramètres" icon={<Settings size={18} />} active={tab === "settings"} onClick={onSettings} /></div>
+    <div className="mt-2 space-y-0.5 border-t border-slate-100 pt-2">
+      <Item label="Colis à remettre" count={ready} icon={<ClipboardCheck size={18} />} active={tab === "ready"} onClick={onReady} />
+      <Item label="Colis en route" count={incoming} icon={<Truck size={18} />} active={tab === "arrivals"} onClick={onArrivals} />
+      <Item label="Bons de remise" count={bons} icon={<FileText size={18} />} active={tab === "bons"} onClick={onBons} />
+      <Item label="Colis remis" count={delivered} icon={<CheckCircle2 size={18} />} active={tab === "history"} onClick={onHistory} />
+      <Item label="Paramètres" icon={<Settings size={18} />} active={tab === "settings"} onClick={onSettings} />
+    </div>
   </aside>;
 }
 
@@ -729,23 +747,23 @@ function MobileNavigation({ tab, moreOpen, onHome, onArrivals, onReports, onRead
   tab: Tab; moreOpen: boolean;
   onHome: () => void; onArrivals: () => void; onReports: () => void; onReady: () => void; onToggleMore: () => void; onDossiers: () => void; onHistory: () => void; onBons: () => void; onSettings: () => void;
 }) {
-  const NavButton = ({ label, icon, active, onClick }: { label: string; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cn("flex h-14 flex-1 flex-col items-center justify-center gap-1 text-[10px] font-medium transition", active ? "text-[#0b2a5b]" : "text-slate-400")}><span className={cn("grid h-7 w-12 place-items-center rounded-full transition", active && "bg-[#e7ecf5]")}>{icon}</span><span>{label}</span></button>;
-  const MoreItem = ({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) => <button type="button" onClick={onClick} className="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"><span className="text-slate-400">{icon}</span>{label}</button>;
+  const NavButton = ({ label, icon, active, onClick }: { label: string; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cn("flex h-16 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold transition", active ? "text-[#0b2a5b]" : "text-slate-400")}><span className={cn("grid h-8 w-14 place-items-center rounded-full transition", active && "bg-[#e7ecf5]")}>{icon}</span><span>{label}</span></button>;
+  const MoreItem = ({ label, hint, icon, onClick }: { label: string; hint: string; icon: ReactNode; onClick: () => void }) => <button type="button" onClick={onClick} className="flex min-h-14 w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-slate-50"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#e7ecf5] text-[#0b2a5b]">{icon}</span><span className="min-w-0"><span className="block text-sm font-semibold text-slate-800">{label}</span><span className="block text-xs text-slate-500">{hint}</span></span></button>;
   return <>
     {moreOpen && <button type="button" aria-label="Fermer le menu" onClick={onToggleMore} className="fixed inset-0 z-30 bg-slate-900/25 md:hidden" />}
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Navigation de l’espace de remise">
-      {moreOpen && <div className="absolute inset-x-3 bottom-[calc(100%+0.5rem)] rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-slate-200">
-        <MoreItem label="Dossiers clients" icon={<Users size={18} />} onClick={onDossiers} />
-        <MoreItem label="Colis remis" icon={<CheckCircle2 size={18} />} onClick={onHistory} />
-        <MoreItem label="Bons de remise" icon={<FileText size={18} />} onClick={onBons} />
-        <MoreItem label="Paramètres" icon={<Settings size={18} />} onClick={onSettings} />
+      {moreOpen && <div className="absolute inset-x-3 bottom-[calc(100%+0.5rem)] space-y-0.5 rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-slate-200">
+        <MoreItem label="Colis à remettre" hint="Clients dont les colis sont prêts" icon={<ClipboardCheck size={18} />} onClick={onReady} />
+        <MoreItem label="Colis en route" hint="À Miami ou en Haïti, pas encore à l’agence" icon={<Truck size={18} />} onClick={onArrivals} />
+        <MoreItem label="Bons de remise" hint="Documents de livraison reçus par l’agence" icon={<FileText size={18} />} onClick={onBons} />
+        <MoreItem label="Colis remis" hint="Historique et tickets de remise" icon={<CheckCircle2 size={18} />} onClick={onHistory} />
+        <MoreItem label="Paramètres" hint="Notifications de cet appareil" icon={<Settings size={18} />} onClick={onSettings} />
       </div>}
       <div className="mx-auto flex max-w-xl px-1">
-        <NavButton label="Accueil" icon={<Home size={18} />} active={tab === "home"} onClick={onHome} />
-        <NavButton label="À remettre" icon={<ClipboardCheck size={18} />} active={tab === "ready"} onClick={onReady} />
-        <NavButton label="À venir" icon={<Truck size={18} />} active={tab === "arrivals"} onClick={onArrivals} />
-        <NavButton label="Rapport" icon={<Banknote size={18} />} active={tab === "reports"} onClick={onReports} />
-        <NavButton label="Plus" icon={<MoreHorizontal size={18} />} active={moreOpen || tab === "dossiers" || tab === "history" || tab === "bons" || tab === "settings"} onClick={onToggleMore} />
+        <NavButton label="Accueil" icon={<Home size={19} />} active={tab === "home"} onClick={onHome} />
+        <NavButton label="Clients" icon={<Users size={19} />} active={tab === "dossiers"} onClick={onDossiers} />
+        <NavButton label="Caisse" icon={<Banknote size={19} />} active={tab === "reports"} onClick={onReports} />
+        <NavButton label="Plus" icon={<MoreHorizontal size={19} />} active={moreOpen || tab === "ready" || tab === "arrivals" || tab === "history" || tab === "bons" || tab === "settings"} onClick={onToggleMore} />
       </div>
     </nav>
   </>;
@@ -783,53 +801,65 @@ function AgentSettingsView({ agentName, pushPermission, pushBusy, onActivate }: 
   </div>;
 }
 
-/** Accueil : la caisse comme un solde de compte, les raccourcis, la recherche et les derniers paiements. */
+/**
+ * Accueil : d'abord chercher un client, puis les trois tâches de l'agence
+ * expliquées en une phrase chacune, puis la caisse et les derniers paiements.
+ */
 function HomeDashboard({
   zoneName, cash, balanceCount, counts, payments, onGo, onOpenReceipt,
   search, onSearchChange, onOpenDossier, bons, selectedBonId, onSelectBon, bonBusy, bonConfirmedId, onConfirmBon
 }: {
   zoneName: string; cash: { usd: number; htg: number }; balanceCount: number;
-  counts: { ready: number; incoming: number; dossiers: number; bons: number };
+  counts: { ready: number; readyClients: number; incoming: number; dossiers: number; bons: number };
   payments: AgentPayment[]; onGo: (tab: Tab) => void; onOpenReceipt: (paymentId: string) => void;
   search: string; onSearchChange: (value: string) => void; onOpenDossier: () => void;
   bons: ZoneBon[]; selectedBonId: string | null; onSelectBon: (id: string | null) => void;
   bonBusy: boolean; bonConfirmedId: string | null; onConfirmBon: (id: string, packageIds: string[]) => void;
 }) {
-  const shortcuts: Array<[Tab, string, ReactNode, number]> = [
-    ["ready", "À remettre", <ClipboardCheck key="r" size={20} />, counts.ready],
-    ["arrivals", "À venir", <Truck key="a" size={20} />, counts.incoming],
-    ["dossiers", "Dossiers", <Users key="d" size={20} />, counts.dossiers],
-    ["bons", "Bons", <FileText key="b" size={20} />, counts.bons]
+  const tasks: Array<[Tab, string, string, ReactNode, number, boolean]> = [
+    ["ready", "Remettre des colis", counts.ready
+      ? `${counts.ready} colis prêts pour ${counts.readyClients} client${counts.readyClients > 1 ? "s" : ""}. Ouvrez le client, encaissez, cochez les colis, confirmez.`
+      : "Aucun colis prêt pour le moment.", <ClipboardCheck key="r" size={22} />, counts.ready, true],
+    ["bons", "Recevoir un bon de remise", counts.bons
+      ? `${counts.bons} bon${counts.bons > 1 ? "s" : ""} en attente. Confirmez les colis arrivés à l’agence.`
+      : "Quand STANDA envoie des colis, le bon apparaît ici pour confirmation.", <FileText key="b" size={22} />, counts.bons, false],
+    ["arrivals", "Colis en route", "Colis encore à Miami ou en Haïti, pas encore arrivés à l’agence.", <Truck key="a" size={22} />, counts.incoming, false],
+    ["dossiers", "Tous les clients", "La liste des clients qui ont des colis dans votre zone.", <Users key="d" size={22} />, counts.dossiers, false]
   ];
   const recent = payments.slice(0, 5);
   return <div className="space-y-4">
-    <section className="rounded-3xl p-5 text-white" style={{ background: NAVY }}>
-      <div className="flex items-center justify-between gap-3"><p className="text-[13px] text-white/70">Caisse à remettre</p><button type="button" onClick={() => onGo("reports")} className="inline-flex items-center gap-0.5 text-[12px] font-medium text-white/85 hover:text-white">Rapport<ChevronRight size={14} /></button></div>
-      <p className="mt-1 text-[34px] font-semibold leading-tight tracking-tight tabular-nums">{fmtUsd(cash.usd)}</p>
-      <p className="text-[15px] text-white/80 tabular-nums">{fmtHtg(cash.htg)}</p>
-      <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/15 pt-3 text-[12px] text-white/65"><span className="truncate">{zoneName}</span><span className="shrink-0">{balanceCount} client{balanceCount > 1 ? "s" : ""} avec solde</span></div>
-    </section>
-
-    <div className="grid grid-cols-4 gap-1">
-      {shortcuts.map(([id, label, icon, count]) => <button key={id} type="button" onClick={() => onGo(id)} className="flex flex-col items-center gap-1.5 rounded-2xl py-2 transition hover:bg-white">
-        <span className="relative grid h-12 w-12 place-items-center rounded-full bg-white text-[#0b2a5b] ring-1 ring-slate-200">{icon}{count > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#e85e19] px-1 text-[10px] font-semibold text-white tabular-nums">{count > 99 ? "99+" : count}</span>}</span>
-        <span className="text-[12px] font-medium text-slate-700">{label}</span>
-      </button>)}
-    </div>
-
-    <PendingBonsNotification bons={bons} selectedId={selectedBonId} onSelect={onSelectBon} busy={bonBusy} confirmedId={bonConfirmedId} onConfirm={onConfirmBon} />
-
-    <Card className="px-4 py-3.5">
-      <p className="text-[15px] font-semibold text-slate-900">Ouvrir un dossier client</p>
-      <p className="mb-3 mt-0.5 text-xs text-slate-500">Code client (ex. MC-3817) ou les 6 derniers chiffres du suivi.</p>
+    <Card className="px-4 py-4">
+      <p className="text-[17px] font-semibold text-slate-900">Trouver un client</p>
+      <p className="mb-3 mt-1 text-[13px] leading-relaxed text-slate-500">Tapez le code client (ex. MC-3817) ou les 6 derniers chiffres du numéro de suivi, puis touchez <b>Ouvrir</b>.</p>
       <form onSubmit={(event) => { event.preventDefault(); onOpenDossier(); }} className="flex gap-2">
-        <label className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-50 px-3 ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-[#0b2a5b]"><Search size={18} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => onSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-[15px] font-medium outline-none placeholder:font-normal placeholder:text-slate-400" placeholder="MC-3817 ou 481223" aria-label="Code client ou numéro de suivi" autoCapitalize="characters" /></label>
-        <button type="submit" disabled={!search.trim()} className="h-12 shrink-0 rounded-xl bg-[#e85e19] px-4 text-sm font-semibold text-white transition hover:bg-[#d4530f] disabled:cursor-not-allowed disabled:opacity-40">Ouvrir</button>
+        <label className="flex h-14 min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-50 px-3 ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-[#0b2a5b]"><Search size={20} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => onSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-[16px] font-medium outline-none placeholder:font-normal placeholder:text-slate-400" placeholder="MC-3817 ou 481223" aria-label="Code client ou numéro de suivi" autoCapitalize="characters" /></label>
+        <button type="submit" disabled={!search.trim()} className="h-14 shrink-0 rounded-xl bg-[#e85e19] px-5 text-[15px] font-semibold text-white transition hover:bg-[#d4530f] disabled:cursor-not-allowed disabled:opacity-40">Ouvrir</button>
       </form>
     </Card>
 
+    <PendingBonsNotification bons={bons} selectedId={selectedBonId} onSelect={onSelectBon} busy={bonBusy} confirmedId={bonConfirmedId} onConfirm={onConfirmBon} />
+
+    <section>
+      <h2 className="px-1 pb-2 text-[13px] font-semibold text-slate-500">Que voulez-vous faire ?</h2>
+      <Card>
+        <div className="divide-y divide-slate-100">{tasks.map(([id, label, hint, icon, count, main]) => <button key={id} type="button" onClick={() => onGo(id)} className="flex min-h-[76px] w-full items-center gap-3.5 px-4 py-3 text-left transition hover:bg-slate-50">
+          <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-full", main ? "bg-[#e85e19] text-white" : "bg-[#e7ecf5] text-[#0b2a5b]")}>{icon}</span>
+          <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold text-slate-900">{label}</span><span className="mt-0.5 block text-[12.5px] leading-snug text-slate-500">{hint}</span></span>
+          {count > 0 && <span className="grid h-7 min-w-7 shrink-0 place-items-center rounded-full bg-[#0b2a5b] px-2 text-xs font-semibold text-white tabular-nums">{count > 999 ? "999+" : count}</span>}
+          <ChevronRight size={18} className="shrink-0 text-slate-300" />
+        </button>)}</div>
+      </Card>
+    </section>
+
+    <section className="rounded-3xl p-5 text-white" style={{ background: NAVY }}>
+      <div className="flex items-center justify-between gap-3"><p className="text-[13px] text-white/75">Argent encaissé à remettre à STANDA</p><button type="button" onClick={() => onGo("reports")} className="inline-flex items-center gap-0.5 text-[12px] font-medium text-white/85 hover:text-white">Voir la caisse<ChevronRight size={14} /></button></div>
+      <p className="mt-1 text-[32px] font-semibold leading-tight tracking-tight tabular-nums">{fmtUsd(cash.usd)}</p>
+      <p className="text-[15px] text-white/80 tabular-nums">{fmtHtg(cash.htg)}</p>
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/15 pt-3 text-[12px] text-white/65"><span className="truncate">{zoneName}</span><span className="shrink-0">{balanceCount} client{balanceCount > 1 ? "s" : ""} doi{balanceCount > 1 ? "vent" : "t"} encore payer</span></div>
+    </section>
+
     <Card>
-      <CardHeader title="Derniers paiements" right={payments.length > 0 ? <button type="button" onClick={() => onGo("reports")} className="text-[13px] font-medium text-[#0b2a5b]">Tout voir</button> : undefined} />
+      <CardHeader title="Derniers paiements reçus" right={payments.length > 0 ? <button type="button" onClick={() => onGo("reports")} className="text-[13px] font-medium text-[#0b2a5b]">Tout voir</button> : undefined} />
       {recent.length ? <div className="divide-y divide-slate-100">{recent.map((payment) => <button key={payment.id} type="button" onClick={() => onOpenReceipt(payment.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50">
         <Avatar name={payment.customer_name} code={payment.customer_code} tone="emerald" />
         <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-slate-900">{payment.customer_name || payment.customer_code}</span><span className="block truncate text-xs text-slate-500">{payment.payment_method || "Paiement"} · {dateText(payment.created_at)}</span></span>
@@ -1133,7 +1163,8 @@ function RemiseHistoryView({ packages, onOpenTicket, openCustomer, onOpenCustome
  * route ni disponible sont retirés par le parent, et les colis remis ne
  * s'affichent plus ici : ils vont à l'historique.
  */
-function ClientDossiersView({ dossiers, focusedPackageId, expanded, onExpand, selectedPackageIds, confirmedParcelIds, releasing, onToggleSelection, onSelectCustomerPackages, onStartPayment, onOpenInvoice, renderPayment, renderInvoice }: {
+function ClientDossiersView({ zoneName, onOpenParcel, dossiers, focusedPackageId, expanded, onExpand, selectedPackageIds, confirmedParcelIds, releasing, onToggleSelection, onSelectCustomerPackages, onStartPayment, onOpenInvoice, renderPayment, renderInvoice }: {
+  zoneName: string; onOpenParcel: (item: ZonePackage) => void;
   dossiers: ClientDossier[]; focusedPackageId: string | null; expanded: string | null; onExpand: (value: string | null) => void;
   selectedPackageIds: string[]; confirmedParcelIds: string[]; releasing: boolean; onToggleSelection: (item: ZonePackage) => void;
   onSelectCustomerPackages: (customerCode: string, parcelIds: string[]) => void;
@@ -1157,27 +1188,16 @@ function ClientDossiersView({ dossiers, focusedPackageId, expanded, onExpand, se
     // Une facture entièrement livrée et payée est dans l'historique, pas ici.
     const openInvoices = (focusedPackageId ? opened.invoices.filter((invoice) => scopedPackages.some((item) => item.invoice_id === invoice.id)) : opened.invoices)
       .filter((invoice) => invoice.delivery_status !== "Livrée" || invoice.payment_status !== "Payé");
-    return <div id={"dossier-" + opened.customerCode} className="scroll-mt-20 space-y-3">
-      <Card>
-        <CustomerRow code={opened.customerCode} name={opened.customerName} open onOpen={() => undefined} meta="Dossier client" />
-        <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 text-center">
-          <div className="py-2.5"><p className="text-lg font-semibold tabular-nums text-[#c2410c]">{available.length}</p><p className="text-[11px] text-slate-500">À remettre</p></div>
-          <div className="py-2.5"><p className="text-lg font-semibold tabular-nums text-violet-700">{haiti.length}</p><p className="text-[11px] text-slate-500">En Haïti</p></div>
-          <div className="py-2.5"><p className="text-lg font-semibold tabular-nums text-sky-700">{miami.length}</p><p className="text-[11px] text-slate-500">En cours</p></div>
-        </div>
-      </Card>
-      {focusedPackageId && <p className="rounded-xl bg-sky-50 px-3 py-2 text-[13px] text-sky-900">Recherche précise : seul le colis correspondant aux 6 derniers chiffres est affiché.</p>}
-      {balanceUsd > 0.01 && <BalanceNotice balanceUsd={balanceUsd} balanceHtg={balanceHtg} invoiceNumber={balanceInvoice?.invoice_number ?? ""} onPay={balanceInvoice ? () => onStartPayment(opened.customerCode) : undefined} />}
-      {renderPayment(opened.customerCode)}
-      {available.length > 0 && <ReadyChecklist packages={available} selectedPackageIds={selectedPackageIds} locked={releasing || confirmedParcelIds.length > 0} onToggleSelection={onToggleSelection} onSelectAll={(ids) => onSelectCustomerPackages(opened.customerCode, ids)} onStartPayment={onStartPayment} onOpenInvoice={onOpenInvoice} />}
-      {haiti.length > 0 && <DossierSection title="Arrivés en Haïti" subtitle="Pas encore disponibles au point de retrait." packages={haiti} tone="violet" />}
-      {miami.length > 0 && <DossierSection title="En cours" subtitle="Encore à Miami ou en transit." packages={miami} tone="sky" />}
-      {openInvoices.length > 0 && <DossierInvoices invoices={openInvoices} onOpenInvoice={onOpenInvoice} />}
-      {renderInvoice(opened.customerCode)}
-    </div>;
+    return <ClientFile dossier={opened} scopedPackages={scopedPackages} focused={Boolean(focusedPackageId)} zoneName={zoneName}
+      available={available} haiti={haiti} miami={miami} openInvoices={openInvoices}
+      balanceUsd={balanceUsd} balanceHtg={balanceHtg} balanceInvoice={balanceInvoice}
+      selectedPackageIds={selectedPackageIds} locked={releasing || confirmedParcelIds.length > 0}
+      onToggleSelection={onToggleSelection} onSelectAll={(ids) => onSelectCustomerPackages(opened.customerCode, ids)}
+      onStartPayment={onStartPayment} onOpenInvoice={onOpenInvoice} onOpenParcel={onOpenParcel}
+      payment={renderPayment(opened.customerCode)} invoice={renderInvoice(opened.customerCode)} />;
   }
   return <Card>
-    <CardHeader title="Dossiers clients" right={<CountPill value={dossiers.length} />} />
+    <CardHeader title="Clients" subtitle="Touchez un client pour ouvrir son dossier : ses colis s’affichent comme dans son application." right={<CountPill value={dossiers.length} />} />
     <div className="divide-y divide-slate-100">{dossiers.map((dossier) => {
       const counts = dossierCounts(dossier);
       const available = counts.active.filter(isReadyForPickup).length;
@@ -1189,10 +1209,122 @@ function ClientDossiersView({ dossiers, focusedPackageId, expanded, onExpand, se
       const parts = [available ? `${available} à remettre` : "", haiti ? `${haiti} en Haïti` : "", miami ? `${miami} en cours` : ""].filter(Boolean).join(" · ");
       return <div id={"dossier-" + dossier.customerCode} key={dossier.customerCode} className="scroll-mt-20">
         <CustomerRow code={dossier.customerCode} name={dossier.customerName} tone={available ? "orange" : "navy"} open={false} onOpen={() => onExpand(dossier.customerCode)}
-          meta={<>{parts || "Aucun colis actif"}{owes && <span className="text-amber-700"> · solde</span>}</>} />
+          meta={<>{parts || "Aucun colis actif"}{owes && <span className="text-amber-700"> · doit payer</span>}</>} />
       </div>;
     })}</div>
   </Card>;
+}
+
+/** Colis de l'agence au format de l'app client (même étiquette, même suivi). */
+function asClientPkg(item: ZonePackage): Pkg {
+  return { ...item, weight: Number(item.weight) || 0 } as unknown as Pkg;
+}
+
+/**
+ * DOSSIER CLIENT : l'agent voit exactement ce que le client voit dans son
+ * application (mêmes cartes de colis), puis les étapes de la remise, dans
+ * l'ordre, avec ce qui est fait et ce qui reste à faire.
+ */
+function ClientFile({ dossier, scopedPackages, focused, zoneName, available, haiti, miami, openInvoices, balanceUsd, balanceHtg, balanceInvoice,
+  selectedPackageIds, locked, onToggleSelection, onSelectAll, onStartPayment, onOpenInvoice, onOpenParcel, payment, invoice }: {
+  dossier: ClientDossier; scopedPackages: ZonePackage[]; focused: boolean; zoneName: string;
+  available: ZonePackage[]; haiti: ZonePackage[]; miami: ZonePackage[]; openInvoices: ZoneInvoice[];
+  balanceUsd: number; balanceHtg: number; balanceInvoice?: ZoneInvoice;
+  selectedPackageIds: string[]; locked: boolean;
+  onToggleSelection: (item: ZonePackage) => void; onSelectAll: (ids: string[]) => void;
+  onStartPayment: (customerCode: string, invoiceIds?: string[]) => void; onOpenInvoice: (invoiceId: string) => void;
+  onOpenParcel: (item: ZonePackage) => void; payment: ReactNode; invoice: ReactNode;
+}) {
+  const active = scopedPackages.filter((item) => item.status !== DONE);
+  const deliveredCount = scopedPackages.filter((item) => item.status === DONE).length;
+  const tiles: Array<[string, number, string, string]> = [
+    ["En route", active.filter((item) => item.status !== "Disponible" && item.status !== "Facturé").length, "text-sky-700", "file-enroute"],
+    ["Disponible", active.filter((item) => item.status === "Disponible").length, "text-emerald-700", "file-ready"],
+    ["Facturé", active.filter((item) => item.status === "Facturé").length, "text-blue-700", "file-ready"],
+    ["Remis", deliveredCount, "text-slate-600", ""]
+  ];
+  const eligible = available.filter(canReleaseParcel);
+  const selectedHere = eligible.filter((item) => selectedPackageIds.includes(item.id)).length;
+  const allSelected = eligible.length > 0 && selectedHere === eligible.length;
+  const unpaidInvoices = Array.from(new Map(available.filter((item) => item.invoice_id && item.invoice_payment_status !== "Payé").map((item) => [item.invoice_id, item.invoice_number] as const)).entries());
+  const mustPay = balanceUsd > 0.01 || unpaidInvoices.length > 0;
+  const pay = () => onStartPayment(dossier.customerCode, unpaidInvoices.length ? unpaidInvoices.map(([invoiceId]) => invoiceId) : undefined);
+  const scrollTo = (id: string) => { if (id) document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }); };
+
+  const Step = ({ n, title, done, children }: { n: number; title: string; done: boolean; children: ReactNode }) => <div className="flex gap-3 px-4 py-4">
+    <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold", done ? "bg-emerald-600 text-white" : "bg-[#0b2a5b] text-white")}>{done ? <Check size={16} strokeWidth={3} /> : n}</span>
+    <div className="min-w-0 flex-1"><p className="text-[15px] font-semibold text-slate-900">Étape {n} · {title}</p><div className="mt-1 text-[13px] leading-relaxed text-slate-600">{children}</div></div>
+  </div>;
+
+  return <div id={"dossier-" + dossier.customerCode} className="scroll-mt-20 space-y-4">
+    {/* En-tête du client, comme le haut de son application */}
+    <section className="overflow-hidden rounded-3xl text-white" style={{ background: NAVY }}>
+      <div className="flex items-center gap-3 px-4 py-4">
+        <span aria-hidden="true" className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-white text-lg font-bold text-[#0b2a5b]">{initialsOf(dossier.customerName, dossier.customerCode)}</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[17px] font-semibold">{dossier.customerName || "Client"}</p>
+          <p className="font-mono text-[13px] text-white/75">{dossier.customerCode}</p>
+        </div>
+        {balanceUsd > 0.01 && <span className="shrink-0 rounded-full bg-amber-400 px-2.5 py-1 text-[11px] font-bold text-amber-950">Doit {fmtUsd(balanceUsd)}</span>}
+      </div>
+      <div className="grid grid-cols-4 border-t border-white/15 text-center">
+        {tiles.map(([label, count, , target]) => <button key={label} type="button" onClick={() => scrollTo(target)} className="py-3 transition hover:bg-white/5">
+          <p className="text-xl font-semibold tabular-nums">{count}</p><p className="text-[11px] text-white/70">{label}</p>
+        </button>)}
+      </div>
+    </section>
+
+    {focused && <p className="rounded-xl bg-sky-50 px-3 py-2 text-[13px] text-sky-900">Recherche par numéro de suivi : seul ce colis est affiché.</p>}
+
+    {/* Les étapes de la remise */}
+    {available.length > 0 ? <Card>
+      <CardHeader title="Remettre les colis au client" subtitle="Suivez les étapes dans l’ordre." />
+      <div className="divide-y divide-slate-100 border-t border-slate-100">
+        <Step n={1} title={mustPay ? "Encaisser le paiement" : "Paiement"} done={!mustPay}>
+          {mustPay ? <>
+            <p>Le client doit payer avant de recevoir ses colis{balanceUsd > 0.01 ? <> : <b className="text-slate-900">{fmtUsd(balanceUsd)}</b> ({fmtHtg(balanceHtg)}){balanceInvoice?.invoice_number ? " · " + balanceInvoice.invoice_number : ""}</> : "."}</p>
+            <button type="button" onClick={pay} className="mt-2.5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-semibold text-white hover:bg-[#d4530f]"><Banknote size={18} />Encaisser maintenant</button>
+            {unpaidInvoices.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{unpaidInvoices.map(([invoiceId, invoiceNumber]) => <button key={invoiceId} type="button" onClick={() => onOpenInvoice(invoiceId)} className="h-9 rounded-lg px-2.5 text-xs font-medium text-[#0b2a5b] ring-1 ring-slate-200 hover:bg-slate-50">Voir la facture {invoiceNumber}</button>)}</div>}
+          </> : <p>Tout est payé. Vous pouvez remettre les colis.</p>}
+        </Step>
+        <Step n={2} title="Cocher les colis remis" done={selectedHere > 0}>
+          {mustPay ? <p>Les colis se cochent après le paiement complet.</p>
+            : <p>Touchez le rond en haut à droite de chaque colis que vous donnez au client.{eligible.length > 1 && <button type="button" disabled={locked} onClick={() => onSelectAll(eligible.map((item) => item.id))} className="ml-1 font-semibold text-emerald-700 underline disabled:opacity-50">{allSelected ? "Tout décocher" : `Tout cocher (${eligible.length})`}</button>}</p>}
+        </Step>
+        <Step n={3} title="Confirmer la remise" done={false}>
+          <p>Touchez <b className="text-slate-900">Confirmer la remise</b> en bas de l’écran. Le ticket s’ouvre ensuite pour l’impression.</p>
+        </Step>
+      </div>
+    </Card> : <Card className="px-4 py-3.5"><p className="text-[15px] font-semibold text-slate-900">Rien à remettre pour le moment</p><p className="mt-1 text-[13px] leading-relaxed text-slate-500">Les colis de ce client ne sont pas encore prêts. Ils apparaîtront ici dès qu’ils seront disponibles et facturés à l’agence.</p></Card>}
+
+    {payment}
+
+    {available.length > 0 && <section id="file-ready" className="scroll-mt-20">
+      <h3 className="px-1 pb-2 text-[13px] font-semibold text-slate-500">Prêts à remettre · {available.length}</h3>
+      {available.map((item) => {
+        const selectable = canReleaseParcel(item);
+        const reason = item.customer_balance_usd > 0.01 ? "Solde client à régler d’abord" : item.invoice_payment_status !== "Payé" ? "Paiement complet requis" : "";
+        return <ParcelCard key={item.id} p={asClientPkg(item)} special={item.is_special} onOpen={() => onOpenParcel(item)}
+          selector={{ selected: selectedPackageIds.includes(item.id), disabled: !selectable || locked, title: reason || "Cocher ce colis", onToggle: () => onToggleSelection(item) }} />;
+      })}
+    </section>}
+
+    {(haiti.length > 0 || miami.length > 0) && <section id="file-enroute" className="scroll-mt-20">
+      {haiti.length > 0 && <>
+        <h3 className="px-1 pb-2 text-[13px] font-semibold text-slate-500">En Haïti, pas encore prêts · {haiti.length}</h3>
+        <p className="-mt-1 px-1 pb-2 text-xs text-slate-500">Arrivés en Haïti ou disponibles sans facture : STANDA doit encore les facturer.</p>
+        {haiti.map((item) => <ParcelCard key={item.id} p={asClientPkg(item)} special={item.is_special} onOpen={() => onOpenParcel(item)} />)}
+      </>}
+      {miami.length > 0 && <>
+        <h3 className="px-1 pb-2 pt-1 text-[13px] font-semibold text-slate-500">À Miami ou en transit · {miami.length}</h3>
+        {miami.map((item) => <ParcelCard key={item.id} p={asClientPkg(item)} special={item.is_special} onOpen={() => onOpenParcel(item)} />)}
+      </>}
+    </section>}
+
+    {openInvoices.length > 0 && <DossierInvoices invoices={openInvoices} onOpenInvoice={onOpenInvoice} />}
+    {invoice}
+    <p className="px-1 text-center text-[11px] text-slate-400">Point de retrait · {zoneName}</p>
+  </div>;
 }
 
 function BalanceNotice({ balanceUsd, balanceHtg, invoiceNumber, onPay }: { balanceUsd: number; balanceHtg: number; invoiceNumber: string; onPay?: () => void }) {
@@ -1204,14 +1336,6 @@ function BalanceNotice({ balanceUsd, balanceHtg, invoiceNumber, onPay }: { balan
       <p className="mt-2 text-xs text-slate-500">Le solde précédent doit être réglé avant toute nouvelle remise.</p>
       {onPay && <button type="button" onClick={onPay} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-semibold text-white hover:bg-[#d4530f]"><Banknote size={18} />Encaisser le solde</button>}
     </div>
-  </Card>;
-}
-
-function DossierSection({ title, subtitle, packages, tone = "blue", renderPackage }: { title: string; subtitle: string; packages: ZonePackage[]; tone?: "blue" | "orange" | "emerald" | "violet" | "sky"; renderPackage?: (item: ZonePackage) => ReactNode }) {
-  const pill = tone === "orange" ? "orange" : tone === "emerald" ? "emerald" : "slate";
-  return <Card>
-    <CardHeader title={title} subtitle={subtitle} right={<CountPill value={packages.length} tone={pill} />} />
-    {packages.length ? <div className="divide-y divide-slate-100">{packages.map((item) => renderPackage ? <div key={item.id}>{renderPackage(item)}</div> : <ParcelRow key={item.id} item={item} />)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucun colis dans cette section.</p>}
   </Card>;
 }
 

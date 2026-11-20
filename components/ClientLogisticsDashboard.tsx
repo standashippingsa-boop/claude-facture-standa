@@ -143,7 +143,7 @@ function parcelDate(pkg: Pkg): string {
   return "·";
 }
 
-export function ClientTrackingDetails({ pkg, customerName, destination, onClose, onContact }: { pkg: Pkg; customerName: string; destination: string; onClose: () => void; onContact: () => void }) {
+export function ClientTrackingDetails({ pkg, customerName, destination, onClose, onContact }: { pkg: Pkg; customerName: string; destination: string; onClose: () => void; onContact?: () => void }) {
   const [copiedField, setCopiedField] = useState<"guia" | "manual" | null>(null);
   const current = activeTrackingStep(pkg);
   const stepDates = trackingStepDates(pkg, current);
@@ -229,7 +229,7 @@ export function ClientTrackingDetails({ pkg, customerName, destination, onClose,
           </ol>
         </section>
 
-        <Button onClick={onContact} size="lg" block className="mt-3"><MessageCircle size={17} />Une question sur ce colis ? WhatsApp</Button>
+        {onContact && <Button onClick={onContact} size="lg" block className="mt-3"><MessageCircle size={17} />Une question sur ce colis ? WhatsApp</Button>}
       </motion.div>
     </div>
   );

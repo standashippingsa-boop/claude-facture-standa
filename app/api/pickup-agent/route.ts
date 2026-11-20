@@ -27,6 +27,7 @@ type Parcel = {
   created_date: string | null; received_at: string | null; delivered_at: string | null; status: string;
   invoice_id: string | null; conduce_id: string | null; bon_remise_id: string | null; archived: boolean | null;
   mcpack_data: Record<string, string> | null;
+  weight?: number | null; created_at?: string | null; status_dates?: Record<string, string> | null;
 };
 type ZoneInvoice = {
   id: string; invoice_number: string; customer_code: string; package_count: number | null;
@@ -263,12 +264,12 @@ export async function GET(req: Request) {
       // Un colis livré doit rester consultable dans l'historique et depuis son
       // numéro de facture, même si l'administration l'a archivé par la suite.
       // Les autres colis archivés restent, eux, invisibles pour l'agent.
-      let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+      let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, created_at, status_dates, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
         .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       // Le site reste utilisable durant le très court délai entre le
       // déploiement et l'application de la migration Supabase.
       if (missingSchemaColumn(parcelResult.error, "delivered_at")) {
-        parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+        parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, created_at, status_dates, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
           .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       }
       const invoiceResult = await db.from("invoices").select("id, invoice_number, customer_code, customer_name, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
@@ -281,10 +282,10 @@ export async function GET(req: Request) {
     }
 
     if (centralCode && centralBonIds.length) {
-      let centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+      let centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, created_at, status_dates, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
         .eq("customer_code", centralCode).in("bon_remise_id", centralBonIds).order("created_at", { ascending: false }).limit(5000);
       if (missingSchemaColumn(centralParcelsResult.error, "delivered_at")) {
-        centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+        centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, created_at, status_dates, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
           .eq("customer_code", centralCode).in("bon_remise_id", centralBonIds).order("created_at", { ascending: false }).limit(5000);
       }
       if (centralParcelsResult.error) throw centralParcelsResult.error;
@@ -427,7 +428,8 @@ export async function GET(req: Request) {
         invoice_payment_status: paymentStatus, invoice_payment_details: invoice ? paymentDetails(paymentStatus, paymentsByInvoice.get(invoice.id) ?? []) : "", customer_balance_usd: balance?.usd ?? 0,
         customer_balance_htg: balance?.htg ?? 0, balance_invoice_id: balance?.invoiceId ?? "", balance_invoice_number: balance?.invoiceNumber ?? "",
         is_central_account: code(parcel.customer_code).toUpperCase() === centralCode,
-        is_special: special.isSpecial, special_reason: special.reason
+        is_special: special.isSpecial, special_reason: special.reason,
+        weight: Number(parcel.weight ?? 0) || 0, created_at: code(parcel.created_at), status_dates: parcel.status_dates ?? null
       };
     });
     const invoiceCards = issuedInvoices.map((invoice) => {
