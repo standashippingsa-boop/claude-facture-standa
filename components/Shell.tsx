@@ -6,9 +6,7 @@ import Loader from "./Loader";
 import ScrollToTopButton from "./ScrollToTopButton";
 import PortalHistoryBoundary from "./PortalHistoryBoundary";
 import PublicPortalRedirect from "./PublicPortalRedirect";
-import { getMyStaff } from "@/lib/authx";
-import { getClientByAuthId } from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { whoAmI } from "@/lib/authx";
 import { useUiStore } from "@/lib/ui-store";
 import { Staff } from "@/lib/types";
 import { isOffline, rememberedAgent } from "@/lib/reception-offline";
@@ -29,6 +27,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const [staff, setStaff] = useState<Staff | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [ready, setReady] = useState(false);
+  /** Panne passagère (réseau / Supabase) : on réessaie sans quitter la page. */
+  const [offline, setOffline] = useState(false);
+  const [failures, setFailures] = useState(0);
+  const [attempt, setAttempt] = useState(0);
   const menuOpen = useUiStore((s) => s.staffMenuOpen);
   const openMenu = useUiStore((s) => s.openStaffMenu);
   const closeMenu = useUiStore((s) => s.closeStaffMenu);
@@ -40,6 +42,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (publicPath) { setReady(true); return; }
     let cancelled = false;
+    let retryTimer: number | undefined;
     (async () => {
       // Ajan resepsyon san entènèt: nou pa ka verifye wòl la sou sèvè a. Si
       // aparèy sa a te deja konekte kòm ajan resepsyon, ekran an louvri —
@@ -50,28 +53,45 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         setStaff(null); setRole("agent_reception"); setReady(true);
         return;
       }
-      // 1) Staff an premye
-      const s = await getMyStaff();
-      let r: AppRole | null = null;
-      let st: Staff | null = null;
-      if (s) { st = s; r = s.role; }
-      else {
-        // 2) Sinon, èske se yon kliyan?
-        const { data } = await supabase.auth.getUser();
-        if (data.user) {
-          const c = await getClientByAuthId(data.user.id);
-          if (c) r = "client";
-        }
-      }
+      // Staff, kliyan, pa konekte — oswa PANN. Yon pann pa janm voye moun
+      // sou paj koneksyon an (se sa ki te fè ekran an flache ant /dashboard
+      // ak /login san rete): nou eseye ankò pi ta, san deplase moun nan.
+      const who = await whoAmI();
       if (cancelled) return;
+      if (who.kind === "error") {
+        // 5 s, 10 s, 20 s, 40 s, puis 60 s maximum entre deux essais.
+        const delay = Math.min(60_000, 5_000 * 2 ** Math.min(failures, 4));
+        setFailures((n) => n + 1);
+        setOffline(true);
+        retryTimer = window.setTimeout(() => { if (!cancelled) setAttempt((n) => n + 1); }, delay);
+        return;
+      }
+      setOffline(false);
+      setFailures(0);
+      const st: Staff | null = who.kind === "staff" ? who.staff : null;
+      const r: AppRole | null = who.kind === "staff" ? who.staff.role : who.kind === "client" ? "client" : null;
       const { allowed, redirect } = resolveAccess(path, r);
       if (!allowed && redirect) { router.replace(redirect); return; }
       setStaff(st); setRole(r); setReady(true);
     })();
-    return () => { cancelled = true; };
-  }, [publicPath, path, router]);
+    return () => { cancelled = true; window.clearTimeout(retryTimer); };
+    // `failures` est lu au moment de l'essai ; seul `attempt` relance un essai.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publicPath, path, router, attempt]);
 
   if (publicPath) return <PublicPortalRedirect><main className="min-h-screen">{children}<ScrollToTopButton /></main></PublicPortalRedirect>;
+  if (!ready && offline) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#eef2f8] p-6 text-center text-navy">
+        <div className="max-w-sm space-y-3">
+          <Loader inline size={56} />
+          <h1 className="text-lg font-bold">Connexion à la base impossible</h1>
+          <p className="text-sm text-mute">Le serveur ne répond pas pour le moment. Nouvel essai automatique dans quelques secondes — vous restez connecté.</p>
+          <button type="button" className="btn btn-primary" onClick={() => setAttempt((n) => n + 1)}>Réessayer maintenant</button>
+        </div>
+      </main>
+    );
+  }
   if (!ready) return <Loader />;
 
   // Kliyan ak ajan remiz: chak gen pwòp entèfas mobil li, san sidebar staff.

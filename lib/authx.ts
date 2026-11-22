@@ -91,6 +91,44 @@ export async function getMyStaff(): Promise<Staff | null> {
   return (s as Staff) ?? null;
 }
 
+/**
+ * Qui est connecté ? Contrairement à getMyStaff(), une PANNE (réseau coupé,
+ * Supabase qui répond 503/522, délai dépassé) n'est jamais confondue avec
+ * « personne n'est connecté ».
+ *
+ * Pourquoi : le Shell renvoyait l'administrateur vers /login dès qu'une
+ * lecture échouait ; /login le renvoyait aussitôt vers /dashboard (il est
+ * bien connecté) ; le tableau de bord se rechargeait, échouait de nouveau…
+ * L'écran clignotait entre les deux pages et chaque tour envoyait une
+ * rafale de requêtes qui surchargeait encore plus Supabase.
+ */
+export type WhoAmI =
+  | { kind: "staff"; staff: Staff }
+  | { kind: "client" }
+  | { kind: "none" }
+  | { kind: "error" };
+
+export async function whoAmI(): Promise<WhoAmI> {
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (!data.user) {
+      // Pas de session enregistrée, ou session refusée par Supabase (401/403) :
+      // vraiment déconnecté. Tout le reste (réseau, 5xx) = panne passagère.
+      const status = (error as { status?: number } | null)?.status;
+      const loggedOut = !error || error.name === "AuthSessionMissingError" || status === 401 || status === 403;
+      return loggedOut ? { kind: "none" } : { kind: "error" };
+    }
+    const staff = await supabase.from("staff").select("*").eq("auth_user_id", data.user.id).maybeSingle();
+    if (staff.error) return { kind: "error" };
+    if (staff.data) return { kind: "staff", staff: staff.data as Staff };
+    const client = await supabase.from("clients").select("id").eq("auth_user_id", data.user.id).maybeSingle();
+    if (client.error) return { kind: "error" };
+    return client.data ? { kind: "client" } : { kind: "none" };
+  } catch {
+    return { kind: "error" };
+  }
+}
+
 /** Hook wòl (pou kache bouton efase yo pou Employé, elatriye) */
 export function useRole(): { role: StaffRole | null; loading: boolean; staff: Staff | null } {
   const [role, setRole] = useState<StaffRole | null>(null);
