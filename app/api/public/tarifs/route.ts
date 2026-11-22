@@ -10,7 +10,7 @@ import { getSupabaseAdminConfig } from "@/lib/supabase-server";
  * protégés (RLS) et ne sortent jamais par cette route.
  */
 export async function GET(req: Request) {
-  const limited = rateLimit(`public-tarifs:${clientIp(req)}`, 60, 60_000);
+  const limited = await rateLimit(`public-tarifs:${clientIp(req)}`, 60, 60_000);
   if (!limited.ok) return tooMany(limited.retryAfter);
   const config = getSupabaseAdminConfig();
   if (!config) return NextResponse.json({ ok: false, reason: "Service temporairement indisponible." }, { status: 503 });

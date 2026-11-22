@@ -91,7 +91,7 @@ function buildBalanceAnswer(lang: Lang, balanceLines: string[], totalRemainingUs
 
 export async function POST(req: Request) {
   const ip = clientIp(req);
-  const rlIp = rateLimit(`daha-chat:ip:${ip}`, 600, 10 * 60_000);
+  const rlIp = await rateLimit(`daha-chat:ip:${ip}`, 600, 10 * 60_000);
   if (!rlIp.ok) return tooMany(rlIp.retryAfter);
 
   try {
@@ -132,7 +132,7 @@ export async function POST(req: Request) {
     const customerCode = text(client.customer_code);
 
     // Deuxième limite, par client cette fois (pas seulement par IP partagée).
-    const rlClient = rateLimit(`daha-chat:client:${customerCode || userId}`, 20, 10 * 60_000);
+    const rlClient = await rateLimit(`daha-chat:client:${customerCode || userId}`, 20, 10 * 60_000);
     if (!rlClient.ok) return tooMany(rlClient.retryAfter);
 
     const lang = detectLang(message);

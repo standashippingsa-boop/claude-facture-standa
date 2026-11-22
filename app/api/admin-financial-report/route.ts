@@ -16,7 +16,7 @@ function bearerToken(req: Request) {
  * avec une clé privilégiée : ce point d'entrée valide la session et le rôle.
  */
 export async function GET(req: Request) {
-  const rl = rateLimit(`admin-financial-report:${clientIp(req)}`, 40, 60_000);
+  const rl = await rateLimit(`admin-financial-report:${clientIp(req)}`, 40, 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {

@@ -44,8 +44,8 @@ export async function POST(req: Request) {
   // "me" kouri sou CHAK chajman espas afilye a — li pa dwe manje menm
   // bidjè ak tantativ koneksyon yo (sitou dèyè IP Digicel/Natcom pataje).
   const rl = action === "login"
-    ? rateLimit("affiliate-login-ip:" + clientIp(req), 40, 600000)
-    : rateLimit("affiliate-portal:" + clientIp(req), 300, 600000);
+    ? await rateLimit("affiliate-login-ip:" + clientIp(req), 40, 600000)
+    : await rateLimit("affiliate-portal:" + clientIp(req), 300, 600000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   const config = getSupabaseAdminConfig();
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     if (!username || !password) return NextResponse.json({ ok: false, reason: "Identifiant et mot de passe requis." });
 
     // Pwoteksyon brute-force REYÈL la: pa kont (kòd la piblik — li nan lyen referans lan).
-    const rlUser = rateLimit("affiliate-login-user:" + username, 10, 900000);
+    const rlUser = await rateLimit("affiliate-login-user:" + username, 10, 900000);
     if (!rlUser.ok) return tooMany(rlUser.retryAfter);
 
     const { data: aff } = await svc.from("affiliates").select("*").eq("username", username).maybeSingle();

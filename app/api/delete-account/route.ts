@@ -39,7 +39,7 @@ function missingColumn(error: unknown) {
 
 export async function POST(req: Request) {
   // Action rare et irréversible : très peu d'essais par IP.
-  const rl = rateLimit("delete-account:" + clientIp(req), 5, 3_600_000);
+  const rl = await rateLimit("delete-account:" + clientIp(req), 5, 3_600_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {

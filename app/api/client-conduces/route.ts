@@ -11,7 +11,7 @@ import { clientIp, rateLimit, tooMany } from "@/lib/ratelimit";
  * Réponse : { ok: true, conduces: { [conduce_id]: "16398", … } }
  */
 export async function GET(req: Request) {
-  const rl = rateLimit(`client-conduces:${clientIp(req)}`, 120, 10 * 60_000);
+  const rl = await rateLimit(`client-conduces:${clientIp(req)}`, 120, 10 * 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
   const config = getSupabaseAdminConfig();
   if (!config) return NextResponse.json({ ok: false, reason: "config" }, { status: 503 });

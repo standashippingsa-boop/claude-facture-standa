@@ -54,7 +54,7 @@ function normalizeMc(raw?: string | null): string {
 
 export async function POST(req: Request) {
   // Rate limiting — conduce: 60 / min pa IP
-  const rl = rateLimit("conduce:" + clientIp(req), 60, 60000);
+  const rl = await rateLimit("conduce:" + clientIp(req), 60, 60000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {

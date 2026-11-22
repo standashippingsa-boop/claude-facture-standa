@@ -30,7 +30,7 @@ const cut = (v: unknown, max: number) => String(v ?? "").slice(0, max);
 
 export async function POST(req: Request) {
   // Rate limiting — jounal: 120 / min pa IP (itilizasyon nòmal wo)
-  const rl = rateLimit("audit:" + clientIp(req), 120, 60000);
+  const rl = await rateLimit("audit:" + clientIp(req), 120, 60000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {

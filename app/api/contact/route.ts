@@ -88,7 +88,7 @@ function buildHtml(b: ContactBody): { subject: string; html: string } {
 
 export async function POST(req: Request) {
   // Rate limiting — 20 mesaj / èdtan pa IP (anti-spam vizitè)
-  const rl = rateLimit("contact:" + clientIp(req), 20, 3600000);
+  const rl = await rateLimit("contact:" + clientIp(req), 20, 3600000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {

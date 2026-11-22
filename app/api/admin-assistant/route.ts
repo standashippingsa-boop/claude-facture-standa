@@ -35,7 +35,7 @@ const usd = (n: number) => "$" + (Math.round(n * 100) / 100).toFixed(2);
 const lb = (n: number) => (Math.round(n * 100) / 100).toFixed(2) + " lb";
 
 export async function POST(req: Request) {
-  const rl = rateLimit(`admin-assistant:${clientIp(req)}`, 30, 10 * 60_000);
+  const rl = await rateLimit(`admin-assistant:${clientIp(req)}`, 30, 10 * 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
   const read = await readJsonBody(req, schema, 16_000);
   if (!read.ok) return read.response;

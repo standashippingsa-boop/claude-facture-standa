@@ -13,7 +13,7 @@ import { createClient } from "@supabase/supabase-js";
  * Menm token ak /api/ingest.
  */
 export async function GET(req: Request) {
-  const rl = rateLimit("ingest-clients:" + clientIp(req), 30, 60000);
+  const rl = await rateLimit("ingest-clients:" + clientIp(req), 30, 60000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   const auth = req.headers.get("authorization") ?? "";
