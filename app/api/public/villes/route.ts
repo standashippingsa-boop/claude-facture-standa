@@ -15,7 +15,7 @@ import { pickupLabel, pickupLocationForCity } from "@/lib/pickup-location";
  * l'utilisateur a besoin pour choisir son agence lors de l'inscription.
  */
 export async function GET(req: Request) {
-  const limited = rateLimit(`public-villes:${clientIp(req)}`, 60, 60_000);
+  const limited = await rateLimit(`public-villes:${clientIp(req)}`, 60, 60_000);
   if (!limited.ok) return tooMany(limited.retryAfter);
 
   const config = getSupabaseAdminConfig();

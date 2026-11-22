@@ -58,7 +58,7 @@ function cleanTracking(raw: unknown): string {
 
 export async function POST(req: Request) {
   // ── 1. Rate limit ────────────────────────────────────────────────
-  const rl = rateLimit("track:" + clientIp(req), 300, 300000); // 300 / 5 min : beaucoup de clients partagent la même adresse IP (Digicel, Natcom)
+  const rl = await rateLimit("track:" + clientIp(req), 300, 300000); // 300 / 5 min : beaucoup de clients partagent la même adresse IP (Digicel, Natcom)
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {

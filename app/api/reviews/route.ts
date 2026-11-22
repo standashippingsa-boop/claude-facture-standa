@@ -40,7 +40,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   // L'accès libre ne signifie pas accès illimité : 3 avis par 10 minutes/IP.
-  const rate = rateLimit(`review:${clientIp(request)}`, 3, 10 * 60 * 1000);
+  const rate = await rateLimit(`review:${clientIp(request)}`, 3, 10 * 60 * 1000);
   if (!rate.ok) return tooMany(rate.retryAfter);
 
   const details = serviceConfig();

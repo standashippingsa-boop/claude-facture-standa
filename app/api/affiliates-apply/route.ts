@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   // Gad anti-flood pa IP sèlman. Li laj espre: Digicel/Natcom mete anpil
   // telefòn dèyè MENM IP piblik, donk yon limit sere pa IP bloke moun
   // onèt ki pa konnen youn lòt. Limit reyèl la se pa imèl, pi ba.
-  const rl = rateLimit("affiliate-apply-ip:" + clientIp(req), 40, 600000);
+  const rl = await rateLimit("affiliate-apply-ip:" + clientIp(req), 40, 600000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
 
     // Limit reyèl la: pa imèl, SÈLMAN apre validasyon — yon erè frap pa
     // konsome okenn chans.
-    const rlEmail = rateLimit("affiliate-apply-email:" + email, 5, 86400000);
+    const rlEmail = await rateLimit("affiliate-apply-email:" + email, 5, 86400000);
     if (!rlEmail.ok) return tooMany(rlEmail.retryAfter);
 
     // Deja afilye aktif? Pa kreye yon dezyèm kandidati.

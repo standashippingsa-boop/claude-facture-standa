@@ -13,7 +13,7 @@ const text = (value: unknown) => String(value ?? "").trim();
  * factures sélectionnées, de la plus ancienne à la plus récente.
  */
 export async function POST(req: Request) {
-  const rl = rateLimit(`admin-invoice-payment:${clientIp(req)}`, 30, 60_000);
+  const rl = await rateLimit(`admin-invoice-payment:${clientIp(req)}`, 30, 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {

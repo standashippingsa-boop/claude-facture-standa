@@ -11,7 +11,7 @@ import { normalizeMcCode } from "@/lib/utils";
  * ne réinitialise jamais un mot de passe ni ne crée un compte depuis cette API.
  */
 export async function POST(req: Request) {
-  const limit = rateLimit(`client-auth-reconcile:${clientIp(req)}`, 30, 10 * 60_000);
+  const limit = await rateLimit(`client-auth-reconcile:${clientIp(req)}`, 30, 10 * 60_000);
   if (!limit.ok) return tooMany(limit.retryAfter);
 
   try {

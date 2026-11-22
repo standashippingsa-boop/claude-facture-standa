@@ -26,7 +26,7 @@ async function requireAdmin(token: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const rate = rateLimit(`admin-reviews:${clientIp(request)}`, 120, 60 * 1000);
+  const rate = await rateLimit(`admin-reviews:${clientIp(request)}`, 120, 60 * 1000);
   if (!rate.ok) return tooMany(rate.retryAfter);
 
   let body: { token?: unknown; action?: unknown; id?: unknown; visible?: unknown };

@@ -8,7 +8,7 @@ import { getSupabaseAdminConfig } from "@/lib/supabase-server";
  * Aucune adresse, aucun tarif ni renseignement interne n'est exposé ici.
  */
 export async function GET(req: Request) {
-  const limited = rateLimit(`public-agences:${clientIp(req)}`, 60, 60_000);
+  const limited = await rateLimit(`public-agences:${clientIp(req)}`, 60, 60_000);
   if (!limited.ok) return tooMany(limited.retryAfter);
 
   const config = getSupabaseAdminConfig();

@@ -73,8 +73,8 @@ export async function POST(req: Request) {
   // ki bezwen apwouve oswa peye apre sa.
   const readOnly = action === "affiliate_overview" || action === "affiliate_contract_url" || action === "staff_doc_url";
   const rl = readOnly
-    ? rateLimit("adminauth-read:" + clientIp(req), 150, 600000)
-    : rateLimit("adminauth:" + clientIp(req), 20, 600000);
+    ? await rateLimit("adminauth-read:" + clientIp(req), 150, 600000)
+    : await rateLimit("adminauth:" + clientIp(req), 20, 600000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {

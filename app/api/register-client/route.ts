@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   // Limite anti-spam. Digicel et Natcom placent beaucoup de clients derrière
   // la même adresse IP : 5 par heure bloquait des inscriptions honnêtes.
   // 30 par heure et par IP, plus 5 par heure et par adresse électronique (plus bas).
-  const rl = rateLimit("register:" + clientIp(req), 30, 3600000);
+  const rl = await rateLimit("register:" + clientIp(req), 30, 3600000);
   if (!rl.ok) return tooMany(rl.retryAfter);
 
   try {
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
       return NextResponse.json({ ok: false, reason: "Adresse électronique invalide." }, { status: 400 });
     }
-    const rlMail = rateLimit("register-mail:" + email, 5, 3600000);
+    const rlMail = await rateLimit("register-mail:" + email, 5, 3600000);
     if (!rlMail.ok) return tooMany(rlMail.retryAfter);
     // Validation shipping (adresse, téléphone, ville) centralisée dans
     // lib/validation/shipping.ts — même schéma que /api/ingest, au lieu

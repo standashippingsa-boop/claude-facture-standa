@@ -10,7 +10,7 @@ import { anyObject, readJsonBody } from "@/lib/validation/request";
  * Sesyon obligatwa; yon sèl liy jounal, limite pa IP.
  */
 export async function POST(req: Request) {
-  const rl = rateLimit(`push-report:${clientIp(req)}`, 6, 60 * 60_000);
+  const rl = await rateLimit(`push-report:${clientIp(req)}`, 6, 60 * 60_000);
   if (!rl.ok) return tooMany(rl.retryAfter);
   try {
     const config = getSupabaseAdminConfig();
