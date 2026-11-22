@@ -176,7 +176,13 @@ export default function PwaManager() {
     /** Mande navigatè a: èske gen yon nouvo vèsyon? */
     const check = () => { reg?.update().catch(() => { /* san rezo */ }); };
 
-    const onVisible = () => { if (document.visibilityState === "visible") check(); };
+    // Au plus une vérification de version par minute, même si « focus » arrive en rafale.
+    let lastCheck = 0;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || Date.now() - lastCheck < 60_000) return;
+      lastCheck = Date.now();
+      check();
+    };
 
     if (document.readyState === "complete") register();
     else window.addEventListener("load", register);

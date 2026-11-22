@@ -172,7 +172,14 @@ export default function PickupAgentPortal() {
       try { await load(true); } finally { refreshingRef.current = false; }
     };
     const timer = window.setInterval(() => void refresh(), 20_000);
-    const onVisible = () => void refresh();
+    // Retour sur l'écran : au plus un rechargement toutes les 15 s (certains
+    // ordinateurs envoient « focus » plusieurs fois par seconde).
+    let lastFocusRefresh = Date.now();
+    const onVisible = () => {
+      if (Date.now() - lastFocusRefresh < 15_000) return;
+      lastFocusRefresh = Date.now();
+      void refresh();
+    };
     window.addEventListener("focus", onVisible);
     document.addEventListener("visibilitychange", onVisible);
     return () => { window.clearInterval(timer); window.removeEventListener("focus", onVisible); document.removeEventListener("visibilitychange", onVisible); };

@@ -134,7 +134,13 @@ export function useSectionBadges(staff: { id?: string; prenom?: string; nom?: st
     if (!staffId) return;
     void refresh();
     const timer = window.setInterval(() => void refresh(), 30000);
-    const onVisible = () => void refresh();
+    // Retour sur l'onglet : au plus un rechargement toutes les 15 s.
+    let lastVisibleRefresh = Date.now();
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || Date.now() - lastVisibleRefresh < 15_000) return;
+      lastVisibleRefresh = Date.now();
+      void refresh();
+    };
     document.addEventListener("visibilitychange", onVisible);
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, [staffId, refresh]);

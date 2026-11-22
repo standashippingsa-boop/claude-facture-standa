@@ -48,7 +48,13 @@ export default function StaffNotifications({ variant = "icon" }: { variant?: Var
 
   useEffect(() => {
     void load();
-    const refresh = () => { if (document.visibilityState === "visible") void load(true); };
+    // Au plus un rechargement toutes les 10 s, même si « focus » arrive en rafale.
+    let last = Date.now();
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || Date.now() - last < 10_000) return;
+      last = Date.now();
+      void load(true);
+    };
     const timer = window.setInterval(refresh, 15_000);
     window.addEventListener("visibilitychange", refresh);
     window.addEventListener("focus", refresh);

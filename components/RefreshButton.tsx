@@ -31,6 +31,8 @@ import { Spinner } from "@/components/Loader";
  *  3) Yon rechajman deja an kou: nou pa lanse yon dezyèm.
  * Nan tou lè twa ka yo nou sote tou senpleman — pwochen tantativ la ap fèt.
  */
+const MIN_GAP_MS = 20_000;
+
 export default function RefreshButton({
   onRefresh, label = "Actualiser", autoMs = 60000
 }: {
@@ -42,6 +44,8 @@ export default function RefreshButton({
   const [busy, setBusy] = useState(false);
   /** Refs: listeners yo li valè aktyèl la san yo pa re-atache chak rann. */
   const running = useRef(false);
+  /** Lè dènye rechajman an te fèt (paj la fèk louvri = kounye a). */
+  const lastRun = useRef(Date.now());
   const fn = useRef(onRefresh);
   fn.current = onRefresh;
 
@@ -61,6 +65,11 @@ export default function RefreshButton({
   /** Rechajman AN SILANS — pa gen spinner ni ✅. */
   const silent = async () => {
     if (!safe()) return;
+    // Pa plis pase yon rechajman otomatik chak 20 segond. Kèk òdinatè voye
+    // siyal « focus » plizyè fwa chak segond: san limit sa a, paj la te
+    // rechaje san rete epi ekran an te tranble.
+    if (Date.now() - lastRun.current < MIN_GAP_MS) return;
+    lastRun.current = Date.now();
     running.current = true;
     try { await fn.current(); } catch { /* paj la jere pwòp erè li */ }
     finally { running.current = false; }
