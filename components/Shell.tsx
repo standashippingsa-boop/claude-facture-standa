@@ -7,10 +7,26 @@ import ScrollToTopButton from "./ScrollToTopButton";
 import PortalHistoryBoundary from "./PortalHistoryBoundary";
 import PublicPortalRedirect from "./PublicPortalRedirect";
 import { whoAmI } from "@/lib/authx";
+import { getAuthRealm, hasStoredSession } from "@/lib/supabase";
 import { useUiStore } from "@/lib/ui-store";
 import { Staff } from "@/lib/types";
 import { isOffline, rememberedAgent } from "@/lib/reception-offline";
 import { AppRole, isClientPath, isPublicPath, isPickupAgentPath, isReceptionAgentPath, resolveAccess } from "@/lib/access";
+
+/**
+ * SÉPARATION ADMINISTRATION / APP CLIENT : un membre du personnel déconnecté
+ * (session expirée, onglet vidé…) sur une page de l'administration retourne à
+ * SA porte de connexion, jamais sur la connexion client « Bon retour parmi
+ * nous ». Un simple visiteur, lui, continue d'aller sur /login : l'adresse
+ * de l'administration reste cachée au public.
+ */
+function staffGateFor(path: string, role: AppRole | null): string | null {
+  if (role || isPublicPath(path) || isClientPath(path) || isPickupAgentPath(path) || isReceptionAgentPath(path)) return null;
+  const realm = getAuthRealm();
+  if (realm === "admin" || (!realm && hasStoredSession("admin"))) return "/admin-login";
+  if (realm === "employe" || (!realm && hasStoredSession("employe"))) return "/employe";
+  return null;
+}
 
 /**
  * Shell — CONTRÔLE D'ACCÈS CENTRALISÉ (RBAC)
@@ -71,7 +87,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       const st: Staff | null = who.kind === "staff" ? who.staff : null;
       const r: AppRole | null = who.kind === "staff" ? who.staff.role : who.kind === "client" ? "client" : null;
       const { allowed, redirect } = resolveAccess(path, r);
-      if (!allowed && redirect) { router.replace(redirect); return; }
+      if (!allowed && redirect) { router.replace(staffGateFor(path, r) ?? redirect); return; }
       setStaff(st); setRole(r); setReady(true);
     })();
     return () => { cancelled = true; window.clearTimeout(retryTimer); };

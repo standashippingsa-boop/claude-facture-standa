@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { isClientPath, isPickupAgentPath, isPublicPath, isReceptionAgentPath } from "./access";
 
 /**
  * Chak espas travay kenbe pwòp sesyon li nan navigatè a. Konsa yon admin ka
@@ -9,9 +10,50 @@ export type AuthRealm = "admin" | "employe" | "agent_retrait" | "agent_reception
 const AUTH_REALM_KEY = "standa:auth-realm";
 const PORTAL_HISTORY_KEY_PREFIX = "standa:portal-history-boundary:";
 
+/** Une session Supabase est-elle enregistrée pour cet espace sur cet ordinateur ? */
+export function hasStoredSession(realm: AuthRealm): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i) ?? "";
+      if (key.startsWith("sb-") && key.endsWith(`-auth-token:${realm}`)) return true;
+    }
+  } catch { /* stockage indisponible */ }
+  return false;
+}
+
+/**
+ * SÉPARATION APP CLIENT / ADMINISTRATION
+ * ──────────────────────────────────────
+ * L'espace de l'onglet est gardé dans sessionStorage. Un NOUVEL onglet (ou un
+ * onglet que le navigateur a vidé pour libérer de la mémoire) l'avait perdu :
+ * la session administrateur devenait introuvable et le Shell envoyait
+ * l'administrateur sur la connexion CLIENT (« Bon retour parmi nous »).
+ *
+ * Désormais, sans espace mémorisé, on le déduit de l'adresse de la page —
+ * jamais sur une page publique, pour ne pas mélanger le site et les apps.
+ */
+function realmFromPath(path: string): AuthRealm | null {
+  if (path === "/" || isPublicPath(path)) return null;
+  if (isClientPath(path)) return hasStoredSession("client") ? "client" : null;
+  if (isPickupAgentPath(path)) return hasStoredSession("agent_retrait") ? "agent_retrait" : null;
+  if (isReceptionAgentPath(path)) return hasStoredSession("agent_reception") ? "agent_reception" : null;
+  // Toute autre page protégée appartient à l'administration.
+  if (hasStoredSession("admin")) return "admin";
+  if (hasStoredSession("employe")) return "employe";
+  return null;
+}
+
 function activeAuthRealm() {
   if (typeof window === "undefined") return "default";
-  try { return window.sessionStorage.getItem(AUTH_REALM_KEY) || "default"; }
+  try {
+    const saved = window.sessionStorage.getItem(AUTH_REALM_KEY);
+    if (saved) return saved;
+    const inferred = realmFromPath(window.location.pathname);
+    if (!inferred) return "default";
+    window.sessionStorage.setItem(AUTH_REALM_KEY, inferred);
+    return inferred;
+  }
   catch { return "default"; }
 }
 
