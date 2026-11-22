@@ -85,8 +85,51 @@ export const isSupabaseConfigured = Boolean(
 const url = configuredUrl || "https://standa-local-unconfigured.invalid";
 const publishableKey = configuredPublishableKey || "standa-local-unconfigured-publishable-key";
 
+/**
+ * DISJONCTEUR DE LECTURES (navigateur seulement)
+ * ═════════════════════════════════════════════
+ * Le 22/11/2026, un seul onglet du tableau de bord a envoyé la même série de
+ * lectures 3 à 6 fois par seconde pendant plus d'une heure : Supabase a
+ * répondu par des milliers de 503 et tous les écrans se sont mis à clignoter.
+ *
+ * Règle : si la MÊME lecture (méthode + adresse complète) part plus de 20 fois
+ * en 10 s, on cesse de l'envoyer pendant 30 s et on répond localement « 503 ».
+ * Les écrans affichent alors leur message d'indisponibilité habituel. Une
+ * utilisation normale n'atteint jamais ce seuil ; les écritures (POST, PATCH,
+ * DELETE) et la connexion ne sont jamais bloquées.
+ */
+const READ_LIMIT = 20;
+const READ_WINDOW_MS = 10_000;
+const READ_COOLDOWN_MS = 30_000;
+const readHits = new Map<string, number[]>();
+const readBlockedUntil = new Map<string, number>();
+
+const guardedFetch: typeof fetch = (input, init) => {
+  const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
+  const href = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  if (typeof window === "undefined" || (method !== "GET" && method !== "HEAD") || href.includes("/auth/v1/")) {
+    return fetch(input, init);
+  }
+  const key = `${method} ${href}`;
+  const now = Date.now();
+  if ((readBlockedUntil.get(key) ?? 0) > now) {
+    return Promise.resolve(new Response(JSON.stringify({ message: "Trop de lectures identiques : pause de sécurité." }),
+      { status: 503, headers: { "Content-Type": "application/json" } }));
+  }
+  const hits = (readHits.get(key) ?? []).filter((t) => now - t < READ_WINDOW_MS);
+  hits.push(now);
+  readHits.set(key, hits);
+  if (hits.length > READ_LIMIT) {
+    readBlockedUntil.set(key, now + READ_COOLDOWN_MS);
+    readHits.delete(key);
+    console.warn("[standa] lecture répétée bloquée 30 s :", method, new URL(href).pathname);
+  }
+  if (readHits.size > 500) readHits.clear();   // jamais de fuite mémoire
+  return fetch(input, init);
+};
+
 export const supabase = createClient(
   url,
   publishableKey,
-  { auth: { storage: isolatedAuthStorage } }
+  { auth: { storage: isolatedAuthStorage }, global: { fetch: guardedFetch } }
 );

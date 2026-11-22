@@ -24,6 +24,43 @@ import { bucketByDay, bucketByMonth, peakIndex, splitClientActivity } from "@/li
 import { dateFr, usd } from "@/lib/utils";
 
 import { useNoticeToast } from "@/lib/notify";
+/**
+ * Données du tableau de bord partagées entre les montages de la page.
+ * • Une seule lecture à la fois (les appels simultanés attendent la même).
+ * • Résultat réutilisé pendant 15 s : même si l'écran est recréé en boucle,
+ *   Supabase reçoit au plus une série de lectures toutes les 15 s
+ *   (le 22/11/2026 il en recevait 3 à 6 par seconde).
+ */
+type DashboardSnap = {
+  stats: DashboardStats | null; nouvo: Client[]; retraits: Retrait[];
+  charts: ChartsData | null; error: string | null;
+};
+const DASHBOARD_FRESH_MS = 15_000;
+let dashboardCache: { at: number; snap: DashboardSnap } | null = null;
+let dashboardInFlight: Promise<DashboardSnap> | null = null;
+
+function loadDashboard(): Promise<DashboardSnap> {
+  if (dashboardCache && Date.now() - dashboardCache.at < DASHBOARD_FRESH_MS) return Promise.resolve(dashboardCache.snap);
+  if (dashboardInFlight) return dashboardInFlight;
+  dashboardInFlight = (async () => {
+    const prev = dashboardCache?.snap;
+    let error: string | null = null;
+    const stats = await getStats().catch((e) => { error = e?.message ?? String(e); return prev?.stats ?? null; });
+    // Notifikasyon: nouvo kliyan (En attente d'activation) + demandes de retrait
+    const nouvo = await getClients()
+      .then((cs) => cs.filter((c) => c.account_status === "En attente d'activation"))
+      .catch(() => prev?.nouvo ?? []);
+    const retraits = await getRetraits()
+      .then((rs) => rs.filter((r) => r.status === "En attente"))
+      .catch(() => prev?.retraits ?? []);
+    const charts = await getChartsData().catch(() => prev?.charts ?? null);
+    const snap: DashboardSnap = { stats, nouvo, retraits, charts, error };
+    dashboardCache = { at: Date.now(), snap };
+    return snap;
+  })().finally(() => { dashboardInFlight = null; });
+  return dashboardInFlight;
+}
+
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [nouvo, setNouvo] = useState<Client[]>([]);       // nouvo kliyan annatant
@@ -34,18 +71,26 @@ export default function Dashboard() {
   useNoticeToast(err, setErr, { tone: "error", title: "Connexion à la base impossible" });
 
   const load = async () => {
-    await getStats().then(setStats).catch((e) => setErr(e.message ?? String(e)));
-    // Notifikasyon: nouvo kliyan (En attente d'activation) + demandes de retrait
-    // (estrikti sa a pare pou Desktop Notifications pita)
-    await getClients().then((cs) =>
-      setNouvo(cs.filter((c) => c.account_status === "En attente d'activation"))
-    ).catch(() => {});
-    await getRetraits().then((rs) =>
-      setRetraits(rs.filter((r) => r.status === "En attente"))
-    ).catch(() => {});
-    await getChartsData().then(setCharts).catch(() => {});
+    const snap = await loadDashboard();
+    if (snap.stats) setStats(snap.stats);
+    else if (snap.error) setErr(snap.error);
+    setNouvo(snap.nouvo);
+    setRetraits(snap.retraits);
+    if (snap.charts) setCharts(snap.charts);
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => {
+    // Si l'écran est recréé (retour sur la page, remontage), on montre tout de
+    // suite les dernières données au lieu de roues de chargement.
+    if (dashboardCache) {
+      const snap = dashboardCache.snap;
+      if (snap.stats) setStats(snap.stats);
+      setNouvo(snap.nouvo);
+      setRetraits(snap.retraits);
+      if (snap.charts) setCharts(snap.charts);
+    }
+    void load();
+    /* eslint-disable-next-line */
+  }, []);
 
   // ===== Grafik: volim koli (mwa oswa jou), kwasans kliyan, estati kliyan =====
   const pkgSeries = useMemo(() => {
