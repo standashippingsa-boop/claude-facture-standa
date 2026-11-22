@@ -1,6 +1,39 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { corsHeaders } from "@/lib/cors";
+import { ADMIN_HOST } from "@/lib/admin-host";
+import { isClientPath, isPickupAgentPath, isPublicPath, isReceptionAgentPath } from "@/lib/access";
+
+/**
+ * SOUS-DOMÈN ADMIN — separasyon app kliyan / administrasyon
+ * ═══════════════════════════════════════════════════════════
+ * Lè varyab ADMIN_HOST la defini (ex: admin.standacommercialsa.com):
+ *  • Paj staff yo (dashboard, koli, fakti, paramèt…) + pòt /admin-login,
+ *    /employe, /setup sèvi SÈLMAN sou ADMIN_HOST.
+ *  • Sit piblik la, espas kliyan an, /espace-remise ak /reception rete
+ *    sou www (PWA ajan yo enstale sou www — nou pa kase yo).
+ *  • Sesyon admin (localStorage) ak sesyon kliyan pa janm pataje menm
+ *    orijin ankò: yon kach/bouk sou youn pa ka touche lòt la.
+ *  • APK Android ki deja enstale (WebView, "; wv)" nan User-Agent) PA
+ *    redirije soti www: Capacitor ta louvri lòt domèn nan nan Chrome.
+ * Si ADMIN_HOST pa defini, anyen pa chanje (deplwaman an san danje).
+ */
+const STAFF_GATES = ["/admin-login", "/employe", "/setup"];
+
+function underGate(path: string): boolean {
+  return STAFF_GATES.some((g) => path === g || path.startsWith(g + "/"));
+}
+
+/** Paj ki apatyen sou domèn admin lan. */
+function isAdminHostPath(path: string): boolean {
+  if (underGate(path)) return true;
+  if (path === "/" || isPublicPath(path)) return false;
+  return !isClientPath(path) && !isPickupAgentPath(path) && !isReceptionAgentPath(path);
+}
+
+function isAndroidWebView(req: NextRequest): boolean {
+  return /;\s*wv\)/.test(req.headers.get("user-agent") ?? "");
+}
 
 /**
  * Standa Commercial — DOMÈN KANONIK
@@ -70,6 +103,39 @@ export function middleware(req: NextRequest) {
   // API: pa gen redireksyon domèn (ekstansyon/entegrasyon yo ka gen ansyen
   // URL konfigire) — men CORS aplike pou bloke lòt sit ki eseye li repons yo.
   if (req.nextUrl.pathname.startsWith("/api/")) return handleApiCors(req);
+
+  const path = req.nextUrl.pathname;
+  // Fichye estatik (public/: polis, imaj, .well-known…) sèvi sou toude domèn.
+  const neutral = path.startsWith("/_next/") || path.startsWith("/.well-known/") || /\.[a-z0-9]{2,5}$/i.test(path);
+  if (ADMIN_HOST && host === ADMIN_HOST && neutral) return NextResponse.next();
+  if (ADMIN_HOST && host === ADMIN_HOST) {
+    if (path === "/") {
+      const login = req.nextUrl.clone();
+      login.pathname = "/admin-login";
+      return NextResponse.redirect(login, 307);
+    }
+    if (isAdminHostPath(path)) {
+      const res = NextResponse.next();
+      res.headers.set("X-Robots-Tag", "noindex, nofollow");
+      return res;
+    }
+    // Paj kliyan / piblik sou domèn admin lan -> www
+    const pub = req.nextUrl.clone();
+    pub.protocol = "https:";
+    pub.host = CANONICAL_HOST;
+    pub.port = "";
+    return withRef(req, NextResponse.redirect(pub, 308));
+  }
+
+  // Paj staff sou nenpòt lòt domèn (www, vercel.app…) -> domèn admin lan
+  const isLocal = host.startsWith("localhost") || host.startsWith("127.0.0.1");
+  if (ADMIN_HOST && !isLocal && !neutral && isAdminHostPath(path) && !isAndroidWebView(req)) {
+    const adm = req.nextUrl.clone();
+    adm.protocol = "https:";
+    adm.host = ADMIN_HOST;
+    adm.port = "";
+    return NextResponse.redirect(adm, 307);
+  }
 
   /*
    * RASIN DOMÈN NAN -> SIT PIBLIK LA

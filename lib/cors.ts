@@ -16,6 +16,8 @@
  * token Bearer separe, CORS isit la se sèlman pou navigatè a kite JS
  * ekstansyon an LI repons lan.
  */
+import { ADMIN_HOST } from "./admin-host";
+
 const SITE_ORIGIN = "https://www.standacommercialsa.com";
 
 const DEV_ORIGINS = new Set(["http://localhost:3000", "http://127.0.0.1:3000"]);
@@ -35,6 +37,7 @@ function extensionOriginAllowed(origin: string): boolean {
 function isAllowedOrigin(origin: string, pathname: string): boolean {
   if (!origin) return false;
   if (origin === SITE_ORIGIN) return true;
+  if (ADMIN_HOST && origin === `https://${ADMIN_HOST}`) return true;
   if (isDev() && DEV_ORIGINS.has(origin)) return true;
   if (EXTENSION_PATHS.some((p) => pathname.startsWith(p)) && extensionOriginAllowed(origin)) return true;
   return false;
