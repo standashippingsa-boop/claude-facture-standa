@@ -170,6 +170,7 @@ export interface Pkg {
   quantity: number;
   content: string;
   created_date: string;
+  created_at?: string | null;       // jou koli a antre nan sistèm nan (≠ created_date = arive Miami)
   status: PackageStatus;
   price_usd: number;
   tax_usd: number;

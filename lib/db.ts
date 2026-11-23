@@ -131,6 +131,22 @@ export async function getPackages(status?: string, includeArchived = false, cond
   return includeArchived ? rows : rows.filter((p) => !p.archived);
 }
 
+/**
+ * Koli ki poko nan okenn Conduce (ni livré, ni facturé, ni archivé).
+ * Ti lis (sèlman koli k ap tann Miami) : sèvi pou alèt « la depi lontan ».
+ */
+export async function getPackagesSansConduce(): Promise<Pkg[]> {
+  const data = await fetchAllRows<any>(() =>
+    supabase.from("packages")
+      .select("id, tracking_number, customer_code, customer_name, status, created_date, created_at, received_at, archived, conduce_id")
+      .is("conduce_id", null)
+      .not("status", "in", '("Livré","Facturé")')
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+  );
+  return ((data ?? []) as Pkg[]).filter((p) => !p.archived);
+}
+
 // ============ PERFORMANCE — rechèch/pagination SÈVÈ (pou 1000-5000+ koli) ============
 // getPackages() rete SAN TOUCHE (Historique ak lòt kote kontinye itilize l jan yo te ye).
 // Fonksyon sa yo sèvi SÈLMAN pou lis Packages global la (paj ki gwosi ak volim lan).

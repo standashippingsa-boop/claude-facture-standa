@@ -8,6 +8,7 @@ import { BusyButton, Spinner } from "@/components/Loader";
 import Pagination from "@/components/Pagination";
 import WhatsAppQueue from "@/components/WhatsAppQueue";
 import RefreshButton from "@/components/RefreshButton";
+import StaleParcelsAlert from "@/components/StaleParcelsAlert";
 import FilterConsole from "@/components/FilterConsole";
 import { usePackageSelection } from "@/lib/selection";
 import {
@@ -31,7 +32,8 @@ const STATUS_CHIPS: { status: string; label: string; cls: string; dot: string }[
 import { computePrice, round2 } from "@/lib/pricing";
 import { computeInvoice, InvoiceComputation, verifyTotal } from "@/lib/invoice-engine";
 import { Client, Conduce, INTERNAL_STATUSES, Pkg } from "@/lib/types";
-import { dateFr, htg, parseMcpackDate, sortPackagesAvailableFirst, usd } from "@/lib/utils";
+import { dateFr, htg, sortPackagesAvailableFirst, usd } from "@/lib/utils";
+import { estAjoutTardif, estSansConduceTropLongtemps, joursAvantAjout, joursDepuisArrivee } from "@/lib/package-age";
 import { createBonRemiseNumber, generateBonRemise } from "@/lib/bonremise";
 import { exportPackagesPdf } from "@/lib/listpdf";
 import { exportPackagesExcel } from "@/lib/listexcel";
@@ -170,18 +172,9 @@ export default function PackagesEngine({ conduceId, hideHeader = false, packageL
   }), [search, status, source, dateF, cityF, customerF, conduceF, invoiceF, verifiedF, specialF, minWeight, maxWeight, showArchived]);
   // ===== Tooltip modèn sou tracking (pwen #2) =====
   const [hover, setHover] = useState<{ p: Pkg; ville: string; x: number; y: number } | null>(null);
-  const joursDepot = (p: Pkg): number | null => {
-    // Comme MCPACK : jours depuis « Creado » (arrivée à l'adresse de Miami). 0 = arrivé aujourd'hui.
-    // received_at n'est qu'un repli : il est réécrit à chaque passage de l'extension.
-    const ref = p.created_date || p.received_at;
-    if (!ref) return null;
-    const t = parseMcpackDate(ref) || new Date(ref).getTime();
-    if (!t || isNaN(t)) return null;
-    const start = new Date(t); start.setHours(0, 0, 0, 0);
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const d = Math.round((today.getTime() - start.getTime()) / 86400000);
-    return d >= 0 ? d : null;
-  };
+  // Comme MCPACK : jours depuis « Creado » (arrivée à l'adresse de Miami). 0 = arrivé aujourd'hui.
+  const joursDepot = (p: Pkg): number | null => joursDepuisArrivee(p);
+  const [ageAlertKey, setAgeAlertKey] = useState(0);
   const showTip = (p: Pkg, e: any) => setHover({
     p, ville: tarifMap.get(p.customer_code)?.ville?.name ?? "·", x: e.clientX, y: e.clientY
   });
@@ -702,7 +695,7 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
             title="Afficher les colis archivés">
             <Archive size={15} /> {showArchived ? "Archivés" : "Actifs"}
           </button>
-          <RefreshButton onRefresh={refresh} />
+          <RefreshButton onRefresh={() => { setAgeAlertKey((k) => k + 1); return refresh(); }} />
         </div>
       </div>
 
@@ -734,6 +727,8 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
           )}
         </div>
       )}
+
+      {!conduceId && <StaleParcelsAlert refreshKey={ageAlertKey} onPick={(t) => { setSearch(t); setPage(1); }} />}
 
       <FilterConsole query={search} onQueryChange={setSearch} queryPlaceholder="Tracking, code, nom, téléphone, ville, contenu…"
         resultCount={fullyLoaded ? filtered.length : total} onClear={clearFilters}
@@ -954,6 +949,18 @@ Les données restent dans la base. Il n'apparaîtra plus dans la liste active.`)
                           <span className={`mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                             jrs >= 45 ? "bg-red-100 text-red-700" : jrs >= 20 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>
                             Jours : {jrs}
+                          </span>
+                        )}
+                        {estSansConduceTropLongtemps(p) && (
+                          <span className="mt-0.5 block rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white"
+                            title="Arrivé à Miami depuis longtemps et toujours dans aucune Conduce">
+                            Sans Conduce
+                          </span>
+                        )}
+                        {estAjoutTardif(p) && (
+                          <span className="mt-0.5 block rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
+                            title={`Ajouté au système ${joursAvantAjout(p)} jours après son arrivée à Miami`}>
+                            Ajouté en retard
                           </span>
                         )}
                       </div>
