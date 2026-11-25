@@ -35,7 +35,7 @@ export function RemiseTicketOverlay({ packageId, onClose, autoPrint = false, clo
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previous; };
   }, []);
-  return <div className="remise-ticket-portal fixed inset-0 z-[150] overflow-y-auto bg-slate-100" role="dialog" aria-modal="true" aria-label="Ticket de remise">
+  return <div className="remise-ticket-portal fixed inset-0 z-[150] overflow-y-auto bg-slate-100" role="dialog" aria-modal="true" aria-label="Preuve de livraison">
     <RemiseTicketView packageId={packageId} autoPrint={autoPrint} closeLabel={closeLabel} onClose={onClose} inOverlay />
   </div>;
 }
@@ -72,12 +72,12 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
         const token = session.data.session?.access_token ?? "";
         const response = await fetch(`/api/remise-ticket?package=${encodeURIComponent(packageId)}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
         const result = await response.json();
-        if (!response.ok || !result.ok) throw new Error(result.reason || "Ticket indisponible.");
+        if (!response.ok || !result.ok) throw new Error(result.reason || "Preuve de livraison indisponible.");
         const data = result.ticket as RemiseTicket;
         const matrix = await ticketQrMatrix(data.qr_payload);
         if (!cancelled) { setTicket(data); setQr(matrix); }
       } catch (reason) {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : "Ticket indisponible.");
+        if (!cancelled) setError(reason instanceof Error ? reason.message : "Preuve de livraison indisponible.");
       }
     })();
     return () => { cancelled = true; };
@@ -142,7 +142,7 @@ function RemiseTicketView({ packageId, autoPrint, closeLabel, onClose, inOverlay
   };
 
   if (!ticket && !error) return <div className="grid min-h-[70vh] place-items-center"><LoaderCircle className="animate-spin text-navy" size={34} /></div>;
-  if (!ticket) return <div className="mx-auto max-w-xl px-3 py-6"><MessageScreen tone="error" title="Ticket indisponible" text={error} actionLabel={closeLabel} onAction={onClose} /></div>;
+  if (!ticket) return <div className="mx-auto max-w-xl px-3 py-6"><MessageScreen tone="error" title="Preuve de livraison indisponible" text={error} actionLabel={closeLabel} onAction={onClose} /></div>;
 
   const t = ticket;
   const paperWidth = width === 80 ? "72mm" : "50mm";

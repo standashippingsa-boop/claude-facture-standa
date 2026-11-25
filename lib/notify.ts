@@ -15,8 +15,9 @@
 import { useEffect } from "react";
 
 export type ToastTone = "success" | "error" | "info" | "warning";
-export type ToastItem = { id: number; tone: ToastTone; title: string; text: string; duration: number };
-type ToastOptions = { title?: string; duration?: number };
+export type ToastItem = { id: number; tone: ToastTone; title: string; text: string; duration: number; small?: boolean };
+/** `small` : petite confirmation en bas de l'écran (petites opérations), sans bloquer l'écran. */
+type ToastOptions = { title?: string; duration?: number; small?: boolean };
 
 const DEFAULT_TITLES: Record<ToastTone, string> = {
   success: "Opération confirmée",
@@ -52,7 +53,8 @@ function push(tone: ToastTone, text: string, options: ToastOptions = {}) {
   const item: ToastItem = {
     id: nextId++, tone, text: clean,
     title: options.title ?? DEFAULT_TITLES[tone],
-    duration: options.duration ?? DEFAULT_DURATION[tone]
+    duration: options.duration ?? (options.small ? (tone === "error" ? 4000 : 2200) : DEFAULT_DURATION[tone]),
+    small: Boolean(options.small)
   };
   items = [...items, item].slice(-6);
   emit();

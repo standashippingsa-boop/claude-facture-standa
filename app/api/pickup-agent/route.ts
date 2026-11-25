@@ -9,6 +9,7 @@ import type { AccountType, Ville } from "@/lib/types";
 import { sendPushToCustomer } from "@/lib/push-server";
 import { sendFcmToCustomer } from "@/lib/push-fcm-server";
 import { sendAgentReport } from "@/lib/agent-report-server";
+import { decryptPII } from "@/lib/pii-crypto";
 import { commitPaymentAllocations, describePaymentLines, PAYMENT_INVOICE_COLUMNS, planPaymentLines, readInvoiceIds, readPaymentLines, type PaymentInvoice } from "@/lib/invoice-payment-server";
 
 /**
@@ -28,6 +29,7 @@ type Parcel = {
   invoice_id: string | null; conduce_id: string | null; bon_remise_id: string | null; archived: boolean | null;
   mcpack_data: Record<string, string> | null;
   weight?: number | null; created_at?: string | null; status_dates?: Record<string, string> | null;
+  price_usd?: number | null; tax_usd?: number | null;
 };
 type ZoneInvoice = {
   id: string; invoice_number: string; customer_code: string; package_count: number | null;
@@ -36,7 +38,13 @@ type ZoneInvoice = {
   has_pdf: boolean | null; created_at: string; payment_status: string | null;
   payment_paid_usd: number | null; payment_paid_htg: number | null;
 };
-type ZoneCustomer = { customer_code: string; fullname: string | null; surname: string | null };
+type ZoneCustomer = {
+  customer_code: string; fullname: string | null; surname: string | null;
+  account_type?: string | null; created_at?: string | null; pickup_location?: string | null;
+  phone?: string | null; whatsapp?: string | null; id_type?: string | null; id_number?: string | null;
+};
+/** Fiche client de l'agent : seulement ce qu'il faut pour servir et identifier le client au comptoir. */
+const CLIENT_CARD_COLUMNS = "customer_code, fullname, surname, account_type, created_at, pickup_location, phone, whatsapp, phone_encrypted, whatsapp_encrypted, id_type, id_number";
 type CustomerBalance = { usd: number; htg: number; invoiceId: string; invoiceNumber: string };
 type ZonePayment = {
   id: string; invoice_id: string; amount: number | null; currency: string | null;
@@ -98,12 +106,24 @@ async function contextFor(req: Request): Promise<
 }
 
 async function zoneCustomers(db: any, villeId: string): Promise<ZoneCustomer[]> {
-  const result = await db.from("clients").select("customer_code, fullname, surname").eq("ville_id", villeId).neq("customer_code", "");
+  let result = await db.from("clients").select(CLIENT_CARD_COLUMNS).eq("ville_id", villeId).neq("customer_code", "");
+  // Base plus ancienne (colonnes de fiche absentes) : on garde au moins le nom.
+  if (result.error) result = await db.from("clients").select("customer_code, fullname, surname").eq("ville_id", villeId).neq("customer_code", "");
   if (result.error) throw result.error;
   const known = new Map<string, ZoneCustomer>();
-  for (const row of (result.data ?? []) as Array<{ customer_code: string | null; fullname: string | null; surname: string | null }>) {
+  const readPii = (plain: unknown, encrypted: unknown) => {
+    const clear = code(plain);
+    if (clear) return clear;
+    try { return code(decryptPII(code(encrypted))); } catch { return ""; }
+  };
+  for (const row of (result.data ?? []) as Array<Record<string, string | null>>) {
     const customer_code = code(row.customer_code);
-    if (customer_code) known.set(customer_code, { customer_code, fullname: row.fullname, surname: row.surname });
+    if (customer_code) known.set(customer_code, {
+      customer_code, fullname: row.fullname, surname: row.surname,
+      account_type: row.account_type ?? null, created_at: row.created_at ?? null, pickup_location: row.pickup_location ?? null,
+      phone: readPii(row.phone, row.phone_encrypted), whatsapp: readPii(row.whatsapp, row.whatsapp_encrypted),
+      id_type: row.id_type ?? null, id_number: row.id_number ?? null
+    });
   }
   return Array.from(known.values());
 }
@@ -264,12 +284,12 @@ export async function GET(req: Request) {
       // Un colis livré doit rester consultable dans l'historique et depuis son
       // numéro de facture, même si l'administration l'a archivé par la suite.
       // Les autres colis archivés restent, eux, invisibles pour l'agent.
-      let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, created_at, status_dates, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+      let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, price_usd, tax_usd, created_at, status_dates, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
         .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       // Le site reste utilisable durant le très court délai entre le
       // déploiement et l'application de la migration Supabase.
       if (missingSchemaColumn(parcelResult.error, "delivered_at")) {
-        parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, created_at, status_dates, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+        parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, price_usd, tax_usd, created_at, status_dates, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
           .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       }
       const invoiceResult = await db.from("invoices").select("id, invoice_number, customer_code, customer_name, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
@@ -282,10 +302,10 @@ export async function GET(req: Request) {
     }
 
     if (centralCode && centralBonIds.length) {
-      let centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, created_at, status_dates, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+      let centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, price_usd, tax_usd, created_at, status_dates, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
         .eq("customer_code", centralCode).in("bon_remise_id", centralBonIds).order("created_at", { ascending: false }).limit(5000);
       if (missingSchemaColumn(centralParcelsResult.error, "delivered_at")) {
-        centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, created_at, status_dates, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+        centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, price_usd, tax_usd, created_at, status_dates, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
           .eq("customer_code", centralCode).in("bon_remise_id", centralBonIds).order("created_at", { ascending: false }).limit(5000);
       }
       if (centralParcelsResult.error) throw centralParcelsResult.error;
@@ -401,6 +421,28 @@ export async function GET(req: Request) {
         parcels: bonParcelsById.get(code(bon.id)) ?? []
       }));
 
+    // Chaîne de transport de chaque colis : numéro + date de Conduce, numéro du
+    // Bordereau et qui l'a pointé. Lecture seule, pour la fiche colis.
+    const conduceIds = Array.from(new Set(parcels.map((parcel) => code(parcel.conduce_id)).filter(Boolean)));
+    const conduceById = new Map<string, { number: string; date: string }>();
+    for (let i = 0; i < conduceIds.length; i += 500) {
+      const chunk = await db.from("conduces").select("id, conduce_number, conduce_date").in("id", conduceIds.slice(i, i + 500));
+      if (chunk.error) break;
+      for (const row of (chunk.data ?? []) as Array<{ id: string; conduce_number: string | null; conduce_date: string | null }>) {
+        conduceById.set(code(row.id), { number: code(row.conduce_number), date: code(row.conduce_date) });
+      }
+    }
+    const bonById = new Map<string, { number: string; received_at: string; received_by: string }>(
+      bons.map((bon) => [code(bon.id), { number: code(bon.bon_number), received_at: code(bon.received_at), received_by: code(bon.received_by) }]));
+    const otherBonIds = Array.from(new Set(parcels.map((parcel) => code(parcel.bon_remise_id)).filter((id) => id && !bonById.has(id))));
+    for (let i = 0; i < otherBonIds.length; i += 500) {
+      const chunk = await db.from("bons_remise").select("id, bon_number, received_at, received_by").in("id", otherBonIds.slice(i, i + 500));
+      if (chunk.error) break;
+      for (const row of (chunk.data ?? []) as Array<{ id: string; bon_number: string | null; received_at: string | null; received_by: string | null }>) {
+        bonById.set(code(row.id), { number: code(row.bon_number), received_at: code(row.received_at), received_by: code(row.received_by) });
+      }
+    }
+
     const deliveryByInvoice = new Map<string, { total: number; delivered: number }>();
     for (const parcel of parcels) {
       const invoiceId = code(parcel.invoice_id);
@@ -429,7 +471,12 @@ export async function GET(req: Request) {
         customer_balance_htg: balance?.htg ?? 0, balance_invoice_id: balance?.invoiceId ?? "", balance_invoice_number: balance?.invoiceNumber ?? "",
         is_central_account: code(parcel.customer_code).toUpperCase() === centralCode,
         is_special: special.isSpecial, special_reason: special.reason,
-        weight: Number(parcel.weight ?? 0) || 0, created_at: code(parcel.created_at), status_dates: parcel.status_dates ?? null
+        weight: Number(parcel.weight ?? 0) || 0, created_at: code(parcel.created_at), status_dates: parcel.status_dates ?? null,
+        // Prix seulement quand la facture est émise (même règle que plus haut).
+        price_usd: invoice ? money(parcel.price_usd) : 0, tax_usd: invoice ? money(parcel.tax_usd) : 0,
+        conduce_number: conduceById.get(code(parcel.conduce_id))?.number ?? "", conduce_date: conduceById.get(code(parcel.conduce_id))?.date ?? "",
+        bon_number: bonById.get(code(parcel.bon_remise_id))?.number ?? "", bon_received_at: bonById.get(code(parcel.bon_remise_id))?.received_at ?? "",
+        bon_received_by: bonById.get(code(parcel.bon_remise_id))?.received_by ?? ""
       };
     });
     const invoiceCards = issuedInvoices.map((invoice) => {
@@ -485,8 +532,17 @@ export async function GET(req: Request) {
       };
     }).sort((left, right) => right.balance_usd - left.balance_usd || left.customer_code.localeCompare(right.customer_code, "fr-CA"));
 
+    // Fiches clients : seulement les clients de la zone qui ont au moins un colis ou une facture ici.
+    const activeCodes = new Set([...packageCards.map((parcel) => parcel.customer_code), ...invoiceCards.map((invoice) => invoice.customer_code)]);
+    const clientCards = customers.filter((customer) => activeCodes.has(customer.customer_code)).map((customer) => ({
+      customer_code: customer.customer_code, name: customerName(customer),
+      account_type: code(customer.account_type) || "Personnel", since: code(customer.created_at),
+      pickup_location: code(customer.pickup_location), phone: code(customer.phone), whatsapp: code(customer.whatsapp),
+      id_type: code(customer.id_type), id_number: code(customer.id_number)
+    }));
+
     return NextResponse.json({ ok: true, agent: { id: agent.id, name: agentName(agent), username: agent.username }, zone: { name: zoneName },
-      packages: packageCards, invoices: invoiceCards, bons: bonCards,
+      clients: clientCards, packages: packageCards, invoices: invoiceCards, bons: bonCards,
       report: { agent_payments: agentPayments, customer_balances: customerBalances } }, {
       headers: { "Cache-Control": "no-store, max-age=0" }
     });
@@ -518,7 +574,7 @@ export async function POST(req: Request) {
 
     if (body?.action === "confirm_bon_remise") {
       const bonId = code(body.bon_remise_id);
-      if (!uuid.test(bonId)) return NextResponse.json({ ok: false, reason: "Bon de remise invalide." }, { status: 400 });
+      if (!uuid.test(bonId)) return NextResponse.json({ ok: false, reason: "Bordereau invalide." }, { status: 400 });
 
       // Rechèch estwat pa (id + destination = zòn ajan an) — menm si yon moun
       // ta forje yon id valid, li pa ka konfime yon Bon ki pa pou zòn li.
@@ -526,13 +582,13 @@ export async function POST(req: Request) {
         .select("id, bon_number, destination, received_at").eq("id", bonId).ilike("destination", zoneName).maybeSingle();
       if (bonResult.error) throw bonResult.error;
       const bon = bonResult.data as { id: string; bon_number: string; destination: string; received_at: string | null } | null;
-      if (!bon) return NextResponse.json({ ok: false, reason: "Ce Bon de remise n'appartient pas à votre zone." }, { status: 403 });
+      if (!bon) return NextResponse.json({ ok: false, reason: "Ce bordereau n'appartient pas à votre zone." }, { status: 403 });
       if (bon.received_at) return NextResponse.json({ ok: true, updated: 0, alreadyReady: 0, alreadyConfirmed: true });
 
       // Réception colis par colis : l'agent doit cocher chaque colis réellement reçu.
       // Plus aucune confirmation « tout le Bon » : sans sélection, rien n'est touché.
       const selectedIds = Array.from(new Set((Array.isArray(body.package_ids) ? body.package_ids : []).map((id: unknown) => code(id)).filter((id: string) => uuid.test(id))));
-      if (!selectedIds.length) return NextResponse.json({ ok: false, reason: "Sélectionnez les colis que vous avez reçus." }, { status: 400 });
+      if (!selectedIds.length) return NextResponse.json({ ok: false, reason: "Pointez les colis reçus." }, { status: 400 });
 
       const parcelsResult = await db.from("packages")
         .select("id, weight, customer_code, status").eq("bon_remise_id", bonId);
@@ -540,7 +596,7 @@ export async function POST(req: Request) {
       const allBonParcels = (parcelsResult.data ?? []) as Array<{ id: string; weight: number; customer_code: string; status: string }>;
       const parcels = allBonParcels.filter((p) => selectedIds.includes(code(p.id)));
       if (parcels.length !== selectedIds.length) {
-        return NextResponse.json({ ok: false, reason: "Un colis sélectionné n'appartient pas à ce Bon. Actualisez l'écran." }, { status: 409 });
+        return NextResponse.json({ ok: false, reason: "Un colis sélectionné n'appartient pas à ce bordereau. Actualisez l'écran." }, { status: 409 });
       }
 
       // SÈLMAN koli ki poko pi lwen (Disponible/Facturé/Livré) chanje. Yon
@@ -591,7 +647,7 @@ export async function POST(req: Request) {
           const completed = updates.filter(({ result }) => !result.error && (result.data ?? []).length);
           await Promise.all(completed.map(({ parcel }) => db.from("packages")
             .update({ status: parcel.status }).eq("id", parcel.id)));
-          throw new Error(`Le Bon n’a pas été confirmé : ${String(failed.result.error?.message ?? "un colis n’a pas été mis à jour")}`);
+          throw new Error(`Le bordereau n’a pas été pointé : ${String(failed.result.error?.message ?? "un colis n’a pas été mis à jour")}`);
         }
       }
 
@@ -669,17 +725,17 @@ export async function POST(req: Request) {
       }
       const customerCode = code(selected[0]?.customer_code);
       if (!customerCode || selected.some((parcel) => code(parcel.customer_code) !== customerCode)) {
-        return NextResponse.json({ ok: false, reason: "Une remise groupée doit concerner un seul client." }, { status: 400 });
+        return NextResponse.json({ ok: false, reason: "Un retrait doit concerner un seul client." }, { status: 400 });
       }
       const isCentralAccount = customerCode.toUpperCase() === centralCode;
       const belongsToZone = isCentralAccount
         ? await centralPackagesBelongToZone(db, centralCode, packageIds, zoneName)
         : await customerBelongsToZone(db, customerCode, agent.pickup_ville_id!);
       if (!belongsToZone) {
-        return NextResponse.json({ ok: false, reason: "Ces colis n'appartiennent pas à votre zone de remise." }, { status: 403 });
+        return NextResponse.json({ ok: false, reason: "Ces colis n'appartiennent pas à votre zone de retrait." }, { status: 403 });
       }
       if (selected.some((parcel) => !["Disponible", "Facturé"].includes(code(parcel.status)) || !code(parcel.invoice_id))) {
-        return NextResponse.json({ ok: false, reason: "Tous les colis sélectionnés doivent être facturés et prêts à remettre." }, { status: 409 });
+        return NextResponse.json({ ok: false, reason: "Tous les colis sélectionnés doivent être facturés et au comptoir." }, { status: 409 });
       }
       const invoiceIds = Array.from(new Set(selected.map((parcel) => code(parcel.invoice_id)).filter(Boolean)));
       const invoicesResult = await db.from("invoices")
@@ -688,13 +744,13 @@ export async function POST(req: Request) {
       if (invoicesResult.error) throw invoicesResult.error;
       const selectedInvoices = invoicesResult.data ?? [];
       if (selectedInvoices.length !== invoiceIds.length || selectedInvoices.some((invoice: any) => !invoice.has_pdf || hasSignificantInvoiceBalance(invoice))) {
-        return NextResponse.json({ ok: false, reason: "Toutes les factures sélectionnées doivent être générées et entièrement payées avant la remise." }, { status: 409 });
+        return NextResponse.json({ ok: false, reason: "Toutes les factures sélectionnées doivent être générées et entièrement payées avant le retrait." }, { status: 409 });
       }
       if (isCentralAccount) {
         const invoicesAreInZone = await Promise.all(invoiceIds.map((invoiceId) =>
           invoiceBelongsToAgentZone(db, invoiceId, customerCode, agent.pickup_ville_id!, zoneName, centralCode)));
         if (invoicesAreInZone.some((isInZone) => !isInZone)) {
-          return NextResponse.json({ ok: false, reason: "Cette facture du compte central mélange plusieurs zones. Elle doit être séparée par l’administration avant la remise." }, { status: 409 });
+          return NextResponse.json({ ok: false, reason: "Cette facture du compte central mélange plusieurs zones. Elle doit être séparée par l’administration avant le retrait." }, { status: 409 });
         }
       }
       const balances = isCentralAccount
@@ -708,7 +764,7 @@ export async function POST(req: Request) {
       if (outstanding.length) {
         const total = money(outstanding.reduce((sum: number, row: { remaining: number }) => sum + row.remaining, 0));
         const refs = outstanding.map((row: { number: string }) => row.number).filter(Boolean).join(", ");
-        return NextResponse.json({ ok: false, reason: `Client avec un solde de ${total.toFixed(2)} USD (${refs}). Réglez ce solde avant toute remise.` }, { status: 409 });
+        return NextResponse.json({ ok: false, reason: `Client avec un solde de ${total.toFixed(2)} USD (${refs}). Réglez ce solde avant tout retrait.` }, { status: 409 });
       }
       const deliveredAt = new Date().toISOString();
       const update = await markDelivered((patch) => db.from("packages").update(patch)
@@ -736,7 +792,7 @@ export async function POST(req: Request) {
 
     if (body?.action === "release") {
       const packageId = code(body.package_id);
-      if (!uuid.test(packageId)) return NextResponse.json({ ok: false, reason: "Demande de remise invalide." }, { status: 400 });
+      if (!uuid.test(packageId)) return NextResponse.json({ ok: false, reason: "Demande de retrait invalide." }, { status: 400 });
       const parcelResult = await db.from("packages")
         .select("id, tracking_number, tracking_manual, customer_code, status, invoice_id")
         .eq("id", packageId).maybeSingle();
@@ -745,28 +801,28 @@ export async function POST(req: Request) {
         customer_code: string; status: string; invoice_id: string | null;
       } | null;
       if (!parcel || !["Disponible", "Facturé"].includes(parcel.status)) {
-        return NextResponse.json({ ok: false, reason: "Ce colis n'est pas prêt pour une remise." }, { status: 409 });
+        return NextResponse.json({ ok: false, reason: "Ce colis n'est pas au comptoir." }, { status: 409 });
       }
       const isCentralAccount = code(parcel.customer_code).toUpperCase() === centralCode;
       const belongsToZone = isCentralAccount
         ? await centralPackagesBelongToZone(db, centralCode, [parcel.id], zoneName)
         : await customerBelongsToZone(db, parcel.customer_code, agent.pickup_ville_id!);
       if (!belongsToZone) {
-        return NextResponse.json({ ok: false, reason: "Ce colis n'appartient pas à votre zone de remise." }, { status: 403 });
+        return NextResponse.json({ ok: false, reason: "Ce colis n'appartient pas à votre zone de retrait." }, { status: 403 });
       }
       if (!parcel.invoice_id) {
-        return NextResponse.json({ ok: false, reason: "Ce colis doit être facturé avant sa remise." }, { status: 409 });
+        return NextResponse.json({ ok: false, reason: "Ce colis doit être facturé avant le retrait." }, { status: 409 });
       }
       const invoiceResult = await db.from("invoices").select("invoice_number, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, payment_paid_usd, payment_paid_htg")
         .eq("id", parcel.invoice_id).maybeSingle();
       if (!(await invoiceBelongsToAgentZone(db, parcel.invoice_id, parcel.customer_code, agent.pickup_ville_id!, zoneName, centralCode))) {
-        return NextResponse.json({ ok: false, reason: "Cette facture n'appartient pas à votre zone de remise." }, { status: 403 });
+        return NextResponse.json({ ok: false, reason: "Cette facture n'appartient pas à votre zone de retrait." }, { status: 403 });
       }
       if (!invoiceResult.data?.has_pdf) {
-        return NextResponse.json({ ok: false, reason: "La facture doit être générée pour le client avant toute remise." }, { status: 409 });
+        return NextResponse.json({ ok: false, reason: "La facture doit être générée pour le client avant tout retrait." }, { status: 409 });
       }
       if (hasSignificantInvoiceBalance(invoiceResult.data)) {
-        return NextResponse.json({ ok: false, reason: "Enregistrez le paiement complet de la facture avant de remettre ce colis." }, { status: 409 });
+        return NextResponse.json({ ok: false, reason: "Enregistrez le paiement complet de la facture avant le retrait de ce colis." }, { status: 409 });
       }
       // Règle de caisse: un client doit aussi solder ses anciennes factures.
       // Sinon il pourrait payer uniquement le dernier colis et laisser une
@@ -783,7 +839,7 @@ export async function POST(req: Request) {
       if (outstanding.length) {
         const total = money(outstanding.reduce((sum: number, row: { remaining: number }) => sum + row.remaining, 0));
         const refs = outstanding.map((row: { number: string }) => row.number).filter(Boolean).join(", ");
-        return NextResponse.json({ ok: false, reason: `Client avec un solde de ${total.toFixed(2)} USD (${refs}). Réglez ce solde avant toute remise.` }, { status: 409 });
+        return NextResponse.json({ ok: false, reason: `Client avec un solde de ${total.toFixed(2)} USD (${refs}). Réglez ce solde avant tout retrait.` }, { status: 409 });
       }
       const update = await markDelivered((patch) => db.from("packages").update(patch)
         .eq("id", packageId).in("status", ["Disponible", "Facturé"]).select("id").maybeSingle(), new Date().toISOString(), `${agentName(agent)} · Point de retrait`);

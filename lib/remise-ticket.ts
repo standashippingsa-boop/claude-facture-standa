@@ -197,7 +197,7 @@ function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: strin
   }
   dashed();
 
-  centered("TICKET DE REMISE", base + 2, "bold");
+  centered("PREUVE DE LIVRAISON", base + 2, "bold");
   y += 0.5;
   left(`Date : ${ticketDateTime(t.delivered_at)}`);
   left(`Ticket # : ${t.ticket_number}`);
@@ -255,7 +255,7 @@ function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: strin
   row("Total payé", ticketUsd(t.totals.paid_usd), "bold");
   row("Solde restant", ticketUsd(t.totals.remaining_usd), "bold");
   y += 1;
-  stars("REMISE CONFIRMÉE");
+  stars("RETRAIT VALIDÉ");
   y += 0.5;
   left(`Remis par : ${t.delivered_by || "·"}`);
   left(`Imprimé par : ${t.printed_by || "·"}`);
@@ -285,6 +285,6 @@ function drawTicket(doc: jsPDF, t: RemiseTicket, width: TicketWidth, logo: strin
   centered("Le client confirme avoir reçu les colis plus haut en bon état.", base - 1);
   y += 1;
   centered("MERCI DE VOTRE CONFIANCE !", base, "bold");
-  centered("Conservez ce ticket comme preuve de remise.", base - 1);
+  centered("Conservez cette preuve de livraison.", base - 1);
   return y;
 }

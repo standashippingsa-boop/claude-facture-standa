@@ -91,7 +91,7 @@ export async function GET(req: Request) {
     const anchor = anchorResult.data[0];
     if (!anchor) return NextResponse.json({ ok: false, reason: "Colis introuvable." }, { status: 404 });
     if (text(anchor.status) !== "Livré") {
-      return NextResponse.json({ ok: false, reason: "Ce colis n'a pas encore été remis au client : aucun ticket de remise n'existe." }, { status: 409 });
+      return NextResponse.json({ ok: false, reason: "Ce colis n'a pas encore été remis au client : aucune preuve de livraison n'existe." }, { status: 409 });
     }
     const customerCode = text(anchor.customer_code);
 

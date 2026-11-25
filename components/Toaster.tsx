@@ -21,9 +21,34 @@ const TONES: Record<ToastTone, { circle: string; shadow: string; button: string;
 export default function Toaster() {
   const [items, setItems] = useState<ToastItem[]>([]);
   useEffect(() => subscribeToasts(setItems), []);
-  const current = items[0];
+  const big = items.filter((item) => !item.small);
+  const small = items.filter((item) => item.small);
+  const current = big[0];
   // Un message à la fois : le suivant apparaît quand le premier est fermé.
-  return current ? <MessagePage key={current.id} item={current} waiting={items.length - 1} /> : null;
+  return <>
+    {current && <MessagePage key={current.id} item={current} waiting={big.length - 1} />}
+    {small.length > 0 && <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[210] flex flex-col items-center gap-2 px-4 md:bottom-6">
+      {small.map((item) => <SmallNotice key={item.id} item={item} />)}
+    </div>}
+  </>;
+}
+
+/** Petite confirmation : ✓ vert ou ✕ rouge, en bas de l'écran, disparaît seule. */
+function SmallNotice({ item }: { item: ToastItem }) {
+  useEffect(() => {
+    const timer = window.setTimeout(() => dismissToast(item.id), item.duration || 2200);
+    return () => window.clearTimeout(timer);
+  }, [item.id, item.duration]);
+  const ok = item.tone === "success";
+  return <button type="button" onClick={() => dismissToast(item.id)} role="status" aria-live="polite"
+    className="pointer-events-auto flex max-w-md items-center gap-2.5 rounded-xl bg-slate-900 px-3.5 py-2.5 text-left text-sm font-semibold text-white shadow-[0_10px_30px_rgba(15,23,42,0.3)]">
+    <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${ok ? "bg-emerald-500" : item.tone === "error" ? "bg-red-600" : "bg-amber-500"}`}>
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="white" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {ok ? <path d="M5 12.5l4.5 4.5L19 7.5" /> : item.tone === "error" ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="M12 6.5v7M12 17.5h.01" />}
+      </svg>
+    </span>
+    <span className="min-w-0">{item.text}</span>
+  </button>;
 }
 
 function ToneIcon({ tone }: { tone: ToastTone }) {

@@ -2,26 +2,29 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowLeft, Banknote, Bell, BellRing, Check, CheckCircle2, ChevronRight, ClipboardCheck, FileDown, FileText, Home, LogOut, MoreHorizontal, PackageCheck, Printer, RefreshCw, Search, Settings, Truck, Users, X } from "@/components/icons";
+import { ArrowLeft, Bell, BellRing, Check, CheckCircle2, ChevronRight, Copy, FileDown, FileText, Home, LogOut, Package, RefreshCw, Search, Settings, Users, Wallet, X } from "@/components/icons";
 import { supabase } from "@/lib/supabase";
 import { autoEnablePush, getPushPermissionState, isPushSupported, pushFailureMessage, reportPushFailure, subscribeStaffToPush } from "@/lib/push";
 import { openSecureDocument } from "@/lib/secure-document";
-import { packageProgressPriority, sortPackagesAvailableFirst } from "@/lib/utils";
+import { sortPackagesAvailableFirst } from "@/lib/utils";
 import Loader, { Spinner } from "@/components/Loader";
 import { RemiseTicketOverlay } from "@/components/RemiseTicketPage";
-import ClientPaymentForm, { PaymentModal, type ClientPaymentSubmit } from "@/components/ClientPaymentForm";
+import ClientPaymentForm, { type ClientPaymentSubmit } from "@/components/ClientPaymentForm";
 import { invoiceStatusLines } from "@/lib/payment-allocation";
-import { notify, useNoticeToast } from "@/lib/notify";
+import { notify } from "@/lib/notify";
 import type { PaymentInvoice } from "@/lib/payment-allocation";
-import Logo from "@/components/Logo";
 import { cn } from "@/lib/cn";
 import StaffNotifications from "@/components/StaffNotifications";
-import { ParcelCard } from "@/components/ClientParcelUI";
-import { ClientTrackingDetails } from "@/components/ClientLogisticsDashboard";
-import type { Pkg } from "@/lib/types";
-
 import { MessageScreen } from "@/components/Toaster";
 import PwaInstallButton from "@/components/PwaInstallButton";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * STANDA RETRAIT — application des agents des points de retrait.
+ * Un outil de comptoir, pas l'app client : chaque code client, nom, facture
+ * et colis ouvre une fiche complète. Toutes les règles (paiement complet avant
+ * retrait, un client à la fois, zone de l'agent) restent vérifiées par l'API.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
 type ZonePackage = {
   id: string; tracking_number: string; tracking_manual: string; customer_code: string; customer_name: string;
   customer_balance_usd: number; customer_balance_htg: number; balance_invoice_id: string; balance_invoice_number: string;
@@ -30,6 +33,8 @@ type ZonePackage = {
   is_central_account: boolean;
   is_special: boolean; special_reason: string;
   weight?: number; created_at?: string; status_dates?: Record<string, string> | null;
+  price_usd?: number; tax_usd?: number;
+  conduce_number?: string; conduce_date?: string; bon_number?: string; bon_received_at?: string; bon_received_by?: string;
 };
 type InvoicePaymentLine = { method: string; amount: number; currency: string; created_at: string; by: string };
 type ZoneInvoice = {
@@ -45,93 +50,83 @@ type ZoneBon = {
   parcels?: BonParcel[];
 };
 type BonParcel = { id: string; tracking_number: string; tracking_manual: string; customer_code: string; content: string; quantity: number; status: string };
-/** Colis d'un Bon déjà reçus (donc plus à cocher). */
-const BON_PARCEL_DONE = new Set(["Disponible", "Facturé", "Livré"]);
+type ClientCard = { customer_code: string; name: string; account_type: string; since: string; pickup_location: string; phone: string; whatsapp: string; id_type: string; id_number: string };
 type AgentPayment = { id: string; invoice_id: string; invoice_number: string; customer_code: string; customer_name: string; amount: number; currency: string; amount_usd: number; amount_htg: number; payment_method: string; payment_reference: string; created_at: string };
 type CustomerBalanceReport = { customer_code: string; customer_name: string; balance_usd: number; balance_htg: number; invoice_id: string; invoice_number: string; invoice_count: number };
-type PortalData = { agent: { id: string; name: string; username: string }; zone: { name: string }; packages: ZonePackage[]; invoices: ZoneInvoice[]; bons: ZoneBon[]; report: { agent_payments: AgentPayment[]; customer_balances: CustomerBalanceReport[] } };
-type Tab = "home" | "dossiers" | "arrivals" | "ready" | "bons" | "history" | "reports" | "settings";
-/** « À venir » : deux étapes seulement — arrivés en Haïti, ou encore en cours (Miami / transit). */
-type ArrivalSection = "haiti" | "miami";
+type PortalData = { agent: { id: string; name: string; username: string }; zone: { name: string }; clients?: ClientCard[]; packages: ZonePackage[]; invoices: ZoneInvoice[]; bons: ZoneBon[]; report: { agent_payments: AgentPayment[]; customer_balances: CustomerBalanceReport[] } };
+type Tab = "home" | "clients" | "colis" | "bordereaux" | "caisse" | "settings";
+type ClientTab = "colis" | "factures" | "paiements" | "livraisons";
+type ClientFilter = "comptoir" | "solde" | "transit" | "tous";
+type ParcelFilter = "comptoir" | "transit" | "livres";
 type PaymentTarget = { customerCode: string; invoiceIds?: string[] };
 type PushPermission = NotificationPermission | "unsupported" | "checking";
-type ClientDossier = { customerCode: string; customerName: string; packages: ZonePackage[]; invoices: ZoneInvoice[] };
-type DossierCounts = { active: ZonePackage[]; enRoute: number; available: number; latestActiveAt: number; latestActivityAt: number };
-type PackageGroup = { customerCode: string; customerName: string; packages: ZonePackage[]; balanceUsd: number; balanceHtg: number; balanceInvoiceId: string; balanceInvoiceNumber: string; latestActivityAt: number; isCentralAccount: boolean };
+type ClientFile = { code: string; name: string; card?: ClientCard; packages: ZonePackage[]; invoices: ZoneInvoice[]; central: boolean };
 
+/** Colis d'un bordereau déjà à l'agence (plus à pointer). */
+const BON_PARCEL_DONE = new Set(["Disponible", "Facturé", "Livré"]);
 const DONE = "Livré";
 const READY_STATUSES = new Set(["Disponible", "Facturé"]);
+/** Ordre du suivi, de Miami jusqu'au retrait. */
+const TRACK_STEPS = ["Reçu à Miami", "En préparation", "En transit", "Arrivé en Haïti", "En route vers agence", "Disponible", "Facturé", "Livré"];
+/** Mots du shipping affichés à l'agent (le statut en base ne change pas). */
+const STATUS_LABEL: Record<string, string> = { "En route vers agence": "En acheminement" };
+const statusLabel = (status: string) => STATUS_LABEL[status] ?? status;
+
+const NAVY = "#0b2a5b";
 const fmtUsd = (value: number) => "$" + Number(value || 0).toFixed(2);
 const fmtHtg = (value: number) => new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 }).format(Number(value || 0)) + " HTG";
 const dateText = (value: string) => value ? new Date(value).toLocaleDateString("fr-CA", { day: "numeric", month: "short", year: "numeric" }) : "·";
-const quantityTotal = (items: ZonePackage[]) => items.reduce((total, item) => total + (Number(item.quantity) || 1), 0);
-const packageReference = (item: ZonePackage) => item.tracking_manual || item.tracking_number || "Colis sans numéro de suivi";
-const isReadyForPickup = (item: ZonePackage) => READY_STATUSES.has(item.status) && Boolean(item.invoice_id);
-/** Un colis se remet seulement quand sa facture est payée et que le client n'a aucun solde ouvert. */
-const canReleaseParcel = (item: ZonePackage) => isReadyForPickup(item) && item.invoice_payment_status === "Payé" && item.customer_balance_usd <= 0.01;
-const HAITI_STATUSES = new Set(["Arrivé en Haïti", "En route vers agence"]);
-// Un colis « Disponible » sans facture est déjà en Haïti : il attend seulement sa facture.
-const arrivalSectionOf = (item: ZonePackage): ArrivalSection => HAITI_STATUSES.has(item.status) || READY_STATUSES.has(item.status) ? "haiti" : "miami";
 const dateTimeText = (value: string) => value ? new Date(value).toLocaleString("fr-CA", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "·";
-/** Facture de zone -> format du calcul de répartition (montant = solde de la facture envoyée au client). */
+const shortStamp = (value: string) => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "·";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)} · ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+const packageReference = (item: ZonePackage) => item.tracking_number || item.tracking_manual || "Colis sans numéro";
+const isReadyForPickup = (item: ZonePackage) => READY_STATUSES.has(item.status) && Boolean(item.invoice_id);
+const atCounter = (item: ZonePackage) => READY_STATUSES.has(item.status);
+/** Un colis sort seulement quand sa facture est payée et que le client n'a aucun solde ouvert. */
+const canReleaseParcel = (item: ZonePackage) => isReadyForPickup(item) && item.invoice_payment_status === "Payé" && item.customer_balance_usd <= 0.01;
+const releaseBlockReason = (item: ZonePackage) => !item.invoice_id ? "En attente de facture"
+  : item.customer_balance_usd > 0.01 ? "Solde à régler avant retrait"
+    : item.invoice_payment_status !== "Payé" ? "Facture impayée" : "";
+const dateTimestamp = (value: string) => { const parsed = value ? Date.parse(value) : 0; return Number.isFinite(parsed) ? parsed : 0; };
+/** dd/mm/yyyy (« Creado » MCPACK) → ISO. */
+const mcpackDate = (value: string) => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(value || "").trim()); return m ? `${m[3]}-${m[2]}-${m[1]}T12:00:00` : ""; };
+/** Date d'arrivée au comptoir (Disponible), sinon de facturation. */
+const counterSince = (item: ZonePackage) => item.status_dates?.["Disponible"] || item.status_dates?.["Facturé"] || "";
+const daysSince = (value: string) => value ? Math.max(0, Math.floor((Date.now() - dateTimestamp(value)) / 86_400_000)) : 0;
+const isToday = (value: string) => { if (!value) return false; const d = new Date(value); const n = new Date(); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate(); };
+const digits = (value: string) => String(value || "").replace(/\D/g, "");
 const toPaymentInvoice = (invoice: ZoneInvoice): PaymentInvoice => ({
   id: invoice.id, invoice_number: invoice.invoice_number, customer_code: invoice.customer_code,
   grand_total: invoice.amount_due_usd, total_usd: invoice.amount_due_usd, total_htg: invoice.amount_due_htg,
   exchange_rate_used: invoice.exchange_rate, order_deposit: 0, balance_due: invoice.amount_due_usd, has_pdf: invoice.has_pdf,
   payment_paid_usd: invoice.payment_paid_usd, payment_paid_htg: invoice.payment_paid_htg, created_at: invoice.created_at
 });
-const dateTimestamp = (value: string) => {
-  const parsed = value ? Date.parse(value) : 0;
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-const packageActivityAt = (item: ZonePackage) => dateTimestamp(item.delivered_at || item.received_at || item.created_date);
-
-/**
- * Les compteurs d'un dossier viennent uniquement de lignes `packages` uniques
- * reçues de l'API de la zone. Une facture ou un historique ne gonfle jamais
- * les chiffres affichés ici.
- */
-function dossierCounts(dossier: ClientDossier): DossierCounts {
-  const active = dossier.packages.filter((item) => item.status !== DONE);
-  const latest = (items: ZonePackage[]) => items.reduce((mostRecent, item) => Math.max(mostRecent, packageActivityAt(item)), 0);
-  const available = active.filter(isReadyForPickup).length;
-  return {
-    active,
-    enRoute: active.length - available,
-    available,
-    latestActiveAt: latest(active),
-    latestActivityAt: Math.max(latest(dossier.packages), ...dossier.invoices.map((invoice) => dateTimestamp(invoice.created_at)))
-  };
-}
 
 export default function PickupAgentPortal() {
   const router = useRouter();
   const [data, setData] = useState<PortalData | null>(null);
   const [tab, setTab] = useState<Tab>("home");
-  const [arrivalSection, setArrivalSection] = useState<ArrivalSection | null>(null);
-  const [search, setSearch] = useState("");
-  const [focusedPackageId, setFocusedPackageId] = useState<string | null>(null);
-  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
+  const [clientCode, setClientCode] = useState<string | null>(null);
+  const [clientTab, setClientTab] = useState<ClientTab>("colis");
+  const [parcelId, setParcelId] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
-  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const [paymentTarget, setPaymentTarget] = useState<PaymentTarget | null>(null);
+  const [ticketPackageId, setTicketPackageId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [clientFilter, setClientFilter] = useState<ClientFilter>("comptoir");
+  const [parcelFilter, setParcelFilter] = useState<ParcelFilter>("comptoir");
   const [selectedPackageIds, setSelectedPackageIds] = useState<string[]>([]);
   const [releasing, setReleasing] = useState(false);
-  const [confirmedParcelIds, setConfirmedParcelIds] = useState<string[]>([]);
+  const [releasedInfo, setReleasedInfo] = useState<{ customerCode: string; count: number } | null>(null);
   const [selectedBonId, setSelectedBonId] = useState<string | null>(null);
   const [bonBusy, setBonBusy] = useState(false);
-  const [bonConfirmedId, setBonConfirmedId] = useState<string | null>(null);
   const [paymentBusy, setPaymentBusy] = useState(false);
-  const [paymentTarget, setPaymentTarget] = useState<PaymentTarget | null>(null);
-  // Ticket de remise affiché à l'écran (aperçu + impression) et proposition de
-  // remise juste après un paiement qui rend les colis du client remettables.
-  const [ticketPackageId, setTicketPackageId] = useState<string | null>(null);
-  // Détail d'un colis (même écran que le client voit dans son app).
-  const [trackingParcel, setTrackingParcel] = useState<ZonePackage | null>(null);
   const [remiseOffer, setRemiseOffer] = useState<{ customerCode: string; packageIds: string[]; paymentText: string } | null>(null);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [loadError, setLoadError] = useState("");
-  useNoticeToast(message, setMessage);
   const [loading, setLoading] = useState(true);
   const [showPushBanner, setShowPushBanner] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
@@ -150,10 +145,7 @@ export default function PickupAgentPortal() {
       setLoadError("");
       return json as PortalData;
     } catch (error) {
-      if (!silent) {
-        setData(null);
-        setLoadError(error instanceof Error ? error.message : "Chargement impossible.");
-      }
+      if (!silent) { setData(null); setLoadError(error instanceof Error ? error.message : "Chargement impossible."); }
     } finally {
       if (!silent) setLoading(false);
     }
@@ -161,9 +153,7 @@ export default function PickupAgentPortal() {
   }, [router]);
 
   useEffect(() => { void load(); }, [load]);
-  // Mise à jour automatique : toutes les 20 s quand l'app est à l'écran, jamais
-  // deux chargements en même temps (sur un réseau lent, ils s'empilaient et
-  // l'écran se figeait).
+  // Mise à jour automatique toutes les 20 s quand l'app est à l'écran, jamais deux à la fois.
   const refreshingRef = useRef(false);
   useEffect(() => {
     const refresh = async () => {
@@ -172,20 +162,13 @@ export default function PickupAgentPortal() {
       try { await load(true); } finally { refreshingRef.current = false; }
     };
     const timer = window.setInterval(() => void refresh(), 20_000);
-    // Retour sur l'écran : au plus un rechargement toutes les 15 s (certains
-    // ordinateurs envoient « focus » plusieurs fois par seconde).
     let lastFocusRefresh = Date.now();
-    const onVisible = () => {
-      if (Date.now() - lastFocusRefresh < 15_000) return;
-      lastFocusRefresh = Date.now();
-      void refresh();
-    };
+    const onVisible = () => { if (Date.now() - lastFocusRefresh < 15_000) return; lastFocusRefresh = Date.now(); void refresh(); };
     window.addEventListener("focus", onVisible);
     document.addEventListener("visibilitychange", onVisible);
     return () => { window.clearInterval(timer); window.removeEventListener("focus", onVisible); document.removeEventListener("visibilitychange", onVisible); };
   }, [load]);
 
-  /** Bannière d'accueil + état affiché dans Paramètres. */
   useEffect(() => {
     if (!data?.agent.id) return;
     let active = true;
@@ -193,8 +176,6 @@ export default function PickupAgentPortal() {
     try { dismissed = window.localStorage.getItem("standa-agence:push-dismissed") === "1"; } catch { /* ignore */ }
     if (!isPushSupported()) { setPushPermission("unsupported"); return; }
     const agentId = data.agent.id;
-    // Menm jan ak app kliyan an: fenèt sistèm nan parèt dirèkteman, epi yon
-    // aparèy ki deja otorize re-anrejistre an silans.
     void autoEnablePush(() => subscribeStaffToPush(agentId)).then(async (state) => {
       if (!active) return;
       setPushPermission(await getPushPermissionState());
@@ -207,221 +188,185 @@ export default function PickupAgentPortal() {
     setShowPushBanner(false);
     try { window.localStorage.setItem("standa-agence:push-dismissed", "1"); } catch { /* ignore */ }
   };
-
   const activatePush = async () => {
     if (!data?.agent.id || pushBusy) return;
     setPushBusy(true);
     try {
       const r = await subscribeStaffToPush(data.agent.id);
-      if (r.ok) { setPushPermission("granted"); setMessage({ type: "ok", text: "Notifications activées sur cet appareil." }); dismissPushBanner(); }
-      else if (r.reason === "denied") { setPushPermission("denied"); setMessage({ type: "error", text: "Notifications refusées · activez les notifications depuis les réglages de l'application si vous changez d'avis." }); dismissPushBanner(); }
-      else { setMessage({ type: "error", text: pushFailureMessage(r.reason) }); void reportPushFailure(r.reason ?? "inconnu"); }
+      if (r.ok) { setPushPermission("granted"); notify.success("Notifications activées", { small: true }); dismissPushBanner(); }
+      else if (r.reason === "denied") { setPushPermission("denied"); notify.error("Notifications refusées sur cet appareil", { small: true }); dismissPushBanner(); }
+      else { notify.error(pushFailureMessage(r.reason), { small: true }); void reportPushFailure(r.reason ?? "inconnu"); }
     } finally { setPushBusy(false); }
   };
-  const packages = data?.packages ?? [];
-  const invoices = data?.invoices ?? [];
-  const report = data?.report ?? { agent_payments: [] as AgentPayment[], customer_balances: [] as CustomerBalanceReport[] };
-  const ready = useMemo(() => packages.filter(isReadyForPickup), [packages]);
-  const delivered = useMemo(() => packages.filter((item) => item.status === DONE), [packages]);
-  const incoming = useMemo(() => packages.filter((item) => item.status !== DONE && !isReadyForPickup(item)), [packages]);
-  // Kont santral la sèvi pou operasyon STANDA, li pa yon kliyan nan zòn nan.
-  // Koli li yo rete vizib nan lis operasyon yo, men yo pa antre nan Dossiers clients.
-  // Yon kliyan ki pa gen okenn koli an wout ni disponib pa parèt: koli l ki
-  // remèt yo deja nan Historique.
-  const dossiers = useMemo(() => groupClientDossiers(
-    packages.filter((item) => !item.is_central_account),
-    invoices.filter((invoice) => !invoice.is_central_account)
-  ).filter((dossier) => dossierCounts(dossier).active.length > 0), [packages, invoices]);
-  const needle = search.trim().toLowerCase();
-  const matchingDossiers = useMemo(() => needle ? dossiers.filter((dossier) => dossierText(dossier).includes(needle)) : dossiers, [dossiers, needle]);
-  const packageSource = tab === "arrivals" ? incoming : tab === "ready" ? ready : tab === "history" ? delivered : [];
-  const filteredPackages = useMemo(() => needle ? packageSource.filter((item) => packageText(item).includes(needle)) : packageSource, [packageSource, needle]);
-  const groups = useMemo(() => groupPackages(filteredPackages), [filteredPackages]);
-  const filteredBons = useMemo(() => needle ? (data?.bons ?? []).filter((bon) => (bon.bon_number + " " + bon.destination).toLowerCase().includes(needle)) : (data?.bons ?? []), [data?.bons, needle]);
-  const reportPayments = useMemo(() => needle ? report.agent_payments.filter((payment) => [payment.invoice_number, payment.customer_code, payment.customer_name, payment.payment_method, payment.payment_reference].join(" ").toLowerCase().includes(needle)) : report.agent_payments, [report.agent_payments, needle]);
-  const reportBalances = useMemo(() => needle ? report.customer_balances.filter((balance) => [balance.customer_code, balance.customer_name, balance.invoice_number].join(" ").toLowerCase().includes(needle)) : report.customer_balances, [report.customer_balances, needle]);
 
-  // Le rafraîchissement automatique peut rendre un colis choisi non remettable
-  // (paiement annulé, colis déjà livré ailleurs) : on le retire de la sélection.
+  const packages = useMemo(() => data?.packages ?? [], [data?.packages]);
+  const invoices = useMemo(() => data?.invoices ?? [], [data?.invoices]);
+  const bons = useMemo(() => data?.bons ?? [], [data?.bons]);
+  const report = data?.report ?? { agent_payments: [] as AgentPayment[], customer_balances: [] as CustomerBalanceReport[] };
+  const counter = useMemo(() => packages.filter(atCounter), [packages]);
+  const delivered = useMemo(() => packages.filter((item) => item.status === DONE), [packages]);
+  const inTransit = useMemo(() => packages.filter((item) => item.status !== DONE && !atCounter(item)), [packages]);
+  const pendingBons = useMemo(() => bons.filter((bon) => !bon.received_at), [bons]);
+
+  /** Une fiche par client : identité, colis, factures. Le compte central reste à part. */
+  const files = useMemo(() => {
+    const byCode = new Map<string, ClientFile>();
+    const ensure = (code: string, name: string, central: boolean) => {
+      const existing = byCode.get(code);
+      if (existing) { if (!existing.name && name) existing.name = name; return existing; }
+      const card = (data?.clients ?? []).find((client) => client.customer_code === code);
+      const file: ClientFile = { code, name: card?.name || name, card, packages: [], invoices: [], central };
+      byCode.set(code, file);
+      return file;
+    };
+    for (const item of packages) ensure(item.customer_code, item.customer_name, item.is_central_account).packages.push(item);
+    for (const invoice of invoices) ensure(invoice.customer_code, invoice.customer_name, invoice.is_central_account).invoices.push(invoice);
+    return byCode;
+  }, [packages, invoices, data?.clients]);
+  const balanceOf = (code: string) => {
+    const file = files.get(code);
+    const source = file?.invoices[0] ?? file?.packages[0];
+    return { usd: source?.customer_balance_usd ?? 0, htg: source?.customer_balance_htg ?? 0 };
+  };
+
+  // L'actualisation peut rendre un colis choisi non retirable : on le retire de la sélection.
   useEffect(() => {
-    const latest = data?.packages;
-    if (!latest) return;
     setSelectedPackageIds((current) => {
-      const valid = current.filter((id) => { const item = latest.find((parcel) => parcel.id === id); return item && canReleaseParcel(item); });
+      const valid = current.filter((id) => { const item = packages.find((parcel) => parcel.id === id); return item && canReleaseParcel(item); });
       return valid.length === current.length ? current : valid;
     });
-  }, [data?.packages]);
-
-  // Le client du colis choisi : la sélection ne porte jamais sur deux clients à la fois.
-  const selectedCustomerCode = useMemo(() => packages.find((item) => item.id === (confirmedParcelIds[0] ?? selectedPackageIds[0]))?.customer_code ?? "", [packages, selectedPackageIds, confirmedParcelIds]);
+  }, [packages]);
 
   const call = async (body: Record<string, unknown>) => {
     const session = await supabase.auth.getSession();
     const token = session.data.session?.access_token;
     if (!token) { router.replace("/point-retrait"); return null; }
     const response = await fetch("/api/pickup-agent", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-      body: JSON.stringify(body)
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + token }, body: JSON.stringify(body)
     });
     const json = await response.json();
     if (!response.ok || !json.ok) throw new Error(json.reason || "Opération impossible.");
     return json;
   };
 
-  const openCentralOperation = (parcel: ZonePackage, query = parcel.customer_code) => {
-    setTab(parcel.status === DONE ? "history" : isReadyForPickup(parcel) ? "ready" : "arrivals");
-    setSearch(query);
-    setFocusedPackageId(null);
-    setExpandedCustomer(parcel.customer_code);
-    setArrivalSection(arrivalSectionOf(parcel));
-    setSelectedInvoiceId(null);
-    setMessage(null);
-    window.setTimeout(() => document.getElementById("package-group-" + parcel.customer_code)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  // ── NAVIGATION PAR PAGES ─────────────────────────────────────────────────
+  // Chaque fiche ouverte entre dans l'historique du navigateur : Retour (ou le
+  // geste retour du téléphone) revient sur l'écran précédent, sans quitter l'app.
+  type NavSnapshot = { tab: Tab; clientCode: string | null; clientTab: ClientTab; parcelId: string | null; selectedInvoiceId: string | null; paymentTarget: PaymentTarget | null; ticketPackageId: string | null };
+  const snapshot: NavSnapshot = { tab, clientCode, clientTab, parcelId, selectedInvoiceId, paymentTarget, ticketPackageId };
+  const snapshotKey = JSON.stringify(snapshot);
+  const lastKeyRef = useRef<string | null>(null);
+  const restoringRef = useRef(false);
+  const applySnapshot = (next: NavSnapshot) => {
+    restoringRef.current = true;
+    setTab(next.tab); setClientCode(next.clientCode); setClientTab(next.clientTab); setParcelId(next.parcelId);
+    setSelectedInvoiceId(next.selectedInvoiceId); setPaymentTarget(next.paymentTarget); setTicketPackageId(next.ticketPackageId);
   };
+  const applySnapshotRef = useRef(applySnapshot);
+  applySnapshotRef.current = applySnapshot;
+  useEffect(() => {
+    if (lastKeyRef.current === null) { lastKeyRef.current = snapshotKey; return; }
+    if (lastKeyRef.current === snapshotKey) return;
+    lastKeyRef.current = snapshotKey;
+    if (restoringRef.current) restoringRef.current = false;
+    else { try { window.history.pushState({ ...(window.history.state ?? {}), standaAgentNav: snapshot }, "", window.location.href); } catch { /* noop */ } }
+    window.scrollTo({ top: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshotKey]);
+  useEffect(() => {
+    const onPop = (event: PopStateEvent) => {
+      const saved = event.state && typeof event.state === "object" ? (event.state as { standaAgentNav?: NavSnapshot }).standaAgentNav : undefined;
+      applySnapshotRef.current(saved ?? { tab: "home", clientCode: null, clientTab: "colis", parcelId: null, selectedInvoiceId: null, paymentTarget: null, ticketPackageId: null });
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const goTab = (next: Tab) => { setTab(next); setClientCode(null); setParcelId(null); setSelectedInvoiceId(null); setPaymentTarget(null); setSearch(""); };
+  const goBack = () => { if (!paymentBusy) window.history.back(); };
+  const openClient = (code: string, initialTab: ClientTab = "colis") => { setClientCode(code); setClientTab(initialTab); setParcelId(null); setSelectedInvoiceId(null); setPaymentTarget(null); };
+  const openParcel = (id: string) => { setParcelId(id); setSelectedInvoiceId(null); setPaymentTarget(null); };
+  const openInvoice = (id: string) => { setSelectedInvoiceId(id); setPaymentTarget(null); };
+  const startPayment = (customerCode: string, invoiceIds?: string[]) => { if (customerCode) setPaymentTarget({ customerCode, invoiceIds }); };
 
-  /** « À venir » : un seul client ouvert à la fois, et une seule étape ouverte chez ce client. */
-  const toggleArrivalCustomer = (customerCode: string) => {
-    setExpandedCustomer((current) => current === customerCode ? null : customerCode);
-    setArrivalSection(null);
-  };
-
-  /** Toute ligne client (À remettre, Colis en route) ouvre le même dossier client. */
-  const openClientFile = (customerCode: string) => {
-    if (!dossiers.some((dossier) => dossier.customerCode === customerCode)) return false;
-    setTab("dossiers"); setSearch(""); setFocusedPackageId(null); setExpandedCustomer(customerCode);
-    setSelectedInvoiceId(null); setMessage(null);
-    return true;
-  };
-
-  const openDossier = () => {
-    const lastSixDigits = needle.replace(/\D/g, "");
-    if (lastSixDigits.length === 6 && needle === lastSixDigits) {
-      const matches = packages.filter((item) => [item.tracking_number, item.tracking_manual]
-        .some((tracking) => String(tracking || "").replace(/\s+/g, "").endsWith(lastSixDigits)));
-      if (matches.length > 1) {
-        setMessage({ type: "error", text: "Plus d’un colis possède ces 6 derniers chiffres. Encodez le numéro de suivi complet pour éviter toute erreur." });
-        return;
-      }
-      if (matches.length === 1) {
-        const parcel = matches[0];
-        if (parcel.is_central_account) { openCentralOperation(parcel, needle); return; }
-        if (parcel.status === DONE) {
-          setTab("history");
-          setMessage({ type: "ok", text: "Ce colis a déjà été remis : il se trouve dans l’historique." });
-          return;
-        }
-        const found = dossiers.find((dossier) => dossier.customerCode === parcel.customer_code);
-        if (!found) { setMessage({ type: "error", text: "Le colis a été trouvé, mais son dossier client est indisponible." }); return; }
-        setTab("dossiers");
-        setSearch(found.customerCode);
-        setFocusedPackageId(parcel.id);
-        setExpandedCustomer(found.customerCode);
-        setSelectedInvoiceId(null);
-        setMessage(null);
-        window.setTimeout(() => document.getElementById("dossier-" + found.customerCode)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-        return;
-      }
-      setMessage({ type: "error", text: "Aucun colis ne correspond à ces 6 derniers chiffres. Vérifiez le numéro ou utilisez le code client." });
-      return;
-    }
-    const centralMatch = packages.find((item) => item.is_central_account && item.customer_code.toLowerCase() === needle);
-    if (centralMatch) { openCentralOperation(centralMatch); return; }
-    const exact = dossiers.find((dossier) => dossier.customerCode.toLowerCase() === needle);
-    const found = exact ?? matchingDossiers[0];
-    if (!found) {
-      const knownCustomer = packages.some((item) => !item.is_central_account && item.customer_code.toLowerCase() === needle);
-      setMessage({ type: "error", text: knownCustomer
-        ? "Ce client n’a aucun colis en route ni disponible. Ses colis remis sont dans l’historique."
-        : "Aucun dossier client ne correspond à cette recherche." });
-      return;
-    }
-    setTab("dossiers");
-    setSearch(found.customerCode);
-    setFocusedPackageId(null);
-    setExpandedCustomer(found.customerCode);
-    setSelectedInvoiceId(null);
-    setMessage(null);
-    window.setTimeout(() => document.getElementById("dossier-" + found.customerCode)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  /** Recherche du comptoir : code client, nom, téléphone, N° de guía ou de suivi (complet ou 6 derniers chiffres). */
+  const runSearch = () => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return;
+    const exactClient = Array.from(files.values()).find((file) => file.code.toLowerCase() === needle);
+    if (exactClient) { setSearch(""); openClient(exactClient.code); return; }
+    const compact = needle.replace(/\s+/g, "");
+    const byTracking = packages.filter((item) => [item.tracking_number, item.tracking_manual].some((value) => {
+      const v = String(value || "").toLowerCase();
+      return v && (v === compact || (compact.length >= 6 && /^\d+$/.test(compact) && v.endsWith(compact)));
+    }));
+    if (byTracking.length === 1) { setSearch(""); openParcel(byTracking[0].id); return; }
+    if (byTracking.length > 1) { notify.error("Plusieurs colis correspondent : tapez le numéro complet", { small: true }); return; }
+    const needleDigits = digits(needle);
+    const byPhone = needleDigits.length >= 6 ? Array.from(files.values()).filter((file) => [file.card?.phone, file.card?.whatsapp].some((p) => digits(p ?? "").endsWith(needleDigits))) : [];
+    if (byPhone.length === 1) { setSearch(""); openClient(byPhone[0].code); return; }
+    const byName = Array.from(files.values()).filter((file) => `${file.code} ${file.name}`.toLowerCase().includes(needle));
+    if (byName.length === 1) { setSearch(""); openClient(byName[0].code); return; }
+    if (byName.length > 1 || byPhone.length > 1) { setTab("clients"); setClientCode(null); setParcelId(null); setClientFilter("tous"); return; }
+    notify.error("Aucun client ni colis trouvé", { small: true });
   };
 
   const togglePackageSelection = (parcel: ZonePackage) => {
     setSelectedPackageIds((current) => {
-      const hasAnotherCustomer = current.some((id) => packages.find((item) => item.id === id)?.customer_code !== parcel.customer_code);
-      if (hasAnotherCustomer) return [parcel.id];
+      const otherClient = current.some((id) => packages.find((item) => item.id === id)?.customer_code !== parcel.customer_code);
+      if (otherClient) return [parcel.id];
       return current.includes(parcel.id) ? current.filter((id) => id !== parcel.id) : [...current, parcel.id];
     });
   };
-
-  const selectPackagesForCustomer = (customerCode: string, parcelIds: string[]) => {
-    setSelectedPackageIds((current) => {
-      const selectedForCustomer = current.filter((id) => packages.find((item) => item.id === id)?.customer_code === customerCode);
-      const allSelected = parcelIds.length > 0 && parcelIds.every((id) => selectedForCustomer.includes(id));
-      return allSelected ? [] : parcelIds;
-    });
-  };
+  const selectAllFor = (ids: string[]) => setSelectedPackageIds((current) => ids.length > 0 && ids.every((id) => current.includes(id)) ? [] : ids);
+  const selectedCustomerCode = packages.find((item) => item.id === selectedPackageIds[0])?.customer_code ?? "";
 
   const releasePackages = async (packageIds: string[]) => {
     if (releasing || !packageIds.length) return;
+    const customerCode = packages.find((item) => item.id === packageIds[0])?.customer_code ?? "";
     setReleasing(true);
-    setMessage(null);
     try {
       const result = await call({ action: "release_many", package_ids: packageIds });
       if (!result) return;
       const confirmed: string[] = Array.isArray(result.package_ids) ? result.package_ids : packageIds;
-      setSelectedPackageIds(confirmed);
-      setConfirmedParcelIds(confirmed);
-      // Chaque remise produit son ticket : il s'ouvre ici même, avec l'aperçu et le bouton Imprimer.
+      setReleasedInfo({ customerCode, count: confirmed.length });
+      // Chaque retrait produit sa preuve de livraison : elle s'ouvre juste après la grande coche verte.
       window.setTimeout(() => {
-        setConfirmedParcelIds([]); setSelectedPackageIds([]);
+        setReleasedInfo(null); setSelectedPackageIds([]);
         if (confirmed[0]) setTicketPackageId(confirmed[0]);
         void load(true);
-      }, 1_200);
+      }, 1_400);
     } catch (error) {
-      setMessage({ type: "error", text: error instanceof Error ? error.message : "Remise impossible." });
+      notify.error(error instanceof Error ? error.message : "Retrait impossible.", { title: "Retrait refusé" });
     } finally {
       setReleasing(false);
     }
   };
-  const releaseSelectedPackages = () => releasePackages(selectedPackageIds);
 
-  const confirmBonRemise = async (bonId: string, packageIds: string[]) => {
+  const confirmBon = async (bonId: string, packageIds: string[]) => {
     if (bonBusy || !packageIds.length) return;
     setBonBusy(true);
-    setMessage(null);
     try {
       const result = await call({ action: "confirm_bon_remise", bon_remise_id: bonId, package_ids: packageIds });
-      setBonConfirmedId(bonId);
       const text = result.alreadyConfirmed
-        ? "Ce bon a déjà été confirmé."
-        : `${result.updated} colis reçus et rendus disponibles${result.alreadyReady ? ` · ${result.alreadyReady} l'étaient déjà` : ""}.` +
-          (result.remaining ? ` Il reste ${result.remaining} colis à recevoir sur ce bon.` : " Bon complet.");
-      setMessage({ type: "ok", text });
-      window.setTimeout(() => { setBonConfirmedId(null); setSelectedBonId(null); void load(); }, 1_000);
+        ? "Ce bordereau était déjà pointé."
+        : `${result.updated} colis au comptoir${result.alreadyReady ? ` · ${result.alreadyReady} déjà reçus` : ""}.` +
+          (result.remaining ? `\nIl reste ${result.remaining} colis à pointer sur ce bordereau.` : "");
+      notify.success(text, { title: result.remaining ? "Pointage enregistré" : "Bordereau pointé" });
+      setSelectedBonId(null);
+      void load(true);
     } catch (error) {
-      setMessage({ type: "error", text: error instanceof Error ? error.message : "Confirmation impossible." });
+      notify.error(error instanceof Error ? error.message : "Pointage impossible.", { title: "Pointage refusé" });
     } finally {
       setBonBusy(false);
     }
   };
 
-  const hostHasCustomer = (customerCode: string) => tab === "dossiers"
-    ? matchingDossiers.some((dossier) => dossier.customerCode === customerCode)
-    : tab === "ready" ? groups.some((group) => group.customerCode === customerCode) : false;
-  // Paiement et détail de facture s'ouvrent DANS la carte du client quand elle est
-  // ouverte à l'écran ; sinon (rapport, historique) dans une fenêtre au-dessus.
-  const inlineCustomer = (tab === "dossiers" || tab === "ready") && expandedCustomer && hostHasCustomer(expandedCustomer) ? expandedCustomer : null;
-  const selectedInvoice = selectedInvoiceId ? invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null : null;
-  void inlineCustomer;
-  const invoiceInline = false;
-  const paymentInline = false;
   const paymentInvoicesFor = (customerCode: string) => invoices
     .filter((invoice) => invoice.customer_code === customerCode && invoice.has_pdf && invoice.payment_status !== "Payé")
     .map(toPaymentInvoice);
 
   const recordPayment = async (payload: ClientPaymentSubmit) => {
     setPaymentBusy(true);
-    setPaymentError(null);
     try {
       const result = await call({
         action: "record_payment", invoice_ids: payload.invoiceIds,
@@ -431,12 +376,11 @@ export default function PickupAgentPortal() {
       const lines = (result.payments ?? []) as Array<{ invoice_number: string; payment_status: string }>;
       const paymentText = `${payload.summary}\n${invoiceStatusLines(lines)}`;
       const customerCode = paymentTarget?.customerCode ?? "";
-      // Operasyon fini: tounen sou paj anvan an (dosye kliyan an), pa rete sou fòm nan.
       window.history.back();
       const fresh = await load(true);
       const releasable = (fresh?.packages ?? []).filter((item) => item.customer_code === customerCode && canReleaseParcel(item)).map((item) => item.id);
       if (releasable.length) setRemiseOffer({ customerCode, packageIds: releasable, paymentText });
-      else notify.success(paymentText, { title: `Paiement enregistré · ${customerCode}` });
+      else notify.success(paymentText, { title: `Paiement encaissé · ${customerCode}` });
     } catch (error) {
       notify.error(error instanceof Error ? error.message : "Paiement impossible.", { title: "Paiement non enregistré" });
     } finally {
@@ -444,159 +388,87 @@ export default function PickupAgentPortal() {
     }
   };
 
-  const startPayment = (customerCode: string, invoiceIds?: string[]) => {
-    if (!customerCode) return;
-    setPaymentTarget({ customerCode, invoiceIds });
-    setPaymentError(null);
-    setSelectedInvoiceId(null);
-    if ((tab === "dossiers" || tab === "ready") && hostHasCustomer(customerCode)) setExpandedCustomer(customerCode);
-    else if (dossiers.some((dossier) => dossier.customerCode === customerCode)) {
-      // Depuis le rapport : on entre dans le dossier du client pour encaisser.
-      setTab("dossiers"); setSearch(customerCode); setFocusedPackageId(null); setExpandedCustomer(customerCode);
-    }
-    window.setTimeout(() => document.getElementById("payment-inline-" + customerCode)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
-  };
-
-  const openInvoice = (invoiceId: string) => {
-    setPaymentTarget(null);
-    setSelectedInvoiceId(invoiceId);
-    window.setTimeout(() => document.getElementById("invoice-inline-" + invoiceId)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
-  };
-
-  const renderPayment = (customerCode: string) => paymentInline && paymentTarget?.customerCode === customerCode
-    ? <div id={"payment-inline-" + customerCode} className="scroll-mt-24"><ClientPaymentForm key={customerCode + (paymentTarget.invoiceIds ?? []).join()} title="Paiement avant remise" customerCode={customerCode} customerName={dossiers.find((dossier) => dossier.customerCode === customerCode)?.customerName} invoices={paymentInvoicesFor(customerCode)} initialSelected={paymentTarget.invoiceIds} busy={paymentBusy} error={paymentError} onSubmit={(payload) => void recordPayment(payload)} onClose={() => { setPaymentTarget(null); setPaymentError(null); }} /></div>
-    : null;
-  const renderInvoice = (customerCode: string) => invoiceInline && selectedInvoice && selectedInvoice.customer_code === customerCode
-    ? <div id={"invoice-inline-" + selectedInvoice.id} className="scroll-mt-24"><InvoiceDetails invoice={selectedInvoice} packages={packages.filter((item) => item.invoice_id === selectedInvoice.id)} onClose={() => setSelectedInvoiceId(null)} onPay={selectedInvoice.payment_status !== "Payé" && selectedInvoice.has_pdf ? () => startPayment(selectedInvoice.customer_code, [selectedInvoice.id]) : undefined} /></div>
-    : null;
-
   const openDocument = async (kind: "invoice" | "bon-remise", id: string) => {
     try { await openSecureDocument(kind, id); }
-    catch (error) { setMessage({ type: "error", text: error instanceof Error ? error.message : "PDF indisponible." }); }
+    catch (error) { notify.error(error instanceof Error ? error.message : "PDF indisponible", { small: true }); }
   };
-
-  // ── NAVIGASYON PA PAJ ─────────────────────────────────────────────────
-  // Chak aksyon ki louvri yon bagay (dosye, fakti, peman, tikè, onglè) se yon
-  // PAJ: li antre nan istorik navigatè a. Bouton « Retour » ak gès retou
-  // telefòn nan tounen sou paj anvan an, pa soti nan app la.
-  type NavSnapshot = { tab: Tab; expandedCustomer: string | null; selectedInvoiceId: string | null; paymentTarget: PaymentTarget | null; arrivalSection: ArrivalSection | null; ticketPackageId: string | null };
-  const snapshot: NavSnapshot = { tab, expandedCustomer, selectedInvoiceId, paymentTarget, arrivalSection, ticketPackageId };
-  const snapshotKey = JSON.stringify(snapshot);
-  const lastKeyRef = useRef<string | null>(null);
-  const restoringRef = useRef(false);
-  const applySnapshot = (next: NavSnapshot) => {
-    restoringRef.current = true;
-    setTab(next.tab); setExpandedCustomer(next.expandedCustomer); setSelectedInvoiceId(next.selectedInvoiceId);
-    setPaymentTarget(next.paymentTarget); setArrivalSection(next.arrivalSection); setTicketPackageId(next.ticketPackageId);
-    setPaymentError(null); setMobileMoreOpen(false);
+  const copyText = async (value: string, label: string) => {
+    try { await navigator.clipboard.writeText(value); notify.success(`${label} copié`, { small: true }); }
+    catch { notify.error("Copie impossible", { small: true }); }
   };
-  const applySnapshotRef = useRef(applySnapshot);
-  applySnapshotRef.current = applySnapshot;
-  useEffect(() => {
-    if (lastKeyRef.current === null) { lastKeyRef.current = snapshotKey; return; }
-    if (lastKeyRef.current === snapshotKey) return;
-    lastKeyRef.current = snapshotKey;
-    if (restoringRef.current) { restoringRef.current = false; }
-    else { try { window.history.pushState({ ...(window.history.state ?? {}), standaAgentNav: snapshot }, "", window.location.href); } catch { /* noop */ } }
-    window.scrollTo({ top: 0 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshotKey]);
-  useEffect(() => {
-    const onPop = (event: PopStateEvent) => {
-      const saved = event.state && typeof event.state === "object" ? (event.state as { standaAgentNav?: NavSnapshot }).standaAgentNav : undefined;
-      applySnapshotRef.current(saved ?? { tab: "home", expandedCustomer: null, selectedInvoiceId: null, paymentTarget: null, arrivalSection: null, ticketPackageId: null });
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-  /** Meni an: chak onglè louvri sou LIS li, pa sou paj yon kliyan ki te louvri anvan. */
-  const goTab = (next: Tab) => { setTab(next); setExpandedCustomer(null); setSelectedInvoiceId(null); setPaymentTarget(null); setArrivalSection(null); setFocusedPackageId(null); };
-  const goBack = () => { if (!paymentBusy) window.history.back(); };
-  // Changer de page referme toujours le menu « Plus ».
-  useEffect(() => { setMobileMoreOpen(false); }, [tab, expandedCustomer, paymentTarget, selectedInvoiceId]);
-
-  const subPage: "payment" | "invoice" | null = paymentTarget ? "payment" : selectedInvoice ? "invoice" : null;
-  // Yon dosye kliyan ouvè = yon paj pou kliyan sa a sèlman.
-  const dossierPage = expandedCustomer ? dossiers.filter((dossier) => dossier.customerCode === expandedCustomer) : [];
-  const groupPage = expandedCustomer ? groups.filter((group) => group.customerCode === expandedCustomer) : [];
-  const shownDossiers = dossierPage.length ? dossierPage : matchingDossiers;
-  const shownGroups = groupPage.length ? groupPage : groups;
-  const onCustomerPage = (tab === "dossiers" && dossierPage.length > 0) || ((tab === "ready" || tab === "arrivals") && groupPage.length > 0)
-    || (tab === "history" && !!expandedCustomer && filteredPackages.some((item) => item.customer_code === expandedCustomer));
-  const TAB_TITLES: Record<Tab, string> = { home: "Accueil", dossiers: "Clients", arrivals: "Colis en route", ready: "Colis à remettre", bons: "Bons de remise", history: "Colis remis", reports: "Caisse et rapport", settings: "Paramètres" };
-  const pageTitle = subPage === "payment" ? `Paiement · ${paymentTarget?.customerCode ?? ""}`
-    : subPage === "invoice" ? `Facture ${selectedInvoice?.invoice_number ?? ""}`
-    : onCustomerPage && tab === "arrivals" && arrivalSection ? `${expandedCustomer} · ${arrivalSection === "haiti" ? "Arrivés en Haïti" : "À Miami · en cours"}`
-    : onCustomerPage ? `Dossier ${expandedCustomer}`
-    : TAB_TITLES[tab];
-
   const logout = async () => { await supabase.auth.signOut(); router.replace("/point-retrait"); };
 
-  const firstName = (data?.agent.name ?? "").trim().split(/\s+/)[0] || "Agent";
-  const showBack = Boolean(data) && (tab !== "home" || Boolean(subPage));
   const cash = cashTotals(report.agent_payments);
-  const pendingBonCount = (data?.bons ?? []).filter((bon) => !bon.received_at).length;
+  const openFile = clientCode ? files.get(clientCode) ?? null : null;
+  const openParcelRow = parcelId ? packages.find((item) => item.id === parcelId) ?? null : null;
+  const selectedInvoice = selectedInvoiceId ? invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null : null;
+  const subPage: "payment" | "invoice" | "parcel" | "client" | null = paymentTarget ? "payment" : selectedInvoice ? "invoice" : openParcelRow ? "parcel" : openFile ? "client" : null;
+  const TAB_TITLES: Record<Tab, string> = { home: "Accueil", clients: "Clients", colis: "Colis", bordereaux: "Bordereaux", caisse: "Caisse", settings: "Paramètres" };
+  const pageTitle = subPage === "payment" ? "Encaissement" : subPage === "invoice" ? "Facture" : subPage === "parcel" ? "Fiche colis" : subPage === "client" ? "Fiche client" : TAB_TITLES[tab];
+  const headerCode = subPage === "client" ? openFile?.code : subPage === "payment" ? paymentTarget?.customerCode : subPage === "invoice" ? selectedInvoice?.customer_code : undefined;
+  const showBack = Boolean(data) && (tab !== "home" || Boolean(subPage));
+  const today = new Date();
+  const stamp = `${String(today.getDate()).padStart(2, "0")}.${String(today.getMonth() + 1).padStart(2, "0")}.${today.getFullYear()}`;
+  const firstName = (data?.agent.name ?? "").trim().split(/\s+/)[0] || "Agent";
+  const navTab = subPage ? (subPage === "parcel" && tab === "colis" ? "colis" : tab === "home" ? "home" : tab) : tab;
 
   return <>
-    <div className="agent-app min-h-screen bg-[#f2f4f8] text-slate-900">
-      {/* ── Ba anlè : tit paj la + Retour, tankou yon app bank ── */}
-      <header className="sticky top-0 z-30 bg-[#0b2a5b] text-white">
+    <div className="agent-app min-h-screen bg-white text-slate-900">
+      <header className="sticky top-0 z-30 text-white" style={{ background: NAVY }}>
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-3 sm:px-6">
           {showBack
-            ? <button type="button" onClick={goBack} disabled={paymentBusy} aria-label="Retour" className="grid h-10 w-10 shrink-0 place-items-center rounded-full transition hover:bg-white/10 disabled:opacity-40"><ArrowLeft size={20} /></button>
-            : <Logo size={32} rounded="rounded-lg" tone="light" />}
+            ? <button type="button" onClick={goBack} disabled={paymentBusy} aria-label="Retour" className="grid h-11 w-11 shrink-0 place-items-center rounded-full transition hover:bg-white/10 disabled:opacity-40"><ArrowLeft size={20} /></button>
+            : <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white text-[13px] font-extrabold" style={{ color: NAVY }}>SC</span>}
           <div className="min-w-0 flex-1">
             {showBack
-              ? <p className="truncate text-[15px] font-semibold">{pageTitle}</p>
-              : <><p className="truncate text-[15px] font-semibold leading-tight">{data ? `Bonjour, ${firstName}` : "STANDA"}</p><p className="truncate text-[11px] text-white/65">{data ? `Point de retrait · ${data.zone.name}` : "Point de retrait"}</p></>}
+              ? <p className="truncate text-[15px] font-extrabold">{pageTitle}</p>
+              : <><p className="truncate text-[15px] font-extrabold leading-tight">STANDA Retrait</p><p className="agent-mono truncate text-[11px] uppercase tracking-wide text-white/65">{data ? `${data.zone.name} · ${stamp} · ${firstName}` : "Point de retrait"}</p></>}
           </div>
-          <PwaInstallButton appName="STANDA Retrait" />
+          {headerCode && <span className="agent-mono hidden shrink-0 rounded-md bg-white px-2 py-1 text-[12px] font-semibold min-[360px]:inline" style={{ color: NAVY }}>{headerCode}</span>}
           <StaffNotifications variant="icon" />
+          {!showBack && <button type="button" onClick={() => goTab("settings")} aria-label="Paramètres" className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white/85 hover:bg-white/10"><Settings size={18} /></button>}
           <button type="button" onClick={logout} aria-label="Se déconnecter" title="Se déconnecter" className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white/85 transition hover:bg-white/10"><LogOut size={18} /></button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-3 pb-28 pt-4 sm:px-6 md:pb-10">
+      <main className="mx-auto max-w-6xl px-3 pb-36 pt-3 sm:px-6 md:pb-12">
         {loading && <div className="grid min-h-[45vh] place-items-center"><Loader inline size={64} /></div>}
         {!loading && !data && <MessageScreen tone="error" title="Accès à vérifier" text={loadError || "Impossible de préparer votre espace."} actionLabel="Réessayer" onAction={() => void load()} />}
-        {!loading && data && <>
-          <div className="md:grid md:grid-cols-[200px_minmax(0,1fr)] md:gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
-            <SideNavigation tab={tab} incoming={incoming.length} ready={ready.length} dossiers={dossiers.length} delivered={delivered.length} bons={data.bons.length} balanceCount={report.customer_balances.length} onHome={() => goTab("home")} onArrivals={() => { goTab("arrivals"); setArrivalSection(null); }} onReady={() => goTab("ready")} onDossiers={() => goTab("dossiers")} onHistory={() => goTab("history")} onBons={() => goTab("bons")} onReports={() => goTab("reports")} onSettings={() => goTab("settings")} />
-            <div className={cn("min-w-0 space-y-4", selectedPackageIds.length ? "pb-24 md:pb-20" : "")}>
-              {showPushBanner && tab !== "settings" && <PushBanner busy={pushBusy} onActivate={() => void activatePush()} onDismiss={dismissPushBanner} />}
-              {tab !== "home" && tab !== "settings" && !subPage && !onCustomerPage && <SearchBar value={search} onChange={(value) => { setSearch(value); setFocusedPackageId(null); }} onSubmit={openDossier}
-                hint={tab === "arrivals" ? "Touchez un client pour voir ses colis arrivés en Haïti ou encore en cours." : null} />}
+        {!loading && data && <div className="md:grid md:grid-cols-[200px_minmax(0,1fr)] md:gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <SideNavigation tab={navTab} counts={{ clients: files.size, colis: counter.length, bordereaux: pendingBons.length }} onGo={goTab} />
+          <div className="min-w-0 space-y-3">
+            {showPushBanner && !subPage && tab === "home" && <PushBanner busy={pushBusy} onActivate={() => void activatePush()} onDismiss={dismissPushBanner} />}
 
-              {!subPage && tab === "settings" && <AgentSettingsView agentName={data.agent.name} pushPermission={pushPermission} pushBusy={pushBusy} onActivate={() => void activatePush()} />}
-              {!subPage && tab === "home" && <HomeDashboard zoneName={data.zone.name} cash={cash} balanceCount={report.customer_balances.length}
-                counts={{ ready: ready.length, readyClients: new Set(ready.filter((item) => !item.is_central_account).map((item) => item.customer_code)).size, incoming: incoming.length, dossiers: dossiers.length, bons: pendingBonCount }}
-                payments={report.agent_payments} onGo={(next) => { goTab(next); if (next === "arrivals") setArrivalSection(null); }}
-                onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")}
-                search={search} onSearchChange={(value) => { setSearch(value); setFocusedPackageId(null); }} onOpenDossier={openDossier}
-                bons={data.bons} selectedBonId={selectedBonId} onSelectBon={setSelectedBonId}
-                bonBusy={bonBusy} bonConfirmedId={bonConfirmedId} onConfirmBon={confirmBonRemise} />}
-              {!subPage && tab === "dossiers" && <ClientDossiersView zoneName={data.zone.name} onOpenParcel={setTrackingParcel} dossiers={shownDossiers} focusedPackageId={focusedPackageId} expanded={expandedCustomer} onExpand={setExpandedCustomer} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
-              {!subPage && tab === "arrivals" && <ArrivalsView groups={shownGroups} expanded={expandedCustomer} section={arrivalSection} onToggleCustomer={(customerCode) => { if (!openClientFile(customerCode)) toggleArrivalCustomer(customerCode); }} onSelectSection={(value) => setArrivalSection(value)} />}
-              {!subPage && tab === "ready" && <ReadyView groups={shownGroups} expanded={expandedCustomer} onExpand={(customerCode) => { if (customerCode && openClientFile(customerCode)) return; setExpandedCustomer(customerCode); }} selectedPackageIds={selectedPackageIds} confirmedParcelIds={confirmedParcelIds} releasing={releasing} onToggleSelection={togglePackageSelection} onSelectCustomerPackages={selectPackagesForCustomer} onStartPayment={startPayment} onOpenInvoice={openInvoice} renderPayment={renderPayment} renderInvoice={renderInvoice} />}
-              {!subPage && tab === "history" && <RemiseHistoryView packages={filteredPackages} onOpenTicket={(packageId) => setTicketPackageId(packageId)} openCustomer={expandedCustomer} onOpenCustomer={setExpandedCustomer} />}
-              {!subPage && tab === "bons" && <BonsView bons={filteredBons} onOpenPdf={(id) => void openDocument("bon-remise", id)} />}
-              {!subPage && tab === "reports" && <ReportsView zoneName={data.zone.name} deliveries={delivered} allPayments={report.agent_payments} allBalances={report.customer_balances}
-                onSendReport={async (pdf, summary) => { await call({ action: "send_report", pdf, summary }); }}
-                agentName={data.agent.name} payments={reportPayments} balances={reportBalances} onOpenInvoice={openInvoice} onStartPayment={(customerCode) => startPayment(customerCode)} onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} />}
-              {subPage === "invoice" && selectedInvoice && !invoiceInline && <InvoiceDetails invoice={selectedInvoice} packages={packages.filter((item) => item.invoice_id === selectedInvoice.id)} onClose={goBack} onPay={selectedInvoice.payment_status !== "Payé" && selectedInvoice.has_pdf ? () => startPayment(selectedInvoice.customer_code, [selectedInvoice.id]) : undefined} />}
-              {subPage === "payment" && paymentTarget && !paymentInline && <ClientPaymentForm plain key={paymentTarget.customerCode + (paymentTarget.invoiceIds ?? []).join()} title="Paiement avant remise" customerCode={paymentTarget.customerCode} customerName={dossiers.find((dossier) => dossier.customerCode === paymentTarget.customerCode)?.customerName ?? report.customer_balances.find((balance) => balance.customer_code === paymentTarget.customerCode)?.customer_name} invoices={paymentInvoicesFor(paymentTarget.customerCode)} initialSelected={paymentTarget.invoiceIds} busy={paymentBusy} error={paymentError} onSubmit={(payload) => void recordPayment(payload)} onClose={goBack} />}
-            </div>
+            {subPage === "payment" && paymentTarget && <ClientPaymentForm plain key={paymentTarget.customerCode + (paymentTarget.invoiceIds ?? []).join()} title="Encaissement" customerCode={paymentTarget.customerCode} customerName={files.get(paymentTarget.customerCode)?.name} invoices={paymentInvoicesFor(paymentTarget.customerCode)} initialSelected={paymentTarget.invoiceIds} busy={paymentBusy} onSubmit={(payload) => void recordPayment(payload)} onClose={goBack} />}
+            {subPage === "invoice" && selectedInvoice && <InvoicePage invoice={selectedInvoice} packages={packages.filter((item) => item.invoice_id === selectedInvoice.id)} onOpenParcel={openParcel} onOpenClient={() => openClient(selectedInvoice.customer_code)} onPdf={() => void openDocument("invoice", selectedInvoice.id)} onPay={selectedInvoice.payment_status !== "Payé" && selectedInvoice.has_pdf ? () => startPayment(selectedInvoice.customer_code, [selectedInvoice.id]) : undefined} />}
+            {subPage === "parcel" && openParcelRow && <ParcelPage item={openParcelRow} zoneName={data.zone.name} onOpenClient={() => openClient(openParcelRow.customer_code)} onOpenInvoice={openInvoice} onPay={() => startPayment(openParcelRow.customer_code, openParcelRow.invoice_id ? [openParcelRow.invoice_id] : undefined)} onRelease={() => void releasePackages([openParcelRow.id])} releasing={releasing} onTicket={() => setTicketPackageId(openParcelRow.id)} onCopy={copyText} />}
+            {subPage === "client" && openFile && <ClientPage file={openFile} zoneName={data.zone.name} balance={balanceOf(openFile.code)} activeTab={clientTab} onTab={setClientTab}
+              selectedPackageIds={selectedPackageIds} locked={releasing || Boolean(releasedInfo)} onToggle={togglePackageSelection} onSelectAll={selectAllFor}
+              onOpenParcel={openParcel} onOpenInvoice={openInvoice} onPay={(ids) => startPayment(openFile.code, ids)} onTicket={setTicketPackageId}
+              onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} payments={report.agent_payments.filter((p) => p.customer_code === openFile.code)} />}
+
+            {!subPage && tab === "home" && <HomeView search={search} onSearch={setSearch} onSubmit={runSearch} counts={{ counter: counter.length, transit: inTransit.length, today: delivered.filter((item) => isToday(item.delivered_at)).length }}
+              pendingBons={pendingBons} onOpenBon={setSelectedBonId} files={files} counter={counter} balanceOf={balanceOf} onOpenClient={openClient} cash={cash} paymentsCount={report.agent_payments.length} onCaisse={() => goTab("caisse")} onGo={goTab} />}
+            {!subPage && tab === "clients" && <ClientsView files={files} filter={clientFilter} onFilter={setClientFilter} search={search} onSearch={setSearch} balanceOf={balanceOf} onOpen={openClient} />}
+            {!subPage && tab === "colis" && <ParcelsView packages={packages} filter={parcelFilter} onFilter={setParcelFilter} search={search} onSearch={setSearch} onOpen={openParcel} onOpenClient={openClient} />}
+            {!subPage && tab === "bordereaux" && <BordereauxView bons={bons} search={search} onSearch={setSearch} onPoint={setSelectedBonId} onPdf={(id) => void openDocument("bon-remise", id)} />}
+            {!subPage && tab === "caisse" && <CaisseView zoneName={data.zone.name} agentName={data.agent.name} deliveries={delivered} payments={report.agent_payments} balances={report.customer_balances}
+              onSendReport={async (pdf, summary) => { await call({ action: "send_report", pdf, summary }); }}
+              onOpenInvoice={openInvoice} onOpenClient={(code) => openClient(code, "factures")} onStartPayment={(code) => startPayment(code)}
+              onOpenReceipt={(paymentId) => window.open(`/espace-remise/recu-paiement/${paymentId}`, "_blank", "noopener,noreferrer")} />}
+            {!subPage && tab === "settings" && <SettingsView agentName={data.agent.name} pushPermission={pushPermission} pushBusy={pushBusy} onActivate={() => void activatePush()} />}
           </div>
-          <MobileNavigation tab={tab} moreOpen={mobileMoreOpen} onHome={() => { goTab("home"); setMobileMoreOpen(false); }} onArrivals={() => { goTab("arrivals"); setArrivalSection(null); setMobileMoreOpen(false); }} onReports={() => { goTab("reports"); setMobileMoreOpen(false); }} onReady={() => { goTab("ready"); setMobileMoreOpen(false); }} onToggleMore={() => setMobileMoreOpen((open) => !open)} onDossiers={() => { goTab("dossiers"); setMobileMoreOpen(false); }} onHistory={() => { goTab("history"); setMobileMoreOpen(false); }} onBons={() => { goTab("bons"); setMobileMoreOpen(false); }} onSettings={() => { goTab("settings"); setMobileMoreOpen(false); }} />
-          {selectedPackageIds.length > 0 && confirmedParcelIds.length === 0 && !mobileMoreOpen && <RemiseConfirmBar customerCode={selectedCustomerCode} count={selectedPackageIds.length} busy={releasing} onConfirm={() => void releaseSelectedPackages()} onClear={() => setSelectedPackageIds([])} />}
-          {confirmedParcelIds.length > 0 && <RemiseSuccessOverlay customerCode={selectedCustomerCode} count={confirmedParcelIds.length} />}
-          {remiseOffer && <RemiseOffer offer={remiseOffer} busy={releasing} onRelease={() => { const ids = remiseOffer.packageIds; setRemiseOffer(null); void releasePackages(ids); }} onLater={() => setRemiseOffer(null)} />}
-        </>}
+        </div>}
       </main>
+
+      {data && <BottomNavigation tab={navTab} counts={{ colis: counter.length, bordereaux: pendingBons.length }} onGo={goTab} />}
+      {data && selectedPackageIds.length > 0 && !releasedInfo && (subPage === "client" || subPage === null) && <ReleaseBar customerCode={selectedCustomerCode} count={selectedPackageIds.length} busy={releasing} onConfirm={() => void releasePackages(selectedPackageIds)} onClear={() => setSelectedPackageIds([])} />}
     </div>
-    {/* Ticket : hors de l'échelle réduite, pour que l'impression garde la vraie largeur du papier. */}
+    {releasedInfo && <BigConfirmation title="Retrait validé" text={`${releasedInfo.count} colis${releasedInfo.customerCode ? " · " + releasedInfo.customerCode : ""}`} />}
+    {remiseOffer && <RemiseOffer offer={remiseOffer} busy={releasing} onRelease={() => { const ids = remiseOffer.packageIds; setRemiseOffer(null); void releasePackages(ids); }} onLater={() => setRemiseOffer(null)} />}
+    {data && selectedBonId && (() => { const bon = bons.find((b) => b.id === selectedBonId); return bon ? <PointageSheet key={bon.id} bon={bon} busy={bonBusy} onClose={() => setSelectedBonId(null)} onConfirm={(ids) => void confirmBon(bon.id, ids)} /> : null; })()}
+    {/* Preuve de livraison : hors de l'échelle réduite, pour que l'impression garde la vraie largeur du papier. */}
     {data && ticketPackageId && <RemiseTicketOverlay packageId={ticketPackageId} onClose={goBack} />}
-    {data && trackingParcel && <ClientTrackingDetails pkg={asClientPkg(trackingParcel)} customerName={trackingParcel.customer_name || trackingParcel.customer_code} destination={data.zone.name} onClose={() => setTrackingParcel(null)} />}
   </>;
 }
 
@@ -608,319 +480,448 @@ function cashTotals(payments: AgentPayment[]) {
   }), { usd: 0, htg: 0 });
 }
 
-function packageText(item: ZonePackage) {
-  return [item.customer_code, item.customer_name, item.tracking_number, item.tracking_manual, item.content, item.status, item.invoice_number].join(" ").toLowerCase();
-}
-
-function dossierText(dossier: ClientDossier) {
-  return [dossier.customerCode, dossier.customerName, ...dossier.packages.map(packageText), ...dossier.invoices.flatMap((invoice) => [invoice.invoice_number, invoice.payment_status, invoice.payment_details])].join(" ").toLowerCase();
-}
-
-function groupPackages(items: ZonePackage[]): PackageGroup[] {
-  const byCustomer = new Map<string, ZonePackage[]>();
-  for (const item of items) byCustomer.set(item.customer_code, [...(byCustomer.get(item.customer_code) ?? []), item]);
-  return Array.from(byCustomer, ([customerCode, customerPackages]) => {
-    // La réponse de l'API est déjà récente d'abord, mais ce tri local garde
-    // ce comportement fiable après une recherche, un filtre ou un rafraîchissement.
-    const packages = sortPackagesAvailableFirst(customerPackages);
-    return {
-      customerCode,
-      packages,
-      customerName: packages[0]?.customer_name ?? "",
-      balanceUsd: packages[0]?.customer_balance_usd ?? 0,
-      balanceHtg: packages[0]?.customer_balance_htg ?? 0,
-      balanceInvoiceId: packages[0]?.balance_invoice_id ?? "",
-      balanceInvoiceNumber: packages[0]?.balance_invoice_number ?? "",
-      latestActivityAt: Math.max(...customerPackages.map(packageActivityAt)),
-      isCentralAccount: Boolean(packages[0]?.is_central_account)
-    };
-  }).sort((left, right) => right.latestActivityAt - left.latestActivityAt
-    || right.packages.length - left.packages.length
-    || (left.customerName + " " + left.customerCode).localeCompare(right.customerName + " " + right.customerCode, "fr-CA"));
-}
-
-function groupClientDossiers(packages: ZonePackage[], invoices: ZoneInvoice[]): ClientDossier[] {
-  const byCustomer = new Map<string, ClientDossier>();
-  const ensure = (customerCode: string, customerName: string) => {
-    const existing = byCustomer.get(customerCode);
-    if (existing) { if (!existing.customerName && customerName) existing.customerName = customerName; return existing; }
-    const dossier = { customerCode, customerName, packages: [], invoices: [] };
-    byCustomer.set(customerCode, dossier);
-    return dossier;
-  };
-  for (const item of packages) ensure(item.customer_code, item.customer_name).packages.push(item);
-  for (const invoice of invoices) ensure(invoice.customer_code, invoice.customer_name).invoices.push(invoice);
-  return Array.from(byCustomer.values()).sort((left, right) => {
-    const leftCounts = dossierCounts(left);
-    const rightCounts = dossierCounts(right);
-    // Yon kliyan ki gen yon koli plis avanse (Disponible > Ayiti > Miami)
-    // monte devan otomatikman. Sa re-evalye chak rafraîchisman API.
-    const stage = (items: ZonePackage[]) => items.length
-      ? Math.min(...items.map((item) => packageProgressPriority(item.status)))
-      : Number.MAX_SAFE_INTEGER;
-    return stage(leftCounts.active) - stage(rightCounts.active)
-      || rightCounts.active.length - leftCounts.active.length
-      || rightCounts.latestActiveAt - leftCounts.latestActiveAt
-      || rightCounts.latestActivityAt - leftCounts.latestActivityAt
-      || (left.customerName + " " + left.customerCode).localeCompare(right.customerName + " " + right.customerCode, "fr-CA");
-  });
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
-// PRÉSENTATION — style application bancaire : en-tête bleu marine plein, cartes
-// blanches plates, listes à lignes, chiffres en avant. Aucune logique ici :
-// toutes les actions viennent des props du composant principal.
+// PRÉSENTATION — modèle « A+C » : en-tête bleu marine, listes à lignes fines
+// (registre), cadres à petits titres en majuscules (lettre de transport).
 // ═══════════════════════════════════════════════════════════════════════════
-const NAVY = "#0b2a5b";
 
-function initialsOf(name: string, code: string) {
-  const letters = name.trim().split(/\s+/).filter((word) => /[A-Za-zÀ-ÿ]/.test(word[0] ?? "")).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
-  return letters || code.replace(/\D/g, "").slice(-2) || "?";
+/** Le code client : une étiquette bleu marine qui ouvre la fiche client. */
+function CodeTag({ code, onClick, central = false, size = "md" }: { code: string; onClick?: () => void; central?: boolean; size?: "sm" | "md" }) {
+  const cls = cn("agent-mono inline-flex shrink-0 items-center justify-center rounded-[5px] font-semibold",
+    size === "sm" ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-[12px]",
+    central ? "border border-dashed border-[#e85e19] bg-orange-50 text-[#9a3412]" : "bg-[#0b2a5b] text-white");
+  const label = central ? "Central" : code;
+  return onClick ? <button type="button" onClick={(event) => { event.stopPropagation(); onClick(); }} className={cn(cls, "transition hover:opacity-85")} aria-label={`Fiche client ${code}`}>{label}</button> : <span className={cls}>{label}</span>;
 }
 
-function Avatar({ name, code, tone = "navy" }: { name: string; code: string; tone?: "navy" | "orange" | "emerald" | "violet" | "sky" }) {
-  const tones = { navy: "bg-[#e7ecf5] text-[#0b2a5b]", orange: "bg-orange-50 text-[#c2410c]", emerald: "bg-emerald-50 text-emerald-700", violet: "bg-violet-50 text-violet-700", sky: "bg-sky-50 text-sky-700" };
-  return <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full text-[13px] font-semibold", tones[tone])} aria-hidden="true">{initialsOf(name, code)}</span>;
+function FieldLabel({ children, className }: { children: ReactNode; className?: string }) {
+  return <p className={cn("text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500", className)}>{children}</p>;
 }
-
-function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <section className={cn("overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200/70", className)}>{children}</section>;
+function Box({ children, className }: { children: ReactNode; className?: string }) {
+  return <section className={cn("overflow-hidden rounded-lg border-[1.5px] border-slate-900 bg-white", className)}>{children}</section>;
 }
-
-function CardHeader({ title, subtitle, right }: { title: string; subtitle?: string; right?: ReactNode }) {
-  return <div className="flex items-start justify-between gap-3 px-4 pb-2 pt-3.5"><div className="min-w-0"><h3 className="text-[15px] font-semibold text-slate-900">{title}</h3>{subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}</div>{right}</div>;
+function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
+  return <div className="flex items-center justify-between gap-2 px-1 pb-1.5 pt-3"><FieldLabel>{children}</FieldLabel>{right}</div>;
 }
-
-function CountPill({ value, tone = "slate" }: { value: number | string; tone?: "slate" | "orange" | "emerald" | "amber" }) {
-  const tones = { slate: "bg-slate-100 text-slate-600", orange: "bg-orange-50 text-[#c2410c]", emerald: "bg-emerald-50 text-emerald-700", amber: "bg-amber-50 text-amber-800" };
-  return <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums", tones[tone])}>{value}</span>;
+function StatusText({ status }: { status: string }) {
+  const tone = status === DONE ? "text-emerald-700" : status === "Facturé" ? "text-blue-700" : status === "Disponible" ? "text-emerald-700" : "text-slate-500";
+  return <span className={cn("shrink-0 text-[10px] font-extrabold uppercase tracking-[0.06em]", tone)}>{statusLabel(status)}</span>;
 }
-
-/** Ligne de client : touchée, elle ouvre la page du client. */
-function CustomerRow({ code, name, meta, right, tone, open, onOpen, central = false }: { code: string; name: string; meta: ReactNode; right?: ReactNode; tone?: "navy" | "orange" | "emerald" | "violet" | "sky"; open: boolean; onOpen: () => void; central?: boolean }) {
-  return <button type="button" aria-expanded={open} onClick={() => { if (!open) onOpen(); }} disabled={open} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50 disabled:cursor-default disabled:hover:bg-white">
-    <Avatar name={central ? "STANDA" : name} code={code} tone={tone} />
-    <span className="min-w-0 flex-1">
-      <span className="block truncate text-[15px] font-semibold text-slate-900">{central ? "Compte central STANDA" : code}{!central && name && <span className="font-normal text-slate-500"> · {name}</span>}</span>
-      <span className="mt-0.5 block text-xs text-slate-500">{meta}</span>
-    </span>
-    {right}
-    {!open && <ChevronRight size={18} className="shrink-0 text-slate-300" />}
-  </button>;
+function PaymentText({ status }: { status: string }) {
+  const tone = status === "Payé" ? "text-emerald-700" : status === "Payé partiel" ? "text-amber-700" : "text-red-700";
+  const label = status === "Payé" ? "Payée" : status === "Payé partiel" ? "Partielle" : status === "Non facturé" ? "Non facturé" : "Impayée";
+  return <span className={cn("shrink-0 text-[10px] font-extrabold uppercase tracking-[0.06em]", tone)}>{label}</span>;
 }
-
-function SearchBar({ value, onChange, onSubmit, hint }: { value: string; onChange: (value: string) => void; onSubmit: () => void; hint?: string | null }) {
-  return <form onSubmit={(event) => { event.preventDefault(); onSubmit(); }} className="space-y-1.5">
-    <div className="flex h-12 items-center gap-2 rounded-2xl bg-white pl-4 pr-1.5 ring-1 ring-slate-200 transition focus-within:ring-2 focus-within:ring-[#0b2a5b]">
-      <Search size={18} className="shrink-0 text-slate-400" />
-      <input value={value} onChange={(event) => onChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-slate-400" placeholder="Code client, suivi ou facture" aria-label="Rechercher un dossier client" autoCapitalize="characters" />
-      <button type="submit" disabled={!value.trim()} className="h-9 shrink-0 rounded-xl px-3.5 text-[13px] font-semibold text-white transition disabled:opacity-35" style={{ background: NAVY }}>Ouvrir</button>
-    </div>
-    {hint && <p className="px-1 text-xs text-slate-500">{hint}</p>}
+function Empty({ text }: { text: string }) { return <div className="rounded-lg border border-dashed border-slate-300 px-6 py-10 text-center text-sm font-medium text-slate-500">{text}</div>; }
+function SearchField({ value, onChange, onSubmit, placeholder = "Code, nom, téléphone, N° de suivi" }: { value: string; onChange: (value: string) => void; onSubmit?: () => void; placeholder?: string }) {
+  return <form onSubmit={(event) => { event.preventDefault(); onSubmit?.(); }} className="flex h-12 items-center gap-2 rounded-lg border-[1.5px] border-slate-900 bg-white px-3 focus-within:ring-2 focus-within:ring-[#0b2a5b]/30">
+    <Search size={18} className="shrink-0 text-slate-900" />
+    <input value={value} onChange={(event) => onChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-slate-400" placeholder={placeholder} aria-label="Rechercher" autoCapitalize="characters" enterKeyHint="search" />
+    {onSubmit && value.trim() && <button type="submit" className="h-9 shrink-0 rounded-md px-3 text-[13px] font-bold text-white" style={{ background: NAVY }}>Ouvrir</button>}
   </form>;
+}
+function Chips<T extends string>({ value, options, onChange }: { value: T; options: Array<[T, string, number?]>; onChange: (value: T) => void }) {
+  return <div className="flex gap-1.5 overflow-x-auto pb-0.5">{options.map(([id, label, count]) => <button key={id} type="button" onClick={() => onChange(id)} aria-pressed={value === id}
+    className={cn("h-9 shrink-0 rounded-full px-3.5 text-[13px] font-bold transition", value === id ? "bg-[#0b2a5b] text-white" : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50")}>
+    {label}{typeof count === "number" && <span className={cn("agent-mono ml-1.5", value === id ? "text-white/75" : "text-slate-400")}>{count}</span>}
+  </button>)}</div>;
 }
 
 function PushBanner({ busy, onActivate, onDismiss }: { busy: boolean; onActivate: () => void; onDismiss: () => void }) {
-  return <Card className="flex items-center gap-3 px-4 py-3">
-    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#e7ecf5] text-[#0b2a5b]"><Bell size={16} /></span>
-    <p className="min-w-0 flex-1 text-[13px] text-slate-700">Recevoir une alerte pour chaque nouveau bon de remise ?</p>
-    <button type="button" onClick={onActivate} disabled={busy} className="h-9 shrink-0 rounded-xl px-3 text-[13px] font-semibold text-white disabled:opacity-60" style={{ background: NAVY }}>{busy ? "…" : "Activer"}</button>
-    <button type="button" onClick={onDismiss} aria-label="Fermer" className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-slate-100"><X size={16} /></button>
-  </Card>;
+  return <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+    <Bell size={18} className="shrink-0 text-[#0b2a5b]" />
+    <p className="min-w-0 flex-1 text-[13px] font-medium text-slate-700">Alertes des nouveaux bordereaux</p>
+    <button type="button" onClick={onActivate} disabled={busy} className="h-9 shrink-0 rounded-md px-3 text-[13px] font-bold text-white disabled:opacity-60" style={{ background: NAVY }}>{busy ? "…" : "Activer"}</button>
+    <button type="button" onClick={onDismiss} aria-label="Fermer" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-slate-200"><X size={16} /></button>
+  </div>;
 }
 
-function SideNavigation({ tab, incoming, ready, dossiers, delivered, bons, balanceCount, onHome, onArrivals, onReady, onDossiers, onHistory, onBons, onReports, onSettings }: {
-  tab: Tab; incoming: number; ready: number; dossiers: number; delivered: number; bons: number; balanceCount: number;
-  onHome: () => void; onArrivals: () => void; onReady: () => void; onDossiers: () => void; onHistory: () => void; onBons: () => void; onReports: () => void; onSettings: () => void;
-}) {
-  const Item = ({ label, count, icon, active, onClick }: { label: string; count?: number; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} className={cn("flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm transition", active ? "bg-[#e7ecf5] font-semibold text-[#0b2a5b]" : "text-slate-600 hover:bg-slate-50")}><span className={active ? "text-[#0b2a5b]" : "text-slate-400"}>{icon}</span><span className="min-w-0 flex-1">{label}</span>{typeof count === "number" && <span className="text-xs tabular-nums text-slate-400">{count}</span>}</button>;
-  return <aside className="sticky top-[4.5rem] hidden h-fit rounded-2xl bg-white p-2 ring-1 ring-slate-200/70 md:block">
-    <div className="space-y-0.5">
-      <Item label="Accueil" icon={<Home size={18} />} active={tab === "home"} onClick={onHome} />
-      <Item label="Clients" count={dossiers} icon={<Users size={18} />} active={tab === "dossiers"} onClick={onDossiers} />
-      <Item label="Caisse et rapport" count={balanceCount} icon={<Banknote size={18} />} active={tab === "reports"} onClick={onReports} />
-    </div>
-    <div className="mt-2 space-y-0.5 border-t border-slate-100 pt-2">
-      <Item label="Colis à remettre" count={ready} icon={<ClipboardCheck size={18} />} active={tab === "ready"} onClick={onReady} />
-      <Item label="Colis en route" count={incoming} icon={<Truck size={18} />} active={tab === "arrivals"} onClick={onArrivals} />
-      <Item label="Bons de remise" count={bons} icon={<FileText size={18} />} active={tab === "bons"} onClick={onBons} />
-      <Item label="Colis remis" count={delivered} icon={<CheckCircle2 size={18} />} active={tab === "history"} onClick={onHistory} />
-      <Item label="Paramètres" icon={<Settings size={18} />} active={tab === "settings"} onClick={onSettings} />
-    </div>
+const NAV_ITEMS: Array<[Tab, string, ReactNode]> = [
+  ["home", "Accueil", <Home key="h" size={20} />],
+  ["clients", "Clients", <Users key="c" size={20} />],
+  ["colis", "Colis", <Package key="p" size={20} />],
+  ["bordereaux", "Bordereaux", <FileText key="b" size={20} />],
+  ["caisse", "Caisse", <Wallet key="w" size={20} />]
+];
+
+function SideNavigation({ tab, counts, onGo }: { tab: Tab; counts: { clients: number; colis: number; bordereaux: number }; onGo: (tab: Tab) => void }) {
+  const countOf = (id: Tab) => id === "clients" ? counts.clients : id === "colis" ? counts.colis : id === "bordereaux" ? counts.bordereaux : undefined;
+  return <aside className="sticky top-[4.25rem] hidden h-fit rounded-lg border border-slate-200 bg-white p-1.5 md:block">
+    {NAV_ITEMS.map(([id, label, icon]) => <button key={id} type="button" onClick={() => onGo(id)} aria-current={tab === id ? "page" : undefined}
+      className={cn("flex h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm transition", tab === id ? "bg-[#0b2a5b] font-bold text-white" : "text-slate-600 hover:bg-slate-50")}>
+      <span className={tab === id ? "text-white" : "text-slate-400"}>{icon}</span><span className="min-w-0 flex-1">{label}</span>
+      {typeof countOf(id) === "number" && <span className={cn("agent-mono text-xs", tab === id ? "text-white/70" : "text-slate-400")}>{countOf(id)}</span>}
+    </button>)}
   </aside>;
 }
 
-function MobileNavigation({ tab, moreOpen, onHome, onArrivals, onReports, onReady, onToggleMore, onDossiers, onHistory, onBons, onSettings }: {
-  tab: Tab; moreOpen: boolean;
-  onHome: () => void; onArrivals: () => void; onReports: () => void; onReady: () => void; onToggleMore: () => void; onDossiers: () => void; onHistory: () => void; onBons: () => void; onSettings: () => void;
+function BottomNavigation({ tab, counts, onGo }: { tab: Tab; counts: { colis: number; bordereaux: number }; onGo: (tab: Tab) => void }) {
+  return <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Navigation">
+    <div className="mx-auto grid max-w-xl grid-cols-5">{NAV_ITEMS.map(([id, label, icon]) => {
+      const badge = id === "bordereaux" ? counts.bordereaux : 0;
+      return <button key={id} type="button" onClick={() => onGo(id)} aria-current={tab === id ? "page" : undefined}
+        className={cn("relative flex h-16 flex-col items-center justify-center gap-1 border-t-[2.5px] text-[11px] transition", tab === id ? "border-[#0b2a5b] font-extrabold text-[#0b2a5b]" : "border-transparent font-semibold text-slate-500")}>
+        {icon}<span>{label}</span>
+        {badge > 0 && <span className="agent-mono absolute right-[22%] top-2 grid h-4 min-w-4 place-items-center rounded-full bg-[#e85e19] px-1 text-[10px] font-semibold text-white">{badge}</span>}
+      </button>;
+    })}</div>
+  </nav>;
+}
+
+/* ─────────────────────────── ACCUEIL ─────────────────────────── */
+function HomeView({ search, onSearch, onSubmit, counts, pendingBons, onOpenBon, files, counter, balanceOf, onOpenClient, cash, paymentsCount, onCaisse, onGo }: {
+  search: string; onSearch: (value: string) => void; onSubmit: () => void;
+  counts: { counter: number; transit: number; today: number };
+  pendingBons: ZoneBon[]; onOpenBon: (id: string) => void;
+  files: Map<string, ClientFile>; counter: ZonePackage[]; balanceOf: (code: string) => { usd: number; htg: number };
+  onOpenClient: (code: string) => void; cash: { usd: number; htg: number }; paymentsCount: number; onCaisse: () => void; onGo: (tab: Tab) => void;
 }) {
-  const NavButton = ({ label, icon, active, onClick }: { label: string; icon: ReactNode; active: boolean; onClick: () => void }) => <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cn("flex h-16 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold transition", active ? "text-[#0b2a5b]" : "text-slate-400")}><span className={cn("grid h-8 w-14 place-items-center rounded-full transition", active && "bg-[#e7ecf5]")}>{icon}</span><span>{label}</span></button>;
-  const MoreItem = ({ label, hint, icon, onClick }: { label: string; hint: string; icon: ReactNode; onClick: () => void }) => <button type="button" onClick={onClick} className="flex min-h-14 w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-slate-50"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#e7ecf5] text-[#0b2a5b]">{icon}</span><span className="min-w-0"><span className="block text-sm font-semibold text-slate-800">{label}</span><span className="block text-xs text-slate-500">{hint}</span></span></button>;
-  return <>
-    {moreOpen && <button type="button" aria-label="Fermer le menu" onClick={onToggleMore} className="fixed inset-0 z-30 bg-slate-900/25 md:hidden" />}
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Navigation de l’espace de remise">
-      {moreOpen && <div className="absolute inset-x-3 bottom-[calc(100%+0.5rem)] space-y-0.5 rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-slate-200">
-        <MoreItem label="Colis à remettre" hint="Clients dont les colis sont prêts" icon={<ClipboardCheck size={18} />} onClick={onReady} />
-        <MoreItem label="Colis en route" hint="À Miami ou en Haïti, pas encore à l’agence" icon={<Truck size={18} />} onClick={onArrivals} />
-        <MoreItem label="Bons de remise" hint="Documents de livraison reçus par l’agence" icon={<FileText size={18} />} onClick={onBons} />
-        <MoreItem label="Colis remis" hint="Historique et tickets de remise" icon={<CheckCircle2 size={18} />} onClick={onHistory} />
-        <MoreItem label="Paramètres" hint="Notifications de cet appareil" icon={<Settings size={18} />} onClick={onSettings} />
+  const byClient = new Map<string, number>();
+  for (const item of counter) byClient.set(item.customer_code, (byClient.get(item.customer_code) ?? 0) + 1);
+  const rows = Array.from(byClient.entries()).sort((a, b) => b[1] - a[1]);
+  return <div className="space-y-3">
+    <SearchField value={search} onChange={onSearch} onSubmit={onSubmit} />
+    <Box className="grid grid-cols-3">
+      {([["Au comptoir", counts.counter, "text-[#c2410c]", "colis"], ["En transit", counts.transit, "text-slate-900", "colis"], ["Livrés auj.", counts.today, "text-emerald-700", "colis"]] as const).map(([label, value, tone, target], index) =>
+        <button key={label} type="button" onClick={() => onGo(target)} className={cn("px-3 py-2.5 text-left transition hover:bg-slate-50", index < 2 && "border-r border-slate-300")}>
+          <FieldLabel>{label}</FieldLabel><p className={cn("mt-0.5 text-[26px] font-extrabold leading-tight tracking-tight", tone)}>{value}</p>
+        </button>)}
+    </Box>
+
+    {pendingBons.length > 0 && <section className="rounded-lg border-[1.5px] border-dashed border-[#e85e19] bg-orange-50 px-3 py-2.5">
+      <FieldLabel className="text-[#9a3412]">Bordereaux à pointer · {pendingBons.length}</FieldLabel>
+      <div className="mt-1 divide-y divide-dashed divide-orange-300">{pendingBons.map((bon) => {
+        const parcels = bon.parcels ?? [];
+        const done = parcels.filter((p) => BON_PARCEL_DONE.has(p.status)).length;
+        return <button key={bon.id} type="button" onClick={() => onOpenBon(bon.id)} className="flex w-full items-center gap-2 py-2 text-left">
+          <span className="agent-mono flex-1 text-[13px] font-semibold">{bon.bon_number}</span>
+          <span className="agent-mono text-[12px] text-slate-600">{done} / {parcels.length || bon.package_count}</span>
+          <span className="text-[12px] text-slate-500">{dateText(bon.created_at)}</span>
+          <ChevronRight size={16} className="text-orange-400" />
+        </button>;
+      })}</div>
+    </section>}
+
+    <div>
+      <SectionTitle>Au comptoir · par client</SectionTitle>
+      {rows.length ? <div className="border-y border-slate-200">{rows.slice(0, 30).map(([code, count]) => {
+        const file = files.get(code);
+        const balance = balanceOf(code);
+        return <button key={code} type="button" onClick={() => onOpenClient(code)} className="grid w-full grid-cols-[88px_minmax(0,1fr)_34px_72px] items-center gap-2 border-b border-slate-100 px-1 py-2.5 text-left last:border-b-0 hover:bg-slate-50">
+          <CodeTag code={code} central={file?.central} />
+          <span className="truncate text-[14px] font-semibold">{file?.central ? "Compte central STANDA" : file?.name || "Client"}</span>
+          <span className="agent-mono text-right text-[13px]">×{count}</span>
+          <span className={cn("text-right text-[13px] font-bold", balance.usd > 0.01 ? "text-red-700" : "text-emerald-700")}>{balance.usd > 0.01 ? fmtUsd(balance.usd) : "Payé"}</span>
+        </button>;
+      })}</div> : <Empty text="Aucun colis au comptoir." />}
+    </div>
+
+    <button type="button" onClick={onCaisse} className="flex w-full items-center justify-between gap-3 rounded-lg px-4 py-3 text-left text-white" style={{ background: NAVY }}>
+      <div><FieldLabel className="text-white/65">Caisse à verser</FieldLabel><p className="mt-0.5 text-[18px] font-extrabold tracking-tight">{fmtUsd(cash.usd)} · {fmtHtg(cash.htg)}</p></div>
+      <span className="text-[12px] text-white/70">{paymentsCount} encaissement{paymentsCount > 1 ? "s" : ""}</span>
+    </button>
+  </div>;
+}
+
+/* ─────────────────────────── CLIENTS ─────────────────────────── */
+function ClientsView({ files, filter, onFilter, search, onSearch, balanceOf, onOpen }: {
+  files: Map<string, ClientFile>; filter: ClientFilter; onFilter: (value: ClientFilter) => void; search: string; onSearch: (value: string) => void;
+  balanceOf: (code: string) => { usd: number; htg: number }; onOpen: (code: string) => void;
+}) {
+  const all = Array.from(files.values());
+  const counts = (file: ClientFile) => ({
+    counter: file.packages.filter(atCounter).length,
+    transit: file.packages.filter((item) => item.status !== DONE && !atCounter(item)).length
+  });
+  const matches: Record<ClientFilter, (file: ClientFile) => boolean> = {
+    comptoir: (file) => counts(file).counter > 0,
+    solde: (file) => balanceOf(file.code).usd > 0.01,
+    transit: (file) => counts(file).transit > 0,
+    tous: () => true
+  };
+  const needle = search.trim().toLowerCase();
+  const needleDigits = digits(needle);
+  const list = all.filter(matches[filter]).filter((file) => !needle || `${file.code} ${file.name}`.toLowerCase().includes(needle)
+    || (needleDigits.length >= 4 && [file.card?.phone, file.card?.whatsapp].some((p) => digits(p ?? "").includes(needleDigits))))
+    .sort((a, b) => counts(b).counter - counts(a).counter || balanceOf(b.code).usd - balanceOf(a.code).usd || a.code.localeCompare(b.code));
+  return <div className="space-y-3">
+    <SearchField value={search} onChange={onSearch} placeholder="Code, nom ou téléphone" />
+    <Chips value={filter} onChange={onFilter} options={[["comptoir", "Au comptoir", all.filter(matches.comptoir).length], ["solde", "Solde dû", all.filter(matches.solde).length], ["transit", "En transit", all.filter(matches.transit).length], ["tous", "Tous", all.length]]} />
+    {list.length ? <div className="border-y border-slate-200">
+      <div className="grid grid-cols-[88px_minmax(0,1fr)_64px_72px] gap-2 px-1 py-1.5"><FieldLabel>Code</FieldLabel><FieldLabel>Client</FieldLabel><FieldLabel className="text-right">Colis</FieldLabel><FieldLabel className="text-right">Solde</FieldLabel></div>
+      {list.map((file) => {
+        const c = counts(file); const balance = balanceOf(file.code);
+        return <button key={file.code} type="button" onClick={() => onOpen(file.code)} className="grid w-full grid-cols-[88px_minmax(0,1fr)_64px_72px] items-center gap-2 border-t border-slate-100 px-1 py-2.5 text-left hover:bg-slate-50">
+          <CodeTag code={file.code} central={file.central} />
+          <span className="min-w-0"><span className="block truncate text-[14px] font-semibold">{file.central ? "Compte central STANDA" : file.name || "Client"}</span>{file.card?.phone && <span className="agent-mono block truncate text-[11px] text-slate-500">{file.card.phone}</span>}</span>
+          <span className="agent-mono text-right text-[12px]"><span className="font-semibold text-[#c2410c]">{c.counter}</span><span className="text-slate-400"> / {c.transit}</span></span>
+          <span className={cn("text-right text-[13px] font-bold", balance.usd > 0.01 ? "text-red-700" : "text-slate-400")}>{balance.usd > 0.01 ? fmtUsd(balance.usd) : "·"}</span>
+        </button>;
+      })}
+    </div> : <Empty text="Aucun client ne correspond." />}
+    <p className="px-1 text-[11px] text-slate-400">Colis : au comptoir / en transit</p>
+  </div>;
+}
+
+/* ─────────────────────────── FICHE CLIENT ─────────────────────────── */
+function ClientPage({ file, zoneName, balance, activeTab, onTab, selectedPackageIds, locked, onToggle, onSelectAll, onOpenParcel, onOpenInvoice, onPay, onTicket, onOpenReceipt, payments }: {
+  file: ClientFile; zoneName: string; balance: { usd: number; htg: number }; activeTab: ClientTab; onTab: (tab: ClientTab) => void;
+  selectedPackageIds: string[]; locked: boolean; onToggle: (item: ZonePackage) => void; onSelectAll: (ids: string[]) => void;
+  onOpenParcel: (id: string) => void; onOpenInvoice: (id: string) => void; onPay: (invoiceIds?: string[]) => void; onTicket: (packageId: string) => void;
+  onOpenReceipt: (paymentId: string) => void; payments: AgentPayment[];
+}) {
+  const card = file.card;
+  const active = file.packages.filter((item) => item.status !== DONE);
+  const counterItems = sortPackagesAvailableFirst(active.filter(atCounter));
+  const transitItems = sortPackagesAvailableFirst(active.filter((item) => !atCounter(item)));
+  const deliveredItems = file.packages.filter((item) => item.status === DONE);
+  const eligible = counterItems.filter(canReleaseParcel);
+  const allSelected = eligible.length > 0 && eligible.every((item) => selectedPackageIds.includes(item.id));
+  const unpaid = file.invoices.filter((invoice) => invoice.has_pdf && invoice.payment_status !== "Payé");
+  const owes = balance.usd > 0.01;
+  const tel = digits(card?.phone ?? "");
+  const wa = digits(card?.whatsapp || card?.phone || "");
+  const invoicePayments = file.invoices.flatMap((invoice) => invoice.payments.map((payment, index) => ({ ...payment, key: invoice.id + index, invoice })))
+    .sort((a, b) => dateTimestamp(b.created_at) - dateTimestamp(a.created_at));
+  const receiptFor = (invoiceId: string, createdAt: string) => payments.find((p) => p.invoice_id === invoiceId && p.created_at === createdAt)?.id;
+  const tickets = groupTickets(deliveredItems);
+
+  return <div className="space-y-3">
+    <Box>
+      <div className="flex items-start gap-3 border-b border-slate-300 px-3 py-2.5">
+        <div className="min-w-0 flex-1"><FieldLabel>Destinataire</FieldLabel><p className="mt-0.5 text-[20px] font-extrabold leading-tight tracking-tight">{file.central ? "Compte central STANDA" : file.name || "Client"}</p></div>
+        <CodeTag code={file.code} central={file.central} />
+      </div>
+      {!file.central && <div className="grid grid-cols-2">
+        <Field label="Téléphone" mono value={card?.phone || "·"} className="border-b border-r border-slate-200" />
+        <Field label="Pièce d'identité" mono value={card?.id_number ? `${card.id_type ? card.id_type + " " : ""}${card.id_number}` : "·"} className="border-b border-slate-200" />
+        <Field label="Ville" value={zoneName} className="border-r border-slate-200" />
+        <Field label="Compte" value={`${card?.account_type || "Personnel"}${card?.since ? " · depuis " + new Date(card.since).getFullYear() : ""}`} />
+        {card?.pickup_location && <Field label="Point de retrait" value={card.pickup_location} className="col-span-2 border-t border-slate-200" />}
       </div>}
-      <div className="mx-auto flex max-w-xl px-1">
-        <NavButton label="Accueil" icon={<Home size={19} />} active={tab === "home"} onClick={onHome} />
-        <NavButton label="Clients" icon={<Users size={19} />} active={tab === "dossiers"} onClick={onDossiers} />
-        <NavButton label="Caisse" icon={<Banknote size={19} />} active={tab === "reports"} onClick={onReports} />
-        <NavButton label="Plus" icon={<MoreHorizontal size={19} />} active={moreOpen || tab === "ready" || tab === "arrivals" || tab === "history" || tab === "bons" || tab === "settings"} onClick={onToggleMore} />
-      </div>
-    </nav>
-  </>;
-}
+      {!file.central && (tel || wa) && <div className="grid grid-cols-2 border-t border-slate-300">
+        {tel ? <a href={`tel:+${tel.length === 8 ? "509" + tel : tel}`} className="grid h-11 place-items-center border-r border-slate-300 text-[13px] font-bold text-slate-900 hover:bg-slate-50">Appeler</a> : <span className="border-r border-slate-300" />}
+        {wa ? <a href={`https://wa.me/${wa.length === 8 ? "509" + wa : wa}`} target="_blank" rel="noopener noreferrer" className="grid h-11 place-items-center text-[13px] font-bold text-emerald-700 hover:bg-slate-50">WhatsApp</a> : <span />}
+      </div>}
+    </Box>
 
-/** Réglage permanent : la bannière d'accueil peut être fermée, pas ce bouton. */
-function AgentSettingsView({ agentName, pushPermission, pushBusy, onActivate }: {
-  agentName: string; pushPermission: PushPermission; pushBusy: boolean; onActivate: () => void;
-}) {
-  const state = {
-    checking: { title: "Vérification des notifications…", description: "Nous vérifions les réglages de cet appareil.", tone: "bg-slate-50 text-slate-700" },
-    granted: { title: "Notifications activées", description: "Cet appareil recevra les nouveaux bons de remise et les mises à jour de paiement de votre agence.", tone: "bg-emerald-50 text-emerald-800" },
-    default: { title: "Notifications non activées", description: "Activez les notifications pour être averti dès qu’un bon de remise ou un paiement vous concerne.", tone: "bg-amber-50 text-amber-900" },
-    denied: { title: "Notifications refusées", description: "Autorisez les notifications dans les réglages du navigateur ou de l’application, puis revenez ici pour les activer.", tone: "bg-red-50 text-red-800" },
-    unsupported: { title: "Notifications indisponibles sur cet appareil", description: "Utilisez un navigateur récent ou l’application STANDA pour les activer.", tone: "bg-slate-50 text-slate-700" }
-  }[pushPermission];
+    {(owes || unpaid.length > 0) && <div className="flex items-center gap-3 rounded-lg border-[1.5px] border-red-300 bg-red-50 px-3 py-2.5">
+      <div className="min-w-0 flex-1"><FieldLabel className="text-red-700">Solde dû</FieldLabel><p className="mt-0.5 text-[19px] font-extrabold tracking-tight text-red-800">{fmtUsd(balance.usd)} <span className="text-[13px] font-semibold text-slate-600">· {fmtHtg(balance.htg)}</span></p></div>
+      {unpaid.length > 0 && <button type="button" onClick={() => onPay(unpaid.map((invoice) => invoice.id))} className="h-11 shrink-0 rounded-md bg-[#e85e19] px-4 text-[14px] font-extrabold text-white hover:bg-[#d4530f]">Encaisser</button>}
+    </div>}
 
-  return <div className="mx-auto max-w-2xl space-y-4">
-    <Card>
-      <div className="flex items-center gap-3 px-4 py-4">
-        <Avatar name={agentName} code="" />
-        <div className="min-w-0"><p className="truncate text-[15px] font-semibold text-slate-900">{agentName}</p><p className="text-xs text-slate-500">Agent du point de retrait</p></div>
-      </div>
-    </Card>
-    <Card>
-      <CardHeader title="Notifications de l’agence" subtitle="Bons de remise et paiements clients." />
-      <div className="px-4 pb-4">
-        <div className={cn("flex gap-3 rounded-xl p-3", state.tone)}><span className="mt-0.5 shrink-0">{pushPermission === "granted" ? <CheckCircle2 size={18} /> : <Bell size={18} />}</span><div><p className="text-sm font-semibold">{state.title}</p><p className="mt-0.5 text-[13px] leading-5 opacity-90">{state.description}</p></div></div>
-        {pushPermission === "default" && <button type="button" onClick={onActivate} disabled={pushBusy} className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white transition disabled:cursor-wait disabled:opacity-60" style={{ background: NAVY }}><BellRing size={18} />{pushBusy ? "Activation…" : "Activer les notifications"}</button>}
-        {pushPermission === "denied" && <p className="mt-3 text-xs leading-5 text-slate-500">Sur iPhone, ouvrez Réglages, puis les réglages du site ou de l’application STANDA. Sur Android ou ordinateur, ouvrez les autorisations de notifications du navigateur.</p>}
-      </div>
-    </Card>
-    <Card className="p-1.5"><PwaInstallButton variant="row" appName="STANDA Retrait" /></Card>
-    <Card className="px-4 py-3.5"><p className="text-sm font-semibold text-slate-900">Ce que vous recevrez</p><p className="mt-1 text-[13px] leading-6 text-slate-600">Une alerte quand un bon de remise est créé pour votre zone, et quand un paiement est enregistré pour un client de votre agence. Les alertes restent liées seulement à ce compte et à cet appareil.</p></Card>
+    <Box className="grid grid-cols-4 text-center">
+      {([["En transit", transitItems.length, "", "colis"], ["Au comptoir", counterItems.length, "text-[#c2410c] bg-orange-50", "colis"], ["Factures", file.invoices.length, "", "factures"], ["Livrés", deliveredItems.length, "text-emerald-700", "livraisons"]] as const).map(([label, value, tone, target], index) =>
+        <button key={label} type="button" onClick={() => onTab(target)} className={cn("py-2 transition hover:bg-slate-50", index < 3 && "border-r border-slate-300", tone)}>
+          <p className="text-[17px] font-extrabold">{value}</p><p className="text-[10px] font-bold">{label}</p>
+        </button>)}
+    </Box>
+
+    <div role="tablist" className="-mx-3 flex border-b border-slate-200 px-3 sm:mx-0 sm:px-0">
+      {([["colis", "Colis"], ["factures", "Factures"], ["paiements", "Paiements"], ["livraisons", "Livraisons"]] as const).map(([id, label]) =>
+        <button key={id} type="button" role="tab" aria-selected={activeTab === id} onClick={() => onTab(id)}
+          className={cn("h-11 flex-1 border-b-[2.5px] text-[13px] transition", activeTab === id ? "border-[#0b2a5b] font-extrabold text-[#0b2a5b]" : "border-transparent font-semibold text-slate-500")}>{label}</button>)}
+    </div>
+
+    {activeTab === "colis" && <div>
+      {counterItems.length > 0 && <>
+        <SectionTitle right={eligible.length > 1 ? <button type="button" disabled={locked} onClick={() => onSelectAll(eligible.map((item) => item.id))} className="text-[12px] font-bold text-[#0b2a5b] disabled:opacity-50">{allSelected ? "Tout décocher" : `Tout cocher (${eligible.length})`}</button> : undefined}>Au comptoir · {counterItems.length}</SectionTitle>
+        <div className="border-y border-slate-200">{counterItems.map((item) => <ParcelLine key={item.id} item={item} selectable={canReleaseParcel(item) && !locked} selected={selectedPackageIds.includes(item.id)} onToggle={() => onToggle(item)} onOpen={() => onOpenParcel(item.id)} showSelector />)}</div>
+        {counterItems.some((item) => !canReleaseParcel(item)) && <p className="px-1 pt-1.5 text-[12px] font-bold text-red-700">{releaseBlockReason(counterItems.find((item) => !canReleaseParcel(item))!)}</p>}
+      </>}
+      {transitItems.length > 0 && <>
+        <SectionTitle>En transit · {transitItems.length}</SectionTitle>
+        <div className="border-y border-slate-200">{transitItems.map((item) => <ParcelLine key={item.id} item={item} onOpen={() => onOpenParcel(item.id)} />)}</div>
+      </>}
+      {!counterItems.length && !transitItems.length && <div className="pt-3"><Empty text="Aucun colis en cours pour ce client." /></div>}
+    </div>}
+
+    {activeTab === "factures" && <div className="pt-1">{file.invoices.length ? <div className="border-y border-slate-200">{file.invoices.map((invoice) =>
+      <button key={invoice.id} type="button" onClick={() => onOpenInvoice(invoice.id)} className="flex w-full items-center gap-3 border-b border-slate-100 px-1 py-2.5 text-left last:border-b-0 hover:bg-slate-50">
+        <span className="min-w-0 flex-1"><span className="agent-mono block text-[13px] font-semibold">{invoice.invoice_number}</span><span className="block text-[12px] text-slate-500">{dateText(invoice.created_at)} · {invoice.package_count} colis · {invoice.delivery_status === "Livrée" ? "livrée" : "en cours"}</span></span>
+        <span className="text-right"><span className="block text-[14px] font-extrabold">{fmtUsd(invoice.grand_total_usd)}</span><PaymentText status={invoice.payment_status} /></span>
+        <ChevronRight size={16} className="shrink-0 text-slate-300" />
+      </button>)}</div> : <Empty text="Aucune facture émise." />}</div>}
+
+    {activeTab === "paiements" && <div className="pt-1">{invoicePayments.length ? <div className="border-y border-slate-200">{invoicePayments.map((payment) => {
+      const receipt = receiptFor(payment.invoice.id, payment.created_at);
+      return <div key={payment.key} className="flex items-center gap-3 border-b border-slate-100 px-1 py-2.5 last:border-b-0">
+        <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold">{payment.method}</span><span className="block text-[12px] text-slate-500"><span className="agent-mono">{payment.invoice.invoice_number}</span> · {dateTimeText(payment.created_at)} · {payment.by}</span></span>
+        <span className="text-right"><span className="block text-[14px] font-extrabold text-emerald-700">+{payment.currency === "HTG" ? fmtHtg(payment.amount) : fmtUsd(payment.amount)}</span>{receipt && <button type="button" onClick={() => onOpenReceipt(receipt)} className="text-[12px] font-bold text-[#0b2a5b]">Reçu</button>}</span>
+      </div>;
+    })}</div> : <Empty text="Aucun paiement enregistré." />}</div>}
+
+    {activeTab === "livraisons" && <div className="pt-1">{tickets.length ? <div className="border-y border-slate-200">{tickets.map((ticket) =>
+      <button key={ticket.key} type="button" onClick={() => onTicket(ticket.packages[0].id)} className="flex w-full items-center gap-3 border-b border-slate-100 px-1 py-2.5 text-left last:border-b-0 hover:bg-slate-50">
+        <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold">Preuve de livraison</span><span className="block text-[12px] text-slate-500">{ticket.deliveredAt ? dateTimeText(ticket.deliveredAt) : "Date non archivée"} · {ticket.packages.length} colis{ticket.invoices.length ? <> · <span className="agent-mono">{ticket.invoices.join(" / ")}</span></> : null}</span></span>
+        <ChevronRight size={16} className="shrink-0 text-slate-300" />
+      </button>)}</div> : <Empty text="Aucun colis livré." />}</div>}
   </div>;
 }
 
-/**
- * Accueil : d'abord chercher un client, puis les trois tâches de l'agence
- * expliquées en une phrase chacune, puis la caisse et les derniers paiements.
- */
-function HomeDashboard({
-  zoneName, cash, balanceCount, counts, payments, onGo, onOpenReceipt,
-  search, onSearchChange, onOpenDossier, bons, selectedBonId, onSelectBon, bonBusy, bonConfirmedId, onConfirmBon
-}: {
-  zoneName: string; cash: { usd: number; htg: number }; balanceCount: number;
-  counts: { ready: number; readyClients: number; incoming: number; dossiers: number; bons: number };
-  payments: AgentPayment[]; onGo: (tab: Tab) => void; onOpenReceipt: (paymentId: string) => void;
-  search: string; onSearchChange: (value: string) => void; onOpenDossier: () => void;
-  bons: ZoneBon[]; selectedBonId: string | null; onSelectBon: (id: string | null) => void;
-  bonBusy: boolean; bonConfirmedId: string | null; onConfirmBon: (id: string, packageIds: string[]) => void;
+function Field({ label, value, mono = false, className }: { label: string; value: string; mono?: boolean; className?: string }) {
+  return <div className={cn("min-w-0 px-3 py-2", className)}><FieldLabel>{label}</FieldLabel><p className={cn("mt-0.5 break-words text-[13px] font-semibold", mono && "agent-mono text-[12px]")}>{value}</p></div>;
+}
+
+function groupTickets(items: ZonePackage[]) {
+  const byKey = new Map<string, { key: string; deliveredAt: string; packages: ZonePackage[]; invoices: string[] }>();
+  for (const item of items) {
+    const key = item.delivered_at || "sans-date|" + (item.invoice_id || item.id);
+    const ticket = byKey.get(key) ?? { key, deliveredAt: item.delivered_at, packages: [], invoices: [] };
+    ticket.packages.push(item);
+    if (item.invoice_number && !ticket.invoices.includes(item.invoice_number)) ticket.invoices.push(item.invoice_number);
+    byKey.set(key, ticket);
+  }
+  return Array.from(byKey.values()).sort((a, b) => dateTimestamp(b.deliveredAt) - dateTimestamp(a.deliveredAt));
+}
+
+/** Une ligne de colis (registre) : case à cocher séparée, la ligne ouvre la fiche colis. */
+function ParcelLine({ item, selectable = false, selected = false, onToggle, onOpen, showSelector = false, client }: {
+  item: ZonePackage; selectable?: boolean; selected?: boolean; onToggle?: () => void; onOpen: () => void; showSelector?: boolean; client?: ReactNode;
 }) {
-  const tasks: Array<[Tab, string, string, ReactNode, number, boolean]> = [
-    ["ready", "Remettre des colis", counts.ready
-      ? `${counts.ready} colis prêts pour ${counts.readyClients} client${counts.readyClients > 1 ? "s" : ""}. Ouvrez le client, encaissez, cochez les colis, confirmez.`
-      : "Aucun colis prêt pour le moment.", <ClipboardCheck key="r" size={22} />, counts.ready, true],
-    ["bons", "Recevoir un bon de remise", counts.bons
-      ? `${counts.bons} bon${counts.bons > 1 ? "s" : ""} en attente. Confirmez les colis arrivés à l’agence.`
-      : "Quand STANDA envoie des colis, le bon apparaît ici pour confirmation.", <FileText key="b" size={22} />, counts.bons, false],
-    ["arrivals", "Colis en route", "Colis encore à Miami ou en Haïti, pas encore arrivés à l’agence.", <Truck key="a" size={22} />, counts.incoming, false],
-    ["dossiers", "Tous les clients", "La liste des clients qui ont des colis dans votre zone.", <Users key="d" size={22} />, counts.dossiers, false]
-  ];
-  const recent = payments.slice(0, 5);
-  return <div className="space-y-4">
-    <Card className="px-4 py-4">
-      <p className="text-[17px] font-semibold text-slate-900">Trouver un client</p>
-      <p className="mb-3 mt-1 text-[13px] leading-relaxed text-slate-500">Tapez le code client (ex. MC-3817) ou les 6 derniers chiffres du numéro de suivi, puis touchez <b>Ouvrir</b>.</p>
-      <form onSubmit={(event) => { event.preventDefault(); onOpenDossier(); }} className="flex gap-2">
-        <label className="flex h-14 min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-50 px-3 ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-[#0b2a5b]"><Search size={20} className="shrink-0 text-slate-400" /><input value={search} onChange={(event) => onSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-[16px] font-medium outline-none placeholder:font-normal placeholder:text-slate-400" placeholder="MC-3817 ou 481223" aria-label="Code client ou numéro de suivi" autoCapitalize="characters" /></label>
-        <button type="submit" disabled={!search.trim()} className="h-14 shrink-0 rounded-xl bg-[#e85e19] px-5 text-[15px] font-semibold text-white transition hover:bg-[#d4530f] disabled:cursor-not-allowed disabled:opacity-40">Ouvrir</button>
-      </form>
-    </Card>
-
-    <PendingBonsNotification bons={bons} selectedId={selectedBonId} onSelect={onSelectBon} busy={bonBusy} confirmedId={bonConfirmedId} onConfirm={onConfirmBon} />
-
-    <section>
-      <h2 className="px-1 pb-2 text-[13px] font-semibold text-slate-500">Que voulez-vous faire ?</h2>
-      <Card>
-        <div className="divide-y divide-slate-100">{tasks.map(([id, label, hint, icon, count, main]) => <button key={id} type="button" onClick={() => onGo(id)} className="flex min-h-[76px] w-full items-center gap-3.5 px-4 py-3 text-left transition hover:bg-slate-50">
-          <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-full", main ? "bg-[#e85e19] text-white" : "bg-[#e7ecf5] text-[#0b2a5b]")}>{icon}</span>
-          <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold text-slate-900">{label}</span><span className="mt-0.5 block text-[12.5px] leading-snug text-slate-500">{hint}</span></span>
-          {count > 0 && <span className="grid h-7 min-w-7 shrink-0 place-items-center rounded-full bg-[#0b2a5b] px-2 text-xs font-semibold text-white tabular-nums">{count > 999 ? "999+" : count}</span>}
-          <ChevronRight size={18} className="shrink-0 text-slate-300" />
-        </button>)}</div>
-      </Card>
-    </section>
-
-    <section className="rounded-3xl p-5 text-white" style={{ background: NAVY }}>
-      <div className="flex items-center justify-between gap-3"><p className="text-[13px] text-white/75">Argent encaissé à remettre à STANDA</p><button type="button" onClick={() => onGo("reports")} className="inline-flex items-center gap-0.5 text-[12px] font-medium text-white/85 hover:text-white">Voir la caisse<ChevronRight size={14} /></button></div>
-      <p className="mt-1 text-[32px] font-semibold leading-tight tracking-tight tabular-nums">{fmtUsd(cash.usd)}</p>
-      <p className="text-[15px] text-white/80 tabular-nums">{fmtHtg(cash.htg)}</p>
-      <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/15 pt-3 text-[12px] text-white/65"><span className="truncate">{zoneName}</span><span className="shrink-0">{balanceCount} client{balanceCount > 1 ? "s" : ""} doi{balanceCount > 1 ? "vent" : "t"} encore payer</span></div>
-    </section>
-
-    <Card>
-      <CardHeader title="Derniers paiements reçus" right={payments.length > 0 ? <button type="button" onClick={() => onGo("reports")} className="text-[13px] font-medium text-[#0b2a5b]">Tout voir</button> : undefined} />
-      {recent.length ? <div className="divide-y divide-slate-100">{recent.map((payment) => <button key={payment.id} type="button" onClick={() => onOpenReceipt(payment.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50">
-        <Avatar name={payment.customer_name} code={payment.customer_code} tone="emerald" />
-        <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-slate-900">{payment.customer_name || payment.customer_code}</span><span className="block truncate text-xs text-slate-500">{payment.payment_method || "Paiement"} · {dateText(payment.created_at)}</span></span>
-        <span className="shrink-0 text-sm font-semibold text-emerald-700 tabular-nums">+{payment.currency === "HTG" ? fmtHtg(payment.amount) : fmtUsd(payment.amount)}</span>
-      </button>)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucun paiement depuis la dernière clôture de caisse.</p>}
-    </Card>
+  const days = atCounter(item) ? daysSince(counterSince(item)) : 0;
+  const old = days >= 14;
+  return <div className={cn("flex items-center gap-2 border-b border-slate-100 last:border-b-0", selected && "bg-emerald-50", !selected && old && "bg-red-50/70")}>
+    {showSelector && <button type="button" role="checkbox" aria-checked={selected} aria-label={`Sélectionner ${packageReference(item)}`} disabled={!selectable} onClick={onToggle}
+      className="grid h-12 w-11 shrink-0 place-items-center disabled:cursor-not-allowed">
+      <span className={cn("grid h-5 w-5 place-items-center rounded border-2 transition", selected ? "border-emerald-600 bg-emerald-600 text-white" : selectable ? "border-slate-900 bg-white" : "border-slate-300 bg-slate-100")}>{selected && <Check size={13} strokeWidth={3} />}</span>
+    </button>}
+    <button type="button" onClick={onOpen} className={cn("flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-1 text-left", !showSelector && "pl-1")}>
+      <span className="min-w-0 flex-1">
+        <span className="agent-mono block truncate text-[12.5px] font-semibold">{packageReference(item)}</span>
+        <span className={cn("block truncate text-[12px]", old ? "font-bold text-red-700" : "text-slate-500")}>
+          {Number(item.weight || 0).toFixed(2)} lb{item.content ? " · " + item.content : ""}{atCounter(item) ? ` · ${days} j` : ""}{item.is_special ? " · spécial" : ""}
+        </span>
+      </span>
+      {client}
+      <StatusText status={item.status} />
+      <ChevronRight size={15} className="shrink-0 text-slate-300" />
+    </button>
   </div>;
 }
 
-/**
- * Notifikasyon Bon de remise sou Akèy — agent la wè imedyatman ki Bon k ap tann
- * konfimasyon (ki poko "reçu"). Yon sèl klik pou seleksyone, yon sèl bouton
- * pou konfime: TOUT koli ki te nan Bon sa a vin "Disponible" — otomatikman
- * sou admin, kliyan AK isit la, paske se menm kolòn `packages.status` la.
- */
-function PendingBonsNotification({
-  bons, selectedId, onSelect, busy, confirmedId, onConfirm
-}: {
-  bons: ZoneBon[]; selectedId: string | null; onSelect: (id: string | null) => void;
-  busy: boolean; confirmedId: string | null; onConfirm: (id: string, packageIds: string[]) => void;
+/* ─────────────────────────── FICHE COLIS ─────────────────────────── */
+function ParcelPage({ item, zoneName, onOpenClient, onOpenInvoice, onPay, onRelease, releasing, onTicket, onCopy }: {
+  item: ZonePackage; zoneName: string; onOpenClient: () => void; onOpenInvoice: (id: string) => void; onPay: () => void;
+  onRelease: () => void; releasing: boolean; onTicket: () => void; onCopy: (value: string, label: string) => void;
 }) {
-  const pending = bons.filter((bon) => !bon.received_at);
-  if (!pending.length) return null;
-  const opened = pending.find((bon) => bon.id === selectedId) ?? null;
-  return <>
-    <Card className="ring-orange-200">
-      <div className="flex items-center gap-3 px-4 pb-2 pt-3.5">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-orange-50 text-[#e85e19]"><Truck size={19} /></span>
-        <div className="min-w-0"><p className="text-[15px] font-semibold text-slate-900">{pending.length} bon{pending.length > 1 ? "s" : ""} de remise en route</p><p className="text-xs text-slate-500">Ouvrez le bon, puis cochez chaque colis reçu.</p></div>
+  const days = atCounter(item) ? daysSince(counterSince(item)) : null;
+  const amount = Number(item.price_usd || 0) + Number(item.tax_usd || 0);
+  const dates: Record<string, string> = { ...(item.status_dates ?? {}) };
+  if (!dates["Reçu à Miami"]) dates["Reçu à Miami"] = mcpackDate(item.created_date) || item.received_at || "";
+  if (item.status === DONE && item.delivered_at) dates[DONE] = item.delivered_at;
+  const currentIndex = TRACK_STEPS.indexOf(item.status);
+  const steps = TRACK_STEPS.map((step, index) => ({ step, at: dates[step] ?? "", reached: index <= currentIndex || Boolean(dates[step]), current: step === item.status }))
+    .filter((row) => row.at || row.current).reverse();
+  const releasable = canReleaseParcel(item);
+  const unpaid = Boolean(item.invoice_id) && item.invoice_payment_status !== "Payé";
+  return <div className="space-y-3">
+    <Box>
+      <div className="border-b border-slate-300 px-3 py-2.5">
+        <div className="flex items-start justify-between gap-2"><FieldLabel>N° de guía</FieldLabel><StatusText status={item.status} /></div>
+        <p className="agent-mono mt-0.5 break-all text-[20px] font-semibold leading-tight">{item.tracking_number || "·"}</p>
+        <div aria-hidden="true" className="agent-barcode mt-2 h-8" />
+        {item.tracking_manual && <button type="button" onClick={() => onCopy(item.tracking_manual, "N° de suivi")} className="agent-mono mt-2 inline-flex items-center gap-1.5 text-[12px] text-slate-600 hover:text-slate-900">Suivi · {item.tracking_manual}<Copy size={13} /></button>}
       </div>
-      <div className="divide-y divide-slate-100">
-        {pending.map((bon) => {
-          const parcels = bon.parcels ?? [];
-          const receivedCount = parcels.filter((p) => BON_PARCEL_DONE.has(p.status)).length;
-          return <button key={bon.id} type="button" onClick={() => onSelect(bon.id)} disabled={busy}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-orange-50 text-[#e85e19]"><PackageCheck size={18} /></span>
-            <span className="min-w-0 flex-1"><span className="block font-mono text-sm font-semibold text-slate-900">{bon.bon_number}</span>
-              <span className="block text-xs text-slate-500">{receivedCount > 0 ? `${receivedCount} sur ${bon.package_count} reçus` : `${bon.package_count} colis`} · {dateText(bon.created_at)}</span></span>
-            {confirmedId === bon.id ? <CheckCircle2 className="shrink-0 text-emerald-500" size={20} /> : <ChevronRight className="shrink-0 text-slate-400" size={18} />}
-          </button>;
-        })}
+      <div className="grid grid-cols-3">
+        <Field label="Poids" value={`${Number(item.weight || 0).toFixed(2)} lb`} className="border-r border-slate-300" />
+        <Field label="Quantité" value={String(item.quantity || 1)} className="border-r border-slate-300" />
+        <div className="min-w-0 px-3 py-2"><FieldLabel>Au comptoir</FieldLabel><p className={cn("mt-0.5 text-[13px] font-extrabold", days !== null && days >= 14 ? "text-red-700" : "text-[#c2410c]")}>{days === null ? "·" : `${days} jour${days > 1 ? "s" : ""}`}</p></div>
       </div>
-    </Card>
-    {opened && <BonReceptionSheet key={opened.id} bon={opened} busy={busy} onClose={() => onSelect(null)} onConfirm={(ids) => onConfirm(opened.id, ids)} />}
-  </>;
+    </Box>
+
+    {item.is_special && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-900"><span className="font-extrabold">Colis spécial</span>{item.special_reason ? ` · ${item.special_reason}` : ""}</div>}
+
+    <dl className="grid grid-cols-[112px_minmax(0,1fr)] border-y border-slate-200 text-[13px]">
+      <dt className="py-2 text-slate-500">Client</dt>
+      <dd className="flex min-w-0 items-center gap-2 py-1.5"><CodeTag code={item.customer_code} central={item.is_central_account} onClick={onOpenClient} /><button type="button" onClick={onOpenClient} className="truncate font-bold underline-offset-2 hover:underline">{item.is_central_account ? "Compte central" : item.customer_name || "Client"}</button></dd>
+      <Row label="Contenu" value={item.content || "·"} />
+      <Row label="Conduce" value={item.conduce_number ? <><span className="agent-mono">{item.conduce_number}</span>{item.conduce_date ? ` · ${dateText(item.conduce_date + "T12:00:00")}` : ""}</> : "·"} />
+      <Row label="Bordereau" value={item.bon_number ? <><span className="agent-mono">{item.bon_number}</span>{item.bon_received_by ? ` · pointé par ${item.bon_received_by}` : item.bon_received_at ? "" : " · à pointer"}</> : "·"} />
+      <Row label="Facture" value={item.invoice_id ? <><button type="button" onClick={() => onOpenInvoice(item.invoice_id)} className="agent-mono font-semibold text-[#0b2a5b] underline underline-offset-2">{item.invoice_number}</button>{amount > 0 ? ` · ${fmtUsd(amount)}` : ""}</> : "En attente de facture"} />
+      <Row label="Paiement" value={item.invoice_id ? <span className={cn("font-extrabold", item.invoice_payment_status === "Payé" ? "text-emerald-700" : "text-red-700")}>{item.invoice_payment_status === "Payé" ? "Facture payée" : item.invoice_payment_status === "Payé partiel" ? "Paiement partiel" : "Facture impayée"}</span> : "·"} />
+      {item.status === DONE && <Row label="Livré" value={item.delivered_at ? dateTimeText(item.delivered_at) : "Date non archivée"} />}
+      <Row label="Agence" value={zoneName} last />
+    </dl>
+
+    <div>
+      <SectionTitle>Suivi</SectionTitle>
+      <ol className="space-y-2 px-1">{steps.map((row) =>
+        <li key={row.step} className="grid grid-cols-[14px_minmax(0,1fr)_auto] items-center gap-2.5 text-[13px]">
+          <span className={cn("h-2.5 w-2.5 rounded-[2px]", row.current ? (row.step === DONE || row.step === "Disponible" ? "bg-emerald-600" : "bg-[#0b2a5b]") : "border-2 border-slate-400")} />
+          <span className={row.current ? "font-extrabold" : "text-slate-600"}>{statusLabel(row.step)}</span>
+          <span className="agent-mono text-[12px] text-slate-500">{shortStamp(row.at)}</span>
+        </li>)}</ol>
+    </div>
+
+    <div className="grid grid-cols-2 gap-2 pt-1">
+      {item.invoice_id && <button type="button" onClick={() => onOpenInvoice(item.invoice_id)} className="h-12 rounded-lg border-[1.5px] border-slate-900 bg-white text-[14px] font-bold">Voir la facture</button>}
+      {item.status === DONE ? <button type="button" onClick={onTicket} className="h-12 rounded-lg text-[14px] font-extrabold text-white" style={{ background: NAVY }}>Preuve de livraison</button>
+        : releasable ? <button type="button" onClick={onRelease} disabled={releasing} className="flex h-12 items-center justify-center gap-2 rounded-lg bg-emerald-600 text-[14px] font-extrabold text-white disabled:opacity-60">{releasing && <Spinner size={16} />}Valider le retrait</button>
+          : unpaid ? <button type="button" onClick={onPay} className="h-12 rounded-lg bg-[#e85e19] text-[14px] font-extrabold text-white">Encaisser</button> : null}
+    </div>
+  </div>;
+}
+function Row({ label, value, last = false }: { label: string; value: ReactNode; last?: boolean }) {
+  return <><dt className={cn("border-t border-slate-100 py-2 text-slate-500", last && "")}>{label}</dt><dd className="min-w-0 break-words border-t border-slate-100 py-2 font-semibold">{value}</dd></>;
 }
 
-/**
- * Réception colis par colis. Écran plein : le bouton de confirmation est dans
- * l'en-tête FIXE en haut, jamais en bas de la liste — l'agent coche, et le
- * bouton est déjà là sous son pouce, sans descendre.
- */
-function BonReceptionSheet({ bon, busy, onClose, onConfirm }: { bon: ZoneBon; busy: boolean; onClose: () => void; onConfirm: (packageIds: string[]) => void }) {
+/* ─────────────────────────── COLIS ─────────────────────────── */
+function ParcelsView({ packages, filter, onFilter, search, onSearch, onOpen, onOpenClient }: {
+  packages: ZonePackage[]; filter: ParcelFilter; onFilter: (value: ParcelFilter) => void; search: string; onSearch: (value: string) => void;
+  onOpen: (id: string) => void; onOpenClient: (code: string) => void;
+}) {
+  const [visible, setVisible] = useState(60);
+  const groups: Record<ParcelFilter, ZonePackage[]> = {
+    comptoir: sortPackagesAvailableFirst(packages.filter(atCounter)),
+    transit: sortPackagesAvailableFirst(packages.filter((item) => item.status !== DONE && !atCounter(item))),
+    livres: packages.filter((item) => item.status === DONE).sort((a, b) => dateTimestamp(b.delivered_at) - dateTimestamp(a.delivered_at))
+  };
+  const needle = search.trim().toLowerCase();
+  const list = groups[filter].filter((item) => !needle || [item.tracking_number, item.tracking_manual, item.customer_code, item.customer_name, item.content, item.invoice_number].join(" ").toLowerCase().includes(needle));
+  return <div className="space-y-3">
+    <SearchField value={search} onChange={onSearch} placeholder="N° de guía, suivi, code client" />
+    <Chips value={filter} onChange={(value) => { onFilter(value); setVisible(60); }} options={[["comptoir", "Au comptoir", groups.comptoir.length], ["transit", "En transit", groups.transit.length], ["livres", "Livrés", groups.livres.length]]} />
+    {list.length ? <div className="border-y border-slate-200">{list.slice(0, visible).map((item) =>
+      <ParcelLine key={item.id} item={item} onOpen={() => onOpen(item.id)} client={<CodeTag code={item.customer_code} central={item.is_central_account} size="sm" onClick={() => onOpenClient(item.customer_code)} />} />)}</div>
+      : <Empty text="Aucun colis ne correspond." />}
+    {list.length > visible && <button type="button" onClick={() => setVisible((n) => n + 60)} className="h-11 w-full rounded-lg border border-slate-300 text-sm font-bold text-[#0b2a5b]">Afficher plus</button>}
+  </div>;
+}
+
+/* ─────────────────────────── BORDEREAUX ─────────────────────────── */
+function BordereauxView({ bons, search, onSearch, onPoint, onPdf }: { bons: ZoneBon[]; search: string; onSearch: (value: string) => void; onPoint: (id: string) => void; onPdf: (id: string) => void }) {
+  const needle = search.trim().toLowerCase();
+  const list = needle ? bons.filter((bon) => bon.bon_number.toLowerCase().includes(needle)) : bons;
+  const pending = list.filter((bon) => !bon.received_at);
+  const done = list.filter((bon) => bon.received_at);
+  return <div className="space-y-3">
+    <SearchField value={search} onChange={onSearch} placeholder="N° de bordereau" />
+    <div>
+      <SectionTitle>À pointer · {pending.length}</SectionTitle>
+      {pending.length ? <div className="rounded-lg border-[1.5px] border-dashed border-[#e85e19] bg-orange-50 px-3"><div className="divide-y divide-dashed divide-orange-300">{pending.map((bon) => {
+        const parcels = bon.parcels ?? [];
+        const received = parcels.filter((p) => BON_PARCEL_DONE.has(p.status)).length;
+        return <div key={bon.id} className="flex items-center gap-2 py-2.5">
+          <button type="button" onClick={() => onPoint(bon.id)} className="min-w-0 flex-1 text-left"><span className="agent-mono block text-[13px] font-semibold">{bon.bon_number}</span><span className="block text-[12px] text-slate-600"><span className="agent-mono">{received} / {parcels.length || bon.package_count}</span> pointés · {dateText(bon.created_at)}</span></button>
+          {bon.has_pdf && <button type="button" onClick={() => onPdf(bon.id)} aria-label="PDF du bordereau" className="grid h-10 w-10 place-items-center rounded-md text-slate-500 hover:bg-orange-100"><FileDown size={17} /></button>}
+          <button type="button" onClick={() => onPoint(bon.id)} className="h-10 rounded-md bg-[#e85e19] px-3 text-[13px] font-extrabold text-white">Pointer</button>
+        </div>;
+      })}</div></div> : <Empty text="Aucun bordereau à pointer." />}
+    </div>
+    <div>
+      <SectionTitle>Pointés · {done.length}</SectionTitle>
+      {done.length ? <div className="border-y border-slate-200">{done.slice(0, 80).map((bon) =>
+        <button key={bon.id} type="button" onClick={() => onPdf(bon.id)} disabled={!bon.has_pdf} className="flex w-full items-center gap-3 border-b border-slate-100 px-1 py-2.5 text-left last:border-b-0 hover:bg-slate-50 disabled:cursor-default">
+          <span className="min-w-0 flex-1"><span className="agent-mono block text-[13px] font-semibold">{bon.bon_number}</span><span className="block truncate text-[12px] text-slate-500">{bon.package_count} colis · {dateText(bon.received_at)}{bon.received_by ? ` · ${bon.received_by}` : ""}</span></span>
+          {bon.has_pdf && <FileDown size={17} className="shrink-0 text-slate-400" />}
+        </button>)}</div> : <Empty text="Aucun bordereau pointé." />}
+    </div>
+  </div>;
+}
+
+/** Pointage colis par colis. Le bouton de validation est fixé en haut, sous le pouce. */
+function PointageSheet({ bon, busy, onClose, onConfirm }: { bon: ZoneBon; busy: boolean; onClose: () => void; onConfirm: (packageIds: string[]) => void }) {
   const parcels = bon.parcels ?? [];
   const [checked, setChecked] = useState<string[]>([]);
   const [query, setQuery] = useState("");
@@ -929,484 +930,64 @@ function BonReceptionSheet({ bon, busy, onClose, onConfirm }: { bon: ZoneBon; bu
   const q = query.trim().toLowerCase();
   const visible = q ? todo.filter((p) => `${p.tracking_number} ${p.tracking_manual} ${p.customer_code} ${p.content}`.toLowerCase().includes(q)) : todo;
   const toggle = (id: string) => setChecked((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  const allChecked = todo.length > 0 && todo.every((p) => checked.includes(p.id));
   const count = checked.length;
-  return <div role="dialog" aria-modal="true" aria-label={`Réception du bon ${bon.bon_number}`} className="fixed inset-0 z-[90] flex flex-col bg-slate-50">
-    <div className="shrink-0 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.08)]">
-      <div className="flex items-center gap-2 px-3 pb-2 pt-[calc(0.6rem+env(safe-area-inset-top))]">
-        <button type="button" onClick={onClose} disabled={busy} aria-label="Retour" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 disabled:opacity-50"><ArrowLeft size={20} /></button>
-        <div className="min-w-0 flex-1"><p className="truncate font-mono text-sm font-semibold text-slate-900">{bon.bon_number}</p>
-          <p className={cn("text-xs", count ? "font-semibold text-emerald-700" : "text-slate-500")}>{count} sélectionné{count > 1 ? "s" : ""} sur {todo.length} à recevoir</p></div>
+  return <div role="dialog" aria-modal="true" aria-label={`Pointage du bordereau ${bon.bon_number}`} className="agent-font fixed inset-0 z-[90] flex flex-col bg-white">
+    <div className="shrink-0 text-white" style={{ background: NAVY }}>
+      <div className="flex items-center gap-2 px-2 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
+        <button type="button" onClick={onClose} disabled={busy} aria-label="Retour" className="grid h-11 w-11 shrink-0 place-items-center rounded-full hover:bg-white/10 disabled:opacity-50"><ArrowLeft size={20} /></button>
+        <div className="min-w-0 flex-1"><p className="agent-mono truncate text-[14px] font-semibold">{bon.bon_number}</p><p className="text-[12px] text-white/70">{count} pointé{count > 1 ? "s" : ""} sur {todo.length}</p></div>
         <button type="button" onClick={() => onConfirm(checked)} disabled={busy || count === 0}
-          className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400">
-          {busy ? <RefreshCw size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}{busy ? "Confirmation…" : `Confirmer${count ? ` (${count})` : ""}`}
+          className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md bg-emerald-500 px-4 text-[14px] font-extrabold text-white disabled:bg-white/15 disabled:text-white/50">
+          {busy ? <RefreshCw size={17} className="animate-spin" /> : <CheckCircle2 size={17} />}Valider{count ? ` (${count})` : ""}
         </button>
       </div>
-      {todo.length > 8 && <div className="px-3 pb-3"><div className="flex h-10 items-center gap-2 rounded-xl bg-slate-100 px-3"><Search size={16} className="text-slate-400" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Chercher un numéro de suivi ou un client" className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400" /></div></div>}
+    </div>
+    <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 px-3 py-2">
+      {todo.length > 8 ? <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border border-slate-300 px-2.5"><Search size={16} className="text-slate-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="N° de suivi ou code client" className="min-w-0 flex-1 bg-transparent text-[16px] outline-none" /></label> : <span className="flex-1" />}
+      {todo.length > 1 && <button type="button" onClick={() => setChecked(allChecked ? [] : todo.map((p) => p.id))} className="h-10 shrink-0 rounded-md border border-slate-300 px-3 text-[13px] font-bold text-[#0b2a5b]">{allChecked ? "Aucun" : "Tout"}</button>}
     </div>
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
-      {todo.length === 0 ? <p className="px-6 py-12 text-center text-sm text-slate-600">Tous les colis de ce bon sont déjà reçus.</p> : visible.length === 0 ? <p className="px-6 py-12 text-center text-sm text-slate-500">Aucun colis ne correspond.</p> :
-        <div className="divide-y divide-slate-100 bg-white">{visible.map((p) => {
+      {todo.length === 0 ? <p className="px-6 py-12 text-center text-sm text-slate-600">Tous les colis de ce bordereau sont au comptoir.</p> : visible.length === 0 ? <p className="px-6 py-12 text-center text-sm text-slate-500">Aucun colis ne correspond.</p> :
+        <div className="divide-y divide-slate-100">{visible.map((p) => {
           const on = checked.includes(p.id);
-          return <button key={p.id} type="button" role="checkbox" aria-checked={on} disabled={busy} onClick={() => toggle(p.id)}
-            className={cn("flex w-full items-center gap-3 px-4 py-3.5 text-left transition", on && "bg-emerald-50/70")}>
-            <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-md border-2 transition", on ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300 bg-white")}>{on && <Check size={16} strokeWidth={3} />}</span>
-            <span className="min-w-0 flex-1">
-              <span className="block break-all text-sm font-semibold text-slate-900">{p.tracking_manual || p.tracking_number || "Colis sans numéro"}</span>
-              <span className="block truncate text-xs text-slate-500">{p.customer_code}{p.content ? ` · ${p.content}` : ""}</span>
-            </span>
+          return <button key={p.id} type="button" role="checkbox" aria-checked={on} disabled={busy} onClick={() => toggle(p.id)} className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition", on && "bg-emerald-50")}>
+            <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded border-2 transition", on ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-900 bg-white")}>{on && <Check size={15} strokeWidth={3} />}</span>
+            <span className="min-w-0 flex-1"><span className="agent-mono block break-all text-[13px] font-semibold">{p.tracking_number || p.tracking_manual || "Colis sans numéro"}</span><span className="block truncate text-[12px] text-slate-500"><span className="agent-mono">{p.customer_code}</span>{p.content ? ` · ${p.content}` : ""}</span></span>
           </button>;
         })}</div>}
-      {done.length > 0 && <p className="px-4 py-3 text-center text-xs text-slate-500">{done.length} colis de ce bon déjà reçus.</p>}
+      {done.length > 0 && <p className="px-4 py-3 text-center text-xs text-slate-500">{done.length} colis déjà au comptoir.</p>}
     </div>
   </div>;
 }
 
-/**
- * Barre fixe : le bouton « Confirmer la remise » reste toujours visible à
- * l'écran (au-dessus de la navigation), jamais enfoui tout en bas de la liste.
- */
-function RemiseConfirmBar({ customerCode, count, busy, onConfirm, onClear }: { customerCode: string; count: number; busy: boolean; onConfirm: () => void; onClear: () => void }) {
-  return <div role="region" aria-label="Confirmer la remise" className="fixed inset-x-2 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-50 mx-auto max-w-xl md:bottom-5">
-    <div className="flex items-center gap-2 rounded-2xl bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,0.18)] ring-1 ring-slate-200">
-      <button type="button" onClick={onClear} disabled={busy} aria-label="Annuler la sélection" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 disabled:opacity-50"><X size={18} /></button>
-      <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-900">{customerCode || "Client"}</p><p className="text-xs text-emerald-700">{count} colis sélectionné{count > 1 ? "s" : ""}</p></div>
-      <button type="button" onClick={onConfirm} disabled={busy} className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-70">{busy ? <RefreshCw size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}{busy ? "Confirmation…" : "Confirmer la remise"}</button>
-    </div>
-  </div>;
-}
-
-/** Juste après un paiement : proposer la remise immédiate des colis devenus remettables, puis le ticket. */
-function RemiseOffer({ offer, busy, onRelease, onLater }: { offer: { customerCode: string; packageIds: string[]; paymentText: string }; busy: boolean; onRelease: () => void; onLater: () => void }) {
-  const count = offer.packageIds.length;
-  return <div role="dialog" aria-modal="true" aria-labelledby="remise-offer-title" className="fixed inset-0 z-[140] flex flex-col items-center justify-center overflow-y-auto bg-white px-6 py-8 text-center">
-    <div className="w-full max-w-md">
-      <div className="sd-pop mx-auto grid h-24 w-24 place-items-center rounded-full bg-emerald-500">
-        <svg viewBox="0 0 24 24" className="h-14 w-14" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className="sd-check" d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+/* ─────────────────────────── FACTURE ─────────────────────────── */
+function InvoicePage({ invoice, packages, onOpenParcel, onOpenClient, onPdf, onPay }: { invoice: ZoneInvoice; packages: ZonePackage[]; onOpenParcel: (id: string) => void; onOpenClient: () => void; onPdf: () => void; onPay?: () => void }) {
+  return <div className="space-y-3">
+    <Box>
+      <div className="flex items-start gap-3 border-b border-slate-300 px-3 py-2.5">
+        <div className="min-w-0 flex-1"><FieldLabel>Facture</FieldLabel><p className="agent-mono mt-0.5 text-[18px] font-semibold">{invoice.invoice_number}</p><p className="text-[12px] text-slate-500">{dateText(invoice.created_at)} · {invoice.package_count} colis</p></div>
+        <CodeTag code={invoice.customer_code} central={invoice.is_central_account} onClick={onOpenClient} />
       </div>
-      <h2 id="remise-offer-title" className="mt-6 text-xl font-semibold text-slate-900">Paiement enregistré, {offer.customerCode}</h2>
-      <p className="mx-auto mt-2 whitespace-pre-line text-[15px] leading-relaxed text-slate-600">{offer.paymentText}</p>
-      <p className="mx-auto mt-5 rounded-xl bg-orange-50 px-4 py-3 text-sm font-medium text-[#c2410c]">{count} colis {count > 1 ? "sont prêts" : "est prêt"} à être remis au client.</p>
-      <button type="button" autoFocus disabled={busy} onClick={onRelease} className="mx-auto mt-6 flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-[15px] font-semibold text-white outline-none transition hover:bg-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:opacity-60">{busy ? <Spinner size={18} /> : <Printer size={19} />}{busy ? "Remise en cours…" : "Remettre et voir le ticket"}</button>
-      <button type="button" disabled={busy} onClick={onLater} className="mx-auto mt-3 flex h-11 w-full max-w-xs items-center justify-center rounded-xl text-sm font-medium text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">Plus tard</button>
-    </div>
-  </div>;
-}
-
-/** Grande coche verte animée : la remise est enregistrée. */
-function RemiseSuccessOverlay({ customerCode, count }: { customerCode: string; count: number }) {
-  return <div role="status" aria-live="polite" className="fixed inset-0 z-[60] grid place-items-center bg-white/90 px-6 backdrop-blur-sm">
-    <div className="text-center">
-      <div className="sd-pop mx-auto grid h-24 w-24 place-items-center rounded-full bg-emerald-500">
-        <svg viewBox="0 0 24 24" className="h-14 w-14" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className="sd-check" d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+      <div className="grid grid-cols-2">
+        <Field label="Total" value={fmtUsd(invoice.grand_total_usd)} className="border-b border-r border-slate-200" />
+        <div className="border-b border-slate-200 px-3 py-2"><FieldLabel>Paiement</FieldLabel><div className="mt-1"><PaymentText status={invoice.payment_status} /></div></div>
+        <Field label="Reçu" value={`${fmtUsd(invoice.payment_paid_usd)} · ${fmtHtg(invoice.payment_paid_htg)}`} className="border-r border-slate-200" />
+        <div className="px-3 py-2"><FieldLabel>Solde</FieldLabel><p className={cn("mt-0.5 text-[13px] font-extrabold", invoice.amount_due_usd > 0.01 ? "text-red-700" : "text-emerald-700")}>{fmtUsd(invoice.amount_due_usd)}</p><p className="text-[11px] text-slate-500">{fmtHtg(invoice.amount_due_htg)}</p></div>
       </div>
-      <p className="mt-5 text-xl font-semibold text-slate-900">Remise confirmée</p>
-      <p className="mt-1 text-sm text-slate-600">{count} colis livré{count > 1 ? "s" : ""}{customerCode ? " · " + customerCode : ""}</p>
+      {invoice.deposit_usd > 0 && <Field label="Acompte" value={fmtUsd(invoice.deposit_usd)} className="border-t border-slate-200" />}
+    </Box>
+    {invoice.payments.length > 0 && <div><SectionTitle>Paiements</SectionTitle><div className="border-y border-slate-200">{invoice.payments.map((payment, index) =>
+      <div key={index} className="flex items-center gap-3 border-b border-slate-100 px-1 py-2 last:border-b-0"><span className="min-w-0 flex-1 text-[13px]"><span className="font-semibold">{payment.method}</span><span className="text-slate-500"> · {dateTimeText(payment.created_at)} · {payment.by}</span></span><span className="text-[13px] font-extrabold text-emerald-700">+{payment.currency === "HTG" ? fmtHtg(payment.amount) : fmtUsd(payment.amount)}</span></div>)}</div></div>}
+    <div><SectionTitle>Colis · {packages.length}</SectionTitle>{packages.length ? <div className="border-y border-slate-200">{packages.map((item) => <ParcelLine key={item.id} item={item} onOpen={() => onOpenParcel(item.id)} />)}</div> : <Empty text="Aucun colis associé." />}</div>
+    <div className="grid grid-cols-2 gap-2">
+      {invoice.has_pdf && <button type="button" onClick={onPdf} className="flex h-12 items-center justify-center gap-2 rounded-lg border-[1.5px] border-slate-900 text-[14px] font-bold"><FileDown size={17} />PDF</button>}
+      {onPay && <button type="button" onClick={onPay} className="h-12 rounded-lg bg-[#e85e19] text-[14px] font-extrabold text-white">Encaisser</button>}
     </div>
   </div>;
 }
 
-/**
- * Liste de remise : une ligne par colis, toute la ligne se touche pour la
- * cocher. La confirmation se fait dans la barre fixe (RemiseConfirmBar).
- */
-function ReadyChecklist({ packages, selectedPackageIds, locked, onToggleSelection, onSelectAll, onStartPayment, onOpenInvoice }: {
-  packages: ZonePackage[]; selectedPackageIds: string[]; locked: boolean;
-  onToggleSelection: (item: ZonePackage) => void; onSelectAll: (ids: string[]) => void;
-  onStartPayment: (customerCode: string, invoiceIds?: string[]) => void; onOpenInvoice: (invoiceId: string) => void;
-}) {
-  const eligible = packages.filter(canReleaseParcel);
-  const allSelected = eligible.length > 0 && eligible.every((item) => selectedPackageIds.includes(item.id));
-  // Une seule action de paiement par facture impayée, pas une par colis.
-  const unpaidInvoices = Array.from(new Map(packages.filter((item) => item.invoice_id && item.invoice_payment_status !== "Payé").map((item) => [item.invoice_id, item.invoice_number] as const)).entries());
-  return <Card>
-    <CardHeader title={`À remettre · ${packages.length} colis`} subtitle="Touchez les colis remis, puis confirmez en bas de l’écran."
-      right={eligible.length > 1 ? <button type="button" disabled={locked} onClick={() => onSelectAll(eligible.map((item) => item.id))} className="h-9 shrink-0 rounded-xl px-3 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50 disabled:opacity-60">{allSelected ? "Aucun" : `Tout (${eligible.length})`}</button> : undefined} />
-    <div className="divide-y divide-slate-100">{packages.map((item) => {
-      const selectable = canReleaseParcel(item);
-      const selected = selectedPackageIds.includes(item.id);
-      const reason = item.customer_balance_usd > 0.01 ? "Solde client à régler" : item.invoice_payment_status !== "Payé" ? "Paiement complet requis" : "";
-      return <div key={item.id} className={cn(selected && "bg-emerald-50/60")}>
-        <button type="button" role="checkbox" aria-checked={selected} disabled={!selectable || locked} onClick={() => onToggleSelection(item)} className="flex w-full items-center gap-3 px-4 py-3 text-left disabled:cursor-not-allowed">
-          <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-md border-2 transition", selected ? "border-emerald-600 bg-emerald-600 text-white" : selectable ? "border-slate-300 bg-white" : "border-slate-200 bg-slate-100")}>{selected && <Check size={14} strokeWidth={3} />}</span>
-          <span className="min-w-0 flex-1">
-            <span className={cn("block break-all text-sm font-medium", selectable ? "text-slate-900" : "text-slate-500")}>{packageReference(item)}</span>
-            <span className="mt-0.5 block text-xs text-slate-500">Qté {item.quantity}{item.content ? " · " + item.content : ""} · {item.invoice_number} · {item.invoice_payment_status}</span>
-            {reason && <span className="mt-1 inline-block rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">{reason}</span>}
-          </span>
-          <StatusChip status={item.status} />
-        </button>
-        {(item.is_special || item.invoice_payment_details) && <div className="px-4 pb-3 pl-[3.25rem]">{item.invoice_payment_details && <p className="text-xs font-medium text-emerald-700">{item.invoice_payment_details}</p>}<SpecialPackageNotice item={item} /></div>}
-      </div>;
-    })}</div>
-    {unpaidInvoices.length > 0 && <div className="space-y-2 border-t border-slate-100 p-4">
-      <button type="button" onClick={() => onStartPayment(packages[0]?.customer_code ?? "", unpaidInvoices.map(([invoiceId]) => invoiceId))} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-semibold text-white hover:bg-[#d4530f]"><Banknote size={18} />Encaisser le paiement{unpaidInvoices.length > 1 ? ` · ${unpaidInvoices.length} factures` : ""}</button>
-      <div className="flex flex-wrap gap-1.5">{unpaidInvoices.map(([invoiceId, invoiceNumber]) => <button key={invoiceId} type="button" onClick={() => onOpenInvoice(invoiceId)} className="h-9 rounded-lg px-2.5 text-xs font-medium text-[#0b2a5b] ring-1 ring-slate-200 hover:bg-slate-50">Voir {invoiceNumber}</button>)}</div>
-    </div>}
-  </Card>;
-}
-
-/** Onglet « À remettre » : colis prêts, un client ouvert à la fois. */
-function ReadyView({ groups, expanded, onExpand, selectedPackageIds, confirmedParcelIds, releasing, onToggleSelection, onSelectCustomerPackages, onStartPayment, onOpenInvoice, renderPayment, renderInvoice }: {
-  groups: PackageGroup[]; expanded: string | null; onExpand: (id: string | null) => void;
-  selectedPackageIds: string[]; confirmedParcelIds: string[]; releasing: boolean; onToggleSelection: (item: ZonePackage) => void;
-  onSelectCustomerPackages: (customerCode: string, parcelIds: string[]) => void;
-  onStartPayment: (customerCode: string, invoiceIds?: string[]) => void; onOpenInvoice: (invoiceId: string) => void;
-  renderPayment: (customerCode: string) => ReactNode; renderInvoice: (customerCode: string) => ReactNode;
-}) {
-  if (!groups.length) return <Empty text="Aucun colis facturé n’est disponible à remettre." />;
-  const openGroup = groups.find((group) => group.customerCode === expanded);
-  if (openGroup) {
-    const hasBalance = openGroup.balanceUsd > 0.01;
-    return <div id={"package-group-" + openGroup.customerCode} className="scroll-mt-20 space-y-3">
-      <Card><CustomerRow code={openGroup.customerCode} name={openGroup.customerName} central={openGroup.isCentralAccount} tone="orange" open onOpen={() => undefined} meta={`${openGroup.packages.length} colis à remettre · ${quantityTotal(openGroup.packages)} article${quantityTotal(openGroup.packages) > 1 ? "s" : ""}`} /></Card>
-      {hasBalance && <BalanceNotice balanceUsd={openGroup.balanceUsd} balanceHtg={openGroup.balanceHtg} invoiceNumber={openGroup.balanceInvoiceNumber} onPay={openGroup.balanceInvoiceId ? () => onStartPayment(openGroup.customerCode) : undefined} />}
-      {renderPayment(openGroup.customerCode)}
-      <ReadyChecklist packages={openGroup.packages} selectedPackageIds={selectedPackageIds} locked={releasing || confirmedParcelIds.length > 0} onToggleSelection={onToggleSelection} onSelectAll={(ids) => onSelectCustomerPackages(openGroup.customerCode, ids)} onStartPayment={onStartPayment} onOpenInvoice={onOpenInvoice} />
-      {renderInvoice(openGroup.customerCode)}
-    </div>;
-  }
-  return <Card>
-    <CardHeader title="Clients à servir" right={<CountPill value={groups.length} tone="orange" />} />
-    <div className="divide-y divide-slate-100">{groups.map((group) => <div id={"package-group-" + group.customerCode} key={group.customerCode} className="scroll-mt-20">
-      <CustomerRow code={group.customerCode} name={group.customerName} central={group.isCentralAccount} tone="orange" open={false} onOpen={() => onExpand(group.customerCode)}
-        meta={<>{group.packages.length} colis à remettre{group.balanceUsd > 0.01 && <span className="text-amber-700"> · solde {fmtUsd(group.balanceUsd)}</span>}</>} />
-    </div>)}</div>
-  </Card>;
-}
-
-/**
- * « Colis à venir » : seulement le code client et le nombre de colis en route.
- * Un clic sur le code ouvre DEUX étapes (arrivés en Haïti / à Miami) ; une seule
- * étape s'ouvre à la fois, et ouvrir un autre client referme le précédent.
- */
-function ArrivalsView({ groups, expanded, section, onToggleCustomer, onSelectSection }: {
-  groups: PackageGroup[]; expanded: string | null; section: ArrivalSection | null;
-  onToggleCustomer: (customerCode: string) => void; onSelectSection: (value: ArrivalSection) => void;
-}) {
-  if (!groups.length) return <Empty text="Aucun colis à venir ne correspond à la recherche." />;
-  const openGroup = groups.find((group) => group.customerCode === expanded);
-  if (openGroup) {
-    const haiti = openGroup.packages.filter((item) => arrivalSectionOf(item) === "haiti");
-    const miami = openGroup.packages.filter((item) => arrivalSectionOf(item) === "miami");
-    const options: Array<[ArrivalSection, string, string, ZonePackage[], "violet" | "sky"]> = [
-      ["haiti", "Arrivés en Haïti", "Pas encore disponibles au point de retrait", haiti, "violet"],
-      ["miami", "À Miami · en cours", "Encore à Miami ou en transit", miami, "sky"]
-    ];
-    return <div id={"package-group-" + openGroup.customerCode} className="scroll-mt-20 space-y-3">
-      <Card><CustomerRow code={openGroup.customerCode} name={openGroup.customerName} central={openGroup.isCentralAccount} tone="sky" open onOpen={() => undefined} meta={`${openGroup.packages.length} colis en route`} /></Card>
-      {!section && <Card><div className="divide-y divide-slate-100">{options.map(([id, label, hint, items, tone]) => <button key={id} type="button" onClick={() => onSelectSection(id)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-slate-50">
-        <span className={cn("h-9 w-1.5 shrink-0 rounded-full", tone === "violet" ? "bg-violet-500" : "bg-sky-500")} />
-        <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold text-slate-900">{label}</span><span className="block text-xs text-slate-500">{hint}</span></span>
-        <span className="text-lg font-semibold tabular-nums text-slate-900">{items.length}</span><ChevronRight size={18} className="text-slate-300" />
-      </button>)}</div></Card>}
-      {section && options.filter(([id]) => id === section).map(([id, label, hint, items]) => <Card key={id}>
-        <CardHeader title={label} subtitle={hint} right={<CountPill value={items.length} />} />
-        {items.length ? <div className="divide-y divide-slate-100">{items.map((item) => <ParcelRow key={item.id} item={item} />)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucun colis à cette étape.</p>}
-      </Card>)}
-    </div>;
-  }
-  return <Card>
-    <CardHeader title="Clients avec colis en route" right={<CountPill value={groups.length} />} />
-    <div className="divide-y divide-slate-100">{groups.map((group) => <div id={"package-group-" + group.customerCode} key={group.customerCode} className="scroll-mt-20">
-      <CustomerRow code={group.customerCode} name={group.customerName} central={group.isCentralAccount} tone="sky" open={false} onOpen={() => onToggleCustomer(group.customerCode)} meta={`${group.packages.length} colis en route`} />
-    </div>)}</div>
-  </Card>;
-}
-
-/**
- * Colis remis : une ligne par CLIENT, sans liste de colis. Toucher la ligne
- * affiche ses tickets de remise — chaque ticket porte le numéro de la
- * facture des colis remis, comme le ticket imprimé.
- */
-function RemiseHistoryView({ packages, onOpenTicket, openCustomer, onOpenCustomer }: { packages: ZonePackage[]; onOpenTicket: (packageId: string) => void; openCustomer: string | null; onOpenCustomer: (code: string) => void }) {
-  const [visible, setVisible] = useState(40);
-  const clients = useMemo(() => {
-    const byClient = new Map<string, { customerCode: string; customerName: string; lastAt: string; tickets: Map<string, { key: string; deliveredAt: string; packages: ZonePackage[] }> }>();
-    for (const item of packages) {
-      const client = byClient.get(item.customer_code) ?? { customerCode: item.customer_code, customerName: item.customer_name, lastAt: "", tickets: new Map() };
-      if (!client.customerName && item.customer_name) client.customerName = item.customer_name;
-      if (dateTimestamp(item.delivered_at) > dateTimestamp(client.lastAt)) client.lastAt = item.delivered_at;
-      // Même regroupement que le ticket côté serveur : un ticket = une remise (même date de remise).
-      const key = item.delivered_at || "sans-date|" + (item.invoice_id || item.id);
-      const ticket = client.tickets.get(key) ?? { key, deliveredAt: item.delivered_at, packages: [] };
-      ticket.packages.push(item);
-      client.tickets.set(key, ticket);
-      byClient.set(item.customer_code, client);
-    }
-    return Array.from(byClient.values())
-      .map((client) => ({ ...client, tickets: Array.from(client.tickets.values()).sort((left, right) => dateTimestamp(right.deliveredAt) - dateTimestamp(left.deliveredAt)) }))
-      .sort((left, right) => dateTimestamp(right.lastAt) - dateTimestamp(left.lastAt));
-  }, [packages]);
-  if (!clients.length) return <Empty text="Aucun colis remis ne correspond à la recherche." />;
-  const opened = openCustomer ? clients.find((client) => client.customerCode === openCustomer) : undefined;
-  if (opened) {
-    return <div className="space-y-3">
-      <Card><CustomerRow code={opened.customerCode} name={opened.customerName} tone="emerald" open onOpen={() => undefined} meta={opened.lastAt ? "Dernière remise le " + dateTimeText(opened.lastAt) : "Date de remise non archivée"} /></Card>
-      <Card>
-        <CardHeader title="Tickets de remise" right={<CountPill value={opened.tickets.length} tone="emerald" />} />
-        <div className="divide-y divide-slate-100">{opened.tickets.map((ticket) => {
-          const numbers = Array.from(new Set(ticket.packages.map((item) => item.invoice_number).filter(Boolean)));
-          return <button key={ticket.key} type="button" onClick={() => onOpenTicket(ticket.packages[0].id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600"><Printer size={17} /></span>
-            <span className="min-w-0 flex-1"><span className="block break-all text-sm font-medium text-slate-900">Ticket {numbers.length ? numbers.join(" / ") : "de remise"}</span><span className="block text-xs text-slate-500">{ticket.deliveredAt ? dateTimeText(ticket.deliveredAt) : "Date non archivée"} · {ticket.packages.length} colis</span></span>
-            <ChevronRight size={18} className="shrink-0 text-slate-300" />
-          </button>;
-        })}</div>
-      </Card>
-    </div>;
-  }
-  return <Card>
-    <CardHeader title="Colis remis" right={<CountPill value={`${clients.length} client${clients.length > 1 ? "s" : ""}`} tone="emerald" />} />
-    <div className="divide-y divide-slate-100">{clients.slice(0, visible).map((client) => <CustomerRow key={client.customerCode} code={client.customerCode} name={client.customerName} tone="emerald" open={false} onOpen={() => onOpenCustomer(client.customerCode)}
-      meta={<>{client.lastAt ? dateTimeText(client.lastAt) : "Date non archivée"} · {client.tickets.length} ticket{client.tickets.length > 1 ? "s" : ""}</>} />)}</div>
-    {clients.length > visible && <div className="border-t border-slate-100 p-3"><button type="button" onClick={() => setVisible((count) => count + 40)} className="h-11 w-full rounded-xl text-sm font-medium text-[#0b2a5b] hover:bg-slate-50">Afficher plus de clients</button></div>}
-  </Card>;
-}
-
-/**
- * Dossier client : tout ce qui se remet est dans UNE liste à cocher ; le reste
- * (arrivés en Haïti, en cours) n'est qu'informatif. Les clients sans colis en
- * route ni disponible sont retirés par le parent, et les colis remis ne
- * s'affichent plus ici : ils vont à l'historique.
- */
-function ClientDossiersView({ zoneName, onOpenParcel, dossiers, focusedPackageId, expanded, onExpand, selectedPackageIds, confirmedParcelIds, releasing, onToggleSelection, onSelectCustomerPackages, onStartPayment, onOpenInvoice, renderPayment, renderInvoice }: {
-  zoneName: string; onOpenParcel: (item: ZonePackage) => void;
-  dossiers: ClientDossier[]; focusedPackageId: string | null; expanded: string | null; onExpand: (value: string | null) => void;
-  selectedPackageIds: string[]; confirmedParcelIds: string[]; releasing: boolean; onToggleSelection: (item: ZonePackage) => void;
-  onSelectCustomerPackages: (customerCode: string, parcelIds: string[]) => void;
-  onStartPayment: (customerCode: string, invoiceIds?: string[]) => void; onOpenInvoice: (invoiceId: string) => void;
-  renderPayment: (customerCode: string) => ReactNode; renderInvoice: (customerCode: string) => ReactNode;
-}) {
-  if (!dossiers.length) return <Empty text="Aucun client n’a de colis en route ou disponible." />;
-  const opened = dossiers.find((dossier) => dossier.customerCode === expanded);
-  if (opened) {
-    const scopedPackages = focusedPackageId ? opened.packages.filter((item) => item.id === focusedPackageId) : opened.packages;
-    const scopedDossier = focusedPackageId ? { ...opened, packages: scopedPackages } : opened;
-    const counts = dossierCounts(scopedDossier);
-    const available = sortPackagesAvailableFirst(counts.active.filter(isReadyForPickup));
-    const waiting = counts.active.filter((item) => !isReadyForPickup(item));
-    const haiti = sortPackagesAvailableFirst(waiting.filter((item) => arrivalSectionOf(item) === "haiti"));
-    const miami = sortPackagesAvailableFirst(waiting.filter((item) => arrivalSectionOf(item) === "miami"));
-    const balanceSource = opened.invoices[0] ?? opened.packages[0];
-    const balanceUsd = balanceSource?.customer_balance_usd ?? 0;
-    const balanceHtg = balanceSource?.customer_balance_htg ?? 0;
-    const balanceInvoice = opened.invoices.find((invoice) => invoice.payment_status !== "Payé");
-    // Une facture entièrement livrée et payée est dans l'historique, pas ici.
-    const openInvoices = (focusedPackageId ? opened.invoices.filter((invoice) => scopedPackages.some((item) => item.invoice_id === invoice.id)) : opened.invoices)
-      .filter((invoice) => invoice.delivery_status !== "Livrée" || invoice.payment_status !== "Payé");
-    return <ClientFile dossier={opened} scopedPackages={scopedPackages} focused={Boolean(focusedPackageId)} zoneName={zoneName}
-      available={available} haiti={haiti} miami={miami} openInvoices={openInvoices}
-      balanceUsd={balanceUsd} balanceHtg={balanceHtg} balanceInvoice={balanceInvoice}
-      selectedPackageIds={selectedPackageIds} locked={releasing || confirmedParcelIds.length > 0}
-      onToggleSelection={onToggleSelection} onSelectAll={(ids) => onSelectCustomerPackages(opened.customerCode, ids)}
-      onStartPayment={onStartPayment} onOpenInvoice={onOpenInvoice} onOpenParcel={onOpenParcel}
-      payment={renderPayment(opened.customerCode)} invoice={renderInvoice(opened.customerCode)} />;
-  }
-  return <Card>
-    <CardHeader title="Clients" subtitle="Touchez un client pour ouvrir son dossier : ses colis s’affichent comme dans son application." right={<CountPill value={dossiers.length} />} />
-    <div className="divide-y divide-slate-100">{dossiers.map((dossier) => {
-      const counts = dossierCounts(dossier);
-      const available = counts.active.filter(isReadyForPickup).length;
-      const waiting = counts.active.filter((item) => !isReadyForPickup(item));
-      const haiti = waiting.filter((item) => arrivalSectionOf(item) === "haiti").length;
-      const miami = waiting.length - haiti;
-      const balanceSource = dossier.invoices[0] ?? dossier.packages[0];
-      const owes = (balanceSource?.customer_balance_usd ?? 0) > 0.01;
-      const parts = [available ? `${available} à remettre` : "", haiti ? `${haiti} en Haïti` : "", miami ? `${miami} en cours` : ""].filter(Boolean).join(" · ");
-      return <div id={"dossier-" + dossier.customerCode} key={dossier.customerCode} className="scroll-mt-20">
-        <CustomerRow code={dossier.customerCode} name={dossier.customerName} tone={available ? "orange" : "navy"} open={false} onOpen={() => onExpand(dossier.customerCode)}
-          meta={<>{parts || "Aucun colis actif"}{owes && <span className="text-amber-700"> · doit payer</span>}</>} />
-      </div>;
-    })}</div>
-  </Card>;
-}
-
-/** Colis de l'agence au format de l'app client (même étiquette, même suivi). */
-function asClientPkg(item: ZonePackage): Pkg {
-  return { ...item, weight: Number(item.weight) || 0 } as unknown as Pkg;
-}
-
-/**
- * DOSSIER CLIENT : l'agent voit exactement ce que le client voit dans son
- * application (mêmes cartes de colis), puis les étapes de la remise, dans
- * l'ordre, avec ce qui est fait et ce qui reste à faire.
- */
-function ClientFile({ dossier, scopedPackages, focused, zoneName, available, haiti, miami, openInvoices, balanceUsd, balanceHtg, balanceInvoice,
-  selectedPackageIds, locked, onToggleSelection, onSelectAll, onStartPayment, onOpenInvoice, onOpenParcel, payment, invoice }: {
-  dossier: ClientDossier; scopedPackages: ZonePackage[]; focused: boolean; zoneName: string;
-  available: ZonePackage[]; haiti: ZonePackage[]; miami: ZonePackage[]; openInvoices: ZoneInvoice[];
-  balanceUsd: number; balanceHtg: number; balanceInvoice?: ZoneInvoice;
-  selectedPackageIds: string[]; locked: boolean;
-  onToggleSelection: (item: ZonePackage) => void; onSelectAll: (ids: string[]) => void;
-  onStartPayment: (customerCode: string, invoiceIds?: string[]) => void; onOpenInvoice: (invoiceId: string) => void;
-  onOpenParcel: (item: ZonePackage) => void; payment: ReactNode; invoice: ReactNode;
-}) {
-  const active = scopedPackages.filter((item) => item.status !== DONE);
-  const deliveredCount = scopedPackages.filter((item) => item.status === DONE).length;
-  const tiles: Array<[string, number, string, string]> = [
-    ["En route", active.filter((item) => item.status !== "Disponible" && item.status !== "Facturé").length, "text-sky-700", "file-enroute"],
-    ["Disponible", active.filter((item) => item.status === "Disponible").length, "text-emerald-700", "file-ready"],
-    ["Facturé", active.filter((item) => item.status === "Facturé").length, "text-blue-700", "file-ready"],
-    ["Remis", deliveredCount, "text-slate-600", ""]
-  ];
-  const eligible = available.filter(canReleaseParcel);
-  const selectedHere = eligible.filter((item) => selectedPackageIds.includes(item.id)).length;
-  const allSelected = eligible.length > 0 && selectedHere === eligible.length;
-  const unpaidInvoices = Array.from(new Map(available.filter((item) => item.invoice_id && item.invoice_payment_status !== "Payé").map((item) => [item.invoice_id, item.invoice_number] as const)).entries());
-  const mustPay = balanceUsd > 0.01 || unpaidInvoices.length > 0;
-  const pay = () => onStartPayment(dossier.customerCode, unpaidInvoices.length ? unpaidInvoices.map(([invoiceId]) => invoiceId) : undefined);
-  const scrollTo = (id: string) => { if (id) document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }); };
-
-  const Step = ({ n, title, done, children }: { n: number; title: string; done: boolean; children: ReactNode }) => <div className="flex gap-3 px-4 py-4">
-    <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold", done ? "bg-emerald-600 text-white" : "bg-[#0b2a5b] text-white")}>{done ? <Check size={16} strokeWidth={3} /> : n}</span>
-    <div className="min-w-0 flex-1"><p className="text-[15px] font-semibold text-slate-900">Étape {n} · {title}</p><div className="mt-1 text-[13px] leading-relaxed text-slate-600">{children}</div></div>
-  </div>;
-
-  return <div id={"dossier-" + dossier.customerCode} className="scroll-mt-20 space-y-4">
-    {/* En-tête du client, comme le haut de son application */}
-    <section className="overflow-hidden rounded-3xl text-white" style={{ background: NAVY }}>
-      <div className="flex items-center gap-3 px-4 py-4">
-        <span aria-hidden="true" className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-white text-lg font-bold text-[#0b2a5b]">{initialsOf(dossier.customerName, dossier.customerCode)}</span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[17px] font-semibold">{dossier.customerName || "Client"}</p>
-          <p className="font-mono text-[13px] text-white/75">{dossier.customerCode}</p>
-        </div>
-        {balanceUsd > 0.01 && <span className="shrink-0 rounded-full bg-amber-400 px-2.5 py-1 text-[11px] font-bold text-amber-950">Doit {fmtUsd(balanceUsd)}</span>}
-      </div>
-      <div className="grid grid-cols-4 border-t border-white/15 text-center">
-        {tiles.map(([label, count, , target]) => <button key={label} type="button" onClick={() => scrollTo(target)} className="py-3 transition hover:bg-white/5">
-          <p className="text-xl font-semibold tabular-nums">{count}</p><p className="text-[11px] text-white/70">{label}</p>
-        </button>)}
-      </div>
-    </section>
-
-    {focused && <p className="rounded-xl bg-sky-50 px-3 py-2 text-[13px] text-sky-900">Recherche par numéro de suivi : seul ce colis est affiché.</p>}
-
-    {/* Les étapes de la remise */}
-    {available.length > 0 ? <Card>
-      <CardHeader title="Remettre les colis au client" subtitle="Suivez les étapes dans l’ordre." />
-      <div className="divide-y divide-slate-100 border-t border-slate-100">
-        <Step n={1} title={mustPay ? "Encaisser le paiement" : "Paiement"} done={!mustPay}>
-          {mustPay ? <>
-            <p>Le client doit payer avant de recevoir ses colis{balanceUsd > 0.01 ? <> : <b className="text-slate-900">{fmtUsd(balanceUsd)}</b> ({fmtHtg(balanceHtg)}){balanceInvoice?.invoice_number ? " · " + balanceInvoice.invoice_number : ""}</> : "."}</p>
-            <button type="button" onClick={pay} className="mt-2.5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-semibold text-white hover:bg-[#d4530f]"><Banknote size={18} />Encaisser maintenant</button>
-            {unpaidInvoices.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{unpaidInvoices.map(([invoiceId, invoiceNumber]) => <button key={invoiceId} type="button" onClick={() => onOpenInvoice(invoiceId)} className="h-9 rounded-lg px-2.5 text-xs font-medium text-[#0b2a5b] ring-1 ring-slate-200 hover:bg-slate-50">Voir la facture {invoiceNumber}</button>)}</div>}
-          </> : <p>Tout est payé. Vous pouvez remettre les colis.</p>}
-        </Step>
-        <Step n={2} title="Cocher les colis remis" done={selectedHere > 0}>
-          {mustPay ? <p>Les colis se cochent après le paiement complet.</p>
-            : <p>Touchez le rond en haut à droite de chaque colis que vous donnez au client.{eligible.length > 1 && <button type="button" disabled={locked} onClick={() => onSelectAll(eligible.map((item) => item.id))} className="ml-1 font-semibold text-emerald-700 underline disabled:opacity-50">{allSelected ? "Tout décocher" : `Tout cocher (${eligible.length})`}</button>}</p>}
-        </Step>
-        <Step n={3} title="Confirmer la remise" done={false}>
-          <p>Touchez <b className="text-slate-900">Confirmer la remise</b> en bas de l’écran. Le ticket s’ouvre ensuite pour l’impression.</p>
-        </Step>
-      </div>
-    </Card> : <Card className="px-4 py-3.5"><p className="text-[15px] font-semibold text-slate-900">Rien à remettre pour le moment</p><p className="mt-1 text-[13px] leading-relaxed text-slate-500">Les colis de ce client ne sont pas encore prêts. Ils apparaîtront ici dès qu’ils seront disponibles et facturés à l’agence.</p></Card>}
-
-    {payment}
-
-    {available.length > 0 && <section id="file-ready" className="scroll-mt-20">
-      <h3 className="px-1 pb-2 text-[13px] font-semibold text-slate-500">Prêts à remettre · {available.length}</h3>
-      {available.map((item) => {
-        const selectable = canReleaseParcel(item);
-        const reason = item.customer_balance_usd > 0.01 ? "Solde client à régler d’abord" : item.invoice_payment_status !== "Payé" ? "Paiement complet requis" : "";
-        return <ParcelCard key={item.id} p={asClientPkg(item)} special={item.is_special} onOpen={() => onOpenParcel(item)}
-          selector={{ selected: selectedPackageIds.includes(item.id), disabled: !selectable || locked, title: reason || "Cocher ce colis", onToggle: () => onToggleSelection(item) }} />;
-      })}
-    </section>}
-
-    {(haiti.length > 0 || miami.length > 0) && <section id="file-enroute" className="scroll-mt-20">
-      {haiti.length > 0 && <>
-        <h3 className="px-1 pb-2 text-[13px] font-semibold text-slate-500">En Haïti, pas encore prêts · {haiti.length}</h3>
-        <p className="-mt-1 px-1 pb-2 text-xs text-slate-500">Arrivés en Haïti ou disponibles sans facture : STANDA doit encore les facturer.</p>
-        {haiti.map((item) => <ParcelCard key={item.id} p={asClientPkg(item)} special={item.is_special} onOpen={() => onOpenParcel(item)} />)}
-      </>}
-      {miami.length > 0 && <>
-        <h3 className="px-1 pb-2 pt-1 text-[13px] font-semibold text-slate-500">À Miami ou en transit · {miami.length}</h3>
-        {miami.map((item) => <ParcelCard key={item.id} p={asClientPkg(item)} special={item.is_special} onOpen={() => onOpenParcel(item)} />)}
-      </>}
-    </section>}
-
-    {openInvoices.length > 0 && <DossierInvoices invoices={openInvoices} onOpenInvoice={onOpenInvoice} />}
-    {invoice}
-    <p className="px-1 text-center text-[11px] text-slate-400">Point de retrait · {zoneName}</p>
-  </div>;
-}
-
-function BalanceNotice({ balanceUsd, balanceHtg, invoiceNumber, onPay }: { balanceUsd: number; balanceHtg: number; invoiceNumber: string; onPay?: () => void }) {
-  return <Card className="ring-amber-200">
-    <div className="px-4 py-3.5">
-      <p className="text-[13px] font-medium text-amber-800">Solde client à régler</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{fmtUsd(balanceUsd)}</p>
-      <p className="text-sm tabular-nums text-slate-500">{fmtHtg(balanceHtg)}{invoiceNumber ? " · " + invoiceNumber : ""}</p>
-      <p className="mt-2 text-xs text-slate-500">Le solde précédent doit être réglé avant toute nouvelle remise.</p>
-      {onPay && <button type="button" onClick={onPay} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-semibold text-white hover:bg-[#d4530f]"><Banknote size={18} />Encaisser le solde</button>}
-    </div>
-  </Card>;
-}
-
-function SpecialPackageNotice({ item, compact = false }: { item: ZonePackage; compact?: boolean }) {
-  if (!item.is_special) return null;
-  return <div className={cn("rounded-lg bg-amber-50 text-amber-900", compact ? "mt-1 inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium" : "mt-2 p-2.5 text-xs")}>
-    <span className="inline-flex items-center gap-1 font-semibold"><AlertTriangle size={compact ? 13 : 15} />Colis spécial</span>
-    {!compact && item.special_reason && <p className="mt-1 leading-relaxed text-amber-800"><span className="font-semibold">Note :</span> {item.special_reason}</p>}
-  </div>;
-}
-
-function ParcelRow({ item }: { item: ZonePackage }) {
-  return <div className="flex items-center gap-3 px-4 py-3">
-    <span className={cn("h-8 w-1 shrink-0 rounded-full", statusTone(item.status).bar)} />
-    <div className="min-w-0 flex-1"><p className="break-all text-sm font-medium text-slate-900">{packageReference(item)}</p><p className="mt-0.5 text-xs text-slate-500">Qté {item.quantity}{item.content ? " · " + item.content : ""}</p><SpecialPackageNotice item={item} compact /></div>
-    <StatusChip status={item.status} />
-  </div>;
-}
-
-function DossierInvoices({ invoices, onOpenInvoice }: { invoices: ZoneInvoice[]; onOpenInvoice: (invoiceId: string) => void }) {
-  return <Card>
-    <CardHeader title="Factures du client" subtitle="Touchez une facture pour voir son total et ses colis." right={<CountPill value={invoices.length} />} />
-    {invoices.length ? <div className="divide-y divide-slate-100">{invoices.map((invoice) => <button key={invoice.id} type="button" onClick={() => onOpenInvoice(invoice.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50">
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600"><FileText size={17} /></span>
-      <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-slate-900">{invoice.invoice_number}</span><span className="block text-xs text-slate-500">{invoice.package_count} colis · {dateText(invoice.created_at)}</span><span className="mt-1 flex flex-wrap gap-1"><PaymentChip status={invoice.payment_status} /><DeliveryChip status={invoice.delivery_status} /></span></span>
-      <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-900">{fmtUsd(invoice.grand_total_usd)}</span>
-    </button>)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucune facture finalisée pour ce client.</p>}
-  </Card>;
-}
-
-function InvoiceSummary({ invoice, packages }: { invoice: ZoneInvoice; packages: ZonePackage[] }) {
-  const Line = ({ label, value, tone }: { label: string; value: string; tone?: string }) => <div className="flex items-baseline justify-between gap-3 px-4 py-2.5"><span className="text-sm text-slate-500">{label}</span><span className={cn("text-right text-sm font-semibold tabular-nums", tone ?? "text-slate-900")}>{value}</span></div>;
-  return <>
-    <div className="divide-y divide-slate-100 border-t border-slate-100">
-      <Line label="Total de la facture" value={fmtUsd(invoice.grand_total_usd)} />
-      {invoice.deposit_usd > 0 && <Line label="Acompte" value={fmtUsd(invoice.deposit_usd)} />}
-      <Line label="Montant reçu" value={`${fmtUsd(invoice.payment_paid_usd)} · ${fmtHtg(invoice.payment_paid_htg)}`} tone="text-emerald-700" />
-      <Line label="Solde à payer" value={`${fmtUsd(invoice.amount_due_usd)} · ${fmtHtg(invoice.amount_due_htg)}`} tone="text-[#c2410c]" />
-    </div>
-    <div className="border-t border-slate-100">
-      <p className="px-4 pb-1 pt-3 text-xs font-medium text-slate-500">Colis dans cette facture · {packages.length}</p>
-      {packages.length ? <div className="divide-y divide-slate-100">{packages.map((item) => <ParcelRow key={item.id} item={item} />)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucun colis associé à cette facture.</p>}
-    </div>
-  </>;
-}
-
-function InvoiceDetails({ invoice, packages, onClose, onPay }: { invoice: ZoneInvoice | null; packages: ZonePackage[]; onClose: () => void; onPay?: () => void }) {
-  if (!invoice) return null;
-  return <Card>
-    <div className="flex items-start justify-between gap-3 px-4 py-4">
-      <div className="min-w-0">
-        <p className="text-xs text-slate-500">{invoice.is_central_account ? (invoice.customer_name || "Compte central STANDA") : `${invoice.customer_code}${invoice.customer_name ? " · " + invoice.customer_name : ""}`}</p>
-        <h3 className="mt-0.5 text-lg font-semibold text-slate-900">{invoice.invoice_number}</h3>
-        <div className="mt-1.5 flex flex-wrap gap-1.5"><PaymentChip status={invoice.payment_status} /><DeliveryChip status={invoice.delivery_status} /></div>
-        {invoice.payment_details && <p className="mt-1.5 text-xs font-medium text-emerald-700">{invoice.payment_details}</p>}
-      </div>
-      <button type="button" onClick={onClose} aria-label="Fermer le détail de la facture" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 hover:bg-slate-100"><X size={18} /></button>
-    </div>
-    <InvoiceSummary invoice={invoice} packages={packages} />
-    {onPay && <div className="border-t border-slate-100 p-4"><button type="button" onClick={onPay} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-3 text-sm font-semibold text-white hover:bg-[#d4530f]"><Banknote size={18} />Encaisser le paiement de cette facture</button></div>}
-  </Card>;
-}
-
-/** Détail de la caisse par moyen de paiement : Espèces, MonCash, NatCash, Zelle (+ autres s'il y en a). */
+/* ─────────────────────────── CAISSE ─────────────────────────── */
 const METHOD_ORDER = ["Espèces", "MonCash", "NatCash", "Zelle"];
 function methodLabel(method: string) {
   const value = (method || "").trim();
@@ -1416,7 +997,46 @@ function methodLabel(method: string) {
   if (/^zelle$/i.test(value)) return "Zelle";
   return value || "Non précisé";
 }
-function MethodBreakdown({ payments }: { payments: AgentPayment[] }) {
+
+function CaisseView({ agentName, zoneName, payments, balances, deliveries, onSendReport, onOpenInvoice, onOpenClient, onStartPayment, onOpenReceipt }: {
+  agentName: string; zoneName: string; payments: AgentPayment[]; balances: CustomerBalanceReport[]; deliveries: ZonePackage[];
+  onSendReport: (pdfBase64: string, summary: string) => Promise<void>; onOpenInvoice: (invoiceId: string) => void; onOpenClient: (code: string) => void;
+  onStartPayment: (customerCode: string) => void; onOpenReceipt: (paymentId: string) => void;
+}) {
+  const [pdfBusy, setPdfBusy] = useState<"download" | "send" | null>(null);
+  // Période du rapport : depuis le plus ancien encaissement non clôturé (sinon aujourd'hui).
+  const since = payments.reduce((min, payment) => payment.created_at && payment.created_at < min ? payment.created_at : min,
+    new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
+  const reportDeliveries = deliveries.filter((item) => item.delivered_at && item.delivered_at >= since).sort((a, b) => b.delivered_at.localeCompare(a.delivered_at));
+  const buildPdf = async () => {
+    const { buildAgentReportPdf } = await import("@/lib/agent-report-pdf");
+    return buildAgentReportPdf({
+      agentName, zone: zoneName, since, payments, balances,
+      deliveries: reportDeliveries.map((item) => ({ customer_code: item.customer_code, customer_name: item.customer_name, tracking: packageReference(item), invoice_number: item.invoice_number, delivered_at: item.delivered_at }))
+    });
+  };
+  const downloadPdf = async () => {
+    if (pdfBusy) return;
+    setPdfBusy("download");
+    try { const { doc, fileName } = await buildPdf(); doc.save(fileName); }
+    catch (error) { notify.error(error instanceof Error ? error.message : "PDF impossible", { small: true }); }
+    finally { setPdfBusy(null); }
+  };
+  const sendPdf = async () => {
+    if (pdfBusy) return;
+    if (!window.confirm("Envoyer le rapport de caisse à l'administration ?")) return;
+    setPdfBusy("send");
+    try {
+      const { doc, cash } = await buildPdf();
+      const pdf = String(doc.output("datauristring")).split(",").pop() ?? "";
+      const summary = `Caisse ${fmtUsd(cash.usd)} · ${fmtHtg(cash.htg)} · ${payments.length} encaissement(s) · ${reportDeliveries.length} colis livré(s) · ${balances.length} client(s) avec solde`;
+      await onSendReport(pdf, summary);
+      notify.success("L'administration a reçu le rapport de caisse.", { title: "Rapport envoyé" });
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : "Envoi impossible.", { title: "Rapport non envoyé" });
+    } finally { setPdfBusy(null); }
+  };
+  const totals = cashTotals(payments);
   const rows = new Map<string, { usd: number; htg: number; count: number }>(METHOD_ORDER.map((label) => [label, { usd: 0, htg: 0, count: 0 }]));
   for (const payment of payments) {
     const label = methodLabel(payment.payment_method);
@@ -1425,135 +1045,104 @@ function MethodBreakdown({ payments }: { payments: AgentPayment[] }) {
     row.count += 1;
     rows.set(label, row);
   }
-  return <Card>
-    <CardHeader title="Détail par moyen de paiement" subtitle="Zelle arrive directement sur le compte STANDA : il n’est pas dans la caisse à remettre." />
-    <div className="divide-y divide-slate-100">{Array.from(rows, ([label, row]) => <div key={label} className="flex items-center gap-3 px-4 py-3">
-      <div className="min-w-0 flex-1"><p className="text-sm font-medium text-slate-900">{label}{label === "Zelle" && <span className="ml-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">hors caisse</span>}</p><p className="text-xs text-slate-500">{row.count} paiement{row.count > 1 ? "s" : ""}</p></div>
-      <div className="shrink-0 text-right tabular-nums"><p className={cn("text-sm font-semibold", row.count ? "text-slate-900" : "text-slate-400")}>{fmtUsd(row.usd)}</p><p className="text-xs text-slate-500">{fmtHtg(row.htg)}</p></div>
-    </div>)}</div>
-  </Card>;
-}
-
-function ReportsView({ agentName, zoneName, payments, balances, allPayments, allBalances, deliveries, onSendReport, onOpenInvoice, onStartPayment, onOpenReceipt }: { agentName: string; zoneName: string; payments: AgentPayment[]; balances: CustomerBalanceReport[]; allPayments: AgentPayment[]; allBalances: CustomerBalanceReport[]; deliveries: ZonePackage[]; onSendReport: (pdfBase64: string, summary: string) => Promise<void>; onOpenInvoice: (invoiceId: string) => void; onStartPayment: (customerCode: string) => void; onOpenReceipt: (paymentId: string) => void }) {
-  const [pdfBusy, setPdfBusy] = useState<"download" | "send" | null>(null);
-  // Période du rapport : depuis le plus ancien paiement non clôturé (sinon aujourd'hui).
-  const since = allPayments.reduce((min, payment) => payment.created_at && payment.created_at < min ? payment.created_at : min,
-    new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
-  const reportDeliveries = deliveries.filter((item) => item.delivered_at && item.delivered_at >= since)
-    .sort((a, b) => b.delivered_at.localeCompare(a.delivered_at));
-  const buildPdf = async () => {
-    const { buildAgentReportPdf } = await import("@/lib/agent-report-pdf");
-    return buildAgentReportPdf({
-      agentName, zone: zoneName, since, payments: allPayments, balances: allBalances,
-      deliveries: reportDeliveries.map((item) => ({ customer_code: item.customer_code, customer_name: item.customer_name, tracking: packageReference(item), invoice_number: item.invoice_number, delivered_at: item.delivered_at }))
-    });
-  };
-  const downloadPdf = async () => {
-    if (pdfBusy) return;
-    setPdfBusy("download");
-    try { const { doc, fileName } = await buildPdf(); doc.save(fileName); }
-    catch (error) { notify.error(error instanceof Error ? error.message : "PDF impossible.", { title: "Rapport PDF" }); }
-    finally { setPdfBusy(null); }
-  };
-  const sendPdf = async () => {
-    if (pdfBusy) return;
-    if (!window.confirm("Envoyer le rapport PDF à l'administration ?")) return;
-    setPdfBusy("send");
-    try {
-      const { doc, cash } = await buildPdf();
-      const pdf = String(doc.output("datauristring")).split(",").pop() ?? "";
-      const summary = `Caisse ${fmtUsd(cash.usd)} · ${fmtHtg(cash.htg)} · ${allPayments.length} paiement(s) · ${reportDeliveries.length} colis remis · ${allBalances.length} client(s) avec solde`;
-      await onSendReport(pdf, summary);
-      notify.success("L'administration a reçu votre rapport PDF.", { title: "Rapport envoyé" });
-    } catch (error) {
-      notify.error(error instanceof Error ? error.message : "Envoi impossible.", { title: "Rapport non envoyé" });
-    } finally { setPdfBusy(null); }
-  };
-  // Zelle arrive directement sur le compte STANDA : il est listé, mais pas compté
-  // dans l'argent que l'agent doit remettre à l'administration.
-  const totals = cashTotals(payments);
-  const zelle = payments.filter((payment) => payment.payment_method === "Zelle").reduce((value, payment) => ({
-    usd: value.usd + (payment.currency === "USD" ? Number(payment.amount || 0) : 0),
-    htg: value.htg + (payment.currency === "HTG" ? Number(payment.amount || 0) : 0)
-  }), { usd: 0, htg: 0 });
-  const hasZelle = zelle.usd > 0.009 || zelle.htg > 0.009;
-  const paymentAmount = (payment: AgentPayment) => payment.currency === "HTG" ? fmtHtg(payment.amount) : fmtUsd(payment.amount);
-  return <div className="space-y-4">
-    <section className="rounded-3xl p-5 text-white" style={{ background: NAVY }}>
-      <p className="text-[13px] text-white/70">Caisse de {agentName}</p>
-      <p className="mt-1 text-[34px] font-semibold leading-tight tracking-tight tabular-nums">{fmtUsd(totals.usd)}</p>
-      <p className="text-[15px] text-white/80 tabular-nums">{fmtHtg(totals.htg)}</p>
-      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/15 pt-3 text-[12px]">
-        <div><p className="text-white/60">Clients avec solde</p><p className="mt-0.5 text-base font-semibold tabular-nums">{balances.length}</p></div>
-        <div><p className="text-white/60">Paiements</p><p className="mt-0.5 text-base font-semibold tabular-nums">{payments.length}</p></div>
+  const amountOf = (payment: AgentPayment) => payment.currency === "HTG" ? fmtHtg(payment.amount) : fmtUsd(payment.amount);
+  return <div className="space-y-3">
+    <section className="rounded-lg px-4 py-4 text-white" style={{ background: NAVY }}>
+      <FieldLabel className="text-white/65">Caisse à verser · {agentName}</FieldLabel>
+      <p className="mt-1 text-[30px] font-extrabold leading-tight tracking-tight">{fmtUsd(totals.usd)}</p>
+      <p className="text-[15px] text-white/80">{fmtHtg(totals.htg)}</p>
+      <div className="mt-3 grid grid-cols-2 gap-3 border-t border-white/15 pt-2.5 text-[12px]">
+        <div><p className="text-white/60">Encaissements</p><p className="agent-mono text-[15px] font-semibold">{payments.length}</p></div>
+        <div><p className="text-white/60">Soldes clients</p><p className="agent-mono text-[15px] font-semibold">{balances.length}</p></div>
       </div>
-      {hasZelle && <p className="mt-3 text-[12px] text-white/75">Zelle (déjà sur le compte STANDA, hors caisse) : {fmtUsd(zelle.usd)}{zelle.htg > 0.009 ? " · " + fmtHtg(zelle.htg) : ""}</p>}
     </section>
-    <Card className="p-4">
-      <p className="text-[15px] font-semibold text-slate-900">Rapport PDF</p>
-      <p className="mt-0.5 text-xs text-slate-500">Caisse, détail Espèces / MonCash / NatCash / Zelle, paiements, colis remis ({reportDeliveries.length}) et soldes clients.</p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <button type="button" disabled={!!pdfBusy} onClick={() => void sendPdf()} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#e85e19] px-4 text-sm font-semibold text-white hover:bg-[#d4530f] disabled:opacity-60">{pdfBusy === "send" ? <Spinner size={16} /> : <FileText size={17} />}{pdfBusy === "send" ? "Envoi…" : "Envoyer à l’administration"}</button>
-        <button type="button" disabled={!!pdfBusy} onClick={() => void downloadPdf()} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-[#0b2a5b] ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-60">{pdfBusy === "download" ? <Spinner size={16} /> : <FileDown size={17} />}Télécharger le PDF</button>
-      </div>
-    </Card>
-    <MethodBreakdown payments={payments} />
-    <p className="px-1 text-xs leading-5 text-slate-500">Seuls les paiements de ce point de retrait sont comptés. Quand l’argent est remis à l’administration, elle clôture le rapport : la caisse repart à zéro et seuls les soldes clients restent.</p>
+    <div className="grid grid-cols-2 gap-2">
+      <button type="button" disabled={!!pdfBusy} onClick={() => void sendPdf()} className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#e85e19] text-[14px] font-extrabold text-white disabled:opacity-60">{pdfBusy === "send" ? <Spinner size={16} /> : <FileText size={17} />}Envoyer le rapport</button>
+      <button type="button" disabled={!!pdfBusy} onClick={() => void downloadPdf()} className="flex h-12 items-center justify-center gap-2 rounded-lg border-[1.5px] border-slate-900 text-[14px] font-bold disabled:opacity-60">{pdfBusy === "download" ? <Spinner size={16} /> : <FileDown size={17} />}PDF</button>
+    </div>
+    <Box>{Array.from(rows, ([label, row], index) => <div key={label} className={cn("flex items-center gap-3 px-3 py-2.5", index > 0 && "border-t border-slate-200")}>
+      <span className="min-w-0 flex-1"><span className="block text-[14px] font-bold">{label}{label === "Zelle" && <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">hors caisse</span>}</span><span className="agent-mono block text-[11px] text-slate-500">{row.count} encaissement{row.count > 1 ? "s" : ""}</span></span>
+      <span className="text-right"><span className={cn("block text-[14px] font-extrabold", !row.count && "text-slate-400")}>{fmtUsd(row.usd)}</span><span className="block text-[11px] text-slate-500">{fmtHtg(row.htg)}</span></span>
+    </div>)}</Box>
 
-    <Card>
-      <CardHeader title="Paiements reçus" right={<CountPill value={payments.length} tone="emerald" />} />
-      {payments.length ? <div className="divide-y divide-slate-100">{payments.map((payment) => <div key={payment.id} className="flex items-center gap-3 px-4 py-3">
-        <Avatar name={payment.customer_name} code={payment.customer_code} tone="emerald" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-slate-900">{payment.customer_code}{payment.customer_name ? " · " + payment.customer_name : ""}</p>
-          <p className="truncate text-xs text-slate-500">{payment.payment_method || "Méthode non précisée"} · {dateText(payment.created_at)}{payment.payment_reference ? " · Réf. " + payment.payment_reference : ""}</p>
-          <div className="mt-1 flex gap-3 text-xs font-medium"><button type="button" onClick={() => onOpenInvoice(payment.invoice_id)} className="text-[#0b2a5b] hover:underline">{payment.invoice_number}</button><button type="button" onClick={() => onOpenReceipt(payment.id)} className="text-[#0b2a5b] hover:underline">Reçu</button></div>
-        </div>
-        <p className="shrink-0 text-sm font-semibold tabular-nums text-emerald-700">+{paymentAmount(payment)}</p>
-      </div>)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucun paiement n’a encore été enregistré par ce point de retrait.</p>}
-    </Card>
+    <div><SectionTitle>Encaissements · {payments.length}</SectionTitle>
+      {payments.length ? <div className="border-y border-slate-200">{payments.map((payment) => <div key={payment.id} className="flex items-center gap-2 border-b border-slate-100 px-1 py-2.5 last:border-b-0">
+        <CodeTag code={payment.customer_code} onClick={() => onOpenClient(payment.customer_code)} />
+        <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-semibold">{methodLabel(payment.payment_method)}{payment.payment_reference ? ` · ${payment.payment_reference}` : ""}</span>
+          <span className="block text-[12px] text-slate-500"><button type="button" onClick={() => onOpenInvoice(payment.invoice_id)} className="agent-mono font-semibold text-[#0b2a5b]">{payment.invoice_number}</button> · {dateText(payment.created_at)} · <button type="button" onClick={() => onOpenReceipt(payment.id)} className="font-bold text-[#0b2a5b]">Reçu</button></span></span>
+        <span className="shrink-0 text-[13px] font-extrabold text-emerald-700">+{amountOf(payment)}</span>
+      </div>)}</div> : <Empty text="Aucun encaissement depuis la dernière clôture." />}
+    </div>
 
-    <Card>
-      <CardHeader title="Clients avec un solde" subtitle="Le solde doit être réglé avant une nouvelle remise." right={<CountPill value={balances.length} tone="amber" />} />
-      {balances.length ? <div className="divide-y divide-slate-100">{balances.map((balance) => <div key={balance.customer_code} className="flex items-center gap-3 px-4 py-3">
-        <Avatar name={balance.customer_name} code={balance.customer_code} tone="orange" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-slate-900">{balance.customer_code}{balance.customer_name ? " · " + balance.customer_name : ""}</p>
-          <p className="text-xs tabular-nums text-slate-500">{fmtUsd(balance.balance_usd)} · {fmtHtg(balance.balance_htg)} · {balance.invoice_count} facture{balance.invoice_count > 1 ? "s" : ""}</p>
-          <button type="button" onClick={() => onOpenInvoice(balance.invoice_id)} className="mt-1 text-xs font-medium text-[#0b2a5b] hover:underline">Voir {balance.invoice_number}</button>
-        </div>
-        <button type="button" onClick={() => onStartPayment(balance.customer_code)} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[#e85e19] px-3 text-xs font-semibold text-white hover:bg-[#d4530f]"><Banknote size={15} />Encaisser</button>
-      </div>)}</div> : <p className="px-4 pb-4 text-sm text-slate-500">Aucun client de cette zone n’a de solde en attente.</p>}
-    </Card>
+    <div><SectionTitle>Soldes clients · {balances.length}</SectionTitle>
+      {balances.length ? <div className="border-y border-slate-200">{balances.map((balance) => <div key={balance.customer_code} className="flex items-center gap-2 border-b border-slate-100 px-1 py-2.5 last:border-b-0">
+        <CodeTag code={balance.customer_code} onClick={() => onOpenClient(balance.customer_code)} />
+        <button type="button" onClick={() => onOpenClient(balance.customer_code)} className="min-w-0 flex-1 text-left"><span className="block truncate text-[13px] font-semibold">{balance.customer_name || "Client"}</span><span className="block text-[12px] text-slate-500">{fmtUsd(balance.balance_usd)} · {balance.invoice_count} facture{balance.invoice_count > 1 ? "s" : ""}</span></button>
+        <button type="button" onClick={() => onStartPayment(balance.customer_code)} className="h-9 shrink-0 rounded-md bg-[#e85e19] px-3 text-[12px] font-extrabold text-white">Encaisser</button>
+      </div>)}</div> : <Empty text="Aucun client avec un solde." />}
+    </div>
+    <p className="px-1 text-[11px] leading-5 text-slate-400">Zelle arrive sur le compte STANDA. À la clôture par l'administration, la caisse repart à zéro.</p>
   </div>;
 }
 
-function BonsView({ bons, onOpenPdf }: { bons: ZoneBon[]; onOpenPdf: (id: string) => void }) {
-  if (!bons.length) return <Empty text="Aucun bon de remise ne correspond à cette recherche." />;
-  return <Card>
-    <CardHeader title="Bons de remise" right={<CountPill value={bons.length} />} />
-    <div className="divide-y divide-slate-100">{bons.map((bon) => <button key={bon.id} type="button" onClick={() => onOpenPdf(bon.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50">
-      <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full", bon.received_at ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-[#e85e19]")}>{bon.received_at ? <CheckCircle2 size={18} /> : <Truck size={18} />}</span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2"><span className="font-mono text-sm font-semibold text-slate-900">{bon.bon_number}</span><span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", bon.received_at ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>{bon.received_at ? "Reçu" : "En route"}</span></span>
-        <span className="block truncate text-xs text-slate-500">{bon.destination || "Destination non précisée"} · {bon.package_count} colis · {dateText(bon.created_at)}{bon.received_by ? ` · reçu par ${bon.received_by}` : ""}</span>
-      </span>
-      <FileDown size={18} className="shrink-0 text-slate-400" />
-    </button>)}</div>
-  </Card>;
+function SettingsView({ agentName, pushPermission, pushBusy, onActivate }: { agentName: string; pushPermission: PushPermission; pushBusy: boolean; onActivate: () => void }) {
+  const state = {
+    checking: ["Vérification…", "text-slate-600"],
+    granted: ["Notifications activées", "text-emerald-700"],
+    default: ["Notifications non activées", "text-amber-700"],
+    denied: ["Notifications refusées dans les réglages de l'appareil", "text-red-700"],
+    unsupported: ["Notifications indisponibles sur cet appareil", "text-slate-600"]
+  }[pushPermission] as [string, string];
+  return <div className="mx-auto max-w-2xl space-y-3">
+    <Box className="px-3 py-3"><FieldLabel>Agent</FieldLabel><p className="mt-0.5 text-[16px] font-extrabold">{agentName}</p></Box>
+    <Box className="px-3 py-3">
+      <FieldLabel>Notifications</FieldLabel>
+      <p className={cn("mt-1 text-[14px] font-bold", state[1])}>{state[0]}</p>
+      {pushPermission === "default" && <button type="button" onClick={onActivate} disabled={pushBusy} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-lg text-[14px] font-extrabold text-white disabled:opacity-60" style={{ background: NAVY }}><BellRing size={18} />{pushBusy ? "Activation…" : "Activer"}</button>}
+    </Box>
+    <Box className="p-1.5"><PwaInstallButton variant="row" appName="STANDA Retrait" /></Box>
+  </div>;
 }
 
-function Empty({ text }: { text: string }) { return <Card className="px-6 py-12 text-center"><CheckCircle2 className="mx-auto mb-3 text-emerald-500" size={32} /><p className="text-sm font-medium text-slate-700">{text}</p></Card>; }
-/**
- * Une couleur par étape, partout pareil : orange = disponible à remettre,
- * violet = arrivé en Haïti, bleu ciel = en cours (Miami / transit), vert = remis.
- */
-function statusTone(status: string) {
-  if (status === DONE) return { chip: "bg-emerald-50 text-emerald-700", bar: "bg-emerald-400" };
-  if (READY_STATUSES.has(status)) return { chip: "bg-orange-50 text-[#c2410c]", bar: "bg-orange-400" };
-  if (HAITI_STATUSES.has(status)) return { chip: "bg-violet-50 text-violet-700", bar: "bg-violet-400" };
-  return { chip: "bg-sky-50 text-sky-700", bar: "bg-sky-400" };
+/* ─────────────────────────── CONFIRMATIONS ─────────────────────────── */
+/** Barre fixe : « Valider le retrait » toujours visible au-dessus de la navigation. */
+function ReleaseBar({ customerCode, count, busy, onConfirm, onClear }: { customerCode: string; count: number; busy: boolean; onConfirm: () => void; onClear: () => void }) {
+  return <div role="region" aria-label="Valider le retrait" className="agent-font fixed inset-x-2 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-50 mx-auto max-w-xl md:bottom-5">
+    <div className="flex items-center gap-2 rounded-lg border-[1.5px] border-slate-900 bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,0.18)]">
+      <button type="button" onClick={onClear} disabled={busy} aria-label="Annuler la sélection" className="grid h-11 w-11 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 disabled:opacity-50"><X size={18} /></button>
+      <div className="min-w-0 flex-1"><p className="agent-mono truncate text-[13px] font-semibold">{customerCode || "Client"}</p><p className="text-[12px] font-bold text-emerald-700">{count} colis sélectionné{count > 1 ? "s" : ""}</p></div>
+      <button type="button" onClick={onConfirm} disabled={busy} className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-[14px] font-extrabold text-white hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-70">{busy ? <RefreshCw size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}Valider le retrait</button>
+    </div>
+  </div>;
 }
-function StatusChip({ status }: { status: string }) { return <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold", statusTone(status).chip)}>{status}</span>; }
-function PaymentChip({ status }: { status: string }) { const tone = status === "Payé" ? "bg-emerald-50 text-emerald-700" : status === "Payé partiel" ? "bg-amber-50 text-amber-800" : "bg-red-50 text-red-700"; return <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", tone)}>{status}</span>; }
-function DeliveryChip({ status }: { status: string }) { const delivered = status === "Livrée"; return <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", delivered ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600")}>{delivered ? "Livrée" : "À remettre"}</span>; }
+
+/** Grande coche verte plein écran (grandes opérations). */
+function BigConfirmation({ title, text }: { title: string; text: string }) {
+  return <div role="status" aria-live="polite" className="agent-font fixed inset-0 z-[160] grid place-items-center bg-white px-6">
+    <div className="text-center">
+      <div className="sd-pop mx-auto grid h-28 w-28 place-items-center rounded-full bg-emerald-600 shadow-[0_18px_50px_rgba(16,185,129,0.4)]">
+        <svg viewBox="0 0 24 24" className="h-16 w-16" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className="sd-check" d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+      </div>
+      <p className="mt-6 text-[26px] font-extrabold tracking-tight">{title}</p>
+      <p className="agent-mono mt-1 text-[15px] text-slate-600">{text}</p>
+    </div>
+  </div>;
+}
+
+/** Juste après un encaissement : proposer le retrait des colis devenus retirables. */
+function RemiseOffer({ offer, busy, onRelease, onLater }: { offer: { customerCode: string; packageIds: string[]; paymentText: string }; busy: boolean; onRelease: () => void; onLater: () => void }) {
+  const count = offer.packageIds.length;
+  return <div role="dialog" aria-modal="true" aria-labelledby="remise-offer-title" className="agent-font fixed inset-0 z-[140] flex flex-col items-center justify-center overflow-y-auto bg-white px-6 py-8 text-center">
+    <div className="w-full max-w-md">
+      <div className="sd-pop mx-auto grid h-24 w-24 place-items-center rounded-full bg-emerald-600">
+        <svg viewBox="0 0 24 24" className="h-14 w-14" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className="sd-check" d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+      </div>
+      <h2 id="remise-offer-title" className="mt-6 text-[24px] font-extrabold tracking-tight">Paiement encaissé</h2>
+      <p className="agent-mono mt-1 text-[14px] text-slate-500">{offer.customerCode}</p>
+      <p className="mx-auto mt-3 whitespace-pre-line text-[15px] leading-relaxed text-slate-600">{offer.paymentText}</p>
+      <p className="mx-auto mt-5 rounded-lg border border-dashed border-[#e85e19] bg-orange-50 px-4 py-3 text-[14px] font-bold text-[#9a3412]">{count} colis au comptoir</p>
+      <button type="button" autoFocus disabled={busy} onClick={onRelease} className="mx-auto mt-6 flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-lg bg-emerald-600 px-6 text-[15px] font-extrabold text-white disabled:opacity-60">{busy && <Spinner size={18} />}Valider le retrait</button>
+      <button type="button" disabled={busy} onClick={onLater} className="mx-auto mt-3 flex h-11 w-full max-w-xs items-center justify-center rounded-lg border border-slate-300 text-[14px] font-bold text-slate-600">Plus tard</button>
+    </div>
+  </div>;
+}

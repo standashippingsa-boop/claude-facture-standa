@@ -437,6 +437,7 @@ export async function makeConducesAvailableForVille(
     else available++;
     priced++;
   }
+  await closeBonsForPackages(zonePackages.map((pkg) => pkg.id));
 
   await logAction(
     "Colis rendus disponibles par ville",
@@ -1482,6 +1483,7 @@ export async function commitFactureDisponible(
       m.guia || "", m.customerCode || "");
   }
 
+  if (undo.length) await closeBonsForPackages(undo.map((row) => row.id));
   await supabase.from("import_batches").insert({
     batch_id: batchId, kind: "Import Facture", items_count: updated, undo_data: undo
   });
@@ -1677,8 +1679,45 @@ async function reopenBonsForPackages(ids: string[]): Promise<void> {
   }
 }
 
+/** Statuts « déjà à l'agence ou plus loin » : un colis ainsi n'est plus à pointer. */
+const AT_AGENCY_STATUSES = ["Disponible", "Facturé", "Livré"];
+
+/**
+ * Quand l'administration rend des colis « Disponible » (ou plus loin), le
+ * Bordereau de livraison qui les contient est fermé dès que TOUS ses colis
+ * sont à l'agence : l'agent ne le voit plus « à pointer ». S'il reste des
+ * colis à recevoir, le bordereau reste ouvert pour ceux-là seulement.
+ * Une erreur ici ne doit jamais annuler le changement de statut déjà fait.
+ */
+async function closeBonsForPackages(ids: string[]): Promise<void> {
+  try {
+    const { data: rows } = await supabase.from("packages").select("bon_remise_id").in("id", ids).not("bon_remise_id", "is", null);
+    const bonIds = Array.from(new Set((rows ?? []).map((r: { bon_remise_id: string | null }) => String(r.bon_remise_id)).filter(Boolean)));
+    if (!bonIds.length) return;
+    const { data: open } = await supabase.from("bons_remise").select("id, bon_number").in("id", bonIds).is("received_at", null);
+    const closed: string[] = [];
+    for (const bon of (open ?? []) as Array<{ id: string; bon_number: string }>) {
+      const { data: parcels, error } = await supabase.from("packages").select("status").eq("bon_remise_id", bon.id);
+      if (error || !parcels?.length) continue;
+      if (!parcels.every((p: { status: string }) => AT_AGENCY_STATUSES.includes(p.status))) continue;
+      const { error: closeError } = await supabase.from("bons_remise")
+        .update({ received_at: new Date().toISOString(), received_by: "Administration" }).eq("id", bon.id).is("received_at", null);
+      if (!closeError) closed.push(bon.bon_number);
+    }
+    if (closed.length) await logAction("Bordereau fermé par l'administration", `${closed.join(", ")} · tous les colis sont à l'agence`, "", "");
+  } catch (error) {
+    console.error("[closeBonsForPackages]", error);
+  }
+}
+
 export async function setPackagesStatus(ids: string[], status: string): Promise<string | null> {
   if (!ids.length) return null;
+  const result = await applyPackagesStatus(ids, status);
+  if (AT_AGENCY_STATUSES.includes(status)) await closeBonsForPackages(ids);
+  return result;
+}
+
+async function applyPackagesStatus(ids: string[], status: string): Promise<string | null> {
   if (status !== "Livré") {
     const { data, error } = await supabase.from("packages")
       .update({ status }).in("id", ids).select("id");
