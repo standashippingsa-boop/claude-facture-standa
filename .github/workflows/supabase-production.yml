@@ -57,7 +57,7 @@ jobs:
         # san yo pa bezwen louvri jounal konplè a.
         run: |
           set +e
-          supabase db push 2>&1 | tee push.log
+          supabase db push --linked 2>&1 | tee push.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             msg=$(grep -v -i -E 'password|token|postgres(ql)?://' push.log | tail -n 8 | tr '\n' ' ' | cut -c1-900)
