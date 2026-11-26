@@ -60,12 +60,14 @@ jobs:
         # epi nou bay CLI a URL konplè a. Modpas la ankode, li pa janm afiche.
         run: |
           set +e
-          pooler=$(curl -sf -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+          code=$(curl -s -o pooler.json -w "%{http_code}" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
             "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_ID/config/database/pooler")
-          host=$(echo "$pooler" | jq -r '[.[] | select(.database_type == "PRIMARY")][0].db_host // empty')
-          user=$(echo "$pooler" | jq -r '[.[] | select(.database_type == "PRIMARY")][0].db_user // empty')
+          sel='if type == "array" then ([.[] | select(.database_type == "PRIMARY")][0] // .[0]) else . end'
+          host=$(jq -r "$sel | .db_host // empty" pooler.json 2>/dev/null)
+          user=$(jq -r "$sel | .db_user // empty" pooler.json 2>/dev/null)
           if [ -z "$host" ] || [ -z "$user" ]; then
-            echo "::error title=Pooler Supabase::Adresse du pooler introuvable via l'API (jeton ou projet invalide)."
+            shape=$(jq -c 'if type == "array" then map(keys) elif type == "object" then keys else type end' pooler.json 2>/dev/null | cut -c1-400)
+            echo "::error title=Pooler Supabase::API HTTP $code, champs reçus : $shape"
             exit 1
           fi
           pw=$(jq -rn --arg p "$SUPABASE_DB_PASSWORD" '$p|@uri')
