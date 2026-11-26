@@ -414,12 +414,22 @@ export async function GET(req: Request) {
         }]);
       }
     }
-    const bonCards = bons.map((bon) => ({
+    // Un Bon ouvert qui n'a plus aucun colis à pointer (colis retirés du Bon, ou
+    // tous déjà en agence) passe à l'historique : il ne reste pas « à pointer ».
+    const AT_AGENCY = new Set(["Disponible", "Facturé", "Livré"]);
+    const bonCards = bons.map((bon) => {
+      const parcels = bonParcelsById.get(code(bon.id)) ?? [];
+      const open = !code(bon.received_at);
+      const nothingLeft = open && parcels.every((parcel) => AT_AGENCY.has(parcel.status));
+      return {
         id: code(bon.id), bon_number: code(bon.bon_number), destination: code(bon.destination),
         package_count: Number(bon.package_count ?? 0), created_at: code(bon.created_at),
-        has_pdf: Boolean(bon.pdf_path), received_at: code(bon.received_at), received_by: code(bon.received_by),
-        parcels: bonParcelsById.get(code(bon.id)) ?? []
-      }));
+        has_pdf: Boolean(bon.pdf_path),
+        received_at: nothingLeft ? code(bon.created_at) : code(bon.received_at),
+        received_by: nothingLeft ? "" : code(bon.received_by),
+        parcels: nothingLeft ? [] : parcels
+      };
+    });
 
     // Chaîne de transport de chaque colis : numéro + date de Conduce, numéro du
     // Bordereau et qui l'a pointé. Lecture seule, pour la fiche colis.
