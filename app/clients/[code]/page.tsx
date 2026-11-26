@@ -12,7 +12,7 @@ import FilterConsole from "@/components/FilterConsole";
 import { usePackageSelection } from "@/lib/selection";
 import {
   commitPdfImport, detachPackagesFromInvoice, hardDeletePackage, getClient, getClientPackagesAndInvoices, getClientRetraits, getConduces,
-  getInvoiceFlags, getSettings, getUsdRate, logAction, setPackagesStatus, setRetraitStatus, updatePackagePrice, notifyEmail
+  getInvoiceFlags, getSettings, getUsdRate, logAction, setPackagesStatus, setRetraitStatus, updatePackagePrice, notifyEmail, markClientImportSeen
 } from "@/lib/db";
 import { useRole } from "@/lib/authx";
 import { parseMcpackPdf, PdfPkgRow } from "@/lib/pdfimport";
@@ -97,6 +97,7 @@ export default function ClientDossier({ params }: { params: Promise<{ code: stri
     const [c, r, s, fl] = await Promise.all([getClient(decoded), getUsdRate(), getSettings(), getInvoiceFlags()]);
     setFlags(fl);
     setClient(c); setRate(r);
+    if (c?.import_new && c.id) markClientImportSeen(c.id).catch(() => undefined);
     if (s.invoice_footer) setFooter(s.invoice_footer);
     getConduces().then((list) => setConduceNumbers(new Map(list.map((conduce) => [conduce.id, conduce.conduce_number])))).catch(() => undefined);
     const { pkgs: p, invs: i } = await getClientPackagesAndInvoices(decoded);

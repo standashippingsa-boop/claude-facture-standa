@@ -382,6 +382,10 @@ export default function ClientsPage() {
                   ) : <span className="text-slate-400 font-normal text-xs">pa gen kòd</span>}
                 </td>
                 <td className="tdc max-w-[130px] truncate" title={[c.fullname, c.surname].filter(Boolean).join(" ")}>
+                  {c.import_new && (
+                    <span className="mr-1.5 inline-block h-2.5 w-2.5 rounded-full bg-red-500 align-middle"
+                      title="Nouveau client : créé par l'import des colis (n'était pas enregistré)" aria-label="Nouveau client importé" />
+                  )}
                   {[c.fullname, c.surname].filter(Boolean).join(" ")}</td>
                 <td className="tdc">
                   <span className={`badge ${c.account_status === "Actif" || !c.account_status

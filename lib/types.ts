@@ -43,6 +43,8 @@ export interface Client {
   must_change_password?: boolean;
   /** Afilye ki mennen kliyan sa a (pwogram Affiliation) — jamè chanje apre enskripsyon. */
   referred_by_affiliate_id?: string | null;
+  /** Kreye pa enpòtasyon koli (pa t anrejistre) — admin poko louvri dosye a. */
+  import_new?: boolean;
   created_at?: string;
 }
 

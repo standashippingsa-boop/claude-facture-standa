@@ -60,6 +60,11 @@ export async function getClientTarifMap(): Promise<Map<string, ClientTarifInfo>>
     email: c.email ?? ""
   }]));
 }
+/** Admin louvri dosye yon kliyan ki soti nan enpòtasyon: retire ti boul wouj la. */
+export async function markClientImportSeen(id: string): Promise<void> {
+  const { error } = await supabase.from("clients").update({ import_new: false }).eq("id", id).eq("import_new", true);
+  if (error) throw error;
+}
 export async function upsertClient(c: Client): Promise<void> {
   // La ville choisie décide de l'agence : même règle que l'inscription en ligne.
   let pickupLocation = c.pickup_location.trim();
@@ -1835,12 +1840,16 @@ export async function commitSync(
   // 1) Nouvo kliyan (stub — w ap konplete WhatsApp/pickup nan meni Clients)
   if (preview.newClientCodes.length) {
     const byCode = new Map(preview.newRows.map((r) => [r.customer_code, r.customer_name]));
-    const { error } = await supabase.from("clients").upsert(
-      preview.newClientCodes.map((code) => ({
-        customer_code: code, fullname: byCode.get(code) || code
-      })),
-      { onConflict: "customer_code", ignoreDuplicates: true }
-    );
+    const stubs = preview.newClientCodes.map((code) => ({
+      customer_code: code, fullname: byCode.get(code) || code,
+      import_new: true   // ti boul wouj + "Nouveau client" sou paj akèy la
+    }));
+    const opts = { onConflict: "customer_code", ignoreDuplicates: true };
+    let { error } = await supabase.from("clients").upsert(stubs, opts);
+    // Migrasyon import_new poko aplike: enpòtasyon an pa dwe janm bloke pou sa.
+    if (error && /import_new/.test(error.message ?? "")) {
+      ({ error } = await supabase.from("clients").upsert(stubs.map(({ import_new: _x, ...s }) => s), opts));
+    }
     if (error) throw error;
   }
 

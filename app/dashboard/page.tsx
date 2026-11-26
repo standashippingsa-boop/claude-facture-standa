@@ -48,7 +48,7 @@ function loadDashboard(): Promise<DashboardSnap> {
     const stats = await getStats().catch((e) => { error = e?.message ?? String(e); return prev?.stats ?? null; });
     // Notifikasyon: nouvo kliyan (En attente d'activation) + demandes de retrait
     const nouvo = await getClients()
-      .then((cs) => cs.filter((c) => c.account_status === "En attente d'activation"))
+      .then((cs) => cs.filter((c) => c.import_new || c.account_status === "En attente d'activation"))
       .catch(() => prev?.nouvo ?? []);
     const retraits = await getRetraits()
       .then((rs) => rs.filter((r) => r.status === "En attente"))
@@ -157,7 +157,17 @@ export default function Dashboard() {
             <span className="badge bg-amber-100 text-amber-700">{nouvo.length + retraits.length}</span>
           </h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {nouvo.map((c) => (
+            {nouvo.map((c) => c.import_new ? (
+              <Link key={c.id} href={c.customer_code ? `/clients/${encodeURIComponent(c.customer_code)}` : "/clients"}
+                className="card p-4 flex items-start gap-3 hover:shadow-md transition-shadow border-l-4 !border-l-red-500">
+                <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-red-500" aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-navy">Nouveau client · {[c.fullname, c.surname].filter(Boolean).join(" ")}{c.customer_code ? ` (${c.customer_code})` : ""}</p>
+                  <p className="text-xs text-slate-500">Trouvé dans l&apos;import des colis{c.created_at ? " · " + dateFr(c.created_at) : ""}</p>
+                  <p className="text-xs text-red-600 mt-1">Pa t anrejistre · klike pou konplete dosye a (WhatsApp, vil)</p>
+                </div>
+              </Link>
+            ) : (
               <Link key={c.id} href="/clients"
                 className="card p-4 flex items-start gap-3 hover:shadow-md transition-shadow border-l-4 !border-l-amber-400">
                 <UserPlus size={18} className="text-amber-500 mt-0.5 shrink-0" />
