@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "supabase/migrations/**"
+      - ".github/workflows/supabase-production.yml"
   workflow_dispatch:
 
 permissions:
@@ -52,4 +53,14 @@ jobs:
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID" --debug
 
       - name: Appliquer les nouvelles migrations
-        run: supabase db push --debug
+        # Dènye liy erè yo vin yon "annotation" GitHub: lizib nan rezime run lan
+        # san yo pa bezwen louvri jounal konplè a.
+        run: |
+          set +e
+          supabase db push 2>&1 | tee push.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            msg=$(grep -v -i -E 'password|token|postgres(ql)?://' push.log | tail -n 8 | tr '\n' ' ' | cut -c1-900)
+            echo "::error title=supabase db push (exit $status)::$msg"
+          fi
+          exit $status
