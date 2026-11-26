@@ -93,6 +93,7 @@ export async function POST(req: Request) {
       skipped.push({ guia: guia || "·", customer: String(customer ?? "").trim(), reason });
     };
     const seen = new Set<string>();
+    const newCodes = new Map<string, string>();   // kòd kliyan -> non (koli ki fèk kreye)
 
     for (const p of items) {
       const guia = cleanTk(p.guia);
@@ -161,7 +162,25 @@ export async function POST(req: Request) {
           continue;
         }
         created++;
+        if (code && !newCodes.has(code)) newCodes.set(code, String(p.customer_name ?? "").trim() || code);
       }
+    }
+
+    // 3b) Kliyan ki pa anrejistre nan sistèm nan: kreye fich li (menm jan ak
+    // enpòtasyon Excel la) ak import_new = true -> ti boul wouj nan lis Clients
+    // + « Nouveau client » sou paj akèy la. Yon echèk isit pa janm bloke koli yo.
+    if (newCodes.size) {
+      try {
+        const codes = Array.from(newCodes.keys());
+        const { data: have } = await db.from("clients").select("customer_code").in("customer_code", codes);
+        const known = new Set((have ?? []).map((c: { customer_code: string }) => c.customer_code));
+        const stubs = codes.filter((c) => !known.has(c))
+          .map((c) => ({ customer_code: c, fullname: newCodes.get(c) || c, import_new: true }));
+        if (stubs.length) {
+          const res = await db.from("clients").upsert(stubs, { onConflict: "customer_code", ignoreDuplicates: true });
+          if (res.error) console.error("[ingest:clients]", res.error);
+        }
+      } catch (e) { console.error("[ingest:clients]", e); }
     }
 
     // 4) Journal
