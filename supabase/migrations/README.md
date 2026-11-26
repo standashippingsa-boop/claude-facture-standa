@@ -55,3 +55,5 @@ n'avait jamais été appliquée : elle est laissée au workflow.
 production (MCP `apply_migration`, SQL Editor) doit avoir ici un fichier portant **la même
 version** que celle inscrite dans l'historique distant (`list_migrations`), sinon le
 prochain `db push` échoue de nouveau.
+
+Mise à jour : le run du 2026-11-26 (commit 6b5aac4) a bien appliqué `20260929120000_add_package_delivered_by.sql` (colonne `packages.delivered_by` présente, version inscrite dans l'historique).
