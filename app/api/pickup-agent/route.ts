@@ -29,7 +29,7 @@ type Parcel = {
   invoice_id: string | null; conduce_id: string | null; bon_remise_id: string | null; archived: boolean | null;
   mcpack_data: Record<string, string> | null;
   weight?: number | null; created_at?: string | null; status_dates?: Record<string, string> | null;
-  price_usd?: number | null; tax_usd?: number | null;
+  price_usd?: number | null; tax_usd?: number | null; price_htg?: number | null; tax_htg?: number | null;
 };
 type ZoneInvoice = {
   id: string; invoice_number: string; customer_code: string; package_count: number | null;
@@ -284,12 +284,12 @@ export async function GET(req: Request) {
       // Un colis livré doit rester consultable dans l'historique et depuis son
       // numéro de facture, même si l'administration l'a archivé par la suite.
       // Les autres colis archivés restent, eux, invisibles pour l'agent.
-      let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, price_usd, tax_usd, created_at, status_dates, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+      let parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, price_usd, tax_usd, price_htg, tax_htg, created_at, status_dates, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
         .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       // Le site reste utilisable durant le très court délai entre le
       // déploiement et l'application de la migration Supabase.
       if (missingSchemaColumn(parcelResult.error, "delivered_at")) {
-        parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, price_usd, tax_usd, created_at, status_dates, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+        parcelResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, price_usd, tax_usd, price_htg, tax_htg, created_at, status_dates, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
           .in("customer_code", codes).order("created_at", { ascending: false }).limit(5000);
       }
       const invoiceResult = await db.from("invoices").select("id, invoice_number, customer_code, customer_name, package_count, grand_total, total_usd, total_htg, exchange_rate_used, order_deposit, balance_due, has_pdf, created_at, payment_status, payment_paid_usd, payment_paid_htg")
@@ -302,10 +302,10 @@ export async function GET(req: Request) {
     }
 
     if (centralCode && centralBonIds.length) {
-      let centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, price_usd, tax_usd, created_at, status_dates, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+      let centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, price_usd, tax_usd, price_htg, tax_htg, created_at, status_dates, created_date, received_at, delivered_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
         .eq("customer_code", centralCode).in("bon_remise_id", centralBonIds).order("created_at", { ascending: false }).limit(5000);
       if (missingSchemaColumn(centralParcelsResult.error, "delivered_at")) {
-        centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, price_usd, tax_usd, created_at, status_dates, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
+        centralParcelsResult = await db.from("packages").select("id, tracking_number, tracking_manual, customer_code, quantity, content, weight, price_usd, tax_usd, price_htg, tax_htg, created_at, status_dates, created_date, received_at, status, invoice_id, conduce_id, bon_remise_id, archived, mcpack_data")
           .eq("customer_code", centralCode).in("bon_remise_id", centralBonIds).order("created_at", { ascending: false }).limit(5000);
       }
       if (centralParcelsResult.error) throw centralParcelsResult.error;
@@ -463,7 +463,8 @@ export async function GET(req: Request) {
       deliveryByInvoice.set(invoiceId, current);
     }
 
-    // Liste blanche stricte, sans téléphone, adresse, identité ni coûts des colis.
+    // Liste blanche stricte : ni adresse ni coûts internes ; le prix client du colis seulement une fois en agence.
+    const PRICED_STATUSES = new Set(["Disponible", "Facturé", "Livré"]);
     const packageCards = parcels.map((parcel) => {
       const invoice = parcel.invoice_id ? invoiceMap.get(parcel.invoice_id) : undefined;
       const customer = customerByCode.get(code(parcel.customer_code));
@@ -482,8 +483,11 @@ export async function GET(req: Request) {
         is_central_account: code(parcel.customer_code).toUpperCase() === centralCode,
         is_special: special.isSpecial, special_reason: special.reason,
         weight: Number(parcel.weight ?? 0) || 0, created_at: code(parcel.created_at), status_dates: parcel.status_dates ?? null,
-        // Prix seulement quand la facture est émise (même règle que plus haut).
-        price_usd: invoice ? money(parcel.price_usd) : 0, tax_usd: invoice ? money(parcel.tax_usd) : 0,
+        // Prix visible dès que le colis est en agence (Disponible, Facturé, Livré)
+        // ou dès que sa facture est émise.
+        ...(invoice || PRICED_STATUSES.has(code(parcel.status))
+          ? { price_usd: money(parcel.price_usd), tax_usd: money(parcel.tax_usd), price_htg: money(parcel.price_htg), tax_htg: money(parcel.tax_htg) }
+          : { price_usd: 0, tax_usd: 0, price_htg: 0, tax_htg: 0 }),
         conduce_number: conduceById.get(code(parcel.conduce_id))?.number ?? "", conduce_date: conduceById.get(code(parcel.conduce_id))?.date ?? "",
         bon_number: bonById.get(code(parcel.bon_remise_id))?.number ?? "", bon_received_at: bonById.get(code(parcel.bon_remise_id))?.received_at ?? "",
         bon_received_by: bonById.get(code(parcel.bon_remise_id))?.received_by ?? ""

@@ -33,7 +33,7 @@ type ZonePackage = {
   is_central_account: boolean;
   is_special: boolean; special_reason: string;
   weight?: number; created_at?: string; status_dates?: Record<string, string> | null;
-  price_usd?: number; tax_usd?: number;
+  price_usd?: number; tax_usd?: number; price_htg?: number; tax_htg?: number;
   conduce_number?: string; conduce_date?: string; bon_number?: string; bon_received_at?: string; bon_received_by?: string;
 };
 type InvoicePaymentLine = { method: string; amount: number; currency: string; created_at: string; by: string };
@@ -776,11 +776,20 @@ function groupTickets(items: ZonePackage[]) {
 }
 
 /** Une ligne de colis (registre) : case à cocher séparée, la ligne ouvre la fiche colis. */
+// Prix du colis (fret + taxe). Le serveur ne l'envoie qu'une fois le colis en agence.
+function parcelPrice(item: ZonePackage) {
+  return {
+    usd: Number(item.price_usd || 0) + Number(item.tax_usd || 0),
+    htg: Number(item.price_htg || 0) + Number(item.tax_htg || 0)
+  };
+}
+
 function ParcelLine({ item, selectable = false, selected = false, onToggle, onOpen, showSelector = false, client }: {
   item: ZonePackage; selectable?: boolean; selected?: boolean; onToggle?: () => void; onOpen: () => void; showSelector?: boolean; client?: ReactNode;
 }) {
   const days = atCounter(item) ? daysSince(counterSince(item)) : 0;
   const old = days >= 14;
+  const price = parcelPrice(item);
   return <div className={cn("flex items-center gap-2 border-b border-slate-100 last:border-b-0", selected && "bg-emerald-50", !selected && old && "bg-red-50/70")}>
     {showSelector && <button type="button" role="checkbox" aria-checked={selected} aria-label={`Sélectionner ${packageReference(item)}`} disabled={!selectable} onClick={onToggle}
       className="grid h-12 w-11 shrink-0 place-items-center disabled:cursor-not-allowed">
@@ -794,7 +803,10 @@ function ParcelLine({ item, selectable = false, selected = false, onToggle, onOp
         </span>
       </span>
       {client}
-      <StatusText status={item.status} />
+      <span className="flex shrink-0 flex-col items-end gap-0.5">
+        <StatusText status={item.status} />
+        {price.usd > 0 && <span className="agent-mono text-[12.5px] font-semibold text-slate-900">{fmtUsd(price.usd)}</span>}
+      </span>
       <ChevronRight size={15} className="shrink-0 text-slate-300" />
     </button>
   </div>;
@@ -806,7 +818,8 @@ function ParcelPage({ item, zoneName, onOpenClient, onOpenInvoice, onPay, onRele
   onRelease: () => void; releasing: boolean; onTicket: () => void; onCopy: (value: string, label: string) => void;
 }) {
   const days = atCounter(item) ? daysSince(counterSince(item)) : null;
-  const amount = Number(item.price_usd || 0) + Number(item.tax_usd || 0);
+  const price = parcelPrice(item);
+  const amount = price.usd;
   const dates: Record<string, string> = { ...(item.status_dates ?? {}) };
   if (!dates["Reçu à Miami"]) dates["Reçu à Miami"] = mcpackDate(item.created_date) || item.received_at || "";
   if (item.status === DONE && item.delivered_at) dates[DONE] = item.delivered_at;
@@ -836,6 +849,7 @@ function ParcelPage({ item, zoneName, onOpenClient, onOpenInvoice, onPay, onRele
       <dt className="py-2 text-slate-500">Client</dt>
       <dd className="flex min-w-0 items-center gap-2 py-1.5"><CodeTag code={item.customer_code} central={item.is_central_account} onClick={onOpenClient} /><button type="button" onClick={onOpenClient} className="truncate font-bold underline-offset-2 hover:underline">{item.is_central_account ? "Compte central" : item.customer_name || "Client"}</button></dd>
       <Row label="Contenu" value={item.content || "·"} />
+      <Row label="Prix" value={price.usd > 0 ? <><span className="agent-mono font-semibold">{fmtUsd(price.usd)}</span>{price.htg > 0 ? <span className="text-slate-500"> · {fmtHtg(price.htg)}</span> : ""}</> : "·"} />
       <Row label="Conduce" value={item.conduce_number ? <><span className="agent-mono">{item.conduce_number}</span>{item.conduce_date ? ` · ${dateText(item.conduce_date + "T12:00:00")}` : ""}</> : "·"} />
       <Row label="Bordereau" value={item.bon_number ? <><span className="agent-mono">{item.bon_number}</span>{item.bon_received_by ? ` · pointé par ${item.bon_received_by}` : item.bon_received_at ? "" : " · à pointer"}</> : "·"} />
       <Row label="Facture" value={item.invoice_id ? <><button type="button" onClick={() => onOpenInvoice(item.invoice_id)} className="agent-mono font-semibold text-[#0b2a5b] underline underline-offset-2">{item.invoice_number}</button>{amount > 0 ? ` · ${fmtUsd(amount)}` : ""}</> : "En attente de facture"} />
