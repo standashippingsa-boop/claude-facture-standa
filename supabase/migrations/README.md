@@ -57,3 +57,11 @@ version** que celle inscrite dans l'historique distant (`list_migrations`), sino
 prochain `db push` échoue de nouveau.
 
 Mise à jour : le run du 2026-11-26 (commit 6b5aac4) a bien appliqué `20260929120000_add_package_delivered_by.sql` (colonne `packages.delivered_by` présente, version inscrite dans l'historique).
+
+## ✅ Workflow vert depuis le 2026-11-26 (commit 906d3e8)
+
+Deux causes supplémentaires corrigées dans `.github/workflows/supabase-production.yml` :
+la CLI récente vise la base **locale** par défaut, et GitHub Actions n'a pas d'IPv6 alors
+que l'adresse directe de la base est IPv6. Le workflow passe désormais par le **pooler IPv4**
+(`postgres.<ref>@aws-1|aws-0-us-east-2.pooler.supabase.com:5432`) avec `--db-url`, et
+affiche la fin du message d'erreur en annotation GitHub en cas d'échec.
