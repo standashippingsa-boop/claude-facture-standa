@@ -55,9 +55,23 @@ jobs:
       - name: Appliquer les nouvelles migrations
         # Dènye liy erè yo vin yon "annotation" GitHub: lizib nan rezime run lan
         # san yo pa bezwen louvri jounal konplè a.
+        # GitHub Actions pa gen IPv6, epi adrès dirèk baz la se IPv6 sèlman.
+        # Nou mande API Supabase la adrès pooler IPv4 a (mòd "session", pò 5432)
+        # epi nou bay CLI a URL konplè a. Modpas la ankode, li pa janm afiche.
         run: |
           set +e
-          supabase db push --remote --password "$SUPABASE_DB_PASSWORD" 2>&1 | tee push.log
+          pooler=$(curl -sf -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_ID/config/database/pooler")
+          host=$(echo "$pooler" | jq -r '[.[] | select(.database_type == "PRIMARY")][0].db_host // empty')
+          user=$(echo "$pooler" | jq -r '[.[] | select(.database_type == "PRIMARY")][0].db_user // empty')
+          if [ -z "$host" ] || [ -z "$user" ]; then
+            echo "::error title=Pooler Supabase::Adresse du pooler introuvable via l'API (jeton ou projet invalide)."
+            exit 1
+          fi
+          pw=$(jq -rn --arg p "$SUPABASE_DB_PASSWORD" '$p|@uri')
+          echo "::add-mask::$pw"
+          echo "Pooler : $host:5432 (utilisateur $user)"
+          supabase db push --db-url "postgresql://$user:$pw@$host:5432/postgres" 2>&1 | tee push.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             msg=$(grep -v -i -E 'password|token|postgres(ql)?://' push.log | tail -n 8 | tr '\n' ' ' | cut -c1-900)
