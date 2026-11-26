@@ -56,25 +56,26 @@ jobs:
         # Dènye liy erè yo vin yon "annotation" GitHub: lizib nan rezime run lan
         # san yo pa bezwen louvri jounal konplè a.
         # GitHub Actions pa gen IPv6, epi adrès dirèk baz la se IPv6 sèlman.
-        # Nou mande API Supabase la adrès pooler IPv4 a (mòd "session", pò 5432)
-        # epi nou bay CLI a URL konplè a. Modpas la ankode, li pa janm afiche.
+        # Nou pase pa pooler IPv4 Supavisor la (mòd "session", pò 5432) nan
+        # rejyon pwojè a (SUPABASE_REGION, defo us-east-2). De klas pooler
+        # egziste (aws-0 / aws-1): nou eseye youn apre lòt SÈLMAN si koneksyon
+        # an refize — yon erè SQL pa janm relanse. Modpas la ankode, maske.
+        env:
+          SUPABASE_REGION: us-east-2
         run: |
           set +e
-          code=$(curl -s -o pooler.json -w "%{http_code}" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-            "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_ID/config/database/pooler")
-          sel='if type == "array" then ([.[] | select(.database_type == "PRIMARY")][0] // .[0]) else . end'
-          host=$(jq -r "$sel | .db_host // empty" pooler.json 2>/dev/null)
-          user=$(jq -r "$sel | .db_user // empty" pooler.json 2>/dev/null)
-          if [ -z "$host" ] || [ -z "$user" ]; then
-            shape=$(jq -c 'if type == "array" then map(keys) elif type == "object" then keys else type end' pooler.json 2>/dev/null | cut -c1-400)
-            echo "::error title=Pooler Supabase::API HTTP $code, champs reçus : $shape"
-            exit 1
-          fi
           pw=$(jq -rn --arg p "$SUPABASE_DB_PASSWORD" '$p|@uri')
           echo "::add-mask::$pw"
-          echo "Pooler : $host:5432 (utilisateur $user)"
-          supabase db push --db-url "postgresql://$user:$pw@$host:5432/postgres" 2>&1 | tee push.log
-          status=${PIPESTATUS[0]}
+          user="postgres.$SUPABASE_PROJECT_ID"
+          status=1
+          for cluster in aws-1 aws-0; do
+            host="$cluster-$SUPABASE_REGION.pooler.supabase.com"
+            echo "Pooler : $host:5432"
+            supabase db push --db-url "postgresql://$user:$pw@$host:5432/postgres" 2>&1 | tee push.log
+            status=${PIPESTATUS[0]}
+            [ "$status" -eq 0 ] && break
+            grep -q -i -E 'tenant or user not found|failed to connect|no such host|connection refused' push.log || break
+          done
           if [ "$status" -ne 0 ]; then
             msg=$(grep -v -i -E 'password|token|postgres(ql)?://' push.log | tail -n 8 | tr '\n' ' ' | cut -c1-900)
             echo "::error title=supabase db push (exit $status)::$msg"
