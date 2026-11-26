@@ -37,3 +37,21 @@ verte confirmée sur GitHub → onglet Actions :**
 3. `supabase/RATRAPAGE_2026-09-12_a_executer_maintenant.sql` (à la racine de
    `supabase/`) contient déjà les 14 migrations en retard concaténées dans l'ordre
    — à exécuter une fois dans le SQL Editor pour rattraper le retard existant.
+
+## Réparation du 2026-11-26 — cause réelle des échecs de `supabase db push`
+
+Les secrets fonctionnent (l'étape « Lier la base de production » passe). L'échec venait de
+**deux historiques désalignés** : 24 migrations appliquées directement en production
+(outil Supabase MCP `apply_migration`) n'avaient pas de fichier ici, et 21 fichiers d'ici,
+collés à la main dans le SQL Editor, n'étaient pas inscrits dans l'historique Supabase.
+`db push` refuse de continuer dans ce cas.
+
+Correction : un fichier (sans effet, `select 1;`) a été créé pour chacune des 24 versions
+distantes, et les 21 fichiers déjà appliqués (vérifiés objet par objet) ont été inscrits
+dans `supabase_migrations.schema_migrations`. `20260929120000_add_package_delivered_by.sql`
+n'avait jamais été appliquée : elle est laissée au workflow.
+
+**Règle pour garder le workflow vert :** toute migration appliquée directement en
+production (MCP `apply_migration`, SQL Editor) doit avoir ici un fichier portant **la même
+version** que celle inscrite dans l'historique distant (`list_migrations`), sinon le
+prochain `db push` échoue de nouveau.
